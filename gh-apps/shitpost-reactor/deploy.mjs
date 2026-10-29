@@ -1,8 +1,8 @@
 // Workers Builds deploy command (`npm run deploy`): guarded deploy (newest-commit
 // fence, live /version + /archive probe, safe rollback) via ../core/worker-deploy.mjs.
 import { guardedDeploy, poll } from '../core/worker-deploy.mjs';
+import { PUBLIC_ORIGIN } from './urls.mjs';
 
-const ORIGIN = 'https://shitpost.trfny.com';
 const sha = process.env.WORKERS_CI_COMMIT_SHA ?? '';
 if (!/^[0-9a-f]{40}$/.test(sha)) {
   console.error('WORKERS_CI_COMMIT_SHA must be a 40-char commit SHA; refusing to deploy.');
@@ -10,7 +10,7 @@ if (!/^[0-9a-f]{40}$/.test(sha)) {
 }
 
 async function text(path) {
-  const response = await fetch(`${ORIGIN}${path}?deploy-check=${sha}`, { signal: AbortSignal.timeout(15_000) });
+  const response = await fetch(`${PUBLIC_ORIGIN}${path}?deploy-check=${sha}`, { signal: AbortSignal.timeout(15_000) });
   return response.ok ? await response.text() : null;
 }
 

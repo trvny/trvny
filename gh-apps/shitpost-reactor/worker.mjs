@@ -4,9 +4,8 @@ import {
   SHITPOST_TEXT_HARD_MAX_CHARS,
 } from './limits.mjs';
 import { getMemeTemplate, memeImageUrl } from './templates.mjs';
+import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
 
-const SITE_URL = 'https://shitpost.trfny.com';
-const DURABLE_ORIGIN = 'https://shitpost-reactor.travny.workers.dev';
 const FEED_TITLE = 'Shitpost Reactor';
 const FEED_DESCRIPTION = 'Automatycznie generowane shitposty z Shitpost Reactora.';
 const FEED_LIMIT = 50;
@@ -14,7 +13,6 @@ const ARCHIVE_PAGE_SIZE = 25;
 const MAX_BODY_BYTES = 64 * 1024;
 const OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
 const OIDC_CONFIG_URL = `${OIDC_ISSUER}/.well-known/openid-configuration`;
-const OIDC_AUDIENCE = SITE_URL;
 const EXPECTED_REPOSITORY = 'trvny/trvny';
 const EXPECTED_REF = 'refs/heads/main';
 const EXPECTED_WORKFLOW_REF = `${EXPECTED_REPOSITORY}/.github/workflows/shitpost-reactor.yml@${EXPECTED_REF}`;
@@ -166,21 +164,22 @@ function normalizeIndex(value) {
 
 async function readIndexState(env) {
   const object = await env.FEED.get('index.json');
-  if (!object) return { entries: [], complete: false };
+  if (!object) return { entries: [], complete: false, etag: null };
   try {
     const data = await object.json();
     // Older Workers require the JSON body to remain an array. The metadata
     // marker distinguishes a complete archive index from a legacy 250-item
     // array without breaking a possible code rollback.
     if (data?.version === 2 && Array.isArray(data.entries)) {
-      return { entries: normalizeIndex(data.entries), complete: true };
+      return { entries: normalizeIndex(data.entries), complete: true, etag: object.etag };
     }
     return {
       entries: normalizeIndex(data),
       complete: Array.isArray(data) && object.customMetadata?.archive_index_version === '2',
+      etag: object.etag,
     };
   } catch {
-    return { entries: [], complete: false };
+    return { entries: [], complete: false, etag: object.etag };
   }
 }
 
@@ -219,21 +218,24 @@ async function readCompleteIndex(env, state = null, reconcile = false) {
   return normalizeIndex(entries);
 }
 
-async function writeIndex(env, entries) {
+async function writeIndex(env, entries, etag) {
   const index = normalizeIndex(entries);
-  await env.FEED.put('index.json', `${JSON.stringify(index)}\n`, {
+  return env.FEED.put('index.json', `${JSON.stringify(index)}\n`, {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
     customMetadata: { archive_index_version: '2' },
+    onlyIf: etag ? { etagMatches: etag } : new Headers({ 'if-none-match': '*' }),
   });
 }
 
 export async function ensureIndexed(env, post) {
-  const state = await readIndexState(env);
-  // Reconcile canonical post objects on authenticated publishes so a post
-  // stored before an interrupted index write is recovered on a later run.
-  const entries = await readCompleteIndex(env, state, true);
-  const next = [{ id: post.id, published_at: post.published_at }, ...entries.filter((entry) => entry.id !== post.id)];
-  await writeIndex(env, next);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const state = await readIndexState(env);
+    // Reconcile stored posts; reject stale snapshots from concurrent publishers.
+    const entries = await readCompleteIndex(env, state, true);
+    const next = [{ id: post.id, published_at: post.published_at }, ...entries.filter((entry) => entry.id !== post.id)];
+    if (await writeIndex(env, next, state.etag) !== null) return;
+  }
+  throw new Error('archive_index_update_conflict');
 }
 
 async function readPost(env, id) {
@@ -339,13 +341,17 @@ function feedContentHtml(post) {
   return `<p>${escapeHtml(postSummary(post)).replaceAll('\n', '<br>')}</p>`;
 }
 
+function publicPostUrl(post) {
+  return `${SITE_URL}/posts/${post.id}`;
+}
+
 export function renderRss(posts) {
   const latest = posts[0]?.published_at || new Date(0).toISOString();
   const items = posts.map((post) => {
     const summary = postSummary(post);
     return `    <item>
       <title>${escapeXml(shortTitle(summary))}</title>
-      <link>${escapeXml(post.url)}</link>
+      <link>${escapeXml(publicPostUrl(post))}</link>
       <guid isPermaLink="true">${escapeXml(post.url)}</guid>
       <pubDate>${escapeXml(new Date(post.published_at).toUTCString())}</pubDate>
       <category>${escapeXml(postKind(post))}</category>
@@ -384,7 +390,7 @@ export function renderAtom(posts) {
     return `  <entry>
     <title>${escapeXml(shortTitle(summary))}</title>
     <id>${escapeXml(post.url)}</id>
-    <link href="${escapeXml(post.url)}" rel="alternate" type="text/html" />
+    <link href="${escapeXml(publicPostUrl(post))}" rel="alternate" type="text/html" />
     <published>${escapeXml(post.published_at)}</published>
     <updated>${escapeXml(post.published_at)}</updated>
     <category term="${escapeXml(postKind(post))}" />
@@ -396,7 +402,7 @@ export function renderAtom(posts) {
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${escapeXml(FEED_TITLE)}</title>
   <subtitle>${escapeXml(FEED_DESCRIPTION)}</subtitle>
-  <id>${escapeXml(`${SITE_URL}/`)}</id>
+  <id>${escapeXml(`${LEGACY_ORIGIN}/`)}</id>
   <link href="${escapeXml(`${SITE_URL}/`)}" rel="alternate" type="text/html" />
   <link href="${escapeXml(`${SITE_URL}/atom.xml`)}" rel="self" type="application/atom+xml" />
   <updated>${escapeXml(latest)}</updated>
@@ -424,7 +430,7 @@ export function renderJsonFeed(posts) {
       const image = postImageUrl(post);
       return {
         id: post.url,
-        url: post.url,
+        url: publicPostUrl(post),
         title: shortTitle(summary),
         content_html: feedContentHtml(post),
         summary,
@@ -482,14 +488,7 @@ Canonical site: ${SITE_URL}/
 - [Atom 1.0](${SITE_URL}/atom.xml)
 - [JSON Feed 1.1](${SITE_URL}/feed.json)
 
-## Durable machine endpoints
-
-- [Archive](${DURABLE_ORIGIN}/archive)
-- [RSS 2.0](${DURABLE_ORIGIN}/rss.xml)
-- [Atom 1.0](${DURABLE_ORIGIN}/atom.xml)
-- [JSON Feed 1.1](${DURABLE_ORIGIN}/feed.json)
-
-The Workers endpoint does not depend on the temporary custom-domain registration. Current post IDs, feed metadata, robots sitemap directives and sitemap entries still refer to the canonical trfny.com host until a separately tested migration. They are not advertised as durable discovery identifiers yet.
+Canonical pages, feed links, publishing and discovery use the Workers origin independently of the temporary custom-domain registration. Existing Atom feed IDs and entry identifiers are preserved, including legacy URL strings. The old custom host redirects public GET/HEAD requests; authenticated publishers retain their fixed OIDC audience for compatibility.
 
 ## Content
 
@@ -550,8 +549,8 @@ function postStructuredData(post) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
-    '@id': `${post.url}#post`,
-    mainEntityOfPage: { '@type': 'WebPage', '@id': post.url },
+    '@id': `${publicPostUrl(post)}#post`,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': publicPostUrl(post) },
     headline: shortTitle(summary),
     description: summary,
     datePublished: post.published_at,
@@ -736,7 +735,7 @@ async function publish(request, env) {
   const existing = await readPost(env, id);
   if (existing) {
     await ensureIndexed(env, existing);
-    return response(`${JSON.stringify({ ok: true, id, url: existing.url, duplicate: true })}\n`, 'application/json; charset=utf-8', { cache: 'no-store' });
+    return response(`${JSON.stringify({ ok: true, id, url: publicPostUrl(existing), duplicate: true })}\n`, 'application/json; charset=utf-8', { cache: 'no-store' });
   }
 
   const publishedAt = new Date().toISOString();
@@ -778,7 +777,7 @@ async function handleGet(url, env) {
     const post = await readPost(env, match[1]);
     if (!post) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
     const summary = postSummary(post);
-    return response(htmlPage(shortTitle(summary), postHtml(post), post.url, postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post)), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
+    return response(htmlPage(shortTitle(summary), postHtml(post), publicPostUrl(post), postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post)), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
   }
 
   const aggregatePaths = new Set(['/', '/rss.xml', '/feed.xml', '/atom.xml', '/feed.json', '/sitemap.xml']);
@@ -821,6 +820,12 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/api/publish') return publish(request, env);
+    if ((request.method === 'GET' || request.method === 'HEAD') && url.hostname === new URL(LEGACY_ORIGIN).hostname) {
+      const destination = new URL(SITE_URL);
+      destination.pathname = url.pathname;
+      destination.search = url.search;
+      return Response.redirect(destination.href, 301);
+    }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return response('method not allowed\n', 'text/plain; charset=utf-8', { status: 405, cache: 'no-store' });
     }

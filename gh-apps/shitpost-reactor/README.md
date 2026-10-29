@@ -9,7 +9,7 @@ Small scheduled shitpost generator and public feed. GitHub Actions is the only c
 3. The Action calls the authenticated public proxy at `automation.travny.workers.dev` with synthetic model `kanarek-shitpost-free`. Best-of: up to 3 candidates, each from a provider not used yet (`x-kanarek-review-exclude-provider`), then one `kanarek-judge-free` call picks the funniest against `taste-profile.json`. The judge gets the last 4 minutes of the 20-minute budget; one candidate skips it, a failed or invalid verdict publishes the first candidate.
 4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the shared provider inventory, shitpost task policy, credentials and cooldowns. Workers AI is currently excluded because its account allocation is reserved for SpaceMolt.
 5. The draft is validated and saved as `latest.json` plus a readable `latest.md`. If generation fails from router rate limits, exhausted models, transport errors or unusable model output, the emergency text path chooses a random-looking language deterministically from the run seed. It samples Bacon Ipsum for a meat motif without using a model for translation; if Bacon Ipsum itself fails, local meat choices still yield a post. Authentication/configuration errors never trigger fallback.
-6. `publish.mjs` requests a short-lived GitHub Actions OIDC token and POSTs the draft to `https://shitpost.trfny.com/api/publish`. No extra publishing secret is stored in GitHub.
+6. `publish.mjs` requests a short-lived GitHub Actions OIDC token and POSTs the draft to `https://shitpost-reactor.travny.workers.dev/api/publish`. No extra publishing secret is stored in GitHub.
 7. The `shitpost-reactor` Worker verifies the GitHub OIDC signature and pins claims to `trvny/trvny`, this exact workflow and `refs/heads/main`, then stores the entry in the `shitpost-reactor` R2 bucket.
 8. The same Worker serves the public archive and feeds. Cloudflare has **no cron trigger** for this project.
 
@@ -17,27 +17,31 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 
 ## Public endpoints
 
-- `https://shitpost.trfny.com/` — latest entries with feed autodiscovery;
-- `https://shitpost.trfny.com/archive` — all R2 posts, newest first, in stable 25-entry cursor pages backed by the same complete index used by the feed;
-- `https://shitpost.trfny.com/rss.xml` — RSS 2.0;
-- `https://shitpost.trfny.com/feed.xml` — RSS compatibility alias;
-- `https://shitpost.trfny.com/atom.xml` — Atom 1.0;
-- `https://shitpost.trfny.com/feed.json` — JSON Feed 1.1;
-- `https://shitpost.trfny.com/sitemap.xml`, `/robots.txt` and `/llms.txt` — crawler and agent discovery;
+- `https://shitpost-reactor.travny.workers.dev/` — latest entries with feed autodiscovery;
+- `https://shitpost-reactor.travny.workers.dev/archive` — all R2 posts, newest first, in stable 25-entry cursor pages backed by the same complete index used by the feed;
+- `https://shitpost-reactor.travny.workers.dev/rss.xml` — RSS 2.0;
+- `https://shitpost-reactor.travny.workers.dev/feed.xml` — RSS compatibility alias;
+- `https://shitpost-reactor.travny.workers.dev/atom.xml` — Atom 1.0;
+- `https://shitpost-reactor.travny.workers.dev/feed.json` — JSON Feed 1.1;
+- `https://shitpost-reactor.travny.workers.dev/sitemap.xml`, `/robots.txt` and `/llms.txt` — crawler and agent discovery;
 - `/site.webmanifest` and `/browserconfig.xml` — installability/platform metadata;
 - `/favicon.svg`, classic `/favicon.ico`, PNG favicon sizes, Apple touch icon and manifest icons — one generated icon propagated across browsers, feeds and install surfaces;
 - `/posts/gh-<run_id>-<run_attempt>` — stable canonical page for each published entry;
 - `/version` — public deployed commit SHA (or `unknown` for a manual release without the marker).
 
-RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker maintains one complete R2 `index.json` array manifest ordered newest-first (with completeness recorded in R2 custom metadata, keeping the JSON readable by older Worker versions). Feeds still read up to 50 entries and the homepage shows up to 20. `/archive` reads just 25 post bodies per page and uses a stable last-post cursor, with Older, Newer and Newest links. Publishing a new post does not shift subsequent pages. The previous index format retained only 250 posts; its entries are reconciled with canonical R2 object metadata on a legacy archive read (read-only) and permanently migrated on the next authenticated publish. Authenticated publishes also reconcile the canonical post objects, recovering entries if a prior index write failed. Once migrated, archive requests never scan the full bucket. Browser Back works, and the archive header still omits the descriptive subtitle.
+Public URLs and the fixed OIDC audience live in `urls.mjs`; the workflow uses the publisher defaults. The audience remains `https://shitpost.trfny.com` as an authentication identifier, independent of DNS. Existing stored records are never rewritten: their original URLs remain RSS GUIDs, Atom entry IDs and JSON Feed item IDs. The Atom feed-level ID also stays unchanged. Links, canonicals, structured data, discovery and deployment probes use the durable Workers origin. New posts receive durable URLs and IDs.
+
+RSS, Atom and JSON Feed expose stable entry IDs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker maintains one complete R2 `index.json` array manifest ordered newest-first (with completeness recorded in R2 custom metadata, keeping the JSON readable by older Worker versions). Feeds still read up to 50 entries and the homepage shows up to 20. `/archive` reads just 25 post bodies per page and uses a stable last-post cursor, with Older, Newer and Newest links. Publishing a new post does not shift subsequent pages. The previous index format retained only 250 posts; its entries are reconciled with canonical R2 object metadata on a legacy archive read (read-only) and permanently migrated on the next authenticated publish. Authenticated publishes also reconcile the canonical post objects, recovering entries if a prior index write failed. Once migrated, archive requests never scan the full bucket. Browser Back works, and the archive header still omits the descriptive subtitle.
 
 ## Worker
+
+Archive index updates use conditional ETag writes with bounded retries. Concurrent publishers cannot replace a newer manifest with a stale snapshot; exhausted conflicts fail explicitly.
 
 `worker.mjs` is intentionally read-mostly. `icons.mjs` is the single generated-icon implementation used for SVG, PNG, ICO, Apple touch, Windows tile and manifest surfaces. The only write route is `POST /api/publish`, accepted only with a valid GitHub Actions OIDC token from the scheduled/manual workflow on `main`. A repeated request from the same GitHub run/attempt is idempotent.
 
 Deploys only via Cloudflare Workers Builds on push to `main` (root `gh-apps/shitpost-reactor`, build `npm run check`, deploy `npm run deploy`). `npm run deploy` (`deploy.mjs`, on `../core/worker-deploy.mjs`) requires `WORKERS_CI_COMMIT_SHA`, deploys only while its commit is the newest `main` commit for the watch paths, stamps `DEPLOY_COMMIT`, verifies `/version` matches and `/archive` is newest-first, and on failure restores the previous deployment (only while its own version is still active) and fails the build. Runs under the shared D1 deploy lock (`../core/deploy-lock.mjs`). Builds watch paths: `gh-apps/shitpost-reactor/**`, `gh-apps/core/worker-deploy.mjs`, `gh-apps/core/deploy-lock.mjs`.
 
-`wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost.trfny.com` is the production custom domain; `workers.dev` remains available as an emergency/debug route.
+`wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost-reactor.travny.workers.dev` is canonical. The old custom domain redirects public GET/HEAD requests, preserving path and query. Both hosts still accept authenticated publishing for compatibility.
 
 ## Output
 

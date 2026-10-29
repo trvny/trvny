@@ -26,6 +26,7 @@ function bucket(posts, { legacy = false, legacyCount = posts.length } = {}) {
       if (key === 'index.json') return {
         json: async () => structuredClone(index),
         customMetadata: complete ? { archive_index_version: '2' } : {},
+        etag: String(puts),
       };
       const p = byId.get(/^posts\/(gh-\d+-\d+)\.json$/u.exec(key)?.[1]);
       if (p) { bodies += 1; return { json: async () => p }; }
@@ -33,9 +34,11 @@ function bucket(posts, { legacy = false, legacyCount = posts.length } = {}) {
     },
     async put(key, value, options) {
       assert.equal(key, 'index.json');
+      assert.equal(options.onlyIf.etagMatches, String(puts));
       puts++;
       index = JSON.parse(value);
       complete = options?.customMetadata?.archive_index_version === '2';
+      return { etag: String(puts) };
     },
     async list({ prefix, cursor, include }) {
       assert.equal(prefix, 'posts/');
@@ -70,8 +73,70 @@ function bucket(posts, { legacy = false, legacyCount = posts.length } = {}) {
   };
 }
 
+for (const initiallyMissing of [false, true]) {
+  test(`concurrent index writers retry stale ${initiallyMissing ? 'creation' : 'replacement'} snapshots`, async () => {
+    const posts = [post(1), post(2)];
+    let manifest = initiallyMissing ? null : [];
+    let etag = initiallyMissing ? null : '0';
+    let lists = 0;
+    let puts = 0;
+    let conflicts = 0;
+    let releaseFirst;
+    const secondCommitted = new Promise((resolve) => { releaseFirst = resolve; });
+    const env = { FEED: {
+      async get() {
+        const snapshot = structuredClone(manifest);
+        return snapshot === null ? null : {
+          json: async () => snapshot, etag,
+          customMetadata: { archive_index_version: '2' },
+        };
+      },
+      async list() {
+        const visible = lists++ === 0 ? posts.slice(0, 1) : posts;
+        return { truncated: false, objects: visible.map((item) => ({
+          key: `posts/${item.id}.json`, uploaded: new Date(item.published_at),
+          customMetadata: { published_at: item.published_at },
+        })) };
+      },
+      async put(key, body, options) {
+        assert.equal(key, 'index.json');
+        puts++;
+        const candidate = JSON.parse(body);
+        if (candidate.length === 1 && puts === 1) await secondCommitted;
+        const allowed = options.onlyIf instanceof Headers
+          ? options.onlyIf.get('if-none-match') === '*' && manifest === null
+          : options.onlyIf.etagMatches === etag;
+        if (!allowed) { conflicts++; return null; }
+        manifest = candidate;
+        etag = String(Number(etag || '0') + 1);
+        releaseFirst();
+        return { etag };
+      },
+    } };
+    await Promise.all(posts.map((item) => ensureIndexed(env, item)));
+    assert.deepEqual(manifest.map((item) => item.id), [posts[1].id, posts[0].id]);
+    assert.equal(conflicts, 1);
+    assert.equal(puts, 3);
+  });
+}
+
+test('persistent conditional-write conflicts fail after a bounded number of attempts', async () => {
+  let attempts = 0;
+  const env = { FEED: {
+    get: async () => ({ json: async () => [], etag: 'current', customMetadata: { archive_index_version: '2' } }),
+    list: async () => ({ objects: [], truncated: false }),
+    put: async (_key, _body, options) => {
+      assert.equal(options.onlyIf.etagMatches, 'current');
+      attempts++;
+      return null;
+    },
+  } };
+  await assert.rejects(ensureIndexed(env, post(1)), /archive_index_update_conflict/);
+  assert.equal(attempts, 5);
+});
+
 async function archive(env, cursor) {
-  const url = `https://shitpost.trfny.com/archive${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`;
+  const url = `https://shitpost-reactor.travny.workers.dev/archive${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`;
   const response = await worker.fetch(new Request(url), env);
   return { status: response.status, body: await response.text() };
 }
@@ -180,7 +245,7 @@ test('fully migrated manifest remains backward-compatible with old array readers
 
 test('feeds and homepage keep their bounded read sizes with a complete archive', async () => {
   const b = bucket(Array.from({ length: 310 }, (_, i) => post(i + 1)));
-  const feed = await worker.fetch(new Request('https://shitpost.trfny.com/feed.json'), b.env);
+  const feed = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/feed.json'), b.env);
   assert.equal(feed.status, 200);
   assert.equal(JSON.parse(await feed.text()).items.length, 50);
   assert.equal(b.counts.bodies, 50);

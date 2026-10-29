@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PUBLIC_ORIGIN, PUBLISH_AUDIENCE } from './urls.mjs';
 
-export const DEFAULT_PUBLISH_URL = 'https://shitpost.trfny.com/api/publish';
-export const DEFAULT_AUDIENCE = 'https://shitpost.trfny.com';
+export const DEFAULT_PUBLISH_URL = `${PUBLIC_ORIGIN}/api/publish`;
+export const DEFAULT_AUDIENCE = PUBLISH_AUDIENCE;
 const MAX_ERROR_BODY = 2_000;
 
 export async function requestOidcToken({ requestUrl, requestToken, audience = DEFAULT_AUDIENCE, fetchImpl = fetch }) {

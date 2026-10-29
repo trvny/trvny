@@ -1,4 +1,5 @@
 import {
+  genericQuip,
   hash,
   PRESETS,
   sanitize,
@@ -362,11 +363,14 @@ export function matchesLanguage(
   return language === 'pl' ? polish > english : english > polish;
 }
 
+// `area` given = read path: also reject change-specific quips (genericQuip).
 export function reusableQuip(
   value: unknown,
   language: CompanionLanguage,
+  area?: string,
 ): string | null {
   const quip = sanitize(value);
+  if (area !== undefined && !genericQuip(quip, area)) return null;
   return validQuipLength(quip) && matchesLanguage(quip, language) ? quip : null;
 }
 
@@ -374,9 +378,11 @@ export function reusableStoredQuip(
   value: unknown,
   storedLanguage: unknown,
   expectedLanguage: CompanionLanguage,
+  area?: string,
 ): string | null {
   const quip = sanitize(value);
   if (!validQuipLength(quip)) return null;
+  if (area !== undefined && !genericQuip(quip, area)) return null;
   if (storedLanguage !== undefined) {
     return isCompanionLanguage(storedLanguage) && storedLanguage === expectedLanguage
       ? quip

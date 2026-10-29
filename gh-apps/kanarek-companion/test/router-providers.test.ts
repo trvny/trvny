@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { aiQuip, hasAiProvider, type QuipEnv } from '../src/companion/quip.ts';
 
-const VALID_QUIP = 'Kanarek checks the paid provider panel and finds every dial behaving.';
+const VALID_QUIP = 'Kanarek checks the paid control panel and finds every dial behaving.';
 
 function legacyFreeEnv(): QuipEnv {
   return {

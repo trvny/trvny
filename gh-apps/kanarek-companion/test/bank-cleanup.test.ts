@@ -46,3 +46,38 @@ test('removes an entry whose payload context disagrees with its key', async () =
   );
   assert.deepEqual(deleted, [key]);
 });
+
+test('samples past change-specific entries without deleting them', async () => {
+  const quipKey = 'cccccccccccccccc';
+  const values = new Map<string, string>();
+  for (let index = 0; index < 24; index += 1) {
+    values.set(
+      bankKey(quipKey, index.toString(16).padStart(16, '0')),
+      JSON.stringify([
+        { k: quipKey, l: 'en', q: `Ready: tiny wrangler bump to version ${index}, zero blockers in sight.` },
+      ]),
+    );
+  }
+  const generic = 'Green across the board, and Kanarek has nothing left to complain about.';
+  values.set(
+    bankKey(quipKey, 'ffffffffffffffff'),
+    JSON.stringify([{ k: quipKey, l: 'en', q: generic }]),
+  );
+  const deleted: string[] = [];
+  const kv = {
+    async delete(name: string) {
+      deleted.push(name);
+    },
+    async get(name: string) {
+      return values.get(name) ?? null;
+    },
+    async list() {
+      return { keys: [...values.keys()].map((name) => ({ name })), list_complete: true, cursor: '' };
+    },
+  } as unknown as KVNamespace;
+  const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
+
+  const bank = await loadBank(env, quipKey, '0000000000000000', undefined, 'en', 'Other');
+  assert.deepEqual(bank.map((entry) => entry.q), [generic]);
+  assert.deepEqual(deleted, []);
+});

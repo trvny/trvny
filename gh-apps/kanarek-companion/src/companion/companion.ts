@@ -55,6 +55,7 @@ import {
 import {
   aiQuip,
   decoded,
+  genericQuip,
   hash,
   quipPromptInput,
   sanitize,
@@ -308,7 +309,7 @@ export async function refreshCompanion(
     decoded(previous?.body?.match(QUIP_RE)?.[1] ?? ''),
   );
   const previousLearnedQuip = ['ai', 'pool'].includes(previousSource)
-    ? reusableQuip(previousQuip, language) ?? ''
+    ? reusableQuip(previousQuip, language, legacyQuipFacts.area) ?? ''
     : previousQuip;
   const previousPromptQuip = promptPreviousQuip(previous?.body, previousLearnedQuip);
   let pool = rememberQuip(
@@ -332,10 +333,11 @@ export async function refreshCompanion(
   let paidReceiptStored: boolean | null = null;
   let paidBankedBeforeGithub = false;
   let paidRecovered = false;
+  let recoveredSpecific = false;
   const tryPool = async (): Promise<void> => {
     if (poolAttempted || !canUsePool(current.key)) return;
     poolAttempted = true;
-    bank = await loadBank(env, quipKey, stateHash, measuredBank, language);
+    bank = await loadBank(env, quipKey, stateHash, measuredBank, language, quipFacts.area);
     const pooled = await pooledQuip(
       quipKey,
       stateHash,
@@ -343,6 +345,7 @@ export async function refreshCompanion(
       bank,
       previousLearnedQuip,
       language,
+      quipFacts.area,
     );
     if (pooled) {
       quip = pooled;
@@ -366,7 +369,11 @@ export async function refreshCompanion(
       quipKey,
       language,
     );
-    if (recovered) {
+    // A change-specific receipt is neither reused nor banked; it still counts
+    // as paid for this state, so no second AI call either.
+    if (recovered && !genericQuip(recovered, quipFacts.area)) {
+      recoveredSpecific = true;
+    } else if (recovered) {
       pendingPaidQuip = recovered;
       paidRecovered = true;
       paidReceiptStored = true;
@@ -378,7 +385,7 @@ export async function refreshCompanion(
   }
 
   let aiSelected = false;
-  if (!quip) {
+  if (!quip && !recoveredSpecific) {
     const baseAiSelected = await shouldAskAi(
       target.pullRequestNumber,
       quipKey,
@@ -406,7 +413,7 @@ export async function refreshCompanion(
       size: prSize.key,
       previousQuip: previousPromptQuip || null,
     });
-    const generated = reusableQuip(await aiQuip(facts, env, fetcher), language);
+    const generated = reusableQuip(await aiQuip(facts, env, fetcher), language, quipFacts.area);
     if (generated) {
       quip = generated;
       source = 'ai';

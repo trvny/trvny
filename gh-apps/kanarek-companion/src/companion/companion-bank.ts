@@ -265,6 +265,7 @@ async function loadEntryBank(
   stateHash: string,
   listedKeys?: string[],
   language?: CompanionLanguage,
+  area?: string,
 ): Promise<QuipEntry[]> {
   const kv = env.KANAREK_QUIP_KV;
   if (!kv) return [];
@@ -276,22 +277,33 @@ async function loadEntryBank(
     })).keys.map((key) => key.name);
   if (!keys.length) return [];
   const offset = Number.parseInt(stateHash.slice(0, 8), 16) % keys.length;
-  const selected = [...keys.slice(offset), ...keys.slice(0, offset)].slice(
-    0,
-    POOL_LIMIT,
-  );
-  const values = await Promise.all(selected.map((key) => kv.get(key)));
+  const rotated = [...keys.slice(offset), ...keys.slice(0, offset)];
   const entries: QuipEntry[] = [];
   const invalid: string[] = [];
-  for (let index = 0; index < selected.length; index += 1) {
-    const value = values[index];
-    if (value === null) continue;
-    const parsed = entriesFromValue(value).filter(
-      (entry) =>
-        entry.k === quipKey && (!language || reusableStoredQuip(entry.q, entry.l, language)),
-    );
-    if (!parsed.length) invalid.push(selected[index]);
-    else entries.push(...parsed);
+  // Keep sampling past change-specific entries (skipped, not deleted) until
+  // the pool is full or the keys run out.
+  for (
+    let start = 0;
+    start < rotated.length && entries.length < POOL_LIMIT;
+    start += POOL_LIMIT
+  ) {
+    const selected = rotated.slice(start, start + POOL_LIMIT);
+    const values = await Promise.all(selected.map((key) => kv.get(key)));
+    for (let index = 0; index < selected.length; index += 1) {
+      const value = values[index];
+      if (value === null) continue;
+      const parsed = entriesFromValue(value).filter(
+        (entry) =>
+          entry.k === quipKey && (!language || reusableStoredQuip(entry.q, entry.l, language)),
+      );
+      if (!parsed.length) invalid.push(selected[index]);
+      else
+        entries.push(
+          ...parsed.filter(
+            (entry) => !language || reusableStoredQuip(entry.q, entry.l, language, area),
+          ),
+        );
+    }
   }
   if (invalid.length) {
     const cleanup = await Promise.allSettled(invalid.map((key) => kv.delete(key)));
@@ -418,6 +430,7 @@ export async function loadBank(
   stateHash: string,
   context?: BankContext,
   language?: CompanionLanguage,
+  area?: string,
 ): Promise<QuipEntry[]> {
   if (!env.KANAREK_QUIP_KV) return [];
   try {
@@ -427,9 +440,11 @@ export async function loadBank(
       stateHash,
       context?.available ? context.keys : undefined,
       language,
+      area,
     );
+    // Change-specific entries are skipped here, never deleted (see genericQuip).
     return entries
-      .filter((entry) => !language || reusableStoredQuip(entry.q, entry.l, language))
+      .filter((entry) => !language || reusableStoredQuip(entry.q, entry.l, language, area))
       .slice(0, POOL_LIMIT);
   } catch (error) {
     console.warn(
@@ -527,6 +542,7 @@ export async function pooledQuip(
   bank: QuipEntry[],
   excluded: string,
   language?: CompanionLanguage,
+  area?: string,
 ): Promise<string | null> {
   const candidates = [
     ...oldComments.flatMap((item) => quipsFromComment(item.body, quipKey)),
@@ -537,7 +553,7 @@ export async function pooledQuip(
       candidates
         .map((entry) =>
           language
-            ? reusableStoredQuip(entry.q, entry.l, language)
+            ? reusableStoredQuip(entry.q, entry.l, language, area)
             : sanitize(entry.q),
         )
         .filter((candidate): candidate is string => Boolean(candidate)),

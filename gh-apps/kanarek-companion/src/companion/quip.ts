@@ -226,6 +226,7 @@ const GENERIC_PROPER_WORDS = new Set(['android', 'kanarek', 'ci', 'pr', 'prs', '
 // Change-subject words: a quip naming one describes a single PR, not a state.
 const CHANGE_SUBJECT_WORDS = new Set([
   'api', 'biometric', 'bump', 'bumped', 'bumps', 'cache', 'chat', 'chats',
+  'checkout',
   'consent', 'dep', 'dependencies', 'dependency', 'deps', 'diagnostics',
   'estimates', 'fallback', 'favicon', 'feature', 'filter', 'filters', 'gradle',
   'guide', 'hono', 'hub', 'icon', 'icons', 'import', 'keyboard', 'keystore',
@@ -251,10 +252,16 @@ export function genericQuip(value: unknown, area = ''): boolean {
   if (/\p{L}\.\p{L}|(?:^|\s)\.\p{L}/u.test(quip)) return false; // files, packages, dotfiles
   if (/\p{L}\/\p{L}|[→←]|->/u.test(quip)) return false; // paths, version arrows
   if (/\bsmoke tests?\b/i.test(quip)) return false;
-  if (/\p{Ll}\p{Lu}/u.test(quip.replace(/GitHub/g, 'Github'))) return false; // camelCase names
+  const areaWords = area.match(/\p{L}+/gu) ?? [];
+  // camelCase names; GitHub and area labels (e.g. iOS) exempt.
+  const unnamed = [...areaWords, 'GitHub'].reduce(
+    (text, word) => text.split(word).join(' '),
+    quip,
+  );
+  if (/\p{Ll}\p{Lu}/u.test(unnamed)) return false;
   const allowed = new Set([
     ...GENERIC_PROPER_WORDS,
-    ...(area.toLowerCase().match(/\p{L}+/gu) ?? []),
+    ...areaWords.map((word) => word.toLowerCase()),
   ]);
   for (const match of quip.matchAll(/\p{L}[\p{L}'’]*/gu)) {
     const word = match[0].toLowerCase().replace(/['’]s$/, '');

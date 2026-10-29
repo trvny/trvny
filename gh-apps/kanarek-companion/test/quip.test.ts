@@ -59,6 +59,7 @@ test('rejects change-specific quips but keeps state quips', () => {
     'App is ready: saved searches now persist their little memories without drama.',
     'Large documentation update for Kościelec weather stalled on a failed CI check.',
     'Небольшой npm-апдейт для Gh apps готов к вливанию, блоккеров не наблюдается.',
+    'GitHub automation is ready: the checkout step now hums along without a single blocker.',
   ]) {
     assert.equal(genericQuip(specific, 'Gh apps'), false, specific);
   }
@@ -67,6 +68,7 @@ test('rejects change-specific quips but keeps state quips', () => {
     ['Kanarek Worker is ready: small scope, zero blockers, quietly shippable.', 'Kanarek Worker'],
     ['Gh apps await CI: Kanarek is perched on a medium-sized merge queue.', 'Gh apps'],
     ['Parata est area Plugins, minuta et sine obicibus.', 'Plugins'],
+    ['The iOS branch is ready; CI is green and Kanarek approves the quiet.', 'iOS'],
     ...Object.values(PRESETS).flat().map((preset) => [preset, 'Other']),
   ]) {
     assert.equal(genericQuip(quip, area), true, quip);

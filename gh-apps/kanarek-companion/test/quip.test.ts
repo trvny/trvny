@@ -60,6 +60,7 @@ test('rejects change-specific quips but keeps state quips', () => {
     'Large documentation update for Kościelec weather stalled on a failed CI check.',
     'Небольшой npm-апдейт для Gh apps готов к вливанию, блоккеров не наблюдается.',
     'GitHub automation is ready: the checkout step now hums along without a single blocker.',
+    'Documentation update ready: keeping Kanarek branch updates away from bot PRs.',
   ]) {
     assert.equal(genericQuip(specific, 'Gh apps'), false, specific);
   }

@@ -225,7 +225,7 @@ export function validQuipLength(value: unknown): boolean {
 const GENERIC_PROPER_WORDS = new Set(['android', 'kanarek', 'ci', 'pr', 'prs', 'github', 'git', 'main', 'other']);
 // Change-subject words: a quip naming one describes a single PR, not a state.
 const CHANGE_SUBJECT_WORDS = new Set([
-  'api', 'biometric', 'bump', 'bumped', 'bumps', 'cache', 'chat', 'chats',
+  'api', 'biometric', 'bot', 'bots', 'bump', 'bumped', 'bumps', 'cache', 'chat', 'chats',
   'checkout',
   'consent', 'dep', 'dependencies', 'dependency', 'deps', 'diagnostics',
   'estimates', 'fallback', 'favicon', 'feature', 'filter', 'filters', 'gradle',

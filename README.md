@@ -32,9 +32,9 @@
 No open pull requests. 🎉
 <!--OPEN_PRS:END-->
 
-**Private command center: projects, services, tools, and drawers in one place.**
-
 ## 🧭 Project map
+
+**Private command center: projects, services, tools, and drawers in one place.**
 
 ### Main repositories
 

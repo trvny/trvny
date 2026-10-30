@@ -44,6 +44,7 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
     'qwen3.8-max-free',
     'xiaomi-mimo-v2.6-pro-free',
     'coding-minimax-m3-free',
+    'nemotron-3.5-super-vl-free',
     'nemotron-3.5-lightning-free',
     'qwen3.8-flash-free',
     'xiaomi-mimo-v2.6-flash-free',
@@ -181,6 +182,7 @@ const AIHUBMIX_MODEL_PROFILES = new Map<string, ModelProfile>([
   }],
   ['xiaomi-mimo-v2.6-pro-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],
   ['coding-minimax-m3-free', { contextTokens: 1_000_000, maxOutputTokens: 524_288, thinks: true }],
+  ['nemotron-3.5-super-vl-free', { contextTokens: 1_000_000, thinks: true }],
   ['nemotron-3.5-lightning-free', { contextTokens: 1_048_576, thinks: true }],
   ['qwen3.8-flash-free', {
     contextTokens: 1_000_000,
@@ -237,9 +239,9 @@ const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
 const AIHUBMIX_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
   general: DEFAULT_REVIEW_AIHUBMIX_MODELS,
   quip: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'lfm-2.5-2.6b-free'],
-  review: ['coding-glm-5.3-free', 'coding-kimi-k3-free', 'qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'laguna-s-2.1-free', 'coding-minimax-m3-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free', 'agents-a1-free', 'gemma-4-31b-it-free'],
-  judge: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-glm-5.3-free', 'coding-kimi-k3-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'dots-3-note-preview-free', 'xiaomi-mimo-v2.6-flash-free', 'gemma-4-31b-it-free'],
-  shitpost: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-kimi-k3-free', 'coding-minimax-m3-free', 'xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free'],
+  review: ['coding-glm-5.3-free', 'coding-kimi-k3-free', 'qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'laguna-s-2.1-free', 'coding-minimax-m3-free', 'nemotron-3.5-super-vl-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free', 'agents-a1-free', 'gemma-4-31b-it-free'],
+  judge: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-glm-5.3-free', 'coding-kimi-k3-free', 'nemotron-3.5-super-vl-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'dots-3-note-preview-free', 'xiaomi-mimo-v2.6-flash-free', 'gemma-4-31b-it-free'],
+  shitpost: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-kimi-k3-free', 'coding-minimax-m3-free', 'nemotron-3.5-super-vl-free', 'xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free'],
 };
 
 const ORCAROUTER_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
@@ -2072,7 +2074,7 @@ function classifyGeminiError(status: number, preview: string | null): string {
 export async function handleReviewRouterRequest(
   request: Request,
   env: ReviewRouterEnv,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
 ): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname === REVIEW_ROUTER_MODELS_PATH) {

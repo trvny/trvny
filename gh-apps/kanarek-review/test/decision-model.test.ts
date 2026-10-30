@@ -81,6 +81,87 @@ test('decision adapter forwards System One requests and forces the preview model
   assert.equal(response?.headers.get('x-kanarek-review-model'), 'decision-model-preview');
 });
 
+for (const target of ['mammoth-1-free', 'elephant-1-free']) {
+  test(`AIHubMix falls back to ${target} through System One`, async () => {
+    const models: string[] = [];
+    const response = await handleDecisionModelRequest(
+      request({ state: 'review evidence', questions: { keep_0: { type: 'noul' } } }),
+      env,
+      (async (input, init) => {
+        assert.equal(String(input), 'https://aihubmix.com/v1/systemone');
+        assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer aihubmix-key');
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.messages, undefined);
+        models.push(body.model);
+        if (body.model !== target) return new Response('unavailable', { status: 503 });
+        return Response.json({
+          model: target.replace(/-free$/, '-20261029'),
+          answers: { keep_0: { type: 'noul', noul: 0.98 } },
+        });
+      }) as typeof fetch,
+    );
+
+    assert.equal(response?.status, 200);
+    assert.deepEqual(models, target === 'mammoth-1-free'
+      ? ['decision-model-preview', 'mammoth-1-free']
+      : ['decision-model-preview', 'mammoth-1-free', 'elephant-1-free']);
+    assert.equal(response?.headers.get('x-kanarek-review-provider'), 'aihubmix-decision');
+    assert.equal(response?.headers.get('x-kanarek-review-model'), target.replace(/-free$/, '-20261029'));
+  });
+}
+
+test('decision answers must match requested types, criteria and probability bounds', async () => {
+  const cases = [
+    { question: { type: 'noul' }, answer: { type: 'choice', choice: 'yes', confidence: 1, probabilities: { yes: 1 } } },
+    { question: { type: 'choice', criteria: { keep: 'verified', drop: 'invalid' } }, answer: { type: 'choice', choice: 'other', confidence: 1, probabilities: { keep: 1, drop: 0 } } },
+    { question: { type: 'choice', criteria: { keep: 'verified', drop: 'invalid' } }, answer: { type: 'choice', choice: 'keep', confidence: 1, probabilities: { keep: 2, drop: -1 } } },
+    { question: { type: 'choice', criteria: { keep: 'verified', drop: 'invalid' } }, answer: { type: 'choice', choice: 'keep', confidence: 1, probabilities: { keep: 1 } } },
+    { question: { type: 'score', criteria: ['low', 'high'] }, answer: { type: 'score', score: 3, confidence: 1, probabilities: { 0: 0, 1: 1 } } },
+    { question: { type: 'score', criteria: ['low', 'high'] }, answer: { type: 'score', score: -1, confidence: 1, probabilities: { 0: 1, 1: 0 } } },
+    { question: { type: 'score', criteria: ['low', 'high'] }, answer: { type: 'score', score: 0.7, confidence: 1, probabilities: { 0: 1, 2: 0 } } },
+  ];
+  for (const { question, answer } of cases) {
+    const response = await handleDecisionModelRequest(
+      request({ state: 'evidence', questions: { finding: question } }),
+      env,
+      (async (_input, init) => Response.json({
+        model: JSON.parse(String(init?.body)).model,
+        answers: { finding: answer },
+      })) as typeof fetch,
+    );
+    assert.equal(response?.status, 502, JSON.stringify({ question, answer }));
+  }
+});
+
+test('malformed decision answers fall through to a valid model in the same provider', async () => {
+  const models: string[] = [];
+  const response = await handleDecisionModelRequest(
+    request({
+      state: 'evidence',
+      questions: {
+        finding: { type: 'choice', criteria: { keep: 'verified', drop: 'invalid' } },
+        severity: { type: 'score', criteria: ['low', 'medium', 'high'] },
+      },
+    }),
+    env,
+    (async (_input, init) => {
+      const model = JSON.parse(String(init?.body)).model;
+      models.push(model);
+      return Response.json({
+        model,
+        answers: {
+          finding: model === 'decision-model-preview'
+            ? { type: 'noul', noul: 0.99 }
+            : { type: 'choice', choice: 'keep', confidence: 0.8, probabilities: { keep: 0.9, drop: 0.1 } },
+          severity: { type: 'score', score: 1.7, confidence: 0.9, probabilities: { 0: 0.01, 1: 0.28, 2: 0.71 } },
+        },
+      });
+    }) as typeof fetch,
+  );
+  assert.equal(response?.status, 200);
+  assert.deepEqual(models, ['decision-model-preview', 'mammoth-1-free']);
+});
+
 test('decision adapter rejects unauthenticated callers without touching AIHubMix', async () => {
   let called = false;
   const response = await handleDecisionModelRequest(
@@ -432,7 +513,7 @@ test('decision pool falls through a failed primary to the next rotated provider'
   assert.equal(
     calls.filter(({ url }) => url === expected[primary].endpoint).length,
     // OpenRouter walks its whole free decision model list first.
-    primary === 'openrouter' ? 4 : 1,
+    primary === 'openrouter' ? 4 : 3,
   );
   assert.equal(
     response?.headers.get('x-kanarek-review-provider'),

@@ -94,7 +94,8 @@ with the largest/most creative ones, where age matters less. For the same
 reason the review/judge provider queues put Groq and Ollama (gpt-oss) and the
 Bielik fallback behind fresher providers. AIHubMix's pool: `coding-kimi-k3-free`,
 `coding-glm-5.3-free`, `qwen3.8-max-free`, `xiaomi-mimo-v2.6-pro-free`,
-`coding-minimax-m3-free`, `nemotron-3.5-lightning-free`, `qwen3.8-flash-free`,
+`coding-minimax-m3-free`, `nemotron-3.5-super-vl-free`,
+`nemotron-3.5-lightning-free`, `qwen3.8-flash-free`,
 `xiaomi-mimo-v2.6-flash-free`, `gemma-4-31b-it-free`, `laguna-s-2.1-free`,
 `agents-a1-free`, `dots-3-note-preview-free` and `lfm-2.5-2.6b-free`. Retryable model failures
 fall through inside AIHubMix before abandoning the provider.
@@ -116,16 +117,20 @@ The private System One route is intentionally separate from the OpenAI-compatibl
 chat router. It forwards at most 16 typed `choice` / `noul` / `score`
 questions through a rotating decision-only pool:
 
-1. AIHubMix `decision-model-preview`
+1. AIHubMix `decision-model-preview`, then `mammoth-1-free` (27B) and `elephant-1-free` (9B), both with 16K context
 2. OpenRouter Decisions: `inception/mercury-decide:free`, then free fallbacks `baseten/mammoth-1:free` (27B, 16K context), `baseten/elephant-1:free` (9B), `respan/span-01-lite:free`
 3. QwenCloud `decision-model-preview`
 4. Vercel AI Gateway `convaiinnovations/laya-free` through its TypeSafe-compatible System One API
 
 The primary provider is rotated deterministically from the review state so all
 four access paths receive real traffic while they are free; the remaining
-configured providers are fallbacks. OpenRouter uses its native
-`/api/alpha/decisions` runtime and falls through Mercury to Span-01 Lite before
-abandoning OpenRouter. Vercel uses the promotional `laya-free` model ID so the
+configured providers are fallbacks. AIHubMix uses `/v1/systemone`; its decision
+models never enter the chat pool.
+OpenRouter uses its native `/api/alpha/decisions` runtime and tries Mercury,
+Mammoth, Elephant, then Span-01 Lite before abandoning OpenRouter.
+Answers must match each requested question type and criteria, with finite
+probabilities in `0..1`. Free model IDs may resolve to versioned response IDs.
+Vercel uses the promotional `laya-free` model ID so the
 route stops serving when the free promotion ends instead of silently becoming
 billable. Each decision provider keeps an independent short-lived cooldown. The experimental decision pool has its own 25-second total budget so
 it cannot consume the normal generative judge's time. If the entire decision

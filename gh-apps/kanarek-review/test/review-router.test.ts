@@ -1383,6 +1383,29 @@ test('AIHubMix applies per-model context, output and reasoning profiles', async 
   assert.equal(bodies[1]?.max_tokens, 256);
 });
 
+test('AIHubMix Nemotron Super VL gets thinking headroom without unsupported effort', async () => {
+  let body: Record<string, unknown> = {};
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    max_tokens: 256,
+    reasoning_effort: 'high',
+    messages: [{ role: 'user', content: 'review this diff' }],
+  }), {
+    ...auth,
+    AIHUBMIX_API_KEY: 'aihubmix-key',
+    KANAREK_REVIEW_AIHUBMIX_MODELS: 'nemotron-3.5-super-vl-free',
+  }, (async (input, init) => {
+    assert.equal(String(input), 'https://aihubmix.com/v1/chat/completions');
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer aihubmix-key');
+    body = JSON.parse(String(init?.body));
+    return Response.json({ choices: [{ message: { role: 'assistant', content: 'review result' } }] });
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(body.model, 'nemotron-3.5-super-vl-free');
+  assert.equal(body.max_tokens, 16_384);
+  assert.equal(body.reasoning_effort, undefined);
+});
+
 test('OrcaRouter GLM gets low effort for quips and its output ceiling', async () => {
   const bodies: Array<Record<string, unknown>> = [];
   await handleReviewRouterRequest(request(routerToken, {

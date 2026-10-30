@@ -24,7 +24,7 @@ const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
     id: 'aihubmix',
     cooldownId: 'aihubmix-decision',
     endpoint: 'https://aihubmix.com/v1/systemone',
-    models: ['decision-model-preview'],
+    models: ['decision-model-preview', 'mammoth-1-free', 'elephant-1-free'],
     apiKey: (env) => env.AIHUBMIX_API_KEY,
   },
   openrouter: {
@@ -276,30 +276,32 @@ function validQuestions(value: unknown): value is Record<string, DecisionQuestio
     );
 }
 
-function validAnswer(value: unknown): boolean {
-  if (!plainObject(value) || typeof value.type !== 'string') return false;
+function probability(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function validProbabilities(value: unknown, keys: readonly string[]): boolean {
+  return plainObject(value) && Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key) && probability(value[key]));
+}
+
+function validAnswer(value: unknown, question: DecisionQuestion): boolean {
+  if (!plainObject(value) || value.type !== question.type) return false;
   if (value.type === 'noul') {
-    return typeof value.noul === 'number' &&
-      Number.isFinite(value.noul) &&
-      value.noul >= 0 &&
-      value.noul <= 1;
+    return probability(value.noul);
   }
   if (value.type === 'choice') {
+    const keys = Object.keys(question.criteria as Record<string, string>);
     return typeof value.choice === 'string' &&
-      typeof value.confidence === 'number' &&
-      Number.isFinite(value.confidence) &&
-      value.confidence >= 0 &&
-      value.confidence <= 1 &&
-      plainObject(value.probabilities);
+      keys.includes(value.choice) && probability(value.confidence) &&
+      validProbabilities(value.probabilities, keys);
   }
   if (value.type === 'score') {
+    const levels = question.criteria as string[];
     return typeof value.score === 'number' &&
-      Number.isFinite(value.score) &&
-      typeof value.confidence === 'number' &&
-      Number.isFinite(value.confidence) &&
-      value.confidence >= 0 &&
-      value.confidence <= 1 &&
-      plainObject(value.probabilities);
+      Number.isFinite(value.score) && value.score >= 0 && value.score <= levels.length - 1 &&
+      probability(value.confidence) &&
+      validProbabilities(value.probabilities, levels.map((_, index) => String(index)));
   }
   return false;
 }
@@ -307,26 +309,26 @@ function validAnswer(value: unknown): boolean {
 function responseModelMatches(actual: unknown, expected: string): actual is string {
   if (typeof actual !== 'string' || !actual.trim()) return false;
   if (actual === expected) return true;
-  const expectedBase = expected.replace(/:free$/, '');
+  const expectedBase = expected.replace(/(?::free|-free)$/, '');
   return actual === expectedBase || actual.startsWith(`${expectedBase}-`);
 }
 
 function validResponse(
   value: unknown,
-  questionIds: readonly string[],
+  questions: Record<string, DecisionQuestion>,
   expectedModel: string,
 ): value is Record<string, unknown> {
   if (!plainObject(value)) return false;
   const answers = value.answers;
   if (!plainObject(answers)) return false;
   if (!responseModelMatches(value.model, expectedModel)) return false;
-  return questionIds.every((id) => validAnswer(answers[id]));
+  return Object.entries(questions).every(([id, question]) => validAnswer(answers[id], question));
 }
 
 export async function handleDecisionModelRequest(
   request: Request,
   env: DecisionModelEnv,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
 ): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== REVIEW_DECISION_PATH) return null;
@@ -355,7 +357,7 @@ export async function handleDecisionModelRequest(
     return jsonError('Decision providers unavailable', 'provider_unavailable', 503);
   }
 
-  const questionIds = Object.keys(input.questions);
+  const questions = input.questions;
   const deadlineAt = Date.now() + decisionProviderTimeoutMs(env);
   const failures: string[] = [];
   const candidates: DecisionProvider[] = [];
@@ -463,7 +465,7 @@ export async function handleDecisionModelRequest(
           continue;
         }
 
-        if (!validResponse(payload, questionIds, model)) {
+        if (!validResponse(payload, questions, model)) {
           providerFailureCategory = 'invalid_response';
           providerFailureReason = 'invalid_provider_response';
           continue;

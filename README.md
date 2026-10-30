@@ -29,11 +29,7 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1195](https://github.com/trvny/trvny/pull/1195) | deps: bump undici and wrangler in /tg-bots/cloudflare-assistant | @dependabot[bot] | ready | 2026-10-27 |
-| trvny/WiFi-Automatic | [#54](https://github.com/trvny/WiFi-Automatic/pull/54) | deps: bump gradle-wrapper from 9.8.1 to 9.8.2 in the gradle group across 1 directory | @dependabot[bot] | ready | 2026-10-27 |
-| trvny/WiFi-Automatic | [#55](https://github.com/trvny/WiFi-Automatic/pull/55) | ci: bump step-security/harden-runner from 2.22.1 to 2.22.2 in the actions group | @dependabot[bot] | ready | 2026-10-26 |
+No open pull requests. 🎉
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

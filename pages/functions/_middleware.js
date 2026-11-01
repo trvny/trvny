@@ -295,7 +295,7 @@ export async function onRequest(context) {
   const known = channels.some((channel) => channel.status !== null);
   const countText = known ? `${online}/${channels.length}` : `—/${channels.length}`;
 
-  let rewriter = new HTMLRewriter()
+  let rewriter = new globalThis.HTMLRewriter()
     .on("html", new SetAttribute("lang", pageLanguage))
     .on("head", new AppendHtml(NAV_HEAD))
     .on("head", new AppendHtml(pageSeoHead(url.pathname)))

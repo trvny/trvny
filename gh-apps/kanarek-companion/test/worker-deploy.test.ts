@@ -87,10 +87,10 @@ type FakeLock = { held: string | null; acquire: boolean; renewals: number; loseA
 function fakeLock(state: FakeLock = { held: null, acquire: true, renewals: 0, released: [] }) {
   return {
     state,
-    async acquire(_name: string, owner: string) {
-      if (!state.acquire) return false;
+    acquire(_name: string, owner: string) {
+      if (!state.acquire) return Promise.resolve(false);
       state.held = owner;
-      return true;
+      return Promise.resolve(true);
     },
     renew(_name: string, owner: string) {
       state.renewals += 1;
@@ -104,7 +104,7 @@ function fakeLock(state: FakeLock = { held: null, acquire: true, renewals: 0, re
 
 function run(state: Fake, healthy: boolean, runner = wrangler(state), lock = fakeLock()) {
   return guardedDeploy(
-    { name: 'w', sha: OURS, paths: ['gh-apps/w'], verify: async () => healthy },
+    { name: 'w', sha: OURS, paths: ['gh-apps/w'], verify: () => Promise.resolve(healthy) },
     {
       wrangler: runner,
       latestCommit: () => state.head,
@@ -337,7 +337,7 @@ test('d1Lock: atomic lease semantics against a fake D1', async () => {
     return JSON.stringify([{ results: [], success: true }]);
   };
   const waits: number[] = [];
-  const lock = d1Lock({ wrangler: fakeD1, now: () => clock, wait: async (ms: number) => { waits.push(ms); clock += ms / 1000; }, waitMs: 30_000, retryMs: 10_000 });
+  const lock = d1Lock({ wrangler: fakeD1, now: () => clock, wait: (ms: number) => { waits.push(ms); clock += ms / 1000; return Promise.resolve(); }, waitMs: 30_000, retryMs: 10_000 });
 
   assert.equal(await lock.acquire('w', 'a'), true);
   assert.equal(lock.renew('w', 'a'), true);

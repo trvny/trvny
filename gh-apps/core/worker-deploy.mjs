@@ -109,7 +109,7 @@ const errorText = (error) => `${error?.stdout ?? ''}${error?.stderr ?? ''}${erro
 // Active deployment: specs, primary version id, build sha from its message, source sha.
 // null only when the Worker has no deployment yet; other failures throw.
 function active(wrangler, name) {
-  let deployment;
+  let deployment = null;
   try {
     deployment = json(wrangler, ['deployments', 'status', '--name', name]);
   } catch (error) {
@@ -180,7 +180,7 @@ async function deployLocked(
     if (!/^[0-9a-f]{40}$/.test(head)) throw new Error(`${name}: no main commit matches watch paths ${paths.join(' ')}`);
     // head reachable from sha: one push of several commits; sha's tree already has head's changes.
     if (head === sha || isAncestor(head, sha)) return false;
-    console.log(`${name}: ${sha} superseded by ${head} on main; skipping (its build deploys).`);
+    process.stdout.write(`${name}: ${sha} superseded by ${head} on main; skipping (its build deploys).\n`);
     return true;
   };
   if (stale()) return 0;
@@ -232,7 +232,7 @@ async function deployLocked(
   };
   // Triggers first so verify probes the final routes/domains.
   if (triggers() && (await verify())) {
-    console.log(`${name}: deployment ${sha} verified.`);
+    process.stdout.write(`${name}: deployment ${sha} verified.\n`);
     return 0;
   }
   const now = active(wrangler, name);

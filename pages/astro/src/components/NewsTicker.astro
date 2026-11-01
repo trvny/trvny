@@ -11,15 +11,26 @@
     const list = root.querySelector('[data-hn-list]');
     const updated = root.querySelector('[data-hn-updated]');
     const api = 'https://hacker-news.firebaseio.com/v0/';
-    async function refresh() {
-      if (document.hidden) return;
+    let refreshing = false;
+    async function fetchWithTimeout(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        const res = await fetch(api + 'topstories.json', { signal: AbortSignal.timeout(10000) });
+        return await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    async function refresh() {
+      if (document.hidden || refreshing) return;
+      refreshing = true;
+      try {
+        const res = await fetchWithTimeout(api + 'topstories.json');
         if (!res.ok) throw new Error('topstories unavailable');
         const ids = (await res.json()).slice(0, 6);
         const stories = await Promise.all(ids.map(async (id) => {
           try {
-            const response = await fetch(api + 'item/' + id + '.json', { signal: AbortSignal.timeout(10000) });
+            const response = await fetchWithTimeout(api + 'item/' + id + '.json');
             return response.ok ? response.json() : null;
           } catch {
             return null;
@@ -49,6 +60,8 @@
           list.replaceChildren(li);
         }
         updated.textContent = 'Could not refresh. Try again later.';
+      } finally {
+        refreshing = false;
       }
     }
     refresh();

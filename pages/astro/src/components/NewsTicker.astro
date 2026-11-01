@@ -12,11 +12,13 @@
     const updated = root.querySelector('[data-hn-updated]');
     const api = 'https://hacker-news.firebaseio.com/v0/';
     let refreshing = false;
-    async function fetchWithTimeout(url) {
+    async function fetchJson(url) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        return await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error('request unavailable');
+        return await response.json();
       } finally {
         clearTimeout(timer);
       }
@@ -25,13 +27,10 @@
       if (document.hidden || refreshing) return;
       refreshing = true;
       try {
-        const res = await fetchWithTimeout(api + 'topstories.json');
-        if (!res.ok) throw new Error('topstories unavailable');
-        const ids = (await res.json()).slice(0, 6);
+        const ids = (await fetchJson(api + 'topstories.json')).slice(0, 6);
         const stories = await Promise.all(ids.map(async (id) => {
           try {
-            const response = await fetchWithTimeout(api + 'item/' + id + '.json');
-            return response.ok ? response.json() : null;
+            return await fetchJson(api + 'item/' + id + '.json');
           } catch {
             return null;
           }

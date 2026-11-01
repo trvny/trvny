@@ -2,9 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kanarek-review",
   "main": "src/index.ts",
-  "compatibility_date": "2026-08-03",
+  "compatibility_date": "2026-10-31",
   "compatibility_flags": [
-    "nodejs_als"
+    "nodejs_als", "no_nodejs_compat", "no_nodejs_compat_v2"
   ],
   "workers_dev": false,
   "preview_urls": false,

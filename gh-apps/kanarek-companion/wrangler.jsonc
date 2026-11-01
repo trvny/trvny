@@ -77,6 +77,9 @@
   ],
   "observability": {
     "enabled": true,
+    "issues": {
+      "enabled": true
+    },
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.1,

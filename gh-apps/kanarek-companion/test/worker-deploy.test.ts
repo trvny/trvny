@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { d1Lock } from '../../core/deploy-lock.mjs';
-import { guardedDeploy } from '../../core/worker-deploy.mjs';
+import { fetchOriginMain, guardedDeploy } from '../../core/worker-deploy.mjs';
 
 // Fake wrangler + git head for gh-apps/core/worker-deploy.mjs.
 
@@ -114,6 +114,36 @@ function run(state: Fake, healthy: boolean, runner = wrangler(state), lock = fak
     },
   );
 }
+
+test('transient origin/main fetch retries and eventually succeeds', () => {
+  let attempts = 0;
+  const result = fetchOriginMain((args: string[]) => {
+    attempts += 1;
+    assert.deepEqual(args, ['fetch', '--quiet', '--depth=200', 'origin', 'main']);
+    if (attempts < 3) throw new Error("RPC failed; curl 92 HTTP/2 stream was not closed cleanly");
+    return 'ok';
+  });
+  assert.equal(result, 'ok');
+  assert.equal(attempts, 3);
+});
+
+test('origin/main fetch fails immediately on non-transient errors', () => {
+  let attempts = 0;
+  assert.throws(() => fetchOriginMain(() => {
+    attempts += 1;
+    throw new Error('Authentication failed');
+  }), /Authentication failed/);
+  assert.equal(attempts, 1);
+});
+
+test('origin/main fetch stops after three transient failures', () => {
+  let attempts = 0;
+  assert.throws(() => fetchOriginMain(() => {
+    attempts += 1;
+    throw new Error('fatal: early EOF');
+  }), /early EOF/);
+  assert.equal(attempts, 3);
+});
 
 test('newest commit uploads, activates, applies triggers', async () => {
   const state = fake(OLD);

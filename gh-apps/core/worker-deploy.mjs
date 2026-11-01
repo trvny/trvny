@@ -38,11 +38,26 @@ function gitAtTop() {
   return (args) => execFileSync('git', ['-C', top, ...args], { encoding: 'utf8' }).trim();
 }
 
+const TRANSIENT_GIT_FETCH_RE = /(?:RPC failed|curl (?:18|28|56|92)|unexpected disconnect|early EOF|connection reset)/i;
+
+// Retry only transient network failures. Stale-build checks still fail closed.
+export function fetchOriginMain(git) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return git(['fetch', '--quiet', '--depth=200', 'origin', 'main']);
+    } catch (error) {
+      const detail = `${error?.stderr ?? ''}${error?.message ?? ''}`;
+      if (attempt === 3 || !TRANSIENT_GIT_FETCH_RE.test(detail)) throw error;
+      console.warn(`origin/main fetch interrupted; retrying (${attempt}/3)`);
+    }
+  }
+}
+
 // Newest commit on origin/main touching `paths` (repo-root pathspecs, incl.
 // excludes). Builds run from the app directory, so git runs at the top level.
 function realLatestCommit(paths) {
   const git = gitAtTop();
-  git(['fetch', '--quiet', '--depth=200', 'origin', 'main']);
+  fetchOriginMain(git);
   // --first-parent: a merge commit is the main commit for its changes, not its side parent.
   const head = git(['log', '-1', '--first-parent', '--format=%H', 'FETCH_HEAD', '--', ...paths]);
   // A shallow boundary looks parentless, so "touches paths" is unproven there.

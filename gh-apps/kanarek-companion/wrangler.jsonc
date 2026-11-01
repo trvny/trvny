@@ -2,8 +2,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "automation",
   "main": "src/runtime-entry.ts",
-  "compatibility_date": "2026-08-03",
-  "compatibility_flags": ["nodejs_als"],
+  "compatibility_date": "2026-10-31",
+  "compatibility_flags": ["nodejs_als", "no_nodejs_compat", "no_nodejs_compat_v2"],
   "workers_dev": true,
   "preview_urls": false,
   "version_metadata": {

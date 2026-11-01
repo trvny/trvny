@@ -38,7 +38,7 @@ function gitAtTop() {
   return (args) => execFileSync('git', ['-C', top, ...args], { encoding: 'utf8' }).trim();
 }
 
-const TRANSIENT_GIT_FETCH_RE = /(?:RPC failed|curl (?:18|28|56|92)|unexpected disconnect|early EOF|connection reset)/i;
+const TRANSIENT_GIT_FETCH_RE = /(?:curl (?:18|28|56|92)|unexpected disconnect|early EOF|connection reset)/i;
 
 // Retry only transient network failures. Stale-build checks still fail closed.
 export function fetchOriginMain(git) {

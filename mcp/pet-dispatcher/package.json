@@ -33,11 +33,11 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20261024.1",
+    "@cloudflare/workers-types": "5.20261029.1",
     "@types/node": "26.6.5",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "wrangler": "4.152.0"
+    "wrangler": "4.155.0"
   },
   "overrides": {
     "undici": "7.30.1"

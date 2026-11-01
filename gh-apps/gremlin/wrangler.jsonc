@@ -3,7 +3,7 @@
   "name": "gremlin",
   "main": "src/entry.ts",
   "compatibility_date": "2026-10-31",
-  "compatibility_flags": ["nodejs_als", "no_nodejs_compat", "no_nodejs_compat_v2", "global_fetch_strictly_public"],
+  "compatibility_flags": ["global_fetch_strictly_public"],
   "workers_dev": true,
   "preview_urls": false,
   "version_metadata": {

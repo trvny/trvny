@@ -51,6 +51,7 @@ export function fetchOriginMain(git) {
       console.warn(`origin/main fetch interrupted; retrying (${attempt}/3)`);
     }
   }
+  throw new Error('origin/main fetch attempts exhausted');
 }
 
 // Newest commit on origin/main touching `paths` (repo-root pathspecs, incl.

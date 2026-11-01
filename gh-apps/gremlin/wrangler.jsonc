@@ -47,13 +47,18 @@
       "new_sqlite_classes": ["GremlinGithubRefreshCoordinator"]
     }
   ],
+  "upload_source_maps": true,
   "observability": {
     "enabled": true,
+    "issues": {
+      "enabled": true
+    },
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.01,
       "persist": true
     }
+      "invocation_logs": false
   },
   "vars": {
     "GPTOMEK_APP_ID": "4524407",

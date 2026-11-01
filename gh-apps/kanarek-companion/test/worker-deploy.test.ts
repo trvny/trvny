@@ -134,6 +134,12 @@ test('origin/main fetch fails immediately on non-transient errors', () => {
     throw new Error('Authentication failed');
   }), /Authentication failed/);
   assert.equal(attempts, 1);
+  let rejectedAttempts = 0;
+  assert.throws(() => fetchOriginMain(() => {
+    rejectedAttempts += 1;
+    throw new Error('RPC failed; HTTP 401 curl 22');
+  }), /HTTP 401/);
+  assert.equal(rejectedAttempts, 1);
 });
 
 test('origin/main fetch stops after three transient failures', () => {

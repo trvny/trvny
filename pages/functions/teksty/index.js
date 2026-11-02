@@ -12,13 +12,14 @@ function escapeHtml(value) {
 function renderCard(post) {
   const slug = /^[a-z0-9-]+$/.test(String(post.slug || "")) ? String(post.slug) : "";
   if (!slug) return "";
+  const featured = post.featured === true ? '<span class="tag">FEATURED</span>' : "";
   const tags = (post.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   return `<a class="card" href="/teksty/${slug}/">
 <span class="go">OTWÓRZ ›</span>
 <div class="meta">${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
 <h2>${escapeHtml(post.title)}</h2>
 <p>${escapeHtml(post.summary)}</p>
-<div class="tags">${tags}</div>
+<div class="tags">${featured}${tags}</div>
 </a>`;
 }
 
@@ -52,7 +53,7 @@ export async function onRequest(context) {
   const contentType = response.headers.get("content-type") || "";
   if (!response.ok || !contentType.includes("text/html")) return response;
 
-  let rewriter = new HTMLRewriter();
+  let rewriter = new globalThis.HTMLRewriter();
 
   if (shitpost || posts.length > 0) {
     rewriter = rewriter.on("#text-list", {
@@ -61,7 +62,7 @@ export async function onRequest(context) {
           element.before(renderShitpostCard(shitpost), { html: true });
         }
         if (posts.length > 0) {
-          element.setInnerContent(posts.map(renderCard).join("\n"), { html: true });
+          element.setInnerContent([...posts].sort((a, b) => Number(b.featured === true) - Number(a.featured === true)).map(renderCard).join("\n"), { html: true });
         }
       },
     });

@@ -17,6 +17,12 @@ const TEXTS_HEAD = `
   .textitem p{margin-top:9px;color:var(--w);font-size:21px;line-height:1.18}
   .texttags{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
   .texttags span{font-family:"Silkscreen";font-size:9px;text-shadow:none;border:1px solid var(--faint);color:var(--dim);padding:3px 5px;background:#070b12}
+  .featurehome{margin-top:28px}
+  .featuregrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .featuregrid .textitem,.featuregrid .textitem:nth-child(2n){border-color:var(--c)}
+  .featuregrid .textmeta b,.featuregrid .textitem:nth-child(2n) .textmeta b{background:var(--c)}
+  .featuregrid .textitem h3{color:var(--c)}
+  @media (max-width:640px){.featuregrid{grid-template-columns:minmax(0,1fr)}}
   .textsall{display:inline-block;margin-top:10px;color:var(--v);font-family:"Silkscreen";font-size:11px;text-shadow:none;text-decoration:none;letter-spacing:.03em}
   .textsall:hover{color:var(--w)}
   @media (max-width:640px){.textgrid{grid-template-columns:minmax(0,1fr)}}
@@ -31,12 +37,12 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function renderTextCard(post, index) {
+function renderTextCard(post, index, firstPage = 501) {
   const slug = /^[a-z0-9-]+$/.test(String(post.slug || "")) ? String(post.slug) : "";
   if (!slug) return "";
   const tags = (post.tags || []).slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
   return `<a class="textitem" href="/teksty/${slug}/">
-    <div class="textmeta"><b>P${501 + index}</b>${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
+    <div class="textmeta"><b>P${firstPage + index}</b>${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
     <h3>${escapeHtml(post.title)}</h3>
     <p>${escapeHtml(post.summary)}</p>
     <div class="texttags">${tags}</div>
@@ -60,6 +66,8 @@ function renderTexts(posts, shitpost) {
     ...(shitpost ? [{ type: "shitpost", value: shitpost }] : []),
     ...posts.map((post) => ({ type: "text", value: post })),
   ].slice(0, 3);
+  const featured = posts.filter((post) => post.featured === true);
+  const pinned = featured.length ? `<section class="featurehome" aria-labelledby="featuredHeading"><div class="labhead"><h2 id="featuredHeading">P600 · FEATURED</h2></div><div class="featuregrid">${featured.map((post, index) => renderTextCard(post, index, 601)).join("")}</div></section>` : "";
   const cards = entries.map((entry, index) =>
     entry.type === "shitpost"
       ? renderShitpostTextCard(entry.value, index)
@@ -71,8 +79,8 @@ function renderTexts(posts, shitpost) {
       <a class="textfeed" href="/teksty/feed.xml" title="Kanał Atom">ATOM ↗</a>
     </div>
     <div class="textgrid">${cards}</div>
-    <a class="textsall" href="/teksty/">▶ WSZYSTKIE TEKSTY</a>
-  </section>`;
+    <a class="textsall" href="/teksty/">▶ WSZYSTKIE TEKSTY</a> · <a class="textsall" href="/przeglad/">CoCzyDziennik</a>
+  </section>${pinned}`;
 }
 
 async function getPosts(context) {
@@ -99,11 +107,11 @@ export async function onRequest(context) {
     return response;
   }
 
-  let rewriter = new HTMLRewriter()
+  let rewriter = new globalThis.HTMLRewriter()
     .on("head", {
       element(element) {
         element.append(
-          '<meta name="msvalidate.01" content="23A368B2C5F4DF3471A67EA6CB057149">' + TEXTS_HEAD,
+          `<meta name="msvalidate.01" content="23A368B2C5F4DF3471A67EA6CB057149">${TEXTS_HEAD}`,
           { html: true },
         );
       },

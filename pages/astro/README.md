@@ -10,7 +10,7 @@ npm run dev
 npm run build
 ```
 
-The Pages build copies only `astro/dist/lab/` into `site/lab/`. Do not point Astro's `outDir` at `../site`: that could wipe the legacy site. The build is deliberately additive.
+The Pages build copies `astro/dist/lab/` and `astro/dist/przeglad/` into their corresponding directories under `site/`. Do not point Astro's `outDir` at `../site`: that could wipe the legacy site. The build is deliberately additive.
 
 ## Roadmap
 
@@ -22,3 +22,24 @@ The Pages build copies only `astro/dist/lab/` into `site/lab/`. Do not point Ast
 - **Navigation:** only add a hub link when the section is ready, without replacing current design.
 
 No new Cloudflare Pages project, Worker, feed pipeline or duplicated source of truth.
+
+## CoCzyDziennik archive
+
+The `/przeglad/` archive uses Astro's built-in content collections and the existing Pages deployment. Add one UTF-8 Markdown file per public issue under `src/content/digests/`, named `YYYY-MM-DD.md`:
+
+```md
+---
+title: "CoCzyDziennik — 2026-01-01"
+description: "A short, accurate summary of this issue."
+date: 2026-01-01
+draft: false
+---
+
+## News
+
+A verified summary with a [direct source](https://example.com/).
+```
+
+Use real, stable HTTP(S) source links, not ChatGPT citation tokens or components. Only publish material intended for a public audience: omit private preferences, personal search criteria and account-specific details. Verify dates and time-limited offers; never present stale offers as current. Do not publish unverified claims. Set `draft: true` to exclude an issue from the archive and its generated routes. A file for an existing date should be updated rather than duplicated. Markdown files are public once merged to `main`; the normal Pages build copies `dist/przeglad/` additively. Existing article and feed URLs remain unchanged.
+
+Featured publications are selected with `featured: true` in `site/teksty/posts.json`; the home page and article directory read that same metadata.

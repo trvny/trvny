@@ -249,8 +249,8 @@ test('apply_patch preserves executable mode and advances to the new commit', asy
   const calls: Array<{ operation: string; path: string; init?: RequestInit }> = [];
 
   const client = {
-    json<T>(path: string, operation: string, init?: RequestInit): Promise<T> {
-      return Promise.resolve().then(() => {
+    async json<T>(path: string, operation: string, init?: RequestInit): Promise<T> {
+      await Promise.resolve();
       calls.push({ operation, path, init });
       if (operation === 'gptomek_get_branch_ref') {
         return { object: { sha: expected } } as T;
@@ -287,7 +287,6 @@ test('apply_patch preserves executable mode and advances to the new commit', asy
         return {} as T;
       }
       throw new Error(`unexpected:${operation}`);
-      });
     },
   } as unknown as GitHubInstallationClient;
 
@@ -326,8 +325,8 @@ test('apply_patch preserves a UTF-8 BOM when an untouched prefix remains', async
   let treeContent = '';
 
   const client = {
-    json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
-      return Promise.resolve().then(() => {
+    async json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
+      await Promise.resolve();
       if (operation === 'gptomek_get_branch_ref') {
         return { object: { sha: expected } } as T;
       }
@@ -358,7 +357,6 @@ test('apply_patch preserves a UTF-8 BOM when an untouched prefix remains', async
       }
       if (operation === 'gptomek_update_branch') return {} as T;
       throw new Error(`unexpected:${operation}`);
-      });
     },
   } as unknown as GitHubInstallationClient;
 
@@ -388,8 +386,8 @@ test('apply_patch honors executable mode on a new empty file', async () => {
   let treeMode: unknown;
 
   const client = {
-    json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
-      return Promise.resolve().then(() => {
+    async json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
+      await Promise.resolve();
       if (operation === 'gptomek_get_branch_ref') {
         return { object: { sha: expected } } as T;
       }
@@ -414,7 +412,6 @@ test('apply_patch honors executable mode on a new empty file', async () => {
       }
       if (operation === 'gptomek_update_branch') return {} as T;
       throw new Error(`unexpected:${operation}`);
-      });
     },
   } as unknown as GitHubInstallationClient;
 
@@ -442,8 +439,8 @@ test('apply_patch verifies an ambiguous ref-update error against the live head',
   let headReads = 0;
 
   const client = {
-    json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
-      return Promise.resolve().then(() => {
+    async json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
+      await Promise.resolve();
       if (operation === 'gptomek_get_branch_ref') {
         headReads += 1;
         return {
@@ -475,7 +472,6 @@ test('apply_patch verifies an ambiguous ref-update error against the live head',
         throw new Error('connection_lost_after_write');
       }
       throw new Error(`unexpected:${operation}`);
-      });
     },
   } as unknown as GitHubInstallationClient;
 
@@ -504,8 +500,8 @@ test('apply_patch keeps a verified no-op ref failure retryable', async () => {
   const expected = '1'.repeat(40);
 
   const client = {
-    json<T>(_path: string, operation: string): Promise<T> {
-      return Promise.resolve().then(() => {
+    async json<T>(_path: string, operation: string): Promise<T> {
+      await Promise.resolve();
       if (operation === 'gptomek_get_branch_ref') {
         return { object: { sha: expected } } as T;
       }
@@ -533,7 +529,6 @@ test('apply_patch keeps a verified no-op ref failure retryable', async () => {
         throw new Error('connection_lost_before_write');
       }
       throw new Error(`unexpected:${operation}`);
-      });
     },
   } as unknown as GitHubInstallationClient;
 
@@ -566,8 +561,8 @@ test('revert_commit restores the parent tree only when the target is current HEA
   const calls: Array<{ operation: string; body?: unknown }> = [];
 
   const client = {
-    json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
-      return Promise.resolve().then(() => {
+    async json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
+      await Promise.resolve();
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ operation, body });
       if (operation === 'gptomek_get_branch_ref') {
@@ -593,7 +588,6 @@ test('revert_commit restores the parent tree only when the target is current HEA
         return {} as T;
       }
       throw new Error(`unexpected:${operation}`);
-      });
     },
   } as unknown as GitHubInstallationClient;
 
@@ -617,13 +611,12 @@ test('revert_commit restores the parent tree only when the target is current HEA
 test('revert_commit refuses older commits to avoid clobbering later changes', async () => {
   const expected = 'a'.repeat(40);
   const client = {
-    json<T>(_path: string, operation: string): Promise<T> {
-      return Promise.resolve().then(() => {
+    async json<T>(_path: string, operation: string): Promise<T> {
+      await Promise.resolve();
       if (operation === 'gptomek_get_branch_ref') {
         return { object: { sha: expected } } as T;
       }
       throw new Error(`unexpected:${operation}`);
-      });
     },
   } as unknown as GitHubInstallationClient;
 

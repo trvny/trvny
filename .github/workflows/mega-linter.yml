@@ -120,7 +120,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Publish DeepSource findings
-        uses: trvny/.github/.github/actions/deepsource-pr-report@3a146531edb234dd58577cfa40aa6bb29bd6d69e
+        uses: trvny/.github/.github/actions/deepsource-pr-report@db7df3aeaf1ea883253cf09069612ed53b600dac
         with:
           deepsource-token: ${{ secrets.DEEPSOURCE_PAT }}
           github-token: ${{ github.token }}

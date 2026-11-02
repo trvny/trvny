@@ -105,7 +105,6 @@ jobs:
   deepsource_report:
     name: DeepSource PR findings
     permissions:
-      contents: read
       pull-requests: read
       issues: write
     if: >-
@@ -114,22 +113,15 @@ jobs:
        startsWith(github.event.context, 'DeepSource: ') &&
        github.event.state != 'pending')
     concurrency:
-      group: deepsource-report-${{ github.event.sha || inputs.sha }}
-      cancel-in-progress: true
+      group: deepsource-report-${{ github.repository }}
+      queue: max
+      cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - name: Publish DeepSource findings
+        uses: trvny/.github/.github/actions/deepsource-pr-report@3a146531edb234dd58577cfa40aa6bb29bd6d69e
         with:
-          persist-credentials: false
-      - name: Sync DeepSource details into PR conversation
-        env:
-          DEEPSOURCE_PAT: ${{ secrets.DEEPSOURCE_PAT }}
-          GITHUB_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ github.event.sha || inputs.sha }}
-        run: |
-          if [[ -z "$DEEPSOURCE_PAT" ]]; then
-            echo "::notice::Configure DEEPSOURCE_PAT to enable issue reporting."
-            exit 0
-          fi
-          python3 .github/scripts/deepsource_pr_report.py
+          deepsource-token: ${{ secrets.DEEPSOURCE_PAT }}
+          github-token: ${{ github.token }}
+          commit-sha: ${{ github.event.sha || inputs.sha }}

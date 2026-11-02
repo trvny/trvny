@@ -395,6 +395,24 @@ export function parseReviewJson(value: string): ParsedReview | null {
 
 type RouterReview = { model: string | null; parsed: ParsedReview; provider: string; partial?: boolean };
 
+export function reviewInvalidOutputDiagnostic(
+  payload: Record<string, unknown>,
+  provider: string,
+  reason: 'invalid_json_contract' | 'wrong_language',
+) {
+  const choice = Array.isArray(payload.choices) ? objectValue(payload.choices[0]) : {};
+  const usage = objectValue(payload.usage);
+  const details = objectValue(usage.completion_tokens_details);
+  return {
+    kanarekWebhookReview: 'provider_invalid_output',
+    provider,
+    reason,
+    finishReason: typeof choice.finish_reason === 'string' ? choice.finish_reason : null,
+    completionTokens: typeof usage.completion_tokens === 'number' ? usage.completion_tokens : null,
+    reasoningTokens: typeof details.reasoning_tokens === 'number' ? details.reasoning_tokens : null,
+  };
+}
+
 export type ReviewRouterOutcome =
   | { kind: 'ok'; review: RouterReview }
   | { kind: 'invalid'; provider: string }
@@ -464,18 +482,12 @@ async function askReviewRouter(
   }
   const parsed = parseReviewJson(completionText(payload));
   if (!parsed || !reviewTextIsChinese(parsed)) {
-    const choice = Array.isArray(payload.choices) ? objectValue(payload.choices[0]) : {};
-    const usage = objectValue(payload.usage);
-    const details = objectValue(usage.completion_tokens_details);
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
-      JSON.stringify({
-        kanarekWebhookReview: 'provider_invalid_output',
+      JSON.stringify(reviewInvalidOutputDiagnostic(
+        payload,
         provider,
-        reason: !parsed ? 'invalid_json_contract' : 'wrong_language',
-        finishReason: typeof choice.finish_reason === 'string' ? choice.finish_reason : null,
-        completionTokens: typeof usage.completion_tokens === 'number' ? usage.completion_tokens : null,
-        reasoningTokens: typeof details.reasoning_tokens === 'number' ? details.reasoning_tokens : null,
-      }),
+        !parsed ? 'invalid_json_contract' : 'wrong_language',
+      )),
     );
     return { kind: 'invalid', provider };
   }

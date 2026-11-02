@@ -23,6 +23,7 @@ import {
   isDependabotPullRequest,
   nextReviewPhase,
   parseReviewJson,
+  reviewInvalidOutputDiagnostic,
   reviewOutputTokens,
   reviewContinuationJob,
   reviewMarker,
@@ -963,6 +964,38 @@ test('PR review output headroom defaults to 65k and allows provider-sized ceilin
   assert.equal(reviewMaxOutputTokens('65536'), 65_536);
   assert.equal(reviewMaxOutputTokens('65537'), 65_536);
   assert.equal(reviewMaxOutputTokens('wat'), 65_536);
+});
+
+test('malformed free review diagnostics report token exhaustion without completion text', () => {
+  const privateText = 'PRIVATE_COMPLETION_TEXT';
+  const logFields = reviewInvalidOutputDiagnostic({
+    choices: [{ finish_reason: 'length', message: { content: privateText } }],
+    usage: { completion_tokens: 65_536, completion_tokens_details: { reasoning_tokens: 65_000 } },
+  }, 'orcarouter', 'invalid_json_contract');
+  assert.deepEqual(logFields, {
+    kanarekWebhookReview: 'provider_invalid_output',
+    provider: 'orcarouter',
+    reason: 'invalid_json_contract',
+    finishReason: 'length',
+    completionTokens: 65_536,
+    reasoningTokens: 65_000,
+  });
+  assert.doesNotMatch(JSON.stringify(logFields), /PRIVATE_COMPLETION_TEXT/);
+});
+
+test('wrong-language review diagnostics tolerate absent usage and never log completion text', () => {
+  const logFields = reviewInvalidOutputDiagnostic({
+    choices: [{ message: { content: 'PRIVATE_COMPLETION_TEXT' } }],
+  }, 'openrouter', 'wrong_language');
+  assert.deepEqual(logFields, {
+    kanarekWebhookReview: 'provider_invalid_output',
+    provider: 'openrouter',
+    reason: 'wrong_language',
+    finishReason: null,
+    completionTokens: null,
+    reasoningTokens: null,
+  });
+  assert.doesNotMatch(JSON.stringify(logFields), /PRIVATE_COMPLETION_TEXT/);
 });
 
 function fakeNamespace(fetcher: (request: Request) => Promise<Response>): DurableObjectNamespace {

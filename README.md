@@ -29,7 +29,10 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-No open pull requests. 🎉
+| Repository | PR | Title | Author | State | Updated |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/feedseek | [#547](https://github.com/trvny/feedseek/pull/547) | Add a searchable source picker to the reader | @trvny | ready | 2026-11-02 |
+| trvny/feedseek | [#548](https://github.com/trvny/feedseek/pull/548) | Show reliable reader dates | @trvny | ready | 2026-11-02 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

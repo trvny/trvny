@@ -68,6 +68,7 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
     'alibaba/qwen3-coder-30b-a3b',
     'inclusionai/ling-3.1-flash-free',
     'poolside/laguna-s-2.1-free',
+    'nvidia/nemotron-3.5-lightning-free',
   ],
   KANAREK_REVIEW_HUGGINGFACE_MODEL: 'speakleash/Bielik-11B-v3.0-Instruct:publicai',
   KANAREK_REVIEW_DEEPSEEK_MODEL: 'deepseek-flash',

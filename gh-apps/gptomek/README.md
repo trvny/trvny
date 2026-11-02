@@ -133,8 +133,9 @@ personal Codespaces token, security controls and first-run steps are in
   Small text changes use inline tree content to avoid the blob call.
 - For a failed command, check the comment workflow, the Worker's
   `/gptomek/wake` response and logs, then the repository's live state.
-- `invalid_patch_hunk_line` means invalid hunk structure/counts; a
-  `patch_context_mismatch` means the context differs at the indicated file/line.
+- `invalid_patch_hunk_line` means an invalid hunk line prefix;
+  `patch_hunk_count_mismatch` means old/new line counts do not match the hunk.
+  `patch_context_mismatch` means context differs at the indicated file/line.
   `review_fix_head_changed` requires refreshing the live head SHA; oversized
   batches fail with `invalid_batch_steps`. Do not retry an unchanged bad patch.
 - Strict `apply_patch` and `review_fix` hunks must match the actual base,

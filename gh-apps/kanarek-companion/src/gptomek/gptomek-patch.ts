@@ -332,7 +332,7 @@ export function applyUnifiedFilePatch(
       : hunk.oldStart - 1;
     if (hunkStart < sourceIndex || hunkStart > source.length) {
       throw new Error(
-        `patch_hunk_out_of_order:file=${eofPath(patch.oldPath ?? patch.newPath ?? 'unknown')};line=${hunk.oldStart}`,
+        `patch_hunk_out_of_order:file=${eofPath(patch.oldPath ?? patch.newPath ?? 'unknown')};line=${hunkStart + 1}`,
       );
     }
 

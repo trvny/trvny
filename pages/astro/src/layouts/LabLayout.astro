@@ -7,7 +7,7 @@ const canonicalUrl = new URL(canonicalPath, 'https://travny.pages.dev').toString
 const isLabHome = canonicalPath === '/lab/';
 const crumbs = [
   { name: 'TRAVNY', item: 'https://travny.pages.dev/' },
-  { name: 'Lab', item: 'https://travny.pages.dev/lab/' },
+  { name: 'LAB', item: 'https://travny.pages.dev/lab/' },
   ...(!isLabHome ? [{ name: title, item: canonicalUrl }] : []),
 ];
 const breadcrumbs = breadcrumbJson(crumbs);
@@ -29,7 +29,7 @@ const breadcrumbs = breadcrumbJson(crumbs);
   </head>
   <body>
     <main class="shell">
-      <nav class="crumb" aria-label="Breadcrumb"><a href="/">TRAVNY</a> / {isLabHome ? <span aria-current="page">LAB</span> : <><a href="/lab/">LAB</a> / <span aria-current="page">{title}</span></>}</nav>
+      <nav class="crumb" aria-label="Breadcrumb">{crumbs.map((crumb, index) => <>{index > 0 && ' / '}{index === crumbs.length - 1 ? <span aria-current="page">{crumb.name}</span> : <a href={new URL(crumb.item).pathname}>{crumb.name}</a>}</>)}</nav>
       <slot />
     </main>
   </body>

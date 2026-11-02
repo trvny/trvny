@@ -720,7 +720,7 @@ function validateCommandPolicy(command: GptomekCommand): void {
 }
 
 function decodeBase64Url(value: string): string {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/g, '');
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/').replace(/[=]+$/g, '');
   const padding = '='.repeat((4 - (normalized.length % 4)) % 4);
   return new TextDecoder().decode(
     Uint8Array.from(atob(normalized + padding), (character) => character.charCodeAt(0)),
@@ -732,7 +732,7 @@ export function encodeGptomekCommand(command: unknown): string {
   const bytes = new TextEncoder().encode(json);
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/g, '');
 }
 
 export function commandMarker(command: unknown): string {
@@ -2633,6 +2633,7 @@ export async function handleGptomekMailboxCommand(
       body: JSON.stringify({ body: bodyWithResult(body, envelope, true) }),
     });
 
+    // skipcq: JS-0002 Cloudflare Worker audit log, not browser code.
     console.log(
       JSON.stringify({
         gptomek: 'command_completed',
@@ -2755,6 +2756,7 @@ export async function handleGptomekCommentCommand(
       deduplicated: execution.deduplicated,
       result: execution.result,
     };
+    // skipcq: JS-0002 Cloudflare Worker audit log, not browser code.
     console.log(
       JSON.stringify({
         gptomek: 'comment_command_completed',
@@ -2806,13 +2808,13 @@ export async function handleGptomekCommentCommand(
   }
 }
 
-export async function handleGptomekControl(
+export function handleGptomekControl(
   target: CompanionTarget,
   pr: PullRequest,
   env: CompanionEnv,
   fetcher: typeof fetch = fetch,
 ): Promise<GptomekControlResult> {
-  if (!isGptomekControlPr(target, pr)) return { control: false, handled: false };
+  if (!isGptomekControlPr(target, pr)) return Promise.resolve({ control: false, handled: false });
   return handleGptomekMailboxCommand(
     pr.body,
     `/repos/${repoPath(CONTROL_REPOSITORY)}/pulls/${target.pullRequestNumber}`,

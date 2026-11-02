@@ -64,6 +64,7 @@ test('published digest joins the home page, text directory and Atom while featur
       assert.doesNotMatch(html, /Invalid/);
     }
     assert.ok(homeHtml.includes('P600 · FEATURED'));
+    assert.doesNotMatch(homeHtml, /<details class="textexpand">/);
     assert.ok(homeHtml.indexOf('News &amp; &lt;more&gt;') < homeHtml.indexOf('<nav class="fastext">'));
     assert.match(textsHtml, /<div id="text-list">[\s\S]*News &amp; &lt;more&gt;[\s\S]*<\/div>/);
     assert.ok(textsHtml.indexOf('Token World Cup') < textsHtml.indexOf('News &amp; &lt;more&gt;'));
@@ -85,5 +86,69 @@ test('missing or broken digest index leaves existing publications available', as
     const ctx = context();
     ctx.env.ASSETS.fetch = () => Promise.resolve(result);
     assert.deepEqual(await getDigestPosts(ctx), []);
+  }
+});
+
+test('home page expands three latest mixed publications to ten without duplicating feed data', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalRewriter = globalThis.HTMLRewriter;
+  const articles = Array.from({ length: 7 }, (_, index) => ({
+    slug: `article-${index + 1}`,
+    title: `Article ${index + 1}`,
+    summary: 'A normal article',
+    date: '2026-11-02',
+    updated: new Date(Date.UTC(2026, 10, 2, 12, index)).toISOString(),
+    kind: 'TEXT',
+    tags: [],
+  }));
+  const reactor = Array.from({ length: 7 }, (_, index) => ({
+    id: `https://shitpost.trfny.com/posts/gh-1-${index + 1}`,
+    url: `https://shitpost-reactor.travny.workers.dev/posts/gh-1-${index + 1}`,
+    summary: `Shit ${index + 1} <meme>`,
+    date_published: new Date(Date.UTC(2026, 10, 2, 12, index + 1)).toISOString(),
+  }));
+  globalThis.fetch = () => Promise.resolve(Response.json({ items: reactor }));
+  globalThis.HTMLRewriter = FakeRewriter;
+  const ctx = context();
+  const originalAssetsFetch = ctx.env.ASSETS.fetch;
+  ctx.env.ASSETS.fetch = (url) => {
+    if (!(url instanceof Request) && new URL(url).pathname === '/teksty/posts.json') {
+      return Promise.resolve(Response.json(articles));
+    }
+    if (!(url instanceof Request) && new URL(url).pathname === '/przeglad/index.json') {
+      return Promise.resolve(Response.json([{
+        id: '2026-11-02',
+        title: 'CoCzyDziennik edition',
+        description: 'A digest',
+        date: '2026-11-02T00:00:00.000Z',
+        updated: '2026-11-02T12:06:30.000Z',
+      }]));
+    }
+    return originalAssetsFetch(url);
+  };
+  try {
+    const html = await (await home(ctx)).text();
+    const start = html.indexOf('<section class="texthome"');
+    const end = html.indexOf('</section>', start);
+    const listing = html.slice(start, end);
+    const [initial, rest] = listing.split('<details class="textexpand">');
+    assert.equal((initial.match(/<a class="textitem"/gu) || []).length, 3);
+    assert.equal((rest.match(/<a class="textitem"/gu) || []).length, 7);
+    assert.equal((listing.match(/<a class="textitem"/gu) || []).length, 10);
+    assert.match(rest, /<summary class="texttoggle">/);
+    assert.match(rest, /POKAŻ KOLEJNE 7/);
+    assert.match(rest, /▲ ZWIŃ/);
+    assert.ok(initial.includes('Shit 7 &lt;meme&gt;'));
+    assert.ok(initial.includes('CoCzyDziennik edition'));
+    assert.ok(initial.includes('Article 7'));
+    assert.ok(listing.indexOf('Shit 7 &lt;meme&gt;') < listing.indexOf('CoCzyDziennik edition'));
+    assert.ok(listing.indexOf('CoCzyDziennik edition') < listing.indexOf('Article 7'));
+    assert.equal(listing.split('href="/przeglad/2026-11-02/"').length - 1, 1);
+    assert.doesNotMatch(listing, /Article 1/);
+    assert.doesNotMatch(listing, /Shit 1 /);
+    assert.ok(listing.includes('href="https://shitpost-reactor.travny.workers.dev/posts/gh-1-7"'));
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.HTMLRewriter = originalRewriter;
   }
 });

@@ -5,14 +5,16 @@ import json
 import os
 import re
 import sys
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 MARKER = "<!-- deepsource-pr-findings:v1 -->"
 QUERY = """
-query ($sha: String!) {
+query ($sha: String!, $after: String) {
   run(commitOid: $sha) {
     runUid
-    checks(first: 30) {
+    checks(first: 30, after: $after) {
+      pageInfo { hasNextPage endCursor }
       edges {
         node {
           analyzer { name }
@@ -44,6 +46,11 @@ def get_json(url, token, method="GET", payload=None):
         return json.load(response)
 
 
+def safe_markdown(value):
+    special = "\\\x60*_{}[]()#+-.!|<>"
+    return "".join("\\" + char if char in special else char for char in str(value))
+
+
 def format_report(repo, sha, run):
     found, hidden = [], 0
     for edge in run["checks"]["edges"]:
@@ -63,10 +70,11 @@ def format_report(repo, sha, run):
     lines.append("")
     for analyzer, issue in found[:150]:
         path, line = issue["path"], issue["beginLine"]
-        title = " ".join((issue["title"] or "Unnamed issue").split())
-        code = issue["shortcode"] or "AI"
-        link = f"https://github.com/{repo}/blob/{sha}/{path}#L{line}"
-        lines.append(f"- **{issue['severity'].lower()}** {analyzer} [{path}:{line}]({link}): {code} · {title}")
+        title = safe_markdown(" ".join((issue["title"] or "Unnamed issue").split()))
+        code = safe_markdown(issue["shortcode"] or "AI")
+        link = f"https://github.com/{repo}/blob/{sha}/{quote(path, safe='/')}#L{line}"
+        lines.append(f"- **{issue['severity'].lower()}** {safe_markdown(analyzer)} "
+                     f"[{safe_markdown(path)}:{line}]({link}): {code} · {title}")
     if len(found) > 150:
         lines.append(f"- And {len(found) - 150} more findings.")
     lines.extend(["", f"[Full DeepSource analysis](https://app.deepsource.com/gh/{repo}/run/{run['runUid']}/)",
@@ -88,13 +96,29 @@ def main():
         print("No open same-repository PR on this commit")
         return
 
-    data = get_json("https://api.deepsource.com/graphql/", os.environ["DEEPSOURCE_PAT"],
-                    "POST", {"query": QUERY, "variables": {"sha": sha}})
-    if data.get("errors"):
-        raise RuntimeError("DeepSource GraphQL query rejected: " + json.dumps(data["errors"]))
-    run = (data.get("data") or {}).get("run")
-    if not run:
-        raise RuntimeError("No DeepSource run for this SHA")
+    run = None
+    all_checks = []
+    after = None
+    for _ in range(100):
+        data = get_json("https://api.deepsource.com/graphql/", os.environ["DEEPSOURCE_PAT"],
+                        "POST", {"query": QUERY, "variables": {"sha": sha, "after": after}})
+        if data.get("errors"):
+            raise RuntimeError("DeepSource GraphQL query rejected: " + json.dumps(data["errors"]))
+        page = (data.get("data") or {}).get("run")
+        if not page:
+            raise RuntimeError("No DeepSource run for this SHA")
+        if run is None:
+            run = page
+        all_checks.extend(page["checks"]["edges"])
+        info = page["checks"]["pageInfo"]
+        if not info["hasNextPage"]:
+            break
+        after = info["endCursor"]
+        if not after:
+            raise RuntimeError("Missing DeepSource check pagination cursor")
+    else:
+        raise RuntimeError("DeepSource check pagination exceeded 100 pages")
+    run["checks"]["edges"] = all_checks
     report, count = format_report(repo, sha, run)
 
     for pr in prs:

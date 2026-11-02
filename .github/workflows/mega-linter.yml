@@ -28,11 +28,13 @@ on: # yamllint disable-line rule:truthy
       - ".github/workflows/mega-linter.yml"
   pull_request:
     paths: *lint-paths
+  status:
   workflow_dispatch:
-
-concurrency:
-  group: megalinter-${{ github.ref }}
-  cancel-in-progress: true
+    inputs:
+      sha:
+        description: Optional DeepSource PR head SHA; leave blank to run MegaLinter
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -40,6 +42,12 @@ permissions:
 jobs:
   megalinter:
     name: MegaLinter
+    if: >-
+      github.event_name != 'status' &&
+      (github.event_name != 'workflow_dispatch' || inputs.sha == '')
+    concurrency:
+      group: megalinter-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -92,3 +100,36 @@ jobs:
       - name: Gate Instruction Rot
         if: always() && steps.instruction_rot.outcome == 'failure'
         run: exit 1
+
+  # DeepSource code-quality statuses share the MegaLinter workflow.
+  deepsource_report:
+    name: DeepSource PR findings
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.sha != '') ||
+      (github.event_name == 'status' &&
+       startsWith(github.event.context, 'DeepSource: ') &&
+       github.event.state != 'pending')
+    concurrency:
+      group: deepsource-report-${{ github.event.sha || inputs.sha }}
+      cancel-in-progress: true
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Sync DeepSource details into PR conversation
+        env:
+          DEEPSOURCE_PAT: ${{ secrets.DEEPSOURCE_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.sha || inputs.sha }}
+        run: |
+          if [[ -z "$DEEPSOURCE_PAT" ]]; then
+            echo "::notice::Configure DEEPSOURCE_PAT to enable issue reporting."
+            exit 0
+          fi
+          python3 .github/scripts/deepsource_pr_report.py

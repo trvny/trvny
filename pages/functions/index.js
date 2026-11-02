@@ -1,5 +1,5 @@
 import { getDigestPosts, latestFirst, publicationPath } from "./_shared/digests.js";
-import { getLatestShitpost } from "./_shared/shitpost.js";
+import { getShitposts } from "./_shared/shitpost.js";
 
 const TEXTS_HEAD = `
 <style>
@@ -18,6 +18,13 @@ const TEXTS_HEAD = `
   .textitem p{margin-top:9px;color:var(--w);font-size:21px;line-height:1.18}
   .texttags{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
   .texttags span{font-family:"Silkscreen";font-size:9px;text-shadow:none;border:1px solid var(--faint);color:var(--dim);padding:3px 5px;background:#070b12}
+  .textexpand{margin-top:14px}
+  .texttoggle{display:inline-block;cursor:pointer;list-style:none;color:var(--c);font-family:"Silkscreen";font-size:11px;text-shadow:none;letter-spacing:.03em}
+  .texttoggle::-webkit-details-marker{display:none}
+  .texttoggle:hover,.texttoggle:focus-visible{color:var(--w)}
+  .textexpandless,.textexpand[open] .textexpandmore{display:none}
+  .textexpand[open] .textexpandless{display:inline}
+  .textexpand .textgrid{margin-top:14px}
   .featurehome{margin-top:28px}
   .featuregrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .featuregrid .textitem,.featuregrid .textitem:nth-child(2n){border-color:var(--c)}
@@ -62,24 +69,30 @@ function renderShitpostTextCard(post, index) {
   </a>`;
 }
 
-function renderTexts(posts, shitpost) {
+function renderTexts(posts, shitposts) {
   const entries = [
-    ...(shitpost ? [{ type: "shitpost", value: shitpost }] : []),
-    ...[...posts].sort(latestFirst).map((post) => ({ type: "text", value: post })),
-  ].slice(0, 3);
+    ...posts.filter((post) => publicationPath(post)).map((post) => ({ type: "text", value: post, updated: post.updated })),
+    ...shitposts.map((post) => ({ type: "shitpost", value: post, updated: post.updated })),
+  ].sort(latestFirst).slice(0, 10);
   const featured = posts.filter((post) => post.featured === true);
   const pinned = featured.length ? `<section class="featurehome" aria-labelledby="featuredHeading"><div class="labhead"><h2 id="featuredHeading">P600 · FEATURED</h2></div><div class="featuregrid">${featured.map((post, index) => renderTextCard(post, index, 601)).join("")}</div></section>` : "";
-  const cards = entries.map((entry, index) =>
+  const cards = (items, offset = 0) => items.map((entry, index) =>
     entry.type === "shitpost"
-      ? renderShitpostTextCard(entry.value, index)
-      : renderTextCard(entry.value, index)
+      ? renderShitpostTextCard(entry.value, offset + index)
+      : renderTextCard(entry.value, offset + index)
   ).join("");
+  const hidden = entries.slice(3);
+  const expansion = hidden.length ? `<details class="textexpand">
+    <summary class="texttoggle"><span class="textexpandmore">▼ POKAŻ KOLEJNE ${hidden.length}</span><span class="textexpandless">▲ ZWIŃ</span></summary>
+    <div class="textgrid">${cards(hidden, 3)}</div>
+  </details>` : "";
   return `<section class="texthome" aria-labelledby="textsHeading">
     <div class="labhead">
       <h2 id="textsHeading">P500 · TEKSTY</h2>
       <a class="textfeed" href="/teksty/feed.xml" title="Kanał Atom">ATOM ↗</a>
     </div>
-    <div class="textgrid">${cards}</div>
+    <div class="textgrid">${cards(entries.slice(0, 3))}</div>
+    ${expansion}
     <a class="textsall" href="/teksty/">▶ WSZYSTKIE TEKSTY</a> · <a class="textsall" href="/przeglad/">CoCzyDziennik</a>
   </section>${pinned}`;
 }
@@ -97,11 +110,11 @@ async function getPosts(context) {
 }
 
 export async function onRequest(context) {
-  const [response, posts, digests, shitpost] = await Promise.all([
+  const [response, posts, digests, shitposts] = await Promise.all([
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
     getDigestPosts(context),
-    getLatestShitpost(),
+    getShitposts(fetch, 10),
   ]);
   const contentType = response.headers.get("content-type") || "";
 
@@ -120,10 +133,10 @@ export async function onRequest(context) {
     });
 
   const publications = [...posts, ...digests];
-  if (shitpost || publications.length > 0) {
+  if (shitposts.length > 0 || publications.length > 0) {
     rewriter = rewriter.on(".fastext", {
       element(element) {
-        element.before(renderTexts(publications, shitpost), { html: true });
+        element.before(renderTexts(publications, shitposts), { html: true });
       },
     });
   }

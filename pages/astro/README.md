@@ -25,7 +25,7 @@ No new Cloudflare Pages project, Worker, feed pipeline or duplicated source of t
 
 ## CoCzyDziennik publishing
 
-This is the maintained publishing contract. Each issue has **one source file** in Astro's `digests` content collection. Astro renders the issue permalink `/przeglad/YYYY-MM-DD/` and the historical `/przeglad/` archive. Pages Functions also pull the published issue metadata into the **same** `/teksty/` directory and `/teksty/feed.xml` Atom feed as existing articles from `site/teksty/posts.json` and live Shitpost Reactor entries. The home page displays only the latest three publication cards (one slot may be a shitpost), while separately keeping featured articles pinned.
+This is the maintained publishing contract. Each issue has **one source file** in Astro's `digests` content collection. Astro renders the issue permalink `/przeglad/YYYY-MM-DD/` and the historical `/przeglad/` archive. Pages Functions also pull the published issue metadata into the **same** `/teksty/` directory and `/teksty/feed.xml` Atom feed as existing articles from `site/teksty/posts.json` and live Shitpost Reactor entries. The home page initially displays three latest publication cards and offers a native expandable list up to ten recent entries, mixing articles, digests and shitposts by update time. Featured articles remain pinned separately.
 
 The primary reader and subscription surfaces are `/teksty/` and `/teksty/feed.xml`. `/przeglad/` is an archive, not a parallel feed. Never duplicate issues in `posts.json`, build a second digest syndication feed, or add a separate publishing pipeline.
 
@@ -48,6 +48,6 @@ Use real, stable HTTP(S) source links, not ChatGPT citation tokens, chat UI comp
 
 Required frontmatter: `title`, `description`, `date`. `draft` is optional, defaults to `false`, and should be set explicitly for editorial clarity. Set `draft: true` to exclude an issue from the archive, generated routes, unified directory and Atom feed. On a substantive revision, set or advance optional `updated: 2026-01-01T12:00:00Z` (real ISO timestamp) so Atom subscribers detect the change; otherwise the original `date` supplies the update timestamp. Update the file for an existing date rather than creating a duplicate.
 
-After a reviewed PR is merged to `main` and Cloudflare Pages deploys, verify the issue permalink and listing in `/teksty/`; verify the `/teksty/feed.xml` entry only when the issue falls within the feed's 100 newest items by update time. Verify its home-page card only if it is still among the most recent items. The Pages build copies `dist/przeglad/` additively; old article URLs and Atom IDs remain unchanged.
+After a reviewed PR is merged to `main` and Cloudflare Pages deploys, verify the issue permalink and listing in `/teksty/`; verify the `/teksty/feed.xml` entry only when the issue falls within the feed's 100 newest items by update time. Verify its home-page card only if it remains among the ten newest entries, expanding the list if needed. The Pages build copies `dist/przeglad/` additively; old article URLs and Atom IDs remain unchanged.
 
 Featured articles are selected with `featured: true` in `site/teksty/posts.json`. That JSON is the legacy-article catalog, **not** the complete list of publications. Do not maintain duplicate indexes of digest issues by hand.

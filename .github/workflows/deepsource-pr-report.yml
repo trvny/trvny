@@ -9,10 +9,6 @@ on: # yamllint disable-line rule:truthy
         required: true
         type: string
 
-concurrency:
-  group: deepsource-report-${{ github.event.sha || inputs.sha }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
   pull-requests: read
@@ -24,6 +20,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (startsWith(github.event.context, 'DeepSource: ') &&
        github.event.state != 'pending')
+    concurrency:
+      group: deepsource-report-${{ github.event.sha || inputs.sha }}
+      cancel-in-progress: true
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:

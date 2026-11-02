@@ -137,7 +137,36 @@ test('rejects fuzzy patch application when context does not match exactly', () =
 
   assert.throws(
     () => applyUnifiedFilePatch('ONE\ntwo\n', patch),
-    /patch_context_mismatch/,
+    /patch_context_mismatch:file=example.txt;line=1/,
+  );
+});
+
+test('rejects fabricated final blank context with an actionable location', () => {
+  const [patch] = parseUnifiedPatch([
+    '--- a/example.txt',
+    '+++ b/example.txt',
+    '@@ -1,2 +1,2 @@',
+    ' content',
+    ' ',
+    '',
+  ].join('\n'));
+  assert.throws(
+    () => applyUnifiedFilePatch('content\n', patch),
+    /patch_context_mismatch:file=example.txt;line=2/,
+  );
+});
+
+test('reports the malformed hunk line before applying a patch', () => {
+  assert.throws(
+    () => parseUnifiedPatch([
+      '--- a/example.txt',
+      '+++ b/example.txt',
+      '@@ -1,2 +1,2 @@',
+      ' content',
+      '@@ -2 +2 @@',
+      '',
+    ].join('\n')),
+    /invalid_patch_hunk_line:file=example.txt;patchLine=5/,
   );
 });
 

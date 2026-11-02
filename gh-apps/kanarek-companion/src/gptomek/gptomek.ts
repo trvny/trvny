@@ -677,7 +677,9 @@ function parseCommand(value: unknown, nested = false): GptomekCommand {
     if (nested) throw new Error('nested_batch_not_allowed');
     const repositoryName = repository(input.repository);
     if (!Array.isArray(input.steps) || input.steps.length < 1 || input.steps.length > MAX_BATCH_STEPS) {
-      throw new Error('invalid_batch_steps');
+      throw new Error(
+        `invalid_batch_steps:count=${Array.isArray(input.steps) ? input.steps.length : 'missing'};max=${MAX_BATCH_STEPS}`,
+      );
     }
     if (id.length > 90) throw new Error('batch_command_id_too_long');
     const steps = input.steps.map((step, index): NonBatchGptomekCommand => {

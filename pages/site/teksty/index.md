@@ -1,12 +1,16 @@
 # TRAVNY Teksty
 
-> Short experiments, comparisons and technical notes published from the TRAVNY lab.
+> Static guide to TRAVNY publications. The [live Teksty directory](https://travny.pages.dev/teksty/) and [unified Atom feed](https://travny.pages.dev/teksty/feed.xml) cover the current publication stream. Atom includes at most 100 entries.
 
 ## Shitpost of the Day
 
 - [Current Shitpost of the Day](https://shitpost-reactor.travny.workers.dev/): the newest Shitpost Reactor entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
 
-## Articles
+## CoCzyDziennik
+
+- [CoCzyDziennik archive](https://travny.pages.dev/przeglad/): dated Markdown news editions, also listed alongside the articles and shitposts in the same Teksty directory and Atom feed. Individual issue URLs remain under `/przeglad/YYYY-MM-DD/`.
+
+## Existing articles
 
 - [Alpaka, krab i Wielki Harmonizator (Polski)](https://travny.pages.dev/teksty/grass-mud-horse-pl/): a Polish adaptation of the Chinese internet mythology essay, with original storytelling and slang examples.
 - [The Alpaca, the Crab and the Censor (English)](https://travny.pages.dev/teksty/grass-mud-horse/): how Mandarin profanity, fictional internet animals and censorship collide.
@@ -15,5 +19,5 @@
 
 ## Feed
 
-- [Main Atom feed: articles + Shitpost Reactor entries](https://travny.pages.dev/teksty/feed.xml)
-- [Publication catalog](https://travny.pages.dev/teksty/posts.json)
+- [Unified Atom feed: articles, CoCzyDziennik and Shitpost Reactor](https://travny.pages.dev/teksty/feed.xml)
+- [Legacy article metadata only](https://travny.pages.dev/teksty/posts.json): does not include CoCzyDziennik issues or external shitposts.

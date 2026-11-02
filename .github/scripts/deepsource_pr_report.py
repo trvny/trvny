@@ -133,6 +133,11 @@ def main():
                     previous = comment
             if len(batch) < 100:
                 break
+        # Old runs must not overwrite a newer head's report.
+        current = get_json(f"{gh}/pulls/{number}", github_token)
+        if current["state"] != "open" or current["head"]["sha"] != sha:
+            print(f"PR #{number}: head moved; skip stale report")
+            continue
         if count == 0 and previous is None:
             print(f"PR #{number}: no findings")
             continue

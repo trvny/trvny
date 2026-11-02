@@ -48,7 +48,7 @@ concurrency is not used as a lossy queue.
 | Generic allowed GitHub metadata/status/deployment write | `operator_action` |
 | Run several same-repository operations in order | `batch` |
 
-Four rules prevent most foot-guns:
+Five rules prevent most foot-guns:
 
 1. Give each new command a fresh `id`. For a retryable outcome, replay the
    identical input with that `id`. If the outcome is `command_outcome_uncertain`,
@@ -60,7 +60,13 @@ Four rules prevent most foot-guns:
    command from stale PR metadata, a cached branch SHA or a guessed previous
    result.
 4. A `batch` uses a **`steps` array**, not `commands`. Each step must omit
-   `id` and `repository`; GPTomek derives both from the outer command.
+   `id` and `repository`; GPTomek derives both from the outer command. The
+   limit is **10 steps**; split longer batches.
+5. For `apply_patch`, `branch_from_patch` and `review_fix`, generate a real
+   `git diff` from the exact guarded commit and run `git apply --check` on
+   that same tree before posting. Never guess hunk counts or append a fake
+   blank context line at EOF. Without local validation, prefer `commit_files`
+   for complete text-file replacement.
 
 ## Preferred PR merge flow
 
@@ -122,10 +128,15 @@ personal Codespaces token, security controls and first-run steps are in
   with 👎 for seven days, then the daily Actions cleanup removes them without
   replay. Keep the same ID and input for safe retries, but investigate
   `command_outcome_uncertain` rather than replaying it.
-- `gptomek_create_blob:500` comes from GitHub's Git-object API, not the JSON
-  parser. Small text changes now use inline tree content to avoid this call.
+- `gptomek_create_blob:500` and `gptomek_create_tree:500` are GitHub Git-object
+  API failures, not JSON parse errors. Verify branch state before retrying.
+  Small text changes use inline tree content to avoid the blob call.
 - For a failed command, check the comment workflow, the Worker's
   `/gptomek/wake` response and logs, then the repository's live state.
+- `invalid_patch_hunk_line` means invalid hunk structure/counts; a
+  `patch_context_mismatch` means the context differs at the indicated file/line.
+  `review_fix_head_changed` requires refreshing the live head SHA; oversized
+  batches fail with `invalid_batch_steps`. Do not retry an unchanged bad patch.
 - Strict `apply_patch` and `review_fix` hunks must match the actual base,
   including EOF newline markers. Prefer `git diff` and `git apply --check`;
   `commit_files` is simpler for full text-file replacement.

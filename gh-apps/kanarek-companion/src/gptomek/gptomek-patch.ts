@@ -210,7 +210,9 @@ export function parseUnifiedPatch(patch: string): UnifiedFilePatch[] {
           hunk.lines.push({ kind: 'add', text: hunkLine.slice(1) });
           newSeen += 1;
         } else {
-          throw new Error('invalid_patch_hunk_line');
+          throw new Error(
+            `invalid_patch_hunk_line:file=${eofPath(current.oldPath ?? current.newPath ?? 'unknown')};patchLine=${index + 1}`,
+          );
         }
 
         index += 1;
@@ -288,7 +290,7 @@ function validateOldLineEnding(
   path: string,
 ): void {
   const line = source[sourceIndex];
-  if (!line) throw new Error('patch_context_mismatch');
+  if (!line) throw new Error(`patch_context_mismatch:file=${eofPath(path)};line=${sourceIndex + 1}`);
   const isFinalSourceLine = sourceIndex === source.length - 1;
   const sourceHasNoNewline = line.eol === '';
 
@@ -329,7 +331,9 @@ export function applyUnifiedFilePatch(
       ? hunk.oldStart
       : hunk.oldStart - 1;
     if (hunkStart < sourceIndex || hunkStart > source.length) {
-      throw new Error('patch_hunk_out_of_order');
+      throw new Error(
+        `patch_hunk_out_of_order:file=${eofPath(patch.oldPath ?? patch.newPath ?? 'unknown')};line=${hunk.oldStart}`,
+      );
     }
 
     output.push(...source.slice(sourceIndex, hunkStart));
@@ -347,7 +351,9 @@ export function applyUnifiedFilePatch(
       if (line.kind === 'context' || line.kind === 'remove') {
         const current = source[sourceIndex];
         if (!current || current.text !== line.text) {
-          throw new Error('patch_context_mismatch');
+          throw new Error(
+            `patch_context_mismatch:file=${eofPath(patch.oldPath ?? patch.newPath ?? 'unknown')};line=${sourceIndex + 1}`,
+          );
         }
         validateOldLineEnding(source, sourceIndex, line, patch.oldPath ?? patch.newPath ?? 'unknown');
         sourceIndex += 1;

@@ -433,12 +433,15 @@ export function reviewRouterTaskProfile(model: unknown): FreeTaskProfileId {
   return 'general';
 }
 
-function freeCompletionContract(model: unknown): boolean {
+function validatedCompletionContract(model: unknown): boolean {
   return model === REVIEW_ROUTER_FREE_MODEL ||
     model === REVIEW_ROUTER_QUIP_MODEL ||
     model === REVIEW_ROUTER_CODE_REVIEW_MODEL ||
     model === REVIEW_ROUTER_JUDGE_MODEL ||
-    model === REVIEW_ROUTER_SHITPOST_MODEL;
+    model === REVIEW_ROUTER_SHITPOST_MODEL ||
+    model === REVIEW_ROUTER_REVIEW_MODEL ||
+    model === REVIEW_ROUTER_PAID_MODEL ||
+    model === REVIEW_ROUTER_WORK_MODEL;
 }
 
 function configuredText(raw: string | undefined, fallback: string): string {
@@ -1162,7 +1165,7 @@ async function geminiInteractionChatCompletion(
   return new Response(JSON.stringify(completion), { status: 200, headers });
 }
 
-function usableFreeCompletionPayload(value: unknown): boolean {
+function usableCompletionPayload(value: unknown): boolean {
   if (!isObject(value) || !Array.isArray(value.choices)) return false;
   return value.choices.some((choice) => {
     if (!isObject(choice) || !isObject(choice.message)) return false;
@@ -1174,10 +1177,10 @@ function usableFreeCompletionPayload(value: unknown): boolean {
   });
 }
 
-async function usableFreeCompletionResponse(response: Response, input: JsonObject): Promise<boolean> {
-  if (!freeCompletionContract(input.model) || input.stream === true) return true;
+async function usableCompletionResponse(response: Response, input: JsonObject): Promise<boolean> {
+  if (!validatedCompletionContract(input.model) || input.stream === true) return true;
   try {
-    return usableFreeCompletionPayload(await response.clone().json());
+    return usableCompletionPayload(await response.clone().json());
   } catch {
     return false;
   }
@@ -2327,7 +2330,7 @@ export async function handleReviewRouterRequest(
               break;
             }
           }
-          if (!(await usableFreeCompletionResponse(response, input))) {
+          if (!(await usableCompletionResponse(response, input))) {
             await discard(response);
             providerFailureCategory = 'invalid_response';
             providerInvalidRequest = false;

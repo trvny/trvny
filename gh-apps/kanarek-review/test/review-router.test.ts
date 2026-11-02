@@ -573,6 +573,60 @@ test('paid work accepts an assistant tool call without visible text', async () =
   assert.equal(payload.choices[0]?.message.tool_calls?.length, 1);
 });
 
+test('paid work rejects malformed tool calls, even with visible text', async () => {
+  for (const content of [null, 'an accompanying summary']) {
+    const response = await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-work-paid',
+      stream: false,
+      messages: [{ role: 'user', content: 'call a tool' }],
+    }), {
+      ...auth,
+      DEEPSEEK_API_KEY: 'deepseek-key',
+    }, (() => Promise.resolve(Response.json({
+      model: 'deepseek-flash',
+      choices: [{
+        finish_reason: 'tool_calls',
+        message: { role: 'assistant', content, tool_calls: [{}] },
+      }],
+    }))) as typeof fetch);
+
+    assert.equal(response?.status, 502);
+  }
+});
+
+test('combined review also falls back after a blank DeepSeek HTTP 200', async () => {
+  const providers: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    stream: false,
+    messages: [{ role: 'user', content: 'review code' }],
+  }), {
+    ...auth,
+    DEEPSEEK_API_KEY: 'deepseek-key',
+    GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
+  }, ((input: RequestInfo | URL) => {
+    const host = new URL(String(input)).hostname;
+    providers.push(host);
+    if (host === 'api.deepseek.com') {
+      return Promise.resolve(Response.json({
+        model: 'deepseek-flash',
+        choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '' } }],
+      }));
+    }
+    return Promise.resolve(Response.json({
+      id: 'int_combined',
+      model: 'gemini-3.8-flash',
+      status: 'completed',
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: 'review done' }] }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
+  assert.deepEqual(providers, ['api.deepseek.com', 'generativelanguage.googleapis.com']);
+});
+
 test('DeepSeek balance exhaustion falls through to native Gemini Flex', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {

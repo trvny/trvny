@@ -8,6 +8,7 @@ const digests = defineCollection({
     title: z.string().trim().min(1),
     description: z.string().trim().min(1),
     date: z.coerce.date(),
+    updated: z.coerce.date().optional(),
     draft: z.boolean().default(false),
   }),
 });

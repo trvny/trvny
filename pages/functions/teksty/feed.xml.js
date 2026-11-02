@@ -1,8 +1,9 @@
+import { getDigestPosts, publicationPath } from "../_shared/digests.js";
 import { getShitposts } from "../_shared/shitpost.js";
 
 function escapeXml(value) {
   return String(value ?? "")
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, "") // skipcq: JS-0004 — XML-invalid characters
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -20,8 +21,8 @@ async function getPosts(context) {
 }
 
 function renderEntry(post) {
-  const href = `https://travny.pages.dev/teksty/${encodeURIComponent(post.slug)}/`;
-  const id = `https://trfny.com/teksty/${encodeURIComponent(post.slug)}/`;
+  const href = `https://travny.pages.dev${publicationPath(post)}`;
+  const id = post.digest === true ? href : `https://trfny.com/teksty/${encodeURIComponent(post.slug)}/`;
   const categories = (post.tags || [])
     .map((tag) => `    <category term="${escapeXml(tag)}"/>`)
     .join("\n");
@@ -64,9 +65,9 @@ function latestUpdated(entries) {
 
 async function feedResponse(context, headOnly = false) {
   try {
-    const [posts, shitposts] = await Promise.all([getPosts(context), getShitposts()]);
+    const [posts, digests, shitposts] = await Promise.all([getPosts(context), getDigestPosts(context), getShitposts()]);
     const entries = [
-      ...posts.map((post) => ({ updated: post.updated, xml: renderEntry(post) })),
+      ...[...posts, ...digests].filter((post) => publicationPath(post)).map((post) => ({ updated: post.updated, xml: renderEntry(post) })),
       ...shitposts.map((post) => ({ updated: post.updated, xml: renderShitpostEntry(post) })),
     ].sort((a, b) => Date.parse(b.updated) - Date.parse(a.updated)).slice(0, 100);
     const xml = `<?xml version="1.0" encoding="utf-8"?>

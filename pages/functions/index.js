@@ -1,3 +1,4 @@
+import { getDigestPosts, latestFirst, publicationPath } from "./_shared/digests.js";
 import { getLatestShitpost } from "./_shared/shitpost.js";
 
 const TEXTS_HEAD = `
@@ -38,10 +39,10 @@ function escapeHtml(value) {
 }
 
 function renderTextCard(post, index, firstPage = 501) {
-  const slug = /^[a-z0-9-]+$/.test(String(post.slug || "")) ? String(post.slug) : "";
-  if (!slug) return "";
+  const path = publicationPath(post);
+  if (!path) return "";
   const tags = (post.tags || []).slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
-  return `<a class="textitem" href="/teksty/${slug}/">
+  return `<a class="textitem" href="${path}">
     <div class="textmeta"><b>P${firstPage + index}</b>${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
     <h3>${escapeHtml(post.title)}</h3>
     <p>${escapeHtml(post.summary)}</p>
@@ -64,7 +65,7 @@ function renderShitpostTextCard(post, index) {
 function renderTexts(posts, shitpost) {
   const entries = [
     ...(shitpost ? [{ type: "shitpost", value: shitpost }] : []),
-    ...posts.map((post) => ({ type: "text", value: post })),
+    ...[...posts].sort(latestFirst).map((post) => ({ type: "text", value: post })),
   ].slice(0, 3);
   const featured = posts.filter((post) => post.featured === true);
   const pinned = featured.length ? `<section class="featurehome" aria-labelledby="featuredHeading"><div class="labhead"><h2 id="featuredHeading">P600 · FEATURED</h2></div><div class="featuregrid">${featured.map((post, index) => renderTextCard(post, index, 601)).join("")}</div></section>` : "";
@@ -96,9 +97,10 @@ async function getPosts(context) {
 }
 
 export async function onRequest(context) {
-  const [response, posts, shitpost] = await Promise.all([
+  const [response, posts, digests, shitpost] = await Promise.all([
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
+    getDigestPosts(context),
     getLatestShitpost(),
   ]);
   const contentType = response.headers.get("content-type") || "";
@@ -117,10 +119,11 @@ export async function onRequest(context) {
       },
     });
 
-  if (shitpost || posts.length > 0) {
+  const publications = [...posts, ...digests];
+  if (shitpost || publications.length > 0) {
     rewriter = rewriter.on(".fastext", {
       element(element) {
-        element.before(renderTexts(posts, shitpost), { html: true });
+        element.before(renderTexts(publications, shitpost), { html: true });
       },
     });
   }

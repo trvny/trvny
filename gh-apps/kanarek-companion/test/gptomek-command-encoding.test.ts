@@ -54,6 +54,26 @@ function paddedStandardMarker(): string {
   return `<!-- gptomek-command:${standard}${padding} -->`;
 }
 
+test('batch errors distinguish missing, wrong-type and oversized steps', async () => {
+  const base = { id: 'shape-test', op: 'batch', repository: 'trvny/trvny' };
+  for (const [steps, expected] of [
+    [undefined, 'missing'],
+    [null, 'not_array'],
+    [{}, 'not_array'],
+    [Array.from({ length: 11 }, () => ({})), '11'],
+  ] as const) {
+    const command = steps === undefined ? base : { ...base, steps };
+    await assert.rejects(
+      handleGptomekControl(
+        target,
+        { ...controlPr, body: commandMarker(command) },
+        {} as CompanionEnv,
+      ),
+      new RegExp(`invalid_batch_steps:count=${expected};max=10`),
+    );
+  }
+});
+
 test('recognizes padded standard Base64 command markers', async () => {
   await assert.rejects(
     handleGptomekControl(

@@ -124,6 +124,22 @@ test('places zero-length insertion hunks after their old-side anchor', () => {
   );
 });
 
+test('reports out-of-order insertion locations using one-based lines', () => {
+  const [patch] = parseUnifiedPatch([
+    '--- a/example.txt',
+    '+++ b/example.txt',
+    '@@ -1 +1 @@',
+    ' first',
+    '@@ -0,0 +2 @@',
+    '+before',
+    '',
+  ].join('\n'));
+  assert.throws(
+    () => applyUnifiedFilePatch('first\nsecond\n', patch),
+    /patch_hunk_out_of_order:file=example.txt;line=1/,
+  );
+});
+
 test('rejects fuzzy patch application when context does not match exactly', () => {
   const [patch] = parseUnifiedPatch([
     '--- a/example.txt',

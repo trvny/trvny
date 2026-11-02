@@ -34,7 +34,7 @@
 <style>
   :root{
     --k:#04060a; --scr:#070a10;
-    --w:#e6e8ea; --dim:#6f7886; --faint:#3a4150;
+    --w:#e6e8ea; --dim:#a2adbb; --faint:#465264;
     --y:#f5e94e; --c:#46e0e0; --g:#54e06a; --m:#e85ad0; --r:#ff5147; --b:#6f8cff;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -43,7 +43,6 @@
     background:#000; color:var(--w);
     font-family:"VT323",monospace; line-height:1.18;
     min-height:100vh; padding:18px; display:flex; justify-content:center;
-    -webkit-font-smoothing:none;
   }
   .crt{
     position:relative; width:100%; max-width:860px; background:var(--scr);
@@ -57,18 +56,18 @@
   }
   .crt::before{
     content:""; position:absolute; inset:0; pointer-events:none; z-index:5;
-    background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.22) 2px 4px);
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.1) 2px 4px);
     mix-blend-mode:multiply;
   }
   .crt::after{
     content:""; position:absolute; inset:0; pointer-events:none; z-index:6;
-    background:radial-gradient(120% 120% at 50% 50%, transparent 58%, rgba(0,0,0,.55) 100%);
+    background:radial-gradient(120% 120% at 50% 50%, transparent 58%, rgba(0,0,0,.32) 100%);
     animation:flick 5s infinite steps(60);
   }
   @keyframes flick{0%,97%{opacity:1}98%{opacity:.94}99%{opacity:.99}}
   .scr-in{position:relative; z-index:4}
-  *{text-shadow:0 0 3px}
-  h1,h2,.big{text-shadow:0 0 10px}
+  h1,h2,.big{text-shadow:0 0 12px rgba(245,233,78,.25)}
+  a:focus-visible,button:focus-visible,.row:focus-visible{outline:3px solid var(--y);outline-offset:3px}
   .testbars{display:flex; height:14px; margin-bottom:14px; border:1px solid #0d1117}
   .testbars i{flex:1}
   .testbars i:nth-child(1){background:var(--w)}.testbars i:nth-child(2){background:var(--y)}
@@ -102,7 +101,7 @@
   .rows{border-top:1px solid var(--faint)}
   .row{display:flex; align-items:flex-end; gap:8px; padding:7px 4px 5px; cursor:pointer;
     border-bottom:1px solid #0e131c; font-size:24px; transition:background .1s}
-  .row:hover,.row:focus-visible{background:rgba(70,224,224,.07); outline:none}
+  .row:hover,.row:focus-visible{background:rgba(70,224,224,.07)}
   .row .no{color:var(--c); font-weight:700; width:2.6ch; flex:none}
   .row .nm{color:var(--w); white-space:nowrap}
   .row .lead{flex:1; border-bottom:2px dotted var(--faint); margin:0 .4ch 7px; min-width:14px}
@@ -110,7 +109,7 @@
   .row .st.chk{color:var(--dim)}
   .row .st.on{color:var(--g)} .row .st.on::after{content:" \25CF"; animation:blink 1.1s steps(1) infinite}
   .row .st.off{color:var(--r)}
-  .row .cp{flex:none; color:var(--faint); font-size:18px; width:9ch; text-align:right; letter-spacing:.04em}
+  .row .cp{flex:none; color:var(--dim); font-size:18px; width:9ch; text-align:right; letter-spacing:.04em}
   .row:hover .cp{color:var(--y)}
   .row.copied .cp{color:var(--k); background:var(--y); text-shadow:none}
   .feedbox{border:2px solid var(--c); padding:12px 14px; display:flex; align-items:center; gap:12px;
@@ -147,8 +146,9 @@
   footer a:hover{text-decoration:underline}
   @media (max-width:560px){
     body{padding:8px}
-    .row{font-size:21px} .row .nm{white-space:normal}
-    .row .cp{display:none}
+    .row{font-size:21px} .row .nm{white-space:normal;min-width:0;flex:1}
+    .row .lead{display:none}
+    .row .cp{width:auto;font-size:16px}
     .row .st{width:auto}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important}}

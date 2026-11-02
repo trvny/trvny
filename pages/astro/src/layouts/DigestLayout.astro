@@ -30,7 +30,7 @@ const breadcrumbs = breadcrumbJson(crumbs);
 </head>
 <body>
   <main class="shell">
-    <nav class="crumb" aria-label="Breadcrumb"><a href="/">TRAVNY</a> / {article ? <><a href="/przeglad/">CoCzyDziennik</a> / <span aria-current="page">{title}</span></> : <span aria-current="page">CoCzyDziennik</span>}</nav>
+    <nav class="crumb" aria-label="Breadcrumb">{crumbs.map((crumb, index) => <>{index > 0 && ' / '}{index === crumbs.length - 1 ? <span aria-current="page">{crumb.name}</span> : <a href={new URL(crumb.item).pathname}>{crumb.name}</a>}</>)}</nav>
     <slot />
   </main>
 </body>

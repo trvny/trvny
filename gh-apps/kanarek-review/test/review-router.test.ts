@@ -409,12 +409,12 @@ test('review router uses direct DeepSeek Flash before Gemini Flex as the first p
   assert.equal(calls[0]?.url, 'https://api.deepseek.com/chat/completions');
   assert.equal(calls[0]?.model, 'deepseek-flash');
   assert.deepEqual(calls[0]?.thinking, { type: 'enabled' });
-  assert.equal(calls[0]?.reasoningEffort, 'max');
+  assert.equal(calls[0]?.reasoningEffort, 'high');
   assert.deepEqual(calls[0]?.responseFormat, { type: 'json_object' });
   assert.equal(calls[0]?.authorization, 'Bearer deepseek-key');
 });
 
-test('paid work contract uses DeepSeek max reasoning without JSON mode', async () => {
+test('paid work contract uses DeepSeek high reasoning without JSON mode', async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-work-paid',
@@ -436,7 +436,7 @@ test('paid work contract uses DeepSeek max reasoning without JSON mode', async (
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'deepseek');
   assert.equal(bodies.length, 1);
   assert.equal(bodies[0]?.model, 'deepseek-flash');
-  assert.equal(bodies[0]?.reasoning_effort, 'max');
+  assert.equal(bodies[0]?.reasoning_effort, 'high');
   assert.equal(bodies[0]?.max_tokens, 131_072);
   assert.equal('response_format' in (bodies[0] ?? {}), false);
   assert.ok(Array.isArray(bodies[0]?.tools));
@@ -468,7 +468,7 @@ test('paid review contract skips the free pool and gives DeepSeek the heavy reas
   assert.deepEqual(calls, [{
     url: 'https://api.deepseek.com/chat/completions',
     maxTokens: 131_072,
-    reasoningEffort: 'max',
+    reasoningEffort: 'high',
   }]);
 });
 

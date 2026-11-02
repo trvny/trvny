@@ -219,7 +219,7 @@ reasoning lanes). Models without an effort list never get the field; unknown
 models pass through unchanged.
 Gemini Flex pins high reasoning with the same floor and strips deprecated
 sampling, thinking-budget, and candidate-count fields inherited from shared
-OpenAI-compatible callers. DeepSeek keeps its separate max-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
+OpenAI-compatible callers. DeepSeek keeps its separate high-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
 headroom, but production keeps it disabled while the account neuron budget belongs to SpaceMolt.
 
 Vercel AI Gateway uses a model chain rather than one fixed model. Hy3
@@ -237,7 +237,7 @@ rotates out until it recovers. Spend limits and routing policy
 must remain enforced in OrcaRouter itself.
 
 DeepSeek uses the official OpenAI-compatible endpoint with `deepseek-flash`.
-Both paid contracts enable max-effort thinking with a 128K generation ceiling.
+Both paid contracts enable high-effort thinking with a 128K generation ceiling.
 The review contract additionally forces JSON output and uses the expanded
 review context profile; the work contract deliberately does not force JSON so
 native tool calls remain available and allows a longer model-turn timeout.

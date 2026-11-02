@@ -73,6 +73,15 @@ list. The companion uses it to sweep the free pool one provider at a time when a
 provider answers with unusable review output, and escalates to
 `kanarek-review-paid` only after that sweep is exhausted.
 
+Free PR reviews request up to 65,536 output tokens by default. This is an
+upstream generation budget, not a post-generation length filter; known model
+output/context ceilings still take precedence, and Groq's separate free TPM
+allowance requires a smaller, sometimes partial review. Paid review headroom
+stays independent. Invalid free completions log `finishReason` and token usage
+metadata (never response text), making token exhaustion distinguishable from
+wrong-language or malformed JSON. Clean reviews (`no_findings`) are recorded
+without posting a GitHub comment; absence of a comment is not a provider failure.
+
 `workers_dev` and preview URLs are disabled. The shared Worker adds an internal
 trust header/bearer before invoking the service binding; callers do not receive
 provider credentials.

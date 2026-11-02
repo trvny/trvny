@@ -464,10 +464,17 @@ async function askReviewRouter(
   }
   const parsed = parseReviewJson(completionText(payload));
   if (!parsed || !reviewTextIsChinese(parsed)) {
+    const choice = Array.isArray(payload.choices) ? objectValue(payload.choices[0]) : {};
+    const usage = objectValue(payload.usage);
+    const details = objectValue(usage.completion_tokens_details);
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'provider_invalid_output',
         provider,
+        reason: !parsed ? 'invalid_json_contract' : 'wrong_language',
+        finishReason: typeof choice.finish_reason === 'string' ? choice.finish_reason : null,
+        completionTokens: typeof usage.completion_tokens === 'number' ? usage.completion_tokens : null,
+        reasoningTokens: typeof details.reasoning_tokens === 'number' ? details.reasoning_tokens : null,
       }),
     );
     return { kind: 'invalid', provider };

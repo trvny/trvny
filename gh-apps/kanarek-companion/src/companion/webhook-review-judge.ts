@@ -13,7 +13,7 @@ import {
 } from './webhook-review-context.ts';
 
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
-const DEFAULT_MAX_OUTPUT_TOKENS = 36_864;
+const DEFAULT_MAX_OUTPUT_TOKENS = 65_536;
 const DEFAULT_JUDGE_THRESHOLD = 0.9;
 export const MAX_FINDINGS = 8;
 export const INTERNAL_REVIEW_ORIGIN = 'https://kanarek-review.internal';

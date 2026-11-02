@@ -954,15 +954,15 @@ test('free and paid review output budgets stay independent', () => {
   assert.equal(reviewOutputTokens(env, 'kanarek-review-free'), 36_864);
   assert.equal(reviewOutputTokens(env, 'kanarek-review-paid'), 16_384);
   assert.equal(reviewOutputTokens({}, 'kanarek-review-paid'), 36_864);
-  assert.equal(reviewOutputTokens({}, 'kanarek-review-free'), 36_864);
+  assert.equal(reviewOutputTokens({}, 'kanarek-review-free'), 65_536);
 });
 
-test('PR review output headroom defaults to 36k and allows provider-sized ceilings', () => {
-  assert.equal(reviewMaxOutputTokens(undefined), 36_864);
+test('PR review output headroom defaults to 65k and allows provider-sized ceilings', () => {
+  assert.equal(reviewMaxOutputTokens(undefined), 65_536);
   assert.equal(reviewMaxOutputTokens('32768'), 32_768);
   assert.equal(reviewMaxOutputTokens('65536'), 65_536);
-  assert.equal(reviewMaxOutputTokens('65537'), 36_864);
-  assert.equal(reviewMaxOutputTokens('wat'), 36_864);
+  assert.equal(reviewMaxOutputTokens('65537'), 65_536);
+  assert.equal(reviewMaxOutputTokens('wat'), 65_536);
 });
 
 function fakeNamespace(fetcher: (request: Request) => Promise<Response>): DurableObjectNamespace {

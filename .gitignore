@@ -81,3 +81,8 @@ mega-linter.log
 # Local tooling / agent state
 CLAUDE.local.md
 worker-configuration.d.ts
+
+# Generated output specific to Pages
+/pages/site/teksty/token-worldcup/
+/pages/site/papagenerator/
+/pages/astro/.astro/

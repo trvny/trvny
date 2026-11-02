@@ -77,7 +77,7 @@ Non-streaming free, combined, paid-review and paid-work calls reject HTTP 200 re
 that contain no assistant text, refusal, or tool call. This prevents a paid
 DeepSeek JSON-mode whitespace response from being treated as successful and
 allows the next eligible provider to run. Valid tool calls with null content
-remain accepted; streamed calls preserve their existing pass-through behavior.
+remain accepted only with valid function-call shapes; streamed calls preserve their existing pass-through behavior.
 
 Free PR reviews request up to 65,536 output tokens by default. This is an
 upstream generation budget, not a post-generation length filter; known model

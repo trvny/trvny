@@ -1165,15 +1165,30 @@ async function geminiInteractionChatCompletion(
   return new Response(JSON.stringify(completion), { status: 200, headers });
 }
 
+function validChatToolCall(value: unknown): boolean {
+  if (!isObject(value) || value.type !== 'function' || typeof value.id !== 'string' ||
+      !value.id || !isObject(value.function)) return false;
+  const fn = value.function;
+  return typeof fn.name === 'string' && Boolean(fn.name) && typeof fn.arguments === 'string';
+}
+
 function usableCompletionPayload(value: unknown): boolean {
   if (!isObject(value) || !Array.isArray(value.choices)) return false;
   return value.choices.some((choice) => {
     if (!isObject(choice) || !isObject(choice.message)) return false;
     const message = choice.message;
+    if (message.tool_calls !== undefined && message.tool_calls !== null) {
+      if (!Array.isArray(message.tool_calls) || !message.tool_calls.every(validChatToolCall)) return false;
+      if (message.tool_calls.length) return true;
+    }
+    if (message.function_call !== undefined && message.function_call !== null) {
+      const fn = message.function_call;
+      if (!isObject(fn) || typeof fn.name !== 'string' || !fn.name ||
+          typeof fn.arguments !== 'string') return false;
+      return true;
+    }
     if (typeof message.content === 'string' && message.content.trim()) return true;
-    if (typeof message.refusal === 'string' && message.refusal.trim()) return true;
-    if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) return true;
-    return isObject(message.function_call);
+    return typeof message.refusal === 'string' && Boolean(message.refusal.trim());
   });
 }
 

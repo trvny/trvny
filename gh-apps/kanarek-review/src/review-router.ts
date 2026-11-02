@@ -1854,11 +1854,19 @@ function providerAttempts(
       fallbackModels.length ? 'primary_only' : 'default',
     );
     if (!fallbackModels.length) return [primaryAttempt];
+    const chainModels = [provider.model, ...fallbackModels.slice(0, OPENROUTER_CHAIN_FALLBACKS)];
+    const chainLimit = (field: 'contextTokens' | 'maxOutputTokens'): number =>
+      Math.min(...chainModels.map((model) => OPENROUTER_MODEL_PROFILES.get(model)?.[field] ?? Number.POSITIVE_INFINITY));
+    const chainContextLimit = chainLimit('contextTokens');
+    const chainOutputLimit = chainLimit('maxOutputTokens');
     return [
       {
         model: provider.model,
-        fallbackModels: fallbackModels.slice(0, OPENROUTER_CHAIN_FALLBACKS),
+        fallbackModels: chainModels.slice(1),
         label: 'fallback_chain',
+        // Any fallback can serve this request: respect its lowest known ceiling.
+        ...(Number.isFinite(chainContextLimit) ? { maximumContextTokens: chainContextLimit } : {}),
+        ...(Number.isFinite(chainOutputLimit) ? { maximumMaxTokens: chainOutputLimit } : {}),
       },
       primaryAttempt,
       ...fallbackModels.map((model) => individualAttempt(model, 'model_fallback')),

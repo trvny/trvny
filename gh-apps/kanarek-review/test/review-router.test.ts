@@ -298,7 +298,7 @@ test('OpenRouter primary retry preserves high reasoning after fallback-chain 400
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
     stream: false,
-    max_tokens: 36_864,
+    max_tokens: 65_536,
     messages: [{ role: 'user', content: 'review carefully' }],
   }), {
     ...auth,
@@ -319,10 +319,11 @@ test('OpenRouter primary retry preserves high reasoning after fallback-chain 400
 
   assert.equal(response?.status, 200);
   assert.equal(bodies.length, 2);
-  assert.equal(bodies[0]?.max_tokens, 36_864);
+  // Shared fallback fits Cohere's 64K ceiling; direct primary keeps 65K.
+  assert.equal(bodies[0]?.max_tokens, 64_000);
   assert.equal(bodies[0]?.reasoning, undefined);
   assert.deepEqual(bodies[1]?.reasoning, { effort: 'high' });
-  assert.equal(bodies[1]?.max_tokens, 36_864);
+  assert.equal(bodies[1]?.max_tokens, 65_536);
   assert.equal(bodies[1]?.models, undefined);
 });
 

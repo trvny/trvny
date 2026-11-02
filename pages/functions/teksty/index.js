@@ -1,3 +1,4 @@
+import { getDigestPosts, latestFirst, publicationPath } from "../_shared/digests.js";
 import { getLatestShitpost } from "../_shared/shitpost.js";
 
 function escapeHtml(value) {
@@ -10,11 +11,11 @@ function escapeHtml(value) {
 }
 
 function renderCard(post) {
-  const slug = /^[a-z0-9-]+$/.test(String(post.slug || "")) ? String(post.slug) : "";
-  if (!slug) return "";
+  const path = publicationPath(post);
+  if (!path) return "";
   const featured = post.featured === true ? '<span class="tag">FEATURED</span>' : "";
   const tags = (post.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
-  return `<a class="card" href="/teksty/${slug}/">
+  return `<a class="card" href="${path}">
 <span class="go">OTWÓRZ ›</span>
 <div class="meta">${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
 <h2>${escapeHtml(post.title)}</h2>
@@ -45,9 +46,10 @@ async function getPosts(context) {
 }
 
 export async function onRequest(context) {
-  const [response, posts, shitpost] = await Promise.all([
+  const [response, posts, digests, shitpost] = await Promise.all([
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
+    getDigestPosts(context),
     getLatestShitpost(),
   ]);
   const contentType = response.headers.get("content-type") || "";
@@ -55,14 +57,15 @@ export async function onRequest(context) {
 
   let rewriter = new globalThis.HTMLRewriter();
 
-  if (shitpost || posts.length > 0) {
+  const publications = [...posts, ...digests];
+  if (shitpost || publications.length > 0) {
     rewriter = rewriter.on("#text-list", {
       element(element) {
         if (shitpost) {
           element.before(renderShitpostCard(shitpost), { html: true });
         }
-        if (posts.length > 0) {
-          element.setInnerContent([...posts].sort((a, b) => Number(b.featured === true) - Number(a.featured === true)).map(renderCard).join("\n"), { html: true });
+        if (publications.length > 0) {
+          element.setInnerContent(publications.sort((a, b) => Number(b.featured === true) - Number(a.featured === true) || latestFirst(a, b)).map(renderCard).join("\n"), { html: true });
         }
       },
     });

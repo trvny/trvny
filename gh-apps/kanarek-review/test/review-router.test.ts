@@ -400,7 +400,7 @@ test('review router uses direct DeepSeek Flash before Gemini Flex as the first p
       responseFormat: body.response_format,
       authorization: new Headers(init?.headers).get('authorization'),
     });
-    return Promise.resolve(new Response('{"choices":[],"model":"deepseek-flash"}', { status: 200 }));
+    return Promise.resolve(new Response('{"choices":[{"message":{"role":"assistant","content":"review complete"}}],"model":"deepseek-flash"}', { status: 200 }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -460,7 +460,7 @@ test('paid review contract skips the free pool and gives DeepSeek the heavy reas
       maxTokens: body.max_tokens,
       reasoningEffort: body.reasoning_effort,
     });
-    return Promise.resolve(new Response('{"choices":[],"model":"deepseek-flash"}', { status: 200 }));
+    return Promise.resolve(new Response('{"choices":[{"message":{"role":"assistant","content":"review complete"}}],"model":"deepseek-flash"}', { status: 200 }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -524,7 +524,7 @@ test('paid DeepSeek blank JSON response falls through to Gemini Flex', async () 
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
     urls.push(url);
-    if (url.includes('deepseek.com')) {
+    if (new URL(url).hostname === 'api.deepseek.com') {
       return Promise.resolve(Response.json({
         model: 'deepseek-flash',
         choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '   ' } }],

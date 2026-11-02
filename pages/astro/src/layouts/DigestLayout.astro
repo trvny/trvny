@@ -1,6 +1,13 @@
 ---
+import { breadcrumbJson } from '../lib/breadcrumbs.mjs';
 const { title, description, article = false } = Astro.props;
 const canonical = new URL(Astro.url.pathname, 'https://travny.pages.dev');
+const crumbs = [
+  { name: 'TRAVNY', item: 'https://travny.pages.dev/' },
+  { name: 'CoCzyDziennik', item: 'https://travny.pages.dev/przeglad/' },
+  ...(article ? [{ name: title, item: canonical.toString() }] : []),
+];
+const breadcrumbs = breadcrumbJson(crumbs);
 ---
 <!doctype html>
 <html lang="pl">
@@ -19,10 +26,11 @@ const canonical = new URL(Astro.url.pathname, 'https://travny.pages.dev');
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet" />
   <title>{title} · TRAVNY</title>
+  <script type="application/ld+json" set:html={breadcrumbs} />
 </head>
 <body>
   <main class="shell">
-    <nav class="crumb" aria-label="Breadcrumb"><a href="/">TRAVNY</a> / <a href="/przeglad/">CoCzyDziennik</a></nav>
+    <nav class="crumb" aria-label="Breadcrumb"><a href="/">TRAVNY</a> / {article ? <><a href="/przeglad/">CoCzyDziennik</a> / <span aria-current="page">{title}</span></> : <span aria-current="page">CoCzyDziennik</span>}</nav>
     <slot />
   </main>
 </body>

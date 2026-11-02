@@ -61,12 +61,13 @@ Papagenerator adds meme stickers to local images and exports PNG in the browser.
 - GitHubowa Kraina: https://travny.pages.dev/teksty/githubowa-kraina/
 - The Alpaca, the Crab and the Censor (English): https://travny.pages.dev/teksty/grass-mud-horse/
 - Alpaka, krab i Wielki Harmonizator (Polish): https://travny.pages.dev/teksty/grass-mud-horse-pl/
-- Main Atom feed (articles and Shitpost Reactor entries): https://travny.pages.dev/teksty/feed.xml
+- Main Atom feed (articles, CoCzyDziennik and Shitpost Reactor entries): https://travny.pages.dev/teksty/feed.xml
+- CoCzyDziennik issue archive (not a separate feed): https://travny.pages.dev/przeglad/
 - GitHubowa Kraina Markdown: https://travny.pages.dev/teksty/githubowa-kraina/index.md
 - Maintained Quarto source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.qmd
 - Verified generated HTML source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.html
 
-TRAVNY publishes the generated Token Cup artifact at build time from `pages/token-worldcup/` rather than maintaining a second copy; the model x effort cost matrix is at https://travny.pages.dev/teksty/token-worldcup/effort-matrix.html. The article compares token counts for equivalent natural text in 27 languages using `o200k_base`; English is the normalized index baseline (`EN = 100`) while the measured English sample is 95 tokens. GitHubowa Kraina is maintained directly in `trvny/trvny` (`pages/site/teksty/githubowa-kraina/`) as an interactive atlas of the 12 public repositories split evenly between `trvny` and `travnie`. The Chinese internet slang essay has English and Polish editions at `pages/site/teksty/grass-mud-horse/index.html` and `pages/site/teksty/grass-mud-horse-pl/index.html`. Both share `site/assets/grass-mud-horse.css`, use reciprocal hreflang links, and have distinct canonical URLs. The main Atom feed reads the local publication catalog and dynamically aggregates entries from Shitpost Reactor's JSON Feed; it does not store a second copy of shitposts.
+TRAVNY publishes the generated Token Cup artifact at build time from `pages/token-worldcup/` rather than maintaining a second copy; the model x effort cost matrix is at https://travny.pages.dev/teksty/token-worldcup/effort-matrix.html. The article compares token counts for equivalent natural text in 27 languages using `o200k_base`; English is the normalized index baseline (`EN = 100`) while the measured English sample is 95 tokens. GitHubowa Kraina is maintained directly in `trvny/trvny` (`pages/site/teksty/githubowa-kraina/`) as an interactive atlas of the 12 public repositories split evenly between `trvny` and `travnie`. The Chinese internet slang essay has English and Polish editions at `pages/site/teksty/grass-mud-horse/index.html` and `pages/site/teksty/grass-mud-horse-pl/index.html`. Both share `site/assets/grass-mud-horse.css`, use reciprocal hreflang links, and have distinct canonical URLs. The main Atom feed aggregates existing articles from `pages/site/teksty/posts.json`, published CoCzyDziennik issues from Astro `pages/astro/src/content/digests/*.md` and live entries from Shitpost Reactor's JSON Feed. It stores no second copy of digests or shitposts. `posts.json` is the legacy article catalog, not the complete unified index; the Markdown index is a static guide.
 
 ## Related services
 
@@ -131,7 +132,7 @@ Doc Bench edits text and structured documents and performs PDF maintenance local
 - TVPI Markdown: https://travny.pages.dev/tv/index.md
 - Teksty Markdown: https://travny.pages.dev/teksty/index.md
 - GitHubowa Kraina Markdown: https://travny.pages.dev/teksty/githubowa-kraina/index.md
-- Teksty Atom (including shitposts): https://travny.pages.dev/teksty/feed.xml
+- Teksty Atom (articles, CoCzyDziennik and shitposts): https://travny.pages.dev/teksty/feed.xml
 
 The sitemap contains public human-facing hub routes. Service-specific machine-readable resources live on their owning service and are linked here rather than duplicated.
 

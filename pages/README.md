@@ -16,4 +16,4 @@ Functions in `functions/`, build step `build.sh`.
 
 - Badges: `functions/badge/[[path]].js` serves `/badge/<brand>.svg` and `/badge/model/<model-id>.svg` (`?label=` overrides text), same style as the static set in `travnie/.github/assets/badges`. Model id → icon follows lobe-icons ModelIcon rules in generated `functions/_shared/model-icons.js` (refresh: `scripts/sync_model_icons.py`); icons load from a pinned `@lobehub/icons-static-svg` on jsDelivr.
 
-- Astro foothold: `astro/` builds `/lab/` and the `/przeglad/` archive into `site/` while preserving existing Pages Functions, Quarto reports and Atom feed. See [Astro plan](astro/README.md).
+- Astro: `astro/` builds `/lab/` and CoCzyDziennik issue pages under `/przeglad/` without replacing the existing site. Published issues automatically join `/teksty/` and its **one shared Atom feed** (`/teksty/feed.xml`) alongside legacy articles and Shitpost Reactor entries. The `/przeglad/` route remains an archive/permalink space, not a second feed or publication catalog. See [canonical Astro publishing instructions](astro/README.md).

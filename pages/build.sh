@@ -23,4 +23,5 @@ done
 npm --prefix astro ci --no-audit --no-fund
 npm --prefix astro run build
 cp -R astro/dist/lab site/
+cp -R astro/dist/przeglad site/
 if [ -d astro/dist/_astro ]; then cp -R astro/dist/_astro site/; fi

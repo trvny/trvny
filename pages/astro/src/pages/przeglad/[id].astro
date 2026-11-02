@@ -1,0 +1,21 @@
+---
+import { getCollection, render } from 'astro:content';
+import DigestLayout from '../../layouts/DigestLayout.astro';
+export async function getStaticPaths() {
+  const issues = await getCollection('digests', ({ data }) => !data.draft);
+  return issues.map((issue) => ({ params: { id: issue.id }, props: { issue } }));
+}
+const { issue } = Astro.props;
+const { Content } = await render(issue);
+const date = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'long', timeZone: 'UTC' }).format(issue.data.date);
+---
+<DigestLayout title={issue.data.title} description={issue.data.description} article={true}>
+  <article class="article">
+    <p class="date"><time datetime={issue.data.date.toISOString()}>{date}</time></p>
+    <h1>{issue.data.title}</h1>
+    <p class="lede">{issue.data.description}</p>
+    <div class="rule"></div>
+    <Content />
+    <p><a href="/przeglad/">Wszystkie wydania</a></p>
+  </article>
+</DigestLayout>

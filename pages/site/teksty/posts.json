@@ -38,7 +38,8 @@
       "GitHub",
       "projekty",
       "atlas"
-    ]
+    ],
+    "featured": true
   },
   {
     "slug": "token-worldcup",
@@ -51,6 +52,7 @@
       "AI",
       "tokeny",
       "języki"
-    ]
+    ],
+    "featured": true
   }
 ]

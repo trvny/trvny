@@ -1,0 +1,18 @@
+---
+import { getCollection } from 'astro:content';
+import DigestLayout from '../../layouts/DigestLayout.astro';
+const issues = (await getCollection('digests', ({ data }) => !data.draft)).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const formatDate = (date) => new Intl.DateTimeFormat('pl-PL', { dateStyle: 'long', timeZone: 'UTC' }).format(date);
+---
+<DigestLayout title="CoCzyDziennik" description="Przegląd wydarzeń, technologii i kultury — archiwum TRAVNY.">
+  <h1>CoCzyDziennik</h1>
+  <p class="lede">Świat, technologia, kultura i ciekawostki. Przegląd w jednym miejscu, z linkami do źródeł.</p>
+  <div class="rule"></div>
+  <div class="archive">
+    <section aria-labelledby="issues-heading">
+      <h2 id="issues-heading">Wydania</h2>
+      {issues.length ? issues.map((issue) => <a class="issue" href={`/przeglad/${issue.id}/`}><span class="date">{formatDate(issue.data.date)}</span><h2>{issue.data.title}</h2><p>{issue.data.description}</p></a>) : <p class="lede">Pierwsze publiczne wydanie pojawi się tutaj po przygotowaniu.</p>}
+    </section>
+    <aside class="sidebar"><h2>O przeglądzie</h2><p>Publiczna wersja przeglądu przygotowywanego co trzy dni. Każde wydanie zostaje w archiwum.</p><a href="/teksty/">Pozostałe teksty TRAVNY</a></aside>
+  </div>
+</DigestLayout>

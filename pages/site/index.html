@@ -194,6 +194,13 @@
     font-size:19px; color:var(--dim); letter-spacing:.05em}
   footer .pg{color:var(--y)} footer a{color:var(--c); text-decoration:none}
   footer a:hover{text-decoration:underline}
+  @media (min-width:1200px){
+    .crt{max-width:1320px}
+    .grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .panel.fd{grid-column:span 2}
+    .fastext{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
   @media (max-width:640px){
     body{padding:8px}
     .grid,.benchgrid{grid-template-columns:minmax(0,1fr)}
@@ -257,7 +264,7 @@
         <span class="blk">P300</span> FEEDY <span class="en">NAJNOWSZE ›</span>
       </a>
       <ul class="feedlist" id="feedlist"><li class="fdload">Najnowsze wpisy z Reuters, TVP, OpenAI i innych źródeł.</li></ul>
-      <a class="pgo" href="https://trvny.github.io/feedseek/reader/">▶ OTWÓRZ CZYTNIK</a>
+      <a class="pgo" href="https://trvny.github.io/feedseek/reader/">▶ OTWÓRZ CZYTNIK</a> · <a class="pgo" href="/przeglad/">CoCzyDziennik</a>
     </section>
   </div>
   <section class="lab" aria-labelledby="labHeading">

@@ -1,7 +1,7 @@
 # DeepSource PR reports
 
-The DeepSource status webhook on GitHub triggers the workflow in
-.github/workflows/deepsource-pr-report.yml. It updates one PR comment with issue
+DeepSource status events trigger the `deepsource_report` job in
+`.github/workflows/mega-linter.yml`. It updates one PR comment with issue
 file, line, rule, severity, and a link to the full analysis. Unlike native
 DeepSource inline comments, it includes findings outside the changed diff.
 

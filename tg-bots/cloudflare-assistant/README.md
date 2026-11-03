@@ -7,6 +7,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Telegram delivery:** owner-scoped webhook, Queue-backed processing, Durable Object dedup/context, DLQ, private topics, explicit group `/ask` and ephemeral `/whisper`.
 - **Chat UX:** bounded context, Rich Message streaming with stop support and safe HTML/plain fallbacks, reply-to delivery, state reactions, feedback callbacks and structured `/status`.
 - **Native Telegram tools:** polls, quizzes, dice, stickers, locations, venues, contacts, inline mode and owner-only Guest Mode.
+- **Capability deck:** owner-only `/tools` catalogs currently working command families with rich Telegram views and callback navigation. It references the existing command inventory, not a second command system or new permission layer.
 - **Memory and proactive work:** Engram-backed `/remember` / `/recall`, one-shot reminders, Legion/GitHub/Feedseek watches and terminal task notifications.
 - **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.

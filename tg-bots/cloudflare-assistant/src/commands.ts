@@ -9,6 +9,7 @@ export type BotekCommand = {
 export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "start", usage: "/start", description: "Uruchom Botka" },
   { command: "help", usage: "/help", description: "Pokaż dostępne komendy" },
+  { command: "tools", usage: "/tools [obszar]", description: "Odkryj możliwości Botka" },
   { command: "ask", usage: "/ask <pytanie>", description: "Zapytaj Botka jawnie, także w grupie", groupMode: "visible" },
   { command: "whisper", usage: "/whisper <pytanie>", description: "Zapytaj prywatnie w grupie", private: false, groupMode: "ephemeral" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
@@ -67,7 +68,7 @@ export function botStartLines(): string[] {
     "Napisz wiadomość albo wyślij głosówkę, zdjęcie lub plik.",
     "",
     "Na szybko: /status · /legion · /tasks · /watch",
-    "Wszystkie komendy i możliwości: /help",
+    "Przegląd możliwości: /tools · pełna lista: /help",
     "Inline: @trvny_bot <pytanie>",
   ];
 }

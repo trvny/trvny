@@ -103,6 +103,19 @@ Botek has two maintained tracks: agent/integration work and Telegram-native UX. 
 - Telegram Business/Secretary drafts with isolated bounded context; optional contacts-only 12-hour Botek auto-reply remains fail-closed and cannot make consequential commitments;
 - Mini App/control surfaces reuse existing services instead of creating new backends.
 
+### Capability-first foundation
+
+Botek should own **one identity, one Telegram ingress, one policy boundary, and one interaction model**. A capability is a reusable operation, not a command-shaped microservice. Chat commands, Rich Message buttons, callbacks, inline results, Mini App actions, and later bot-to-bot conversations may present the same operation through different interfaces.
+
+- **Capability map:** maintain the implemented command inventory in `cloudflare-assistant/src/commands.ts`. The interactive catalog in `src/capability-catalog.ts` groups those existing commands by purpose and execution home; no fake capabilities or duplicate handler logic. The catalog is **descriptive**, never an authorization decision.
+- **Interaction envelope:** keep origin (chat/user/topic/bot), intent, request/correlation ID, relevant permissions, deadline, result and reply destination distinct. Preserve existing Telegram update dedup and Pet Dispatcher job envelopes; don't launch a parallel scheduler or event bus.
+- **Local first, delegate deliberately:** native Telegram operations and lightweight orchestration stay in `tg-assistant`. Existing memory/Feedseek/model specialists and Pet Dispatcher remain canonical. Future third-party bots are **optional providers** for a capability, not automatic owner-trusted agents.
+- **Normal vs special operations:** passive chat/read commands can be low-friction. Mutating, paid, external-account, machine and cross-bot actions must use the current scope-specific authorization/approval policy and delivery auditing. Never infer consent from the presence of a callback or bot-to-bot message.
+- **Bot collaboration:** Telegram supports bot-to-bot messages in groups and private chats with mode/configuration restrictions. Before enabling it, use an allowlisted peer identity, bounded hop count, request IDs, deduplication, rate limits, timeouts and a termination rule. Treat peer output as untrusted data, not owner instructions. No token-sharing or third-party bot impersonation.
+- **Interleaved delivery:** improve Rich Messages, Telegram-native utilities and local capability handlers in small slices. Integrate one peer/service only when a real use case needs it. `@hermes_trv_bot` remains independent; access to its machine work goes through approved handoff paths.
+
+Reference: [Telegram Bot-to-Bot Communication](https://core.telegram.org/bots/features#bot-to-bot-communication) and [Bot API changelog](https://core.telegram.org/bots/api-changelog).
+
 ### Product direction
 
 Botek should feel like a Telegram-native operating surface, not a folder of large links. Chat is the command line; messages, inline results and Mini App views are alternate front ends to the **same** underlying capabilities. A prompt may start in chat, continue in a Mini App, and finish as a Telegram message or file.
@@ -197,6 +210,9 @@ These were proposed alongside the Bench/news/inbox ideas. Keep them in **this sa
 | Platform watch | Bot API release/drift review, new Mini App capabilities and framework patterns | Follow `FRAMEWORK-AUDIT.md`; adopt a capability for a real use case, not just a new SDK |
 
 ### Recommended delivery sequence
+
+These are parallel delivery tracks, not a single giant migration. The capability and permission foundations precede any new cross-bot execution path; Telegram-native UX may improve between integration slices.
+
 
 1. **P0 — Working radio flow.** Reuse the current RadioMini/metadata pair; add chat command/mention handler, now-playing card and working Mini App player. Browser playback needs an explicit tap. Test on Android Telegram first.
 2. **P0 — Draft Studio V1.** Telegram-native composer plus `.md`/`.txt` export and send-back to chat. Separate drafts from external AI/Docbench rendering until consent and API capability are confirmed.

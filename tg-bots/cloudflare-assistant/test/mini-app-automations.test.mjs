@@ -23,7 +23,7 @@ function signedInitData() {
 }
 
 function request(path, method = "GET", authenticated = true) {
-  return new Request("https://bot.example" + path, {
+  return new Request(`https://bot.example${path}`, {
     method,
     ...(authenticated ? { headers: { "x-telegram-init-data": signedInitData() } } : {}),
   });
@@ -48,7 +48,7 @@ function fixture() {
   const namespace = (type) => ({
     idFromName: () => ({}),
     get: () => ({
-      fetch: async (input, init) => {
+      fetch: (input, init) => {
         const path = new URL(typeof input === "string" ? input : input.url).pathname;
         calls.push([type, path]);
         if (path === "/list") return Response.json(type === "reminders" ? [reminder] : [watch, secretary]);

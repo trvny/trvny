@@ -5,8 +5,6 @@ import type { Env } from "./types";
 
 const REMINDER_ID = /^r[0-9a-z]{1,16}$/u;
 const WATCH_ID = /^w[0-9a-z]{1,16}$/u;
-type AutomationKind = "reminders" | "watches";
-
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
 }

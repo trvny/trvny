@@ -38,9 +38,10 @@ test("renders Bench launch tiles through Telegram openLink", async () => {
 
 test("parses the embedded Control Center client script", async () => {
   const html = await miniAppHtmlResponse().text();
-  const script = html.match(/<script>([\s\S]*?)<\/script>/u);
-  assert.ok(script?.[1]);
-  assert.doesNotThrow(() => new Script(script[1]));
+  const start = html.indexOf("<script>") + "<script>".length;
+  const end = html.indexOf("</script>", start);
+  assert.ok(start >= "<script>".length && end > start);
+  assert.doesNotThrow(() => new Script(html.slice(start, end)));
 });
 
 test("builds the HTTPS Web App menu button used for the owner chat", () => {

@@ -1,11 +1,11 @@
 import {
+  beginReminderSend,
   dueReminders,
   finishReminder,
   releaseReminder,
   reserveReminder,
   type Reminder,
-} from "./reminders";
-import { sendTelegramMessage, TelegramSendError } from "./telegram";
+} from "./reminders.ts";
 import type { Env } from "./types";
 
 type ReminderSender = (
@@ -21,7 +21,7 @@ export function reminderNotificationText(reminder: Pick<Reminder, "text">): stri
 
 export async function processDueReminders(
   env: Env,
-  send: ReminderSender = sendTelegramMessage,
+  send: ReminderSender,
 ): Promise<void> {
   let due: Reminder[];
   try {
@@ -41,13 +41,25 @@ export async function processDueReminders(
     }
     if (!reserved) continue;
 
+    // Atomic cancellation boundary: a removed reminder cannot enter the send phase.
+    let started = false;
+    try {
+      started = await beginReminderSend(env, reserved.id);
+    } catch (error) {
+      console.error("Reminder send authorization failed", reserved.id, error);
+      await releaseReminder(env, reserved.id).catch((releaseError) => {
+        console.error("Reminder release failed", reserved.id, releaseError);
+      });
+    }
+    if (!started) continue;
+
     try {
       await send(env, reserved.chatId, reminderNotificationText(reserved), {
         messageThreadId: reserved.messageThreadId,
         replyToMessageId: reserved.replyToMessageId,
       });
     } catch (error) {
-      if (error instanceof TelegramSendError && error.ambiguous) {
+      if (error && typeof error === "object" && "ambiguous" in error && error.ambiguous === true) {
         await finishReminder(env, reserved.id).catch((finishError) => {
           console.error("Ambiguous reminder finalization failed", finishError);
         });

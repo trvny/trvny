@@ -69,7 +69,7 @@ jobs:
       - name: MegaLinter
         id: megalinter
         continue-on-error: true
-        uses: oxsecurity/megalinter/flavors/cupcake@v10.1.0
+        uses: oxsecurity/megalinter/flavors/cupcake@v10.2.0
         env:
           MEGALINTER_CONFIG: .github/linters/.mega-linter.yml
           VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'workflow_dispatch' }}

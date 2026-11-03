@@ -13,6 +13,12 @@ function crumbs(path) {
   return JSON.parse(html.slice(from, html.indexOf("</script>", from)));
 }
 
+function parseUserAgents(block) {
+  return block
+    .map(line => /^\s*user-agent:\s*(.*?)\s*$/i.exec(line)?.[1]?.trim())
+    .filter(Boolean);
+}
+
 test("Astro Lab canonical URLs and discovery routes agree", async () => {
   const routes = [
     ["/lab/", "index.html"],
@@ -64,17 +70,47 @@ test("effort matrix gets a self canonical and distinct breadcrumb", () => {
 test("robots explicitly allow mainstream search and Mistral agents", async () => {
   const robots = await readFile(new URL("../site/robots.txt", import.meta.url), "utf8");
   const groups = robots.split(/\r?\n\s*\r?\n/).map(block => block.split(/\r?\n/));
-  const crawlers = ["Googlebot", "Google-InspectionTool", "DuckDuckBot", "MistralAI-Index", "MistralAI-Training", "MistralAI-User"];
+  const crawlers = [
+    "GPTBot",
+    "PerplexityBot",
+    "Perplexity-User",
+    "KimiBot",
+    "Kimi-SearchBot",
+    "Kimi-User",
+    "Meta-WebIndexer",
+    "Meta-ExternalFetcher",
+    "Meta-ExternalAgent",
+    "Googlebot",
+    "Googlebot-News",
+    "Googlebot-Image",
+    "Googlebot-Video",
+    "GoogleOther",
+    "GoogleOther-Image",
+    "GoogleOther-Video",
+    "Google-InspectionTool",
+    "DuckDuckBot",
+    "YandexBot",
+    "YandexFavicons",
+    "CCBot",
+    "SemanticScholarBot",
+    "MistralAI-Index",
+    "MistralAI-Training",
+    "MistralAI-User",
+  ];
   for (const crawler of crawlers) {
-    const matches = groups.filter(group => group.includes(`User-agent: ${crawler}`));
+    const matches = groups.filter(group => parseUserAgents(group).includes(crawler));
     assert.equal(matches.length, 1, `crawler group missing or duplicated: ${crawler}`);
     assert.ok(matches[0].includes("Allow: /"), `crawler not allowed: ${crawler}`);
-    assert.ok(!matches[0].includes("Disallow: /"), `crawler disallowed: ${crawler}`);
+    assert.ok(!matches[0].some(line => /^\s*disallow:/i.test(line)), `crawler disallowed: ${crawler}`);
+    assert.ok(matches[0].includes("Content-Signal: ai-train=yes, search=yes, ai-input=yes"));
   }
-  const wildcard = groups.filter(group => group.includes("User-agent: *"));
+  const declared = groups.flatMap(group => parseUserAgents(group));
+  assert.equal(declared.length, new Set(declared.map(token => token.toLowerCase())).size, "duplicate user-agent tokens");
+  const wildcard = groups.filter(group => parseUserAgents(group).includes("*"));
   assert.equal(wildcard.length, 1, "wildcard group missing or duplicated");
   assert.ok(wildcard[0].includes("Allow: /"));
-  assert.ok(!wildcard[0].includes("Disallow: /"));
+  assert.ok(!wildcard[0].some(line => /^\s*disallow:/i.test(line)));
   assert.ok(wildcard[0].includes("Content-Signal: ai-train=yes, search=yes, ai-input=yes"));
   assert.ok(robots.includes("Sitemap: https://travny.pages.dev/sitemap.xml"));
+  assert.ok(robots.includes("Sitemap: https://travny.pages.dev/przeglad/sitemap.xml"));
 });

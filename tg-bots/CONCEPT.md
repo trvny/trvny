@@ -103,18 +103,118 @@ Botek has two maintained tracks: agent/integration work and Telegram-native UX. 
 - Telegram Business/Secretary drafts with isolated bounded context; optional contacts-only 12-hour Botek auto-reply remains fail-closed and cannot make consequential commitments;
 - Mini App/control surfaces reuse existing services instead of creating new backends.
 
-### Next
+### Product direction
 
-- richer in-progress Pet Dispatcher updates and broader approved local-tool workflows;
-- PDF/Office extraction and better document/audio handling where useful;
-- quieter recurring briefings, quiet hours and broader service watches;
-- richer structured task/GitHub/research replies and inline result types;
-- selected Business actions only with separate permissions and approval boundaries;
-- multi-worker Pet Dispatcher routing when Android/other workers are real.
+Botek should feel like a Telegram-native operating surface, not a folder of large links. Chat is the command line; messages, inline results and Mini App views are alternate front ends to the **same** underlying capabilities. A prompt may start in chat, continue in a Mini App, and finish as a Telegram message or file.
+
+- **Owner plane:** private work, documents, automations, Legion, GitHub, approved actions.
+- **Guest plane:** limited, rate-controlled bot conversations and public utilities; no owner data or capabilities.
+- **Public TRAVNY plane:** anonymous contact and deliberately shared tools, without a Telegram account or phone number.
+- **Broadcast plane:** opt-in channel/news publishing, distinct from private messages and Business/Secretary.
+- **Hermes remains separate:** `@hermes_trv_bot` owns the Hermes/Termux gateway. `@trvny_bot` owns the wider Telegram experience. Pet Dispatcher stays the bridge for approved machine work.
+
+### Interactive Bench integrations (replace link-only tiles)
+
+Existing Control Center tiles merely call `Telegram.WebApp.openLink` for Codebench, Streambench and Docbench. Keep their standalone sites, but replace the Mini App's link-only behavior with usable flows. Reuse real Bench code/APIs where feasible; do not fork three full applications into `tg-assistant`.
+
+#### Docbench: Draft Studio
+
+**Desired flow:** `/draft`, `/doc` or a "Create document" button opens a scoped editor **inside Telegram**. Write/edit markdown or rich text, attach a message/file, inspect a preview, then send the document back to the chat, save an explicit draft, or export it.
+
+- V1: plain text/Markdown editor, autosave only after clear opt-in, templates, preview, share/send to the current conversation, export `.txt` and `.md`.
+- V2: existing Docbench rendering/conversion where its interface supports reuse; `.html`, `.pdf`, possibly `.docx`, plus document import and formatting presets. Verify actual worker/client conversion interfaces before promising formats.
+- Import Telegram content only from explicitly replied-to/forwarded messages, user-uploaded files, or a voluntarily supplied chat export. Bot API does **not** grant arbitrary historical access to someone's chats.
+- Export a selected message/thread as Markdown/JSON/JSONL with timestamps, author labels, provenance, attachments or safe links when available; offer redaction before sharing or publishing. Manual Telegram Desktop export import is a separate, consent-based path.
+- Keep the composer useful offline where feasible; encrypted/private draft handling, bounded attachments, no accidental server retention. Large documents use a scoped API, not `WebApp.sendData` as a bulk transport.
+- Reuse existing Telegram document sender and Docbench functions, instead of silently sending user drafts to an AI provider.
+
+**Done when:** a user can compose inside the Mini App and receive a real file in their Telegram chat without navigating to the standalone Docbench page.
+
+#### Streambench: native radio session
+
+**Desired flow:** `@trvny_bot dawaj muze` (or `/radio`) replies with a compact station/now-playing card and a **Play in Botek** Mini App button. It opens a real audio player, not the current Streambench link tile.
+
+- V1: Radio Paradise Main Mix, play/pause, volume, station icon/cover, title, artist, live state, fallback art, and "More stations." Share the existing `pages/astro/src/components/RadioMini.astro` interaction pattern and `pages/functions/api/radio-now.js` metadata endpoint instead of duplicating upstream scraping.
+- V2: station picker/favorites and playlist import from Streambench's maintained catalog; verify each upstream station's embed/CORS/format/rights before exposing it. Preserve Streambench as the streaming catalog/player source of truth.
+- Prefer HTML5 audio inside the Telegram Mini App, opened by `web_app` button or `?startapp=radio` deep link when the Main Mini App is configured. Playback may **require a user tap** due to browser and Telegram client autoplay policies. No promise of sound starting automatically from a bot message.
+- Telegram `sendAudio` is for an audio file, not a guarantee of an indefinitely playing live radio stream. Do not upload copyrighted streams or proxy arbitrary remote URLs.
+- Optional now-playing rich card in chat with refresh/share buttons; source availability and metadata age must be visible.
+
+**Done when:** saying "dawaj muze" produces a station card and opens an actual in-Telegram player with one tap. Check Android/iOS/Desktop separately.
+
+#### Codebench: useful chat-native shortcuts
+
+- Generate QR/barcode from a replied-to link/text via bot response; scan a code in a Mini App with camera permission and paste/share decoded content.
+- Respect camera permissions, input sanitization and device support; use the existing Codebench implementation, not a second codec toolkit.
+- Promote frequent actions as compact tool commands or contextual buttons; keep the standalone Bench for advanced use.
+
+### Public TRAVNY ↔ Botek inbox
+
+**Desired flow:** a visitor opens `travny.pages.dev` and uses "Send a message" without logging into Telegram, exposing a phone number or opening a Botek chat. The owner receives a private Botek notification that somebody actually sent something.
+
+- Build a small public form/guest messaging endpoint in the **existing Pages Functions**. Only deliberate Send/Request actions create owner alerts; don't silently report ordinary visits or track everyone who clicks around.
+- Server-to-server handoff to the existing `tg-assistant` delivery path using a scoped secret/service authorization; never expose the bot token, owner chat ID, or direct Telegram send method in browser code.
+- Anonymous by default: optional nickname/contact method, clear reply expectations, a random receipt ID and basic privacy notice. No forced Telegram account, phone or email.
+- Spam defenses: tight per-origin/session limits, size/attachment bounds, bot screening/Turnstile if needed, dedupe and delivery failure handling. Minimize IP retention.
+- V1: one-way visitor → private owner Botek notification, with URL/page context if voluntarily relevant, and a link to the corresponding inbox entry.
+- V2: optional two-way replies through an expiring, unguessable receipt link or an explicitly provided return address. Separate opt-in consent and abuse controls; no public exposure of Business/Secretary messages.
+- Keep a single inbox source of truth. Website and Telegram render the same item; notification is only delivery, not a second message store.
+
+**Done when:** a visitor without Telegram can submit a short message and the owner sees one well-identified Botek alert, with a safe spam limit.
+
+### Feedseek news desk and broadcast channel
+
+**Desired flows:** `@trvny_bot co tam w świecie polityki` answers in chat, `/news politics` works without magic words, and an opted-in Telegram channel gets nicely formatted periodic updates.
+
+- Read Feedseek through the maintained `BOTEK_SPECIALISTS.feedseekRecent` boundary (`cloudflare-assistant/src/types.ts`); preserve item link, source, publication time and freshness. No second RSS fetcher or copy of the feed index.
+- **AI healthy:** rank, cluster and briefly summarize retrieved items, with source links, timestamp and factual/neutral framing. Reject invented citations, unverified details and unsupported political claims.
+- **AI unavailable:** deterministic source-only fallback. Choose latest fresh eligible entries, optionally a visibly labeled rotation/random pick **from the fetched items**, and format metadata without model-generated interpretation. Do not invent a headline or imply a stale item is breaking news.
+- V1: private chat/on-demand topics (`politics`, `tech`, `games`, `science`, `local`), compact rich cards with source links, "More", "Watch topic" and "Send to channel" controls.
+- V2: channel publishing by explicit owner opt-in; bot must be channel admin with posting rights. Topic selection, schedule, quiet hours, digest size, per-source diversity, duplicate ledger, manual publish and pause. Avoid cross-posting private chats.
+- Personalization can reuse explicit Engram preferences, but public channel editorial rules must be owner-configured and independent of private memory.
+- Track successful Telegram delivery and stop on permission loss, 429, duplicate requests or invalid source items. Periodic jobs reuse the current scheduler/watch infrastructure where it fits.
+
+**Done when:** a politics request works with **no AI provider online**, and channel mode never requires an AI response to publish verified Feedseek links.
+
+### Cross-cutting features and experiments
+
+These were proposed alongside the Bench/news/inbox ideas. Keep them in **this same roadmap**, rather than making competing issue/plan documents.
+
+| Area | Ideas | Scope and reuse |
+| --- | --- | --- |
+| Approval Inbox | explicit approval/deny/expiry for consequential actions; audit receipts; typed multi-step flows | Owner-only, short opaque callbacks; reuse Pet Dispatcher task policy and existing Durable Objects |
+| GitHub War Room | PR state, CI, review summaries, action buttons, deployment status and project alerts | Read via approved GitHub integration; write only through GPTomek/policy-gated actions |
+| Watchtower | reminder/watch dashboard, fresh/stale state, pause/cancel, better notifications | **Current:** owner Mini App read/cancel shipped in PR #1272; fix in-flight cancellation race in issue #1273 before stronger guarantees |
+| Agent Arena | bounded Botek ↔ Hermes/other bot collaboration, debate, handoff and summarized outcomes | Check current bot-to-bot Telegram support in a test chat; owner approval, hop/turn limits and signed envelopes; no webhook/poller collisions |
+| Media Forge | voice transcription, OCR, PDF/Office extraction, format conversion, captioning and previews | Local/approved providers for heavy conversion; file-size, copyright, privacy and retention limits |
+| Rich chat UX | interactive messages, expandable results, topic-scoped actions, inline share, private replies | Detect client/Bot API support and provide plain-message fallback; keep callback handling centralized |
+| Device cockpit | Legion health, process/task view, QR pairing, permissions, Android shortcut and optional geolocation | Existing Pet Dispatcher task/state truth; consent and explicit scoped capability per action |
+| Botek Lab | opt-in experiments, little games, quizzes, polls, shareable cards, feature flags | Sandbox unsafe novelty; no extra production webhook or general-purpose scheduler |
+| Automation | recurring digests, smart quiet hours, event watches, approval reminders, proactive alerts | Existing cron/Watchtower/DO primitives; per-target limits and kill switches |
+| Public experience | no-account contact, guest tools, deliberate visitor alerts, shareable read-only results | TRAVNY Pages + bounded Botek handoff; never leak owner data to anonymous visitors |
+| Platform watch | Bot API release/drift review, new Mini App capabilities and framework patterns | Follow `FRAMEWORK-AUDIT.md`; adopt a capability for a real use case, not just a new SDK |
+
+### Recommended delivery sequence
+
+1. **P0 — Working radio flow.** Reuse the current RadioMini/metadata pair; add chat command/mention handler, now-playing card and working Mini App player. Browser playback needs an explicit tap. Test on Android Telegram first.
+2. **P0 — Draft Studio V1.** Telegram-native composer plus `.md`/`.txt` export and send-back to chat. Separate drafts from external AI/Docbench rendering until consent and API capability are confirmed.
+3. **P1 — News on demand.** Source-grounded Feedseek cards with deterministic no-AI fallback; only then add channel schedule/admin delivery.
+4. **P1 — Anonymous TRAVNY inbox.** Rate-limited submit-only MVP plus private Botek alert. Add return/reply links only after storage, privacy and abuse model are tested.
+5. **P1 — Approval Inbox and GitHub War Room.** Build durable user decisions and safe follow-through before more write integrations.
+6. **P2 — Advanced export, multiple Bench tools, Agent Arena, device pairing and broader Lab ideas.** Add only after the corresponding access model and tests exist.
+
+### Implementation rules
+
+- **One home per concern.** `tg-assistant` owns the bot webhook/Telegram delivery and Mini App; TRAVNY Pages owns public web input; Bench owns its rendering/player/catalog; Feedseek owns items; Kanarek owns model routing; Engram owns memory; Pet Dispatcher owns machine tasks.
+- **No invisible permissions.** Owner, guest, public visitor and channel publisher are separate roles. Validate Telegram `initData` on the server, never trust `initDataUnsafe`, and authorize every write at the API boundary.
+- **Treat chat as an interface, not unlimited history.** Bots receive only Telegram-delivered updates and explicitly shared media. Arbitrary private conversation exports require manual user action.
+- **Keep offline/provider fallbacks honest.** Missing AI means selection/formatting of real data, not fake summaries. Missing media stream means a clear unavailable status.
+- **Bound state and cost.** Short-lived tokens, limited file sizes, rate limits, idempotent sends, DLQ/retries as appropriate, timeout/cancel, observability, rollback.
+- **Design as a slice.** Each feature should include a chat entry point, an actual working UI/action, permissions, a recovery path, and a test. A bigger link tile is not a shipped feature.
+
+Reference docs: [Telegram Bot API](https://core.telegram.org/bots/api), [Telegram Mini Apps](https://core.telegram.org/bots/webapps), and [Telegram deep links](https://core.telegram.org/api/links). Framework patterns and implementation order: [FRAMEWORK-AUDIT.md](FRAMEWORK-AUDIT.md).
 
 Keep Telegram as the control surface while Cloudflare, Kanarek routing, Engram and Pet Dispatcher remain the canonical backend pieces. Do not add parallel command-specific services.
-
-The framework-pattern audit lives in [FRAMEWORK-AUDIT.md](FRAMEWORK-AUDIT.md).
 
 ## Bot identities
 

@@ -1,3 +1,4 @@
+import { withDeadline } from "./deadline.ts";
 import { miniAppOwnerAuthError } from "./mini-app.ts";
 import { cancelReminder, listReminders } from "./reminders.ts";
 import { cancelConditionWatch, listConditionWatches, type ConditionWatch } from "./watches.ts";
@@ -28,6 +29,7 @@ export async function handleMiniAppAutomationListRequest(
   request: Request,
   env: Env,
   nowMs = Date.now(),
+  timeoutMs = 3_000,
 ): Promise<Response> {
   if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
   const authError = await miniAppOwnerAuthError(request, env, nowMs);
@@ -35,8 +37,8 @@ export async function handleMiniAppAutomationListRequest(
 
   try {
     const [reminderResult, watchResult] = await Promise.allSettled([
-      listReminders(env),
-      listConditionWatches(env),
+      withDeadline(listReminders(env), timeoutMs, "reminders"),
+      withDeadline(listConditionWatches(env), timeoutMs, "watches"),
     ]);
     if (reminderResult.status === "rejected" && watchResult.status === "rejected") {
       throw new Error("Both automation stores unavailable");

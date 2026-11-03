@@ -1,4 +1,5 @@
 import type { ChatMessage, Env } from "./types";
+import { withDeadline } from "./deadline";
 
 const ROUTER_TIMEOUT_MS = 20_000;
 const INLINE_ROUTER_TIMEOUT_MS = 2_500;
@@ -376,20 +377,6 @@ async function workersAi(
   const text = result.response?.trim();
   if (!text) throw new Error("empty Workers AI response");
   return { text, provider: "Workers AI", model: env.WORKERS_AI_MODEL };
-}
-
-async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_resolve, reject) => {
-        timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeout !== undefined) clearTimeout(timeout);
-  }
 }
 
 export async function completeWithFallback<T>(

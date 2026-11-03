@@ -103,6 +103,23 @@ test("Watchtower preserves reminders when the watch store is unavailable", async
   assert.equal(body.watches, null);
 });
 
+test("Watchtower bounds a stalled store without losing the healthy list", async () => {
+  const { env } = fixture();
+  const stalled = [];
+  env.TELEGRAM_WATCHES = {
+    idFromName: () => ({}),
+    get: () => ({ fetch: () => new Promise((resolve) => stalled.push(resolve)) }),
+  };
+  const response = await handleMiniAppAutomationListRequest(
+    request("/mini-app/api/automations"), env, NOW, 25,
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.reminders.length, 1);
+  assert.equal(body.watches, null);
+  assert.equal(stalled.length, 1);
+});
+
 test("Watchtower fails closed before touching the stores", async () => {
   const { env, calls } = fixture();
   const response = await handleMiniAppAutomationListRequest(

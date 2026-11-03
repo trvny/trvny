@@ -39,9 +39,11 @@ const MINI_APP_HTML = `<!doctype html>
       gap: 16px;
       margin-bottom: 22px;
     }
-    h1, h2 { margin: 0; letter-spacing: -0.02em; }
+    h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
     h1 { font-size: 26px; line-height: 1.1; font-weight: 750; }
     h2 { font-size: 17px; font-weight: 700; }
+    h3 { font-size: 14px; font-weight: 650; }
+    .section-head.nested { margin-top: 16px; }
     button {
       border: 0;
       border-radius: 12px;
@@ -195,12 +197,22 @@ const MINI_APP_HTML = `<!doctype html>
       <div class="section-head"><h2 id="tasks-title">Ostatnie zadania</h2><span id="task-count" class="muted"></span></div>
       <div id="tasks" class="task-list"><div class="empty">Ładowanie…</div></div>
     </section>
+
+    <section aria-labelledby="watchtower-title">
+      <div class="section-head"><h2 id="watchtower-title">Watchtower</h2><span class="muted">Automations</span></div>
+      <div class="section-head"><h3>Reminders</h3><span id="reminder-count" class="muted"></span></div>
+      <div id="reminders" class="task-list" aria-live="polite"><div class="empty">Loading…</div></div>
+      <div class="section-head nested"><h3>Watches</h3><span id="watch-count" class="muted"></span></div>
+      <div id="watches" class="task-list" aria-live="polite"><div class="empty">Loading…</div></div>
+    </section>
     <footer id="footer">Botek · Control Center</footer>
   </main>
   <script>
     const webApp = window.Telegram && window.Telegram.WebApp;
     const refreshButton = document.getElementById("refresh");
     const taskList = document.getElementById("tasks");
+    const reminderList = document.getElementById("reminders");
+    const watchList = document.getElementById("watches");
 
     function setText(id, value) {
       document.getElementById(id).textContent = value;
@@ -285,8 +297,38 @@ const MINI_APP_HTML = `<!doctype html>
       setText("task-count", "");
     }
 
-    async function confirmCancel() {
-      const message = "Anulować to zadanie?";
+    function renderAutomationRows(container, items, kind) {
+      container.replaceChildren();
+      const records = Array.isArray(items) ? items : [];
+      setText(kind === "reminders" ? "reminder-count" : "watch-count", records.length ? String(records.length) : "");
+      if (!records.length) {
+        container.append(element("div", "empty", kind === "reminders" ? "No active reminders." : "No active watches."));
+        return;
+      }
+      for (const item of records) {
+        const card = element("article", "task");
+        const head = element("div", "task-head");
+        head.append(element("div", "task-id", String(item.id || "")), element("span", "badge", String(item.state || item.kind || "")));
+        const description = element("p", "", String(kind === "reminders" ? item.text || "" : item.target || ""));
+        const meta = element("div", "task-meta", (kind === "reminders" ? "Due: " : "Next check: ") + formatDate(kind === "reminders" ? item.dueAt : item.nextCheckAt));
+        const actions = element("div", "task-actions");
+        const cancel = element("button", "danger", "Cancel");
+        cancel.type = "button";
+        cancel.addEventListener("click", () => cancelAutomation(kind, String(item.id), cancel));
+        actions.append(cancel);
+        card.append(head, description, meta, actions);
+        container.append(card);
+      }
+    }
+
+    function renderAutomationError(message) {
+      reminderList.replaceChildren(element("div", "error", message));
+      watchList.replaceChildren(element("div", "error", message));
+      setText("reminder-count", "");
+      setText("watch-count", "");
+    }
+
+    async function confirmCancel(message = "Anulować to zadanie?") {
       if (webApp && webApp.showConfirm) {
         return new Promise((resolve) => webApp.showConfirm(message, resolve));
       }
@@ -318,32 +360,67 @@ const MINI_APP_HTML = `<!doctype html>
       }
     }
 
-    async function refresh() {
-      refreshButton.disabled = true;
+    async function cancelAutomation(kind, id, button) {
+      if (!(await confirmCancel("Cancel this automation?"))) return;
+      button.disabled = true;
       try {
         const initData = webApp && webApp.initData ? webApp.initData : "";
-        if (!initData) {
-          throw new Error("Otwórz Control Center z menu Botka w Telegramie.");
-        }
+        if (!initData) throw new Error("Telegram session is unavailable.");
+        const response = await fetch("/mini-app/api/automations/" + kind + "/" + encodeURIComponent(id) + "/cancel", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "x-telegram-init-data": initData },
+        });
+        if (!response.ok) throw new Error(response.status === 401 ? "Telegram session expired. Reopen this panel." : "Could not cancel the automation.");
+        if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.notificationOccurred("success");
+        await refresh();
+      } catch (error) {
+        if (webApp && webApp.showAlert) webApp.showAlert(error instanceof Error ? error.message : "Cancellation failed.");
+        button.disabled = false;
+      }
+    }
+
+    async function refresh() {
+      refreshButton.disabled = true;
+      const initData = webApp && webApp.initData ? webApp.initData : "";
+      if (!initData) {
+        renderError("Open Control Center from the Botek menu in Telegram.");
+        renderAutomationError("Telegram session is unavailable.");
+        refreshButton.disabled = false;
+        return;
+      }
+      try {
         const response = await fetch("/mini-app/api/status", {
           method: "GET",
           cache: "no-store",
           headers: { "x-telegram-init-data": initData },
         });
         if (!response.ok) {
-          if (response.status === 401) throw new Error("Sesja Telegram wygasła. Zamknij panel i otwórz go ponownie.");
-          throw new Error("Backend Control Center jest chwilowo niedostępny.");
+          if (response.status === 401) throw new Error("Telegram session expired. Reopen this panel.");
+          throw new Error("Control Center backend is temporarily unavailable.");
         }
         const data = await response.json();
         renderLegion(data.legion || {});
         renderTasks(data.tasks || []);
-        setText("footer", "Odświeżono: " + new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }));
-        if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.impactOccurred("light");
       } catch (error) {
-        renderError(error instanceof Error ? error.message : "Nie udało się pobrać danych.");
-      } finally {
-        refreshButton.disabled = false;
+        renderError(error instanceof Error ? error.message : "Could not load tasks.");
       }
+      try {
+        const response = await fetch("/mini-app/api/automations", {
+          method: "GET",
+          cache: "no-store",
+          headers: { "x-telegram-init-data": initData },
+        });
+        if (!response.ok) throw new Error(response.status === 401 ? "Telegram session expired. Reopen this panel." : "Watchtower is temporarily unavailable.");
+        const automations = await response.json();
+        renderAutomationRows(reminderList, automations.reminders, "reminders");
+        renderAutomationRows(watchList, automations.watches, "watches");
+      } catch (error) {
+        renderAutomationError(error instanceof Error ? error.message : "Could not load automations.");
+      }
+      setText("footer", "Updated: " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+      if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.impactOccurred("light");
+      refreshButton.disabled = false;
     }
     if (webApp) {
       webApp.ready();

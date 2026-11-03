@@ -101,11 +101,11 @@ type MiniAppContext =
   | { dispatcher: MiniAppDispatcher }
   | { response: Response };
 
-async function authorizeMiniAppRequest(
+export async function miniAppOwnerAuthError(
   request: Request,
   env: MiniAppEnv,
-  nowMs: number,
-): Promise<MiniAppContext> {
+  nowMs = Date.now(),
+): Promise<Response | null> {
   const validation = await validateMiniAppInitData(
     request.headers.get("x-telegram-init-data") ?? "",
     env.TELEGRAM_BOT_TOKEN,
@@ -114,13 +114,21 @@ async function authorizeMiniAppRequest(
   );
   if (!validation.ok) {
     const status = validation.reason === "configuration" ? 503 : 401;
-    return {
-      response: miniAppJson(
-        { error: validation.reason === "configuration" ? "mini_app_not_configured" : "unauthorized" },
-        status,
-      ),
-    };
+    return miniAppJson(
+      { error: validation.reason === "configuration" ? "mini_app_not_configured" : "unauthorized" },
+      status,
+    );
   }
+  return null;
+}
+
+async function authorizeMiniAppRequest(
+  request: Request,
+  env: MiniAppEnv,
+  nowMs: number,
+): Promise<MiniAppContext> {
+  const authError = await miniAppOwnerAuthError(request, env, nowMs);
+  if (authError) return { response: authError };
 
   const dispatcher = env.PET_DISPATCHER as MiniAppDispatcher | undefined;
   if (!dispatcher) {

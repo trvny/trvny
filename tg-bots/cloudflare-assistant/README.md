@@ -11,7 +11,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
 - **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
-- **Mini App:** control center plus existing Codebench, Streambench and Docbench links.
+- **Mini App:** owner-only Control Center with Legion/task status, task cancellation, a Watchtower for existing reminders and Legion/GitHub/Feedseek watches, and Codebench/Streambench/Docbench links. Watchtower keeps Secretary idle watches private.
 - **Model routing:** same-account Kanarek Companion router; provider credentials remain centralized in `kanarek-review`.
 - **Service endpoints:** `POST /ingest/rss` and `GET /health`; no polling daemon or always-on phone process.
 

@@ -8,6 +8,7 @@ import worker, {
   TelegramWatchStore,
 } from "./index";
 import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest } from "./mini-app";
+import { handleMiniAppAutomationCancelRequest, handleMiniAppAutomationListRequest } from "./mini-app-automations";
 import { miniAppHtmlResponse } from "./mini-app-ui";
 import { handleTelegramSecretaryUpdate } from "./secretary-runtime";
 import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
@@ -48,6 +49,15 @@ export default {
     }
     if (url.pathname === "/mini-app/api/status") {
       return handleMiniAppStatusRequest(request, env);
+    }
+    if (url.pathname === "/mini-app/api/automations") {
+      return handleMiniAppAutomationListRequest(request, env);
+    }
+    const automationCancel = url.pathname.match(
+      /^\/mini-app\/api\/automations\/(reminders|watches)\/([rw][0-9a-z]{1,16})\/cancel$/u,
+    );
+    if (automationCancel?.[1] && automationCancel[2]) {
+      return handleMiniAppAutomationCancelRequest(request, env, automationCancel[1], automationCancel[2]);
     }
     const miniAppTaskCancel = url.pathname.match(
       /^\/mini-app\/api\/tasks\/([0-9a-f-]{36})\/cancel$/iu,

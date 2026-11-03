@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Script } from "node:vm";
 
 import { telegramMiniAppMenuButton } from "../src/mini-app-menu.ts";
 import { miniAppHtmlResponse } from "../src/mini-app-ui.ts";
@@ -19,6 +20,9 @@ test("serves a Telegram-native Control Center shell", async () => {
   assert.match(html, /\/mini-app\/api\/tasks\//u);
   assert.match(html, /showConfirm/u);
   assert.match(html, /Anuluj/u);
+  assert.match(html, /Watchtower/u);
+  assert.match(html, /\/mini-app\/api\/automations/u);
+  assert.match(html, /renderAutomationRows/u);
   assert.doesNotMatch(html, /TELEGRAM_BOT_TOKEN|PET_DISPATCHER/u);
 });
 test("renders Bench launch tiles through Telegram openLink", async () => {
@@ -30,6 +34,13 @@ test("renders Bench launch tiles through Telegram openLink", async () => {
   assert.match(html, /https:\/\/docbench\.travny\.workers\.dev/u);
   assert.match(html, /data-tool-url/u);
   assert.match(html, /webApp\.openLink\(url\)/u);
+});
+
+test("parses the embedded Control Center client script", async () => {
+  const html = await miniAppHtmlResponse().text();
+  const script = html.match(/<script>([\s\S]*?)<\/script>/u);
+  assert.ok(script?.[1]);
+  assert.doesNotThrow(() => new Script(script[1]));
 });
 
 test("builds the HTTPS Web App menu button used for the owner chat", () => {

@@ -12,7 +12,19 @@ User-agent: Perplexity-User
 User-agent: MistralAI-Index
 User-agent: MistralAI-Training
 User-agent: MistralAI-User
+User-agent: KimiBot
+User-agent: Kimi-SearchBot
+User-agent: Kimi-User
+User-agent: Meta-WebIndexer
+User-agent: Meta-ExternalFetcher
+User-agent: Meta-ExternalAgent
 User-agent: Googlebot
+User-agent: Googlebot-News
+User-agent: Googlebot-Image
+User-agent: Googlebot-Video
+User-agent: GoogleOther
+User-agent: GoogleOther-Image
+User-agent: GoogleOther-Video
 User-agent: Google-InspectionTool
 User-agent: Google-Extended
 User-agent: Applebot
@@ -20,6 +32,10 @@ User-agent: Applebot-Extended
 User-agent: BingBot
 User-agent: DuckDuckBot
 User-agent: DuckAssistBot
+User-agent: YandexBot
+User-agent: YandexFavicons
+User-agent: CCBot
+User-agent: SemanticScholarBot
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 

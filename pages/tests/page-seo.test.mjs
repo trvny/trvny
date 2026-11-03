@@ -15,7 +15,7 @@ function crumbs(path) {
 
 function parseUserAgents(block) {
   return block
-    .map(line => /^\s*user-agent:\s*(.*?)\s*$/i.exec(line)?.[1]?.trim())
+    .map(line => /^\s*user-agent:\s*(.*?)\s*$/i.exec(line)?.[1]?.trim().toLowerCase())
     .filter(Boolean);
 }
 
@@ -67,6 +67,12 @@ test("effort matrix gets a self canonical and distinct breadcrumb", () => {
   assert.deepEqual(crumbs("/teksty/githubowa-kraina/universe"), crumbs("/teksty/githubowa-kraina/universe.html"));
 });
 
+test("robots normalize user-agent tokens with case and spacing variations", () => {
+  const variants = ["User-agent: GPTBot", "  user-agent:  gPtBoT  ", "USER-AGENT:\tGPTBot"];
+  assert.deepEqual(parseUserAgents(variants), ["gptbot", "gptbot", "gptbot"]);
+  assert.deepEqual(parseUserAgents(["  User-agent: *  ", "Allow: /"]), ["*"]);
+});
+
 test("robots explicitly allow mainstream search and Mistral agents", async () => {
   const robots = await readFile(new URL("../site/robots.txt", import.meta.url), "utf8");
   const groups = robots.split(/\r?\n\s*\r?\n/).map(block => block.split(/\r?\n/));
@@ -98,14 +104,14 @@ test("robots explicitly allow mainstream search and Mistral agents", async () =>
     "MistralAI-User",
   ];
   for (const crawler of crawlers) {
-    const matches = groups.filter(group => parseUserAgents(group).includes(crawler));
+    const matches = groups.filter(group => parseUserAgents(group).includes(crawler.toLowerCase()));
     assert.equal(matches.length, 1, `crawler group missing or duplicated: ${crawler}`);
     assert.ok(matches[0].includes("Allow: /"), `crawler not allowed: ${crawler}`);
     assert.ok(!matches[0].some(line => /^\s*disallow:/i.test(line)), `crawler disallowed: ${crawler}`);
     assert.ok(matches[0].includes("Content-Signal: ai-train=yes, search=yes, ai-input=yes"));
   }
   const declared = groups.flatMap(group => parseUserAgents(group));
-  assert.equal(declared.length, new Set(declared.map(token => token.toLowerCase())).size, "duplicate user-agent tokens");
+  assert.equal(declared.length, new Set(declared).size, "duplicate user-agent tokens");
   const wildcard = groups.filter(group => parseUserAgents(group).includes("*"));
   assert.equal(wildcard.length, 1, "wildcard group missing or duplicated");
   assert.ok(wildcard[0].includes("Allow: /"));

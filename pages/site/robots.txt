@@ -10,6 +10,7 @@ User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Perplexity-User
 User-agent: MistralAI-Index
+User-agent: MistralAI-Training
 User-agent: MistralAI-User
 User-agent: Googlebot
 User-agent: Google-InspectionTool

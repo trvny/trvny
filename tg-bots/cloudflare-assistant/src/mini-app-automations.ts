@@ -34,13 +34,25 @@ export async function handleMiniAppAutomationListRequest(
   if (authError) return authError;
 
   try {
-    const [reminders, watches] = await Promise.all([listReminders(env), listConditionWatches(env)]);
+    const [reminderResult, watchResult] = await Promise.allSettled([
+      listReminders(env),
+      listConditionWatches(env),
+    ]);
+    if (reminderResult.status === "rejected" && watchResult.status === "rejected") {
+      throw new Error("Both automation stores unavailable");
+    }
+    if (reminderResult.status === "rejected") console.warn("Mini App reminders unavailable", reminderResult.reason);
+    if (watchResult.status === "rejected") console.warn("Mini App watches unavailable", watchResult.reason);
     return json({
       ok: true,
-      reminders: reminders.map(({ id, text, dueAt, state }) => ({ id, text, dueAt, state })),
-      watches: watches
-        .filter((watch): watch is Exclude<ConditionWatch, { kind: "secretary" }> => watch.kind !== "secretary")
-        .map(publicWatch),
+      reminders: reminderResult.status === "fulfilled"
+        ? reminderResult.value.map(({ id, text, dueAt, state }) => ({ id, text, dueAt, state }))
+        : null,
+      watches: watchResult.status === "fulfilled"
+        ? watchResult.value
+          .filter((watch): watch is Exclude<ConditionWatch, { kind: "secretary" }> => watch.kind !== "secretary")
+          .map(publicWatch)
+        : null,
     });
   } catch (error) {
     console.error("Mini App automation list failed", error);

@@ -198,7 +198,7 @@ const MINI_APP_HTML = `<!doctype html>
       <div id="tasks" class="task-list"><div class="empty">Ładowanie…</div></div>
     </section>
 
-    <section aria-labelledby="watchtower-title">
+    <section lang="en" aria-labelledby="watchtower-title">
       <div class="section-head"><h2 id="watchtower-title">Watchtower</h2><span class="muted">Automations</span></div>
       <div class="section-head"><h3>Reminders</h3><span id="reminder-count" class="muted"></span></div>
       <div id="reminders" class="task-list" aria-live="polite"><div class="empty">Loading…</div></div>
@@ -299,8 +299,14 @@ const MINI_APP_HTML = `<!doctype html>
 
     function renderAutomationRows(container, items, kind) {
       container.replaceChildren();
-      const records = Array.isArray(items) ? items : [];
-      setText(kind === "reminders" ? "reminder-count" : "watch-count", records.length ? String(records.length) : "");
+      const countId = kind === "reminders" ? "reminder-count" : "watch-count";
+      if (!Array.isArray(items)) {
+        setText(countId, "");
+        container.append(element("div", "error", kind === "reminders" ? "Reminders unavailable." : "Watches unavailable."));
+        return;
+      }
+      const records = items;
+      setText(countId, records.length ? String(records.length) : "");
       if (!records.length) {
         container.append(element("div", "empty", kind === "reminders" ? "No active reminders." : "No active watches."));
         return;
@@ -308,7 +314,8 @@ const MINI_APP_HTML = `<!doctype html>
       for (const item of records) {
         const card = element("article", "task");
         const head = element("div", "task-head");
-        head.append(element("div", "task-id", String(item.id || "")), element("span", "badge", String(item.state || item.kind || "")));
+        const badgeText = kind === "reminders" ? String(item.state || "") : [item.kind, item.status].filter(Boolean).join(" · ");
+        head.append(element("div", "task-id", String(item.id || "")), element("span", "badge", badgeText));
         const description = element("p", "", String(kind === "reminders" ? item.text || "" : item.target || ""));
         const meta = element("div", "task-meta", (kind === "reminders" ? "Due: " : "Next check: ") + formatDate(kind === "reminders" ? item.dueAt : item.nextCheckAt));
         const actions = element("div", "task-actions");

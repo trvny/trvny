@@ -86,20 +86,22 @@ test("Watchtower stays responsive to stalled status and ignores superseded loads
   pending[1](Response.json({
     ok: true,
     reminders: [{ id: "rnew", text: "Newest reminder", state: "pending", dueAt: "2026-11-04T10:00:00Z" }],
-    watches: [],
+    watches: [{ id: "wnew", kind: "github", status: "checking", target: "trvny/trvny#203", nextCheckAt: "2026-11-04T10:00:00Z" }],
   }));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(elements.get("reminder-count").textContent, "1");
+  assert.equal(elements.get("watches").children[0].children[0].children[1].textContent, "github · checking");
   assert.equal(elements.get("reminders").children[0].children[1].textContent, "Newest reminder");
   assert.equal(elements.get("refresh").disabled, false);
 
   pending[0](Response.json({
     ok: true,
     reminders: [{ id: "rold", text: "Stale reminder", state: "pending", dueAt: "2026-11-04T10:00:00Z" }],
-    watches: [],
+    watches: null,
   }));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(elements.get("reminders").children[0].children[1].textContent, "Newest reminder");
+  assert.equal(elements.get("watches").children[0].children[0].children[1].textContent, "github · checking");
 });
 
 test("builds the HTTPS Web App menu button used for the owner chat", () => {

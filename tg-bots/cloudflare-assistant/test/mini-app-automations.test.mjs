@@ -88,6 +88,21 @@ test("Watchtower returns only owner-visible automation projections", async () =>
   assert.doesNotMatch(JSON.stringify(body), /sensitive|private message|contact/u);
 });
 
+test("Watchtower preserves reminders when the watch store is unavailable", async () => {
+  const { env } = fixture();
+  env.TELEGRAM_WATCHES = {
+    idFromName: () => ({}),
+    get: () => ({ fetch: () => new Response(null, { status: 503 }) }),
+  };
+  const response = await handleMiniAppAutomationListRequest(
+    request("/mini-app/api/automations"), env, NOW,
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.reminders.length, 1);
+  assert.equal(body.watches, null);
+});
+
 test("Watchtower fails closed before touching the stores", async () => {
   const { env, calls } = fixture();
   const response = await handleMiniAppAutomationListRequest(

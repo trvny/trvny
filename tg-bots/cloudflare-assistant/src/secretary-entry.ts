@@ -54,7 +54,7 @@ export default {
       return handleMiniAppAutomationListRequest(request, env);
     }
     const automationCancel = url.pathname.match(
-      /^\/mini-app\/api\/automations\/(reminders|watches)\/([rw][0-9a-z]{1,16})\/cancel$/u,
+      /^\/mini-app\/api\/automations\/(reminders|watches)\/([^/]+)\/cancel$/u,
     );
     if (automationCancel?.[1] && automationCancel[2]) {
       return handleMiniAppAutomationCancelRequest(request, env, automationCancel[1], automationCancel[2]);

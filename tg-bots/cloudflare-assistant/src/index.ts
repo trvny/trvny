@@ -5,6 +5,7 @@ import {
   botStartLines,
   parseAskMessageCommand,
 } from "./commands";
+import { toolDeckSelection, toolDeckView } from "./capability-catalog";
 import { automaticTaskRequest, looksLikeAutomaticTaskCandidate } from "./auto-task";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { replyFeedbackKeyboard, replyFeedbackRequest } from "./feedback";
@@ -714,6 +715,20 @@ const OWNER_CALLBACK_ROUTES: readonly PredicateRoute<
   TelegramReply | null
 >[] = [
   ownerCallbackRoute(
+    "tools-navigation",
+    ({ callback }) => toolDeckSelection(callback.data),
+    ({ message }, id) => {
+      const view = toolDeckView(id);
+      return {
+        chatId: message.chat.id,
+        editMessageId: message.message_id,
+        text: view.plain,
+        richHtml: view.richHtml,
+        replyMarkup: view.keyboard,
+      };
+    },
+  ),
+  ownerCallbackRoute(
     "status-refresh",
     ({ callback }) => callback.data === "status:refresh" ? true : undefined,
     async ({ env, message }) => {
@@ -892,6 +907,17 @@ async function handleOwnerCommand(
           "Inline: wpisz @trvny_bot w dowolnym czacie i dodaj pytanie.",
         ]).join("\n"),
         replyMarkup: HELP_KEYBOARD,
+      };
+    }
+
+    case "tools": {
+      const view = toolDeckView(command.id);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: view.plain,
+        richHtml: view.richHtml,
+        replyMarkup: view.keyboard,
       };
     }
 

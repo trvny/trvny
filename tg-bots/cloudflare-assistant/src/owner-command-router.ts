@@ -37,6 +37,7 @@ import {
 
 export type OwnerCommand =
   | { kind: "start-help"; start: boolean }
+  | { kind: "tools"; id: string }
   | { kind: "reset" }
   | { kind: "draft-usage" }
   | { kind: "status" }
@@ -92,6 +93,9 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
       ? { kind: "start-help", start: text === "/start" || text.startsWith("/start ") }
       : undefined
   )),
+  textRoute("tools", (text) => text === "/tools" || text.startsWith("/tools ")
+    ? { kind: "tools", id: text.slice("/tools".length).trim().toLowerCase() }
+    : undefined),
   textRoute("reset", (text) => text === "/reset" ? { kind: "reset" } : undefined),
   textRoute("draft-usage", (text) => text === "/draft" ? { kind: "draft-usage" } : undefined),
   textRoute("status", (text) => text === "/status" ? { kind: "status" } : undefined),

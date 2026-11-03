@@ -64,7 +64,7 @@ test("effort matrix gets a self canonical and distinct breadcrumb", () => {
 test("robots explicitly allow mainstream search and Mistral agents", async () => {
   const robots = await readFile(new URL("../site/robots.txt", import.meta.url), "utf8");
   const groups = robots.split(/\r?\n\s*\r?\n/).map(block => block.split(/\r?\n/));
-  const crawlers = ["Googlebot", "Google-InspectionTool", "DuckDuckBot", "MistralAI-Index", "MistralAI-User"];
+  const crawlers = ["Googlebot", "Google-InspectionTool", "DuckDuckBot", "MistralAI-Index", "MistralAI-Training", "MistralAI-User"];
   for (const crawler of crawlers) {
     const matches = groups.filter(group => group.includes(`User-agent: ${crawler}`));
     assert.equal(matches.length, 1, `crawler group missing or duplicated: ${crawler}`);

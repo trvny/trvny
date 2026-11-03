@@ -15,6 +15,12 @@ The first useful slice is Legion / Pet Dispatcher: show whether the device is fr
 - Mini App API requests are owner-only and validate `Telegram.WebApp.initData` server-side with the existing bot token.
 - The browser never receives Pet Dispatcher credentials or direct service-binding access.
 
-## MVP surface
+## Current surface
 
-The Mini App opens on a Legion card with device state, last update, active sessions/processes and configured repositories/workspaces. A recent-tasks section shows task ID, status, timestamps and bounded summary/error text. The first version is read-mostly; task cancellation/delegation can reuse existing Botek commands and callbacks before write controls are added to the Mini App.
+The owner-only Mini App shows Legion state and recent Pet Dispatcher tasks, including task cancellation. Watchtower lists active reminders and non-Secretary GitHub/Feedseek/Legion watches, with cancellation and independently bounded reads. Business/Secretary idle-watch internals remain excluded. Codebench, Streambench and Docbench are currently external `openLink` tiles, not native Mini App tools.
+
+## Future surface
+
+The **canonical feature plan** is in [CONCEPT.md](CONCEPT.md#interactive-bench-integrations-replace-link-only-tiles): integrated Docbench Draft Studio, Streambench radio player, Codebench utilities and other chat-to-Mini-App workflows. This file maintains only Control Center implementation boundaries; do not copy the feature backlog here.
+
+For native workflows, keep Botek's existing authentication and backend ownership. Prefer scoped in-app actions over wrapping a separate Bench website in an unrestricted iframe, and return results to Telegram via the existing send pipeline.

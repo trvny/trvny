@@ -384,7 +384,13 @@ const MINI_APP_HTML = `<!doctype html>
         if (!response.ok && response.status !== 404) {
           throw new Error(response.status === 401 ? "Telegram session expired. Reopen this panel." : "Could not cancel the automation.");
         }
-        if (response.ok && webApp && webApp.HapticFeedback) webApp.HapticFeedback.notificationOccurred("success");
+        if (response.ok) {
+          const result = await response.json();
+          if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.notificationOccurred("success");
+          if (result.deliveryStarted === true && webApp && webApp.showAlert) {
+            webApp.showAlert("Removed, but Telegram delivery already started. One final message may arrive.");
+          }
+        }
         await refresh();
       } catch (error) {
         if (webApp && webApp.showAlert) webApp.showAlert(error instanceof Error ? error.message : "Cancellation failed.");

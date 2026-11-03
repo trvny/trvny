@@ -54,7 +54,7 @@ function fixture() {
         if (path === "/list") return Response.json(type === "reminders" ? [reminder] : [watch, secretary]);
         if (path === "/cancel") {
           const id = JSON.parse(init.body).id;
-          return Response.json({ removed: type === "reminders" ? id === reminder.id : id === watch.id });
+          return Response.json({ removed: type === "reminders" ? id === reminder.id : id === watch.id, deliveryStarted: false });
         }
         return new Response("", { status: 404 });
       },
@@ -135,7 +135,7 @@ test("Watchtower cancels owner reminders and watches", async () => {
     const response = await handleMiniAppAutomationCancelRequest(
       request(`/mini-app/api/automations/${kind}/${id}/cancel`, "POST"), env, kind, id, NOW,
     );
-    assert.deepEqual(await response.json(), { ok: true, removed: true });
+    assert.deepEqual(await response.json(), { ok: true, removed: true, deliveryStarted: false });
   }
   assert.ok(calls.some(([type, path]) => type === "reminders" && path === "/cancel"));
   assert.ok(calls.some(([type, path]) => type === "watches" && path === "/cancel"));
@@ -167,4 +167,23 @@ test("Watchtower cannot cancel secretary internals or malformed IDs", async () =
     env, "reminders", "r123", NOW,
   );
   assert.equal(method.status, 405);
+});
+
+test("Watchtower reports an already-started send to the owner", async () => {
+  const { env } = fixture();
+  const original = env.TELEGRAM_REMINDERS;
+  env.TELEGRAM_REMINDERS = {
+    idFromName: original.idFromName,
+    get: () => ({
+      fetch: (_input, init) => Response.json({
+        removed: true, deliveryStarted: Boolean(init && init.method === "POST"),
+      }),
+    }),
+  };
+  const response = await handleMiniAppAutomationCancelRequest(
+    request("/mini-app/api/automations/reminders/r123/cancel", "POST"),
+    env, "reminders", "r123", NOW,
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, removed: true, deliveryStarted: true });
 });

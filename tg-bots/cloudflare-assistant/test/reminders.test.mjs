@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { processDueReminders } from "../src/reminder-notifications.ts";
 
 import {
   TelegramReminderStore,
+  beginReminderSend,
   cancelReminder,
+  cancelReminderWithStatus,
   createReminder,
   dueReminders,
   listReminders,
@@ -127,4 +130,75 @@ test("renders a compact active reminder list", () => {
   assert.match(text, /rabc/u);
   assert.match(text, /kup mleko/u);
   assert.equal(reminderListView([]), "Brak aktywnych przypomnień.");
+});
+
+function dueReminder(id = "rready") {
+  const now = Date.now();
+  return {
+    id, chatId: 123, replyToMessageId: 77, text: "don't send",
+    createdAt: new Date(now - 120_000).toISOString(),
+    dueAt: new Date(now - 60_000).toISOString(),
+    state: "pending",
+  };
+}
+
+test("cancellation before reminder reservation prevents delivery", async () => {
+  const memory = state();
+  memory.values.set("reminders", [dueReminder()]);
+  const env = { TELEGRAM_REMINDERS: namespace(new TelegramReminderStore(memory)) };
+  assert.deepEqual(await cancelReminderWithStatus(env, "rready"), { removed: true, deliveryStarted: false });
+  let sends = 0;
+  await processDueReminders(env, () => { sends++; return Promise.resolve(); });
+  assert.equal(sends, 0);
+});
+
+test("cancellation after reservation but before begin-send suppresses delivery", async () => {
+  const memory = state();
+  memory.values.set("reminders", [dueReminder()]);
+  const store = new TelegramReminderStore(memory);
+  const primary = namespace(store);
+  const env = {
+    TELEGRAM_REMINDERS: {
+      idFromName: primary.idFromName,
+      get() {
+        const stub = primary.get();
+        return {
+          async fetch(input, init) {
+            const response = await stub.fetch(input, init);
+            if (new URL(typeof input === "string" ? input : input.url).pathname === "/reserve" && response.ok) {
+              assert.deepEqual(await cancelReminderWithStatus(env, "rready"), { removed: true, deliveryStarted: false });
+            }
+            return response;
+          },
+        };
+      },
+    },
+  };
+  let sends = 0;
+  await processDueReminders(env, () => { sends++; return Promise.resolve(); });
+  assert.equal(sends, 0);
+  assert.deepEqual(await listReminders(env), []);
+});
+
+test("cancellation during reminder delivery reports started and never requeues", async () => {
+  const memory = state();
+  memory.values.set("reminders", [dueReminder()]);
+  const env = { TELEGRAM_REMINDERS: namespace(new TelegramReminderStore(memory)) };
+  const cancelStatuses = [];
+  await processDueReminders(env, async () => {
+    cancelStatuses.push(await cancelReminderWithStatus(env, "rready"));
+  });
+  assert.deepEqual(cancelStatuses, [{ removed: true, deliveryStarted: true }]);
+  assert.deepEqual(await listReminders(env), []);
+});
+
+test("reminder begin-send requires prior reservation and cannot start twice", async () => {
+  const memory = state();
+  memory.values.set("reminders", [dueReminder()]);
+  const env = { TELEGRAM_REMINDERS: namespace(new TelegramReminderStore(memory)) };
+  assert.equal(await beginReminderSend(env, "rready"), false);
+  assert.ok(await reserveReminder(env, "rready"));
+  assert.equal(await beginReminderSend(env, "rready"), true);
+  assert.equal(await beginReminderSend(env, "rready"), false);
+  assert.deepEqual(await cancelReminderWithStatus(env, "rready"), { removed: true, deliveryStarted: true });
 });

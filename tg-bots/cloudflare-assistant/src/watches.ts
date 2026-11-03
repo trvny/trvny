@@ -11,8 +11,9 @@ type WatchBase = {
   createdAt: string;
   lastCheckedAt?: string;
   nextCheckAt: string;
-  status: "active" | "checking";
+  status: "active" | "checking" | "sending";
   leaseUntil?: string;
+  claimToken?: string;
   failures: number;
 };
 
@@ -83,8 +84,9 @@ function validBase(item: Record<string, unknown>): boolean {
     finiteDate(item.createdAt) &&
     (item.lastCheckedAt === undefined || finiteDate(item.lastCheckedAt)) &&
     finiteDate(item.nextCheckAt) &&
-    (item.status === "active" || item.status === "checking") &&
+    (item.status === "active" || item.status === "checking" || item.status === "sending") &&
     (item.leaseUntil === undefined || finiteDate(item.leaseUntil)) &&
+    (item.claimToken === undefined || (typeof item.claimToken === "string" && /^[0-9a-f-]{36}$/u.test(item.claimToken))) &&
     typeof item.failures === "number" &&
     Number.isSafeInteger(item.failures) &&
     item.failures >= 0 &&
@@ -152,6 +154,8 @@ export class TelegramWatchStore {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    // Parse request bodies before reading state. No non-storage await between read and write.
+    const payload = request.method === "POST" ? await request.json() : null;
     const stored = (await this.state.storage.get<ConditionWatch[]>(STORE_KEY)) ?? [];
     const watches = stored.filter(validWatch);
 
@@ -173,7 +177,6 @@ export class TelegramWatchStore {
     }
 
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-    const payload = await request.json();
 
     if (url.pathname === "/create") {
       if (!validWatch(payload) || payload.status !== "active") {
@@ -192,11 +195,20 @@ export class TelegramWatchStore {
       }
       const index = watches.findIndex((watch) => watch.id === payload.id);
       if (index < 0) return json({ error: "not_found" }, 404);
+      const previous = watches[index];
+      if (previous.status === "active"
+        ? payload.claimToken !== undefined
+        : !previous.claimToken || previous.claimToken !== payload.claimToken) {
+        return json({ error: "stale_claim" }, 409);
+      }
+      const updated = { ...payload };
+      delete updated.claimToken;
+      delete updated.leaseUntil;
       const next = watches.map((watch, watchIndex) =>
-        watchIndex === index ? payload : watch
+        watchIndex === index ? updated : watch
       );
       await this.state.storage.put(STORE_KEY, next);
-      return json(payload);
+      return json(updated);
     }
 
     if (!validIdPayload(payload)) return json({ error: "invalid_watch_id" }, 400);
@@ -214,6 +226,7 @@ export class TelegramWatchStore {
         ...current,
         status: "checking",
         leaseUntil: new Date(now + 2 * 60_000).toISOString(),
+        claimToken: crypto.randomUUID(),
       };
       await this.state.storage.put(
         STORE_KEY,
@@ -222,9 +235,28 @@ export class TelegramWatchStore {
       return json({ claimed: true, watch: claimed });
     }
 
+    if (url.pathname === "/begin-send") {
+      const token = (payload as { claimToken?: unknown }).claimToken;
+      if (index < 0 || watches[index].status !== "checking" ||
+          typeof token !== "string" || watches[index].claimToken !== token) {
+        return json({ started: false }, 409);
+      }
+      const sending: ConditionWatch = { ...watches[index], status: "sending" };
+      await this.state.storage.put(
+        STORE_KEY,
+        watches.map((watch, watchIndex) => watchIndex === index ? sending : watch),
+      );
+      return json({ started: true });
+    }
+
     if (url.pathname === "/release") {
       if (index >= 0) {
         const current = watches[index];
+        const token = (payload as { claimToken?: unknown }).claimToken;
+        if ((current.status !== "checking" && current.status !== "sending") ||
+            !current.claimToken || current.claimToken !== token) {
+          return json({ ok: true, released: false });
+        }
         const delayRaw = (payload as { id: string; delayMs?: unknown }).delayMs;
         const delayMs = typeof delayRaw === "number" && Number.isFinite(delayRaw)
           ? Math.max(60_000, Math.min(30 * 60_000, Math.trunc(delayRaw)))
@@ -236,6 +268,7 @@ export class TelegramWatchStore {
           nextCheckAt: new Date(Date.now() + delayMs).toISOString(),
         };
         delete released.leaseUntil;
+        delete released.claimToken;
         await this.state.storage.put(
           STORE_KEY,
           watches.map((watch, watchIndex) => watchIndex === index ? released : watch),
@@ -246,13 +279,14 @@ export class TelegramWatchStore {
 
     if (url.pathname === "/cancel") {
       const removed = index >= 0;
+      const deliveryStarted = removed && watches[index].status === "sending";
       if (removed) {
         await this.state.storage.put(
           STORE_KEY,
           watches.filter((watch) => watch.id !== payload.id),
         );
       }
-      return json({ ok: true, removed });
+      return json({ ok: true, removed, deliveryStarted });
     }
 
     return json({ error: "not_found" }, 404);
@@ -304,19 +338,37 @@ export async function claimConditionWatch(env: Env, id: string): Promise<Conditi
   return result.claimed && result.watch ? result.watch : null;
 }
 
-export async function updateConditionWatch(env: Env, watch: ConditionWatch): Promise<void> {
+export async function updateConditionWatch(env: Env, watch: ConditionWatch): Promise<boolean> {
   const response = await post(env, "/update", watch);
+  if (response.status === 404 || response.status === 409) return false;
   if (!response.ok) throw new Error(`watch update failed: HTTP ${response.status}`);
+  return true;
 }
 
-export async function releaseConditionWatch(env: Env, id: string, delayMs?: number): Promise<void> {
-  const response = await post(env, "/release", { id, ...(delayMs ? { delayMs } : {}) });
+export async function releaseConditionWatch(
+  env: Env, id: string, delayMs?: number, claimToken?: string,
+): Promise<void> {
+  const response = await post(env, "/release", { id, ...(delayMs ? { delayMs } : {}), claimToken });
   if (!response.ok) throw new Error(`watch release failed: HTTP ${response.status}`);
 }
 
-export async function cancelConditionWatch(env: Env, id: string): Promise<boolean> {
+export async function beginConditionWatchSend(env: Env, id: string, claimToken?: string): Promise<boolean> {
+  const response = await post(env, "/begin-send", { id, claimToken });
+  if (response.status === 409) return false;
+  if (!response.ok) throw new Error(`watch begin-send failed: HTTP ${response.status}`);
+  const result = await response.json() as { started?: boolean };
+  return result.started === true;
+}
+
+export type WatchCancellation = { removed: boolean; deliveryStarted: boolean };
+
+export async function cancelConditionWatchWithStatus(env: Env, id: string): Promise<WatchCancellation> {
   const response = await post(env, "/cancel", { id });
   if (!response.ok) throw new Error(`watch cancel failed: HTTP ${response.status}`);
-  const result = await response.json() as { removed?: boolean };
-  return result.removed === true;
+  const result = await response.json() as Partial<WatchCancellation>;
+  return { removed: result.removed === true, deliveryStarted: result.deliveryStarted === true };
+}
+
+export async function cancelConditionWatch(env: Env, id: string): Promise<boolean> {
+  return (await cancelConditionWatchWithStatus(env, id)).removed;
 }

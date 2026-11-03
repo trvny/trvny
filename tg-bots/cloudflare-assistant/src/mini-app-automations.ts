@@ -1,7 +1,7 @@
 import { withDeadline } from "./deadline.ts";
 import { miniAppOwnerAuthError } from "./mini-app.ts";
-import { cancelReminder, listReminders } from "./reminders.ts";
-import { cancelConditionWatch, listConditionWatches, type ConditionWatch } from "./watches.ts";
+import { cancelReminderWithStatus, listReminders } from "./reminders.ts";
+import { cancelConditionWatchWithStatus, listConditionWatches, type ConditionWatch } from "./watches.ts";
 import type { Env } from "./types";
 
 const REMINDER_ID = /^r[0-9a-z]{1,16}$/u;
@@ -83,10 +83,12 @@ export async function handleMiniAppAutomationCancelRequest(
         return json({ error: "not_found" }, 404);
       }
     }
-    const removed = kind === "reminders"
-      ? await cancelReminder(env, id)
-      : await cancelConditionWatch(env, id);
-    return removed ? json({ ok: true, removed: true }) : json({ error: "not_found" }, 404);
+    const cancelled = kind === "reminders"
+      ? await cancelReminderWithStatus(env, id)
+      : await cancelConditionWatchWithStatus(env, id);
+    return cancelled.removed
+      ? json({ ok: true, removed: true, deliveryStarted: cancelled.deliveryStarted })
+      : json({ error: "not_found" }, 404);
   } catch (error) {
     console.error("Mini App automation cancellation failed", error);
     return json({ error: "automations_unavailable" }, 503);

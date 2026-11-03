@@ -33,7 +33,7 @@ import { formatProviderStatus } from "./status";
 import { handleTelegramGuestMessage } from "./guest";
 import { processDueReminders } from "./reminder-notifications";
 import {
-  cancelReminder,
+  cancelReminderWithStatus,
   createReminder,
   formatReminderDueAt,
   listReminders,
@@ -49,7 +49,7 @@ import {
   initializeConditionWatch,
   processConditionWatches,
 } from "./watch-runner";
-import { cancelConditionWatch, TelegramWatchStore } from "./watches";
+import { cancelConditionWatchWithStatus, TelegramWatchStore } from "./watches";
 import {
   cancelBotekTask,
   delegateBotekTask,
@@ -1061,11 +1061,15 @@ async function handleOwnerCommand(
         };
       }
       try {
-        const cancelled = await cancelReminder(env, command.id);
+        const cancelled = await cancelReminderWithStatus(env, command.id);
         return {
           chatId: message.chat.id,
           replyToMessageId: message.message_id,
-          text: cancelled ? `🛑 Anulowano przypomnienie ${command.id}.` : `Nie ma aktywnego przypomnienia ${command.id}.`,
+          text: !cancelled.removed
+            ? `Nie ma aktywnego przypomnienia ${command.id}.`
+            : cancelled.deliveryStarted
+              ? `🛑 Anulowano przypomnienie ${command.id}, ale wysyłka już się rozpoczęła. Wiadomość może jeszcze dotrzeć.`
+              : `🛑 Anulowano przypomnienie ${command.id} przed wysyłką.`,
         };
       } catch (error) {
         console.error("Reminder cancellation failed", error);
@@ -1149,11 +1153,15 @@ async function handleOwnerCommand(
         };
       }
       try {
-        const cancelled = await cancelConditionWatch(env, command.id);
+        const cancelled = await cancelConditionWatchWithStatus(env, command.id);
         return {
           chatId: message.chat.id,
           replyToMessageId: message.message_id,
-          text: cancelled ? `🛑 Anulowano watcher ${command.id}.` : `Nie ma aktywnego watchera ${command.id}.`,
+          text: !cancelled.removed
+            ? `Nie ma aktywnego watchera ${command.id}.`
+            : cancelled.deliveryStarted
+              ? `🛑 Wyłączono watcher ${command.id}, ale wysyłka już się rozpoczęła. Wiadomość może jeszcze dotrzeć.`
+              : `🛑 Anulowano watcher ${command.id} przed wysyłką.`,
         };
       } catch (error) {
         console.error("Condition watch cancellation failed", error);
@@ -2678,7 +2686,7 @@ export default {
     // Independent duties: one failing must not starve the others this minute.
     const duties: Array<[string, () => Promise<unknown>]> = [
       ["task notifications", () => processTaskNotifications(env)],
-      ["reminders", () => processDueReminders(env)],
+      ["reminders", () => processDueReminders(env, sendTelegramMessage)],
       ["condition watches", () => processConditionWatches(env, sendTelegramMessage)],
     ];
     let failed = 0;

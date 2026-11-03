@@ -7,9 +7,14 @@ import {
 } from "../src/watch-runner.ts";
 import {
   TelegramWatchStore,
+  beginConditionWatchSend,
   cancelConditionWatch,
+  cancelConditionWatchWithStatus,
+  claimConditionWatch,
   createConditionWatch,
   listConditionWatches,
+  releaseConditionWatch,
+  updateConditionWatch,
   watchIdForUpdate,
 } from "../src/watches.ts";
 
@@ -246,4 +251,171 @@ test("Feedseek watch seeds old entries and only announces unseen later matches",
   assert.deepEqual(new Set(watches[0].seenIds), new Set(["old", "new"]));
   assert.equal(calls.length, 2);
   assert.ok(calls[1].since);
+});
+
+function deferred() {
+  return Promise.withResolvers();
+}
+
+function githubSnapshot(repository, number, failed) {
+  return {
+    ok: true, repository, number, title: "PR", state: "open", merged: false, draft: false,
+    ci: { total: 2, pending: failed ? 0 : 1, failed: failed ? 1 : 0, passed: 1 },
+  };
+}
+
+test("watch cancellation before a due claim prevents notification", async () => {
+  const env = baseEnv({ PET_DISPATCHER: { meta() { return Promise.resolve({ stale: false }); } } });
+  const watch = await initializeConditionWatch(
+    env, { kind: "legion", condition: "offline" }, 4001, message, Date.now() - 3 * 60_000,
+  );
+  assert.deepEqual(await cancelConditionWatchWithStatus(env, watch.id), {
+    removed: true, deliveryStarted: false,
+  });
+  let sends = 0;
+  await processConditionWatches(env, () => { sends++; return Promise.resolve(); });
+  assert.equal(sends, 0);
+});
+
+test("GitHub cancellation after claim but during slow source read stops delivery", async () => {
+  const entered = deferred();
+  const resume = deferred();
+  let reads = 0;
+  const env = baseEnv({
+    BOTEK_SPECIALISTS: {
+      async githubPullStatus(repository, number) {
+        if (++reads === 1) return githubSnapshot(repository, number, false);
+        entered.resolve();
+        await resume.promise;
+        return githubSnapshot(repository, number, true);
+      },
+    },
+  });
+  const watch = await initializeConditionWatch(env, {
+    kind: "github", repository: "trvny/trvny", number: 709, condition: "ci-failed",
+  }, 4002, message, Date.now() - 4 * 60_000);
+  let sends = 0;
+  const processing = processConditionWatches(env, () => { sends++; return Promise.resolve(); });
+  await entered.promise;
+  assert.deepEqual(await cancelConditionWatchWithStatus(env, watch.id), {
+    removed: true, deliveryStarted: false,
+  });
+  resume.resolve();
+  await processing;
+  assert.equal(sends, 0);
+  assert.deepEqual(await listConditionWatches(env), []);
+});
+
+test("Feedseek cancellation during slow source read stops notification and refresh", async () => {
+  const entered = deferred();
+  const resume = deferred();
+  let reads = 0;
+  const env = baseEnv({
+    BOTEK_SPECIALISTS: {
+      async feedseekRecent() {
+        if (++reads === 1) return { ok: true, entries: [{ id: "old", title: "Old" }] };
+        entered.resolve();
+        await resume.promise;
+        return { ok: true, entries: [{ id: "old", title: "Old" }, { id: "new", title: "New" }] };
+      },
+    },
+  });
+  const watch = await initializeConditionWatch(
+    env, { kind: "feedseek", query: "AI" }, 4003, message, Date.now() - 7 * 60_000,
+  );
+  let sends = 0;
+  const processing = processConditionWatches(env, () => { sends++; return Promise.resolve(); });
+  await entered.promise;
+  assert.deepEqual(await cancelConditionWatchWithStatus(env, watch.id), {
+    removed: true, deliveryStarted: false,
+  });
+  resume.resolve();
+  await processing;
+  assert.equal(sends, 0);
+  assert.deepEqual(await listConditionWatches(env), []);
+});
+
+test("Secretary cancellation during slow AI generation suppresses Business reply", async () => {
+  const entered = deferred();
+  const resume = deferred();
+  const env = baseEnv({
+    SECRETARY_AUTO_REPLY_SCOPE: "contacts-only",
+    WORKERS_AI_MODEL: "@cf/test/model",
+    AI: { async run() {
+      entered.resolve();
+      await resume.promise;
+      return { response: "Botek auto reply" };
+    } },
+  });
+  const now = Date.now();
+  const id = watchIdForUpdate(4004);
+  await createConditionWatch(env, {
+    id, chatId: 555, replyToMessageId: 99,
+    createdAt: new Date(now - 13 * 60 * 60_000).toISOString(),
+    nextCheckAt: new Date(now - 1000).toISOString(),
+    status: "active", failures: 0, kind: "secretary",
+    connectionId: "business-1", sender: "Contact", contextBlock: "contact says hi",
+  });
+  let sends = 0;
+  const processing = processConditionWatches(env, () => { sends++; return Promise.resolve(); });
+  await entered.promise;
+  assert.deepEqual(await cancelConditionWatchWithStatus(env, id), {
+    removed: true, deliveryStarted: false,
+  });
+  resume.resolve();
+  await processing;
+  assert.equal(sends, 0);
+  assert.deepEqual(await listConditionWatches(env), []);
+});
+
+test("cancellation during watch delivery reports in-flight and does not revive watch", async () => {
+  let stale = false;
+  const env = baseEnv({
+    PET_DISPATCHER: { meta() { return Promise.resolve({ stale }); } },
+  });
+  const watch = await initializeConditionWatch(
+    env, { kind: "legion", condition: "offline" }, 4005, message, Date.now() - 3 * 60_000,
+  );
+  stale = true;
+  let sends = 0;
+  await processConditionWatches(env, async () => {
+    sends++;
+    assert.deepEqual(await cancelConditionWatchWithStatus(env, watch.id), {
+      removed: true, deliveryStarted: true,
+    });
+  });
+  assert.equal(sends, 1);
+  assert.deepEqual(await listConditionWatches(env), []);
+});
+
+test("old lease token cannot start a send or release a replacement claim", async () => {
+  const memory = state();
+  const env = { TELEGRAM_WATCHES: namespace(new TelegramWatchStore(memory)) };
+  const now = Date.now();
+  const id = watchIdForUpdate(4006);
+  await createConditionWatch(env, {
+    id, chatId: 123, replyToMessageId: 77,
+    createdAt: new Date(now - 60_000).toISOString(),
+    nextCheckAt: new Date(now - 1000).toISOString(),
+    status: "active", failures: 0, kind: "legion", condition: "offline",
+    lastMatch: false,
+  });
+  const older = await claimConditionWatch(env, id);
+  assert.ok(older?.claimToken);
+  const stored = memory.values.get("condition-watches");
+  stored[0].leaseUntil = new Date(Date.now() - 1000).toISOString();
+  const newer = await claimConditionWatch(env, id);
+  assert.ok(newer?.claimToken);
+  assert.notEqual(older.claimToken, newer.claimToken);
+  assert.equal(await beginConditionWatchSend(env, id, older.claimToken), false);
+  await releaseConditionWatch(env, id, 60_000, older.claimToken);
+  assert.equal((await listConditionWatches(env))[0].claimToken, newer.claimToken);
+  assert.equal(await updateConditionWatch(env, {
+    ...older, status: "active",
+  }), false);
+  assert.equal(await beginConditionWatchSend(env, id, newer.claimToken), true);
+  assert.equal(await beginConditionWatchSend(env, id, newer.claimToken), false);
+  assert.deepEqual(await cancelConditionWatchWithStatus(env, id), {
+    removed: true, deliveryStarted: true,
+  });
 });

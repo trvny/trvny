@@ -2,6 +2,7 @@ import type { BotekWatchRequest } from "./commands";
 import { chatWithInlineFallback } from "./providers.ts";
 import { secretaryAutoReplyEnabled, secretaryAutoReplySystemPrompt } from "./secretary.ts";
 import {
+  beginConditionWatchSend,
   cancelConditionWatch,
   claimConditionWatch,
   createConditionWatch,
@@ -268,7 +269,14 @@ async function sendTransition(
   watch: ConditionWatch,
   text: string,
   send: WatchSender,
-): Promise<"sent" | "ambiguous" | "failed"> {
+): Promise<"sent" | "ambiguous" | "failed" | "cancelled"> {
+  // The Durable Object decides whether cancellation beat the send phase.
+  try {
+    if (!await beginConditionWatchSend(env, watch.id, watch.claimToken)) return "cancelled";
+  } catch (error) {
+    console.error("Condition watch send authorization failed", watch.id, error);
+    return "failed";
+  }
   try {
     await send(env, watch.chatId, text, {
       messageThreadId: watch.messageThreadId,
@@ -299,8 +307,9 @@ async function processLegion(
   const match = legionMatch(watch.condition, stale);
   if (!watch.lastMatch && match) {
     const outcome = await sendTransition(env, watch, legionNotification(watch), send);
+    if (outcome === "cancelled") return;
     if (outcome === "failed") {
-      await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS);
+      await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS, watch.claimToken);
       return;
     }
     await cancelConditionWatch(env, watch.id);
@@ -322,8 +331,9 @@ async function processGithub(
   const match = githubMatch(watch.condition, snapshot);
   if (!watch.lastMatch && match) {
     const outcome = await sendTransition(env, watch, githubNotification(watch, snapshot), send);
+    if (outcome === "cancelled") return;
     if (outcome === "failed") {
-      await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS);
+      await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS, watch.claimToken);
       return;
     }
     await cancelConditionWatch(env, watch.id);
@@ -350,8 +360,9 @@ async function processFeedseek(
 
   if (fresh.length) {
     const outcome = await sendTransition(env, watch, feedseekNotification(watch, fresh), send);
+    if (outcome === "cancelled") return;
     if (outcome === "failed") {
-      await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS);
+      await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS, watch.claimToken);
       return;
     }
   }
@@ -394,6 +405,9 @@ async function processSecretary(
     return;
   }
 
+  // Owner reply/cancellation during slow model generation must suppress auto-reply.
+  if (!await beginConditionWatchSend(env, watch.id, watch.claimToken)) return;
+
   try {
     await send(env, watch.chatId, text, {
       replyToMessageId: watch.replyToMessageId,
@@ -406,7 +420,7 @@ async function processSecretary(
       return;
     }
     console.error("Secretary idle auto-reply delivery failed", watch.id, error);
-    await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS);
+    await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS, watch.claimToken);
     return;
   }
 
@@ -431,7 +445,7 @@ async function processClaimedWatch(
     }
   } catch (error) {
     console.warn("Condition watch source check failed", watch.id, error);
-    await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS).catch((releaseError) => {
+    await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS, watch.claimToken).catch((releaseError) => {
       console.error("Condition watch release failed", watch.id, releaseError);
     });
   }

@@ -8,7 +8,7 @@ export type Reminder = {
   text: string;
   dueAt: string;
   createdAt: string;
-  state: "pending" | "notifying";
+  state: "pending" | "notifying" | "sending";
 };
 
 const STORE_KEY = "reminders";
@@ -40,7 +40,7 @@ function validReminder(value: unknown): value is Reminder {
     typeof item.text === "string" && item.text.length > 0 && item.text.length <= MAX_TEXT_CHARS &&
     Number.isFinite(createdAt) && Number.isFinite(dueAt) && dueAt >= createdAt &&
     dueAt - createdAt <= MAX_DELAY_MS + 60_000 &&
-    (item.state === "pending" || item.state === "notifying");
+    (item.state === "pending" || item.state === "notifying" || item.state === "sending");
 }
 
 function reminderId(value: unknown): value is { id: string } {
@@ -64,6 +64,8 @@ export class TelegramReminderStore {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    // Parse request bodies before reading state. No non-storage await between read and write.
+    const payload = request.method === "POST" ? await request.json() : null;
     const stored = (await this.state.storage.get<Reminder[]>(STORE_KEY)) ?? [];
     const current = prune(stored);
     if (current.length !== stored.length) await this.state.storage.put(STORE_KEY, current);
@@ -79,7 +81,6 @@ export class TelegramReminderStore {
     }
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-    const payload = await request.json();
     if (url.pathname === "/create") {
       if (!validReminder(payload)) return json({ error: "invalid_reminder" }, 400);
       const existing = current.find((item) => item.id === payload.id);
@@ -103,6 +104,16 @@ export class TelegramReminderStore {
       return json({ reserved: true, reminder: reserved });
     }
 
+    if (url.pathname === "/begin-send") {
+      if (index < 0 || current[index].state !== "notifying") return json({ started: false }, 409);
+      const sending = { ...current[index], state: "sending" as const };
+      await this.state.storage.put(
+        STORE_KEY,
+        current.map((item, itemIndex) => itemIndex === index ? sending : item),
+      );
+      return json({ started: true });
+    }
+
     if (url.pathname === "/release") {
       if (index >= 0) {
         await this.state.storage.put(
@@ -117,10 +128,11 @@ export class TelegramReminderStore {
 
     if (url.pathname === "/finish" || url.pathname === "/cancel") {
       const removed = index >= 0;
+      const deliveryStarted = url.pathname === "/cancel" && removed && current[index].state === "sending";
       if (removed) {
         await this.state.storage.put(STORE_KEY, current.filter((item) => item.id !== payload.id));
       }
-      return json({ ok: true, removed });
+      return json({ ok: true, removed, deliveryStarted });
     }
 
     return json({ error: "not_found" }, 404);
@@ -186,11 +198,17 @@ export async function dueReminders(env: Env): Promise<Reminder[]> {
   return response.json() as Promise<Reminder[]>;
 }
 
-export async function cancelReminder(env: Env, id: string): Promise<boolean> {
+export type ReminderCancellation = { removed: boolean; deliveryStarted: boolean };
+
+export async function cancelReminderWithStatus(env: Env, id: string): Promise<ReminderCancellation> {
   const response = await post(env, "/cancel", { id });
   if (!response.ok) throw new Error(`reminder cancel failed: HTTP ${response.status}`);
-  const result = await response.json() as { removed?: boolean };
-  return result.removed === true;
+  const result = await response.json() as Partial<ReminderCancellation>;
+  return { removed: result.removed === true, deliveryStarted: result.deliveryStarted === true };
+}
+
+export async function cancelReminder(env: Env, id: string): Promise<boolean> {
+  return (await cancelReminderWithStatus(env, id)).removed;
 }
 
 export async function reserveReminder(env: Env, id: string): Promise<Reminder | null> {
@@ -199,6 +217,14 @@ export async function reserveReminder(env: Env, id: string): Promise<Reminder | 
   if (!response.ok) throw new Error(`reminder reserve failed: HTTP ${response.status}`);
   const result = await response.json() as { reserved?: boolean; reminder?: Reminder };
   return result.reserved && result.reminder ? result.reminder : null;
+}
+
+export async function beginReminderSend(env: Env, id: string): Promise<boolean> {
+  const response = await post(env, "/begin-send", { id });
+  if (response.status === 409) return false;
+  if (!response.ok) throw new Error(`reminder begin-send failed: HTTP ${response.status}`);
+  const result = await response.json() as { started?: boolean };
+  return result.started === true;
 }
 
 export async function releaseReminder(env: Env, id: string): Promise<void> {

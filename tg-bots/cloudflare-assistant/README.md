@@ -12,6 +12,12 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
 - **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
 - **Mini App:** owner-only Control Center with Legion/task status, task cancellation, a Watchtower for existing reminders and Legion/GitHub/Feedseek watches, and Codebench/Streambench/Docbench links. Watchtower keeps Secretary idle watches private.
+
+### Automation cancellation boundary
+
+Cancellation takes effect at the reminder/watch Durable Object **send gate**. A cancellation completed before that gate prevents the Telegram send, even when the scheduler has reserved the reminder or a GitHub/Feedseek/Secretary check is still running. A cancellation after the gate removes the automation but reports `deliveryStarted: true`; the in-flight Telegram request may still arrive. Owner commands and Watchtower surface this distinction.
+
+Claimed condition watches use per-claim tokens to reject stale checks, releases and sends. A worker interrupted after entering `sending` does **not** automatically replay that watch: delivery may already have reached Telegram. Inspect and cancel a stuck `sending` watch manually rather than risking a duplicate Business reply or notification. Reminder `sending` entries similarly stay out of the due queue until finished/canceled; existing ambiguous-send finalization remains conservative.
 - **Model routing:** same-account Kanarek Companion router; provider credentials remain centralized in `kanarek-review`.
 - **Service endpoints:** `POST /ingest/rss` and `GET /health`; no polling daemon or always-on phone process.
 

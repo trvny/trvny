@@ -93,7 +93,7 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
       ? { kind: "start-help", start: text === "/start" || text.startsWith("/start ") }
       : undefined
   )),
-  textRoute("tools", (text) => text === "/tools" || text.startsWith("/tools ")
+  textRoute("tools", (text) => /^\/tools(?:\s|$)/u.test(text)
     ? { kind: "tools", id: text.slice("/tools".length).trim().toLowerCase() }
     : undefined),
   textRoute("reset", (text) => text === "/reset" ? { kind: "reset" } : undefined),

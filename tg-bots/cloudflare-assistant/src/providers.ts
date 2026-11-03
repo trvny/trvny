@@ -1,5 +1,5 @@
 import type { ChatMessage, Env } from "./types";
-import { withDeadline } from "./deadline";
+import { withDeadline } from "./deadline.ts";
 
 const ROUTER_TIMEOUT_MS = 20_000;
 const INLINE_ROUTER_TIMEOUT_MS = 2_500;

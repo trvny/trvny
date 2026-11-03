@@ -119,14 +119,14 @@ Existing Control Center tiles merely call `Telegram.WebApp.openLink` for Codeben
 
 #### Docbench: Draft Studio
 
-**Desired flow:** `/draft`, `/doc` or a "Create document" button opens a scoped editor **inside Telegram**. Write/edit markdown or rich text, attach a message/file, inspect a preview, then send the document back to the chat, save an explicit draft, or export it.
+**Desired flow:** `/doc`, `/draft new` or a "Create document" button opens a scoped editor **inside Telegram**. Keep existing `/draft <text>` reply drafting and the current bare `/draft` usage handler intact unless deliberately migrated with compatibility tests. Write/edit markdown or rich text, attach a message/file, inspect a preview, then send the document back to the chat, save an explicit draft, or export it.
 
 - V1: plain text/Markdown editor, autosave only after clear opt-in, templates, preview, share/send to the current conversation, export `.txt` and `.md`.
 - V2: existing Docbench rendering/conversion where its interface supports reuse; `.html`, `.pdf`, possibly `.docx`, plus document import and formatting presets. Verify actual worker/client conversion interfaces before promising formats.
 - Import Telegram content only from explicitly replied-to/forwarded messages, user-uploaded files, or a voluntarily supplied chat export. Bot API does **not** grant arbitrary historical access to someone's chats.
 - Export a selected message/thread as Markdown/JSON/JSONL with timestamps, author labels, provenance, attachments or safe links when available; offer redaction before sharing or publishing. Manual Telegram Desktop export import is a separate, consent-based path.
 - Keep the composer useful offline where feasible; encrypted/private draft handling, bounded attachments, no accidental server retention. Large documents use a scoped API, not `WebApp.sendData` as a bulk transport.
-- Reuse existing Telegram document sender and Docbench functions, instead of silently sending user drafts to an AI provider.
+- Add a bounded `sendDocument` upload method to the **existing** Telegram transport/allowlist; there is no dedicated document-send wrapper today. Reuse the existing delivery guards and Docbench conversion functions where they actually exist, instead of silently sending drafts to an AI provider.
 
 **Done when:** a user can compose inside the Mini App and receive a real file in their Telegram chat without navigating to the standalone Docbench page.
 
@@ -135,6 +135,7 @@ Existing Control Center tiles merely call `Telegram.WebApp.openLink` for Codeben
 **Desired flow:** `@trvny_bot dawaj muze` (or `/radio`) replies with a compact station/now-playing card and a **Play in Botek** Mini App button. It opens a real audio player, not the current Streambench link tile.
 
 - V1: Radio Paradise Main Mix, play/pause, volume, station icon/cover, title, artist, live state, fallback art, and "More stations." Share the existing `pages/astro/src/components/RadioMini.astro` interaction pattern and `pages/functions/api/radio-now.js` metadata endpoint instead of duplicating upstream scraping.
+- The Pages metadata response currently has no cross-origin allowance for the Telegram Worker's Mini App. Provide a small **same-origin, fixed-upstream** metadata relay in `tg-assistant` (or a narrowly authorized CORS policy) before wiring the player. Cache briefly; never create an arbitrary URL proxy.
 - V2: station picker/favorites and playlist import from Streambench's maintained catalog; verify each upstream station's embed/CORS/format/rights before exposing it. Preserve Streambench as the streaming catalog/player source of truth.
 - Prefer HTML5 audio inside the Telegram Mini App, opened by `web_app` button or `?startapp=radio` deep link when the Main Mini App is configured. Playback may **require a user tap** due to browser and Telegram client autoplay policies. No promise of sound starting automatically from a bot message.
 - Telegram `sendAudio` is for an audio file, not a guarantee of an indefinitely playing live radio stream. Do not upload copyrighted streams or proxy arbitrary remote URLs.
@@ -154,9 +155,10 @@ Existing Control Center tiles merely call `Telegram.WebApp.openLink` for Codeben
 
 - Build a small public form/guest messaging endpoint in the **existing Pages Functions**. Only deliberate Send/Request actions create owner alerts; don't silently report ordinary visits or track everyone who clicks around.
 - Server-to-server handoff to the existing `tg-assistant` delivery path using a scoped secret/service authorization; never expose the bot token, owner chat ID, or direct Telegram send method in browser code.
+- Choose **one canonical inbox store in `tg-assistant`** (a scoped Durable Object with bounded retention and receipt IDs). Pages Functions submit via a narrow authenticated create API; owner Telegram/Mini App views read the same stored item. Persist and dedupe before notifying; queue/retry the alert without creating a second inbox or losing the receipt when Telegram delivery fails.
 - Anonymous by default: optional nickname/contact method, clear reply expectations, a random receipt ID and basic privacy notice. No forced Telegram account, phone or email.
 - Spam defenses: tight per-origin/session limits, size/attachment bounds, bot screening/Turnstile if needed, dedupe and delivery failure handling. Minimize IP retention.
-- V1: one-way visitor → private owner Botek notification, with URL/page context if voluntarily relevant, and a link to the corresponding inbox entry.
+- V1: one-way visitor → private owner Botek notification, with URL/page context if voluntarily relevant, and a link to the persisted inbox entry. Define storage expiry and the response shown if submission or notification fails; never claim delivery solely because the request was accepted.
 - V2: optional two-way replies through an expiring, unguessable receipt link or an explicitly provided return address. Separate opt-in consent and abuse controls; no public exposure of Business/Secretary messages.
 - Keep a single inbox source of truth. Website and Telegram render the same item; notification is only delivery, not a second message store.
 

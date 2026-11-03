@@ -68,40 +68,55 @@ test("Watchtower stays responsive to stalled status and ignores superseded loads
     createElement: element,
     querySelectorAll: () => [],
   };
+  const noop = () => undefined;
+  const statusResolvers = [];
   const webApp = {
     initData: "signed-in-test",
-    ready() {}, expand() {}, setHeaderColor() {}, setBackgroundColor() {},
-    HapticFeedback: { impactOccurred() {}, notificationOccurred() {} },
+    ready: noop, expand: noop, setHeaderColor: noop, setBackgroundColor: noop,
+    showConfirm: (_message, resolve) => resolve(true),
+    HapticFeedback: { impactOccurred: noop, notificationOccurred: noop },
   };
   const fetch = (path) => path === "/mini-app/api/status"
-    ? new Promise(() => {})
-    : new Promise((resolve) => pending.push(resolve));
+    ? new Promise((resolve) => statusResolvers.push(resolve))
+    : path.endsWith("/cancel")
+      ? Promise.resolve(Response.json({ ok: true }))
+      : new Promise((resolve) => pending.push(resolve));
 
   new Script(html.slice(start, end)).runInNewContext({ document, window: { Telegram: { WebApp: webApp } }, fetch, Response, Date });
 
   assert.equal(pending.length, 1);
-  elements.get("refresh").events.click();
-  assert.equal(pending.length, 2);
-
-  pending[1](Response.json({
+  pending[0](Response.json({
     ok: true,
-    reminders: [{ id: "rnew", text: "Newest reminder", state: "pending", dueAt: "2026-11-04T10:00:00Z" }],
+    reminders: [{ id: "rnew", text: "Active reminder", state: "pending", dueAt: "2026-11-04T10:00:00Z" }],
     watches: [{ id: "wnew", kind: "github", status: "checking", target: "trvny/trvny#203", nextCheckAt: "2026-11-04T10:00:00Z" }],
   }));
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(elements.get("reminder-count").textContent, "1");
+  assert.equal(elements.get("reminders").children[0].children[1].textContent, "Active reminder");
   assert.equal(elements.get("watches").children[0].children[0].children[1].textContent, "github · checking");
-  assert.equal(elements.get("reminders").children[0].children[1].textContent, "Newest reminder");
   assert.equal(elements.get("refresh").disabled, false);
 
-  pending[0](Response.json({
+  const cancelButton = elements.get("reminders").children[0].children[3].children[0];
+  elements.get("refresh").events.click();
+  assert.equal(pending.length, 2);
+  assert.equal(elements.get("refresh").disabled, true);
+  cancelButton.events.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pending.length, 3);
+
+  pending[2](Response.json({ ok: true, reminders: [], watches: null }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(elements.get("reminders").children[0].textContent, "No active reminders.");
+  assert.equal(elements.get("watches").children[0].className, "error");
+  assert.equal(elements.get("refresh").disabled, false);
+
+  pending[1](Response.json({
     ok: true,
     reminders: [{ id: "rold", text: "Stale reminder", state: "pending", dueAt: "2026-11-04T10:00:00Z" }],
-    watches: null,
+    watches: [],
   }));
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(elements.get("reminders").children[0].children[1].textContent, "Newest reminder");
-  assert.equal(elements.get("watches").children[0].children[0].children[1].textContent, "github · checking");
+  assert.equal(elements.get("reminders").children[0].textContent, "No active reminders.");
+  assert.equal(elements.get("watches").children[0].className, "error");
 });
 
 test("builds the HTTPS Web App menu button used for the owner chat", () => {

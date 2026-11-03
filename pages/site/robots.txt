@@ -9,10 +9,15 @@ User-agent: Claude-SearchBot
 User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Perplexity-User
+User-agent: MistralAI-Index
+User-agent: MistralAI-User
+User-agent: Googlebot
+User-agent: Google-InspectionTool
 User-agent: Google-Extended
 User-agent: Applebot
 User-agent: Applebot-Extended
 User-agent: BingBot
+User-agent: DuckDuckBot
 User-agent: DuckAssistBot
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /

@@ -85,10 +85,10 @@ test("routes tool discovery without invoking AI or other services", async () => 
   assert.deepEqual(await routeOwnerCommand("/tools TeLeGrAm"), {
     matched: true, route: "tools", value: { kind: "tools", id: "telegram" },
   });
-  assert.deepEqual(await routeOwnerCommand("/tools\\tmachine".replace("\\\\t", "\\t")), {
+  assert.deepEqual(await routeOwnerCommand("/tools\tmachine"), {
     matched: true, route: "tools", value: { kind: "tools", id: "machine" },
   });
-  assert.deepEqual(await routeOwnerCommand("/tools\\nmemory".replace("\\\\n", "\\n")), {
+  assert.deepEqual(await routeOwnerCommand("/tools\nmemory"), {
     matched: true, route: "tools", value: { kind: "tools", id: "memory" },
   });
   assert.deepEqual(await routeOwnerCommand("/toolshop"), { matched: false });

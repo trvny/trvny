@@ -44,6 +44,64 @@ test("parses the embedded Control Center client script", async () => {
   assert.doesNotThrow(() => new Script(html.slice(start, end)));
 });
 
+test("Watchtower stays responsive to stalled status and ignores superseded loads", async () => {
+  const html = await miniAppHtmlResponse().text();
+  const start = html.indexOf("<script>") + "<script>".length;
+  const end = html.indexOf("</script>", start);
+  const elements = new Map();
+  const pending = [];
+
+  function element() {
+    return {
+      children: [], events: {}, textContent: "", className: "", disabled: false,
+      append(...children) { this.children.push(...children); },
+      replaceChildren(...children) { this.children = children; },
+      addEventListener(type, handler) { this.events[type] = handler; },
+      getAttribute() { return null; },
+    };
+  }
+  const document = {
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, element());
+      return elements.get(id);
+    },
+    createElement: element,
+    querySelectorAll: () => [],
+  };
+  const webApp = {
+    initData: "signed-in-test",
+    ready() {}, expand() {}, setHeaderColor() {}, setBackgroundColor() {},
+    HapticFeedback: { impactOccurred() {}, notificationOccurred() {} },
+  };
+  const fetch = (path) => path === "/mini-app/api/status"
+    ? new Promise(() => {})
+    : new Promise((resolve) => pending.push(resolve));
+
+  new Script(html.slice(start, end)).runInNewContext({ document, window: { Telegram: { WebApp: webApp } }, fetch, Response, Date });
+
+  assert.equal(pending.length, 1);
+  elements.get("refresh").events.click();
+  assert.equal(pending.length, 2);
+
+  pending[1](Response.json({
+    ok: true,
+    reminders: [{ id: "rnew", text: "Newest reminder", state: "pending", dueAt: "2026-11-04T10:00:00Z" }],
+    watches: [],
+  }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(elements.get("reminder-count").textContent, "1");
+  assert.equal(elements.get("reminders").children[0].children[1].textContent, "Newest reminder");
+  assert.equal(elements.get("refresh").disabled, false);
+
+  pending[0](Response.json({
+    ok: true,
+    reminders: [{ id: "rold", text: "Stale reminder", state: "pending", dueAt: "2026-11-04T10:00:00Z" }],
+    watches: [],
+  }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(elements.get("reminders").children[0].children[1].textContent, "Newest reminder");
+});
+
 test("builds the HTTPS Web App menu button used for the owner chat", () => {
   assert.deepEqual(telegramMiniAppMenuButton("https://bot.example/mini-app"), {
     type: "web_app",

@@ -360,9 +360,12 @@ const MINI_APP_HTML = `<!doctype html>
       }
     }
 
+    let refreshSequence = 0;
+
     async function cancelAutomation(kind, id, button) {
       if (!(await confirmCancel("Cancel this automation?"))) return;
       button.disabled = true;
+      ++refreshSequence;
       try {
         const initData = webApp && webApp.initData ? webApp.initData : "";
         if (!initData) throw new Error("Telegram session is unavailable.");
@@ -371,16 +374,20 @@ const MINI_APP_HTML = `<!doctype html>
           cache: "no-store",
           headers: { "x-telegram-init-data": initData },
         });
-        if (!response.ok) throw new Error(response.status === 401 ? "Telegram session expired. Reopen this panel." : "Could not cancel the automation.");
-        if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.notificationOccurred("success");
+        if (!response.ok && response.status !== 404) {
+          throw new Error(response.status === 401 ? "Telegram session expired. Reopen this panel." : "Could not cancel the automation.");
+        }
+        if (response.ok && webApp && webApp.HapticFeedback) webApp.HapticFeedback.notificationOccurred("success");
         await refresh();
       } catch (error) {
         if (webApp && webApp.showAlert) webApp.showAlert(error instanceof Error ? error.message : "Cancellation failed.");
         button.disabled = false;
+        void refresh();
       }
     }
 
     async function refresh() {
+      const sequence = ++refreshSequence;
       refreshButton.disabled = true;
       const initData = webApp && webApp.initData ? webApp.initData : "";
       if (!initData) {
@@ -389,22 +396,27 @@ const MINI_APP_HTML = `<!doctype html>
         refreshButton.disabled = false;
         return;
       }
-      try {
-        const response = await fetch("/mini-app/api/status", {
-          method: "GET",
-          cache: "no-store",
-          headers: { "x-telegram-init-data": initData },
-        });
-        if (!response.ok) {
-          if (response.status === 401) throw new Error("Telegram session expired. Reopen this panel.");
-          throw new Error("Control Center backend is temporarily unavailable.");
+
+      void (async () => {
+        try {
+          const response = await fetch("/mini-app/api/status", {
+            method: "GET",
+            cache: "no-store",
+            headers: { "x-telegram-init-data": initData },
+          });
+          if (!response.ok) {
+            if (response.status === 401) throw new Error("Telegram session expired. Reopen this panel.");
+            throw new Error("Control Center backend is temporarily unavailable.");
+          }
+          const data = await response.json();
+          if (sequence !== refreshSequence) return;
+          renderLegion(data.legion || {});
+          renderTasks(data.tasks || []);
+        } catch (error) {
+          if (sequence === refreshSequence) renderError(error instanceof Error ? error.message : "Could not load tasks.");
         }
-        const data = await response.json();
-        renderLegion(data.legion || {});
-        renderTasks(data.tasks || []);
-      } catch (error) {
-        renderError(error instanceof Error ? error.message : "Could not load tasks.");
-      }
+      })();
+
       try {
         const response = await fetch("/mini-app/api/automations", {
           method: "GET",
@@ -413,14 +425,18 @@ const MINI_APP_HTML = `<!doctype html>
         });
         if (!response.ok) throw new Error(response.status === 401 ? "Telegram session expired. Reopen this panel." : "Watchtower is temporarily unavailable.");
         const automations = await response.json();
+        if (sequence !== refreshSequence) return;
         renderAutomationRows(reminderList, automations.reminders, "reminders");
         renderAutomationRows(watchList, automations.watches, "watches");
       } catch (error) {
-        renderAutomationError(error instanceof Error ? error.message : "Could not load automations.");
+        if (sequence === refreshSequence) renderAutomationError(error instanceof Error ? error.message : "Could not load automations.");
+      } finally {
+        if (sequence === refreshSequence) {
+          setText("footer", "Updated: " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+          if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.impactOccurred("light");
+          refreshButton.disabled = false;
+        }
       }
-      setText("footer", "Updated: " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
-      if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.impactOccurred("light");
-      refreshButton.disabled = false;
     }
     if (webApp) {
       webApp.ready();

@@ -70,7 +70,7 @@ async function radioHarness(response, platform = "") {
   };
   const noop = () => 1;
   new Script(source).runInNewContext({
-    document, window, fetch, Date, URLSearchParams, Response, AbortSignal,
+    document, window, fetch, Date, URLSearchParams, Response, AbortController,
     setTimeout: noop, clearTimeout: noop,
   });
   await new Promise((resolve) => setImmediate(resolve));
@@ -123,6 +123,10 @@ test("stale stream errors do not cancel a working replacement stream", async () 
   }));
   nodes.get("radio-toggle").dispatch("click");
   await Promise.resolve();
+  nodes.get("radio-toggle").dispatch("click");
+  nodes.get("radio-toggle").dispatch("click");
+  await Promise.resolve();
+  assert.equal(audio.playCalls, 2);
   audio.error = null;
   audio.dispatch("error");
   assert.equal(nodes.get("radio-status").textContent, "Playing live");

@@ -5,10 +5,13 @@ import { toolDeckView } from "./capability-catalog.ts";
 export type PublicAction =
   | { kind: "start" | "help" | "skill" }
   | { kind: "tools"; section: string }
-  | { kind: "dice"; emoji: TelegramDiceEmoji | null };
+  | { kind: "dice"; emoji: TelegramDiceEmoji | null }
+  | { kind: "ping"; nonce: string | null };
 
 const BOT_USERNAME = "trvny_bot";
-const PUBLIC_ACTIONS = new Set(["start", "help", "tools", "skill", "dice"]);
+const PUBLIC_ACTIONS = new Set(BOTEK_COMMANDS.filter((command) =>
+  command.public === true
+).map((command) => command.command));
 
 // Explicit commands only. Unsolicited bot chatter and ordinary group text stay ignored.
 export function parsePublicAction(message: TelegramMessage): PublicAction | null {
@@ -30,6 +33,10 @@ export function parsePublicAction(message: TelegramMessage): PublicAction | null
     case "help": return payload ? null : { kind: "help" };
     case "skill": return payload ? null : { kind: "skill" };
     case "tools": return { kind: "tools", section: payload.toLowerCase().slice(0, 32) };
+    case "ping": return {
+      kind: "ping",
+      nonce: !payload ? "" : /^[A-Za-z0-9_-]{1,32}$/u.test(payload) ? payload : null,
+    };
     case "dice": return { kind: "dice", emoji: parseDiceCommand(normalized) };
     default: return null;
   }
@@ -52,6 +59,8 @@ export function skillDocument(): string {
     "Send commands in a private chat, or use /command@trvny_bot in a shared group.",
     "Bot-to-bot communication in private chats requires BotFather Bot-to-Bot Mode on both bots.",
     "Bot-to-bot group commands require Telegram delivery rules; do not assume a message was received.",
+    "Round-trip test: /ping <nonce> in private chat, or /ping@trvny_bot <nonce> in a group.",
+    "Expected: BOTEK/1 PONG <nonce>. Match the nonce and reply target; never automatically ping back.",
     "",
     "## Commands",
     "",
@@ -77,6 +86,7 @@ export function skillManifest(): Record<string, unknown> {
     visibility: "public",
     commands: publicCommands().map(({ command, usage, description }) => ({ command, usage, description })),
     bot_to_bot: { private: "BotFather mode required on both peers", group: "explicit @trvny_bot commands" },
+    handshake: { command: "/ping <nonce>", response: "BOTEK/1 PONG <nonce>", max_nonce_length: 32 },
     requires_owner_authorization: false,
   };
 }
@@ -86,6 +96,14 @@ export function publicReply(message: TelegramMessage, action: PublicAction, skil
   if (action.kind === "tools") {
     const view = toolDeckView(action.section, "public");
     return { ...base, text: view.plain, richHtml: view.richHtml, replyMarkup: view.keyboard };
+  }
+  if (action.kind === "ping") {
+    return {
+      ...base,
+      text: action.nonce === null
+        ? "Użycie: /ping [id: 1-32 znaków A-Z a-z 0-9 _ -]"
+        : `🏓 BOTEK/1 PONG${action.nonce ? ` ${action.nonce}` : ""}`,
+    };
   }
   if (action.kind === "dice") {
     return action.emoji

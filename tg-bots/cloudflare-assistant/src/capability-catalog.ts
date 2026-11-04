@@ -18,7 +18,7 @@ export const BOTEK_CAPABILITIES: readonly BotekCapability[] = [
   { id: "automations", title: "Przypomnienia i obserwatory", icon: "⏰", description: "Ustawiaj przypomnienia oraz obserwuj Legiona, GitHub i Feedseek.", executor: "botek", surfaces: ["chat", "mini-app"], commands: ["remind", "reminders", "remind_cancel", "watch", "watches", "watch_cancel"] },
   { id: "memory", title: "Pamięć długoterminowa", icon: "🧠", description: "Zapisuj i wyszukuj wspomnienia przez istniejącą usługę.", executor: "specialist", surfaces: ["chat"], commands: ["remember", "recall", "memory_status"] },
   { id: "machine", title: "Operacje na urządzeniach", icon: "🛠️", description: "Sprawdzaj urządzenia i deleguj zadania przez Pet Dispatcher.", executor: "dispatcher", surfaces: ["chat", "mini-app"], commands: ["legion", "wake", "tasks", "task", "task_status", "task_cancel"] },
-  { id: "control", title: "Sterowanie i diagnostyka", icon: "🩺", description: "Sprawdzaj status Botka oraz dostępne polecenia.", executor: "botek", surfaces: ["chat"], commands: ["start", "help", "tools", "skill", "status"] },
+  { id: "control", title: "Sterowanie i diagnostyka", icon: "🩺", description: "Sprawdzaj status Botka oraz dostępne polecenia.", executor: "botek", surfaces: ["chat"], commands: ["start", "help", "tools", "skill", "ping", "status"] },
 ];
 
 const commandIndex = new Map(BOTEK_COMMANDS.map((command) => [command.command, command]));

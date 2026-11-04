@@ -2,9 +2,9 @@
 
 > Static guide to TRAVNY publications. The [live Teksty directory](https://travny.pages.dev/teksty/) and [unified Atom feed](https://travny.pages.dev/teksty/feed.xml) cover the current publication stream. Atom includes at most 100 entries.
 
-## Biuletyn TRAVNY
+## Reactor
 
-- [Latest editorial note](https://shitpost-reactor.travny.workers.dev/): the newest Biuletyn TRAVNY entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
+- [Latest editorial note](https://shitpost-reactor.travny.workers.dev/): the newest Reactor entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
 
 ## CoCzyDziennik
 
@@ -19,5 +19,5 @@
 
 ## Feed
 
-- [Unified Atom feed: articles, CoCzyDziennik and Biuletyn TRAVNY](https://travny.pages.dev/teksty/feed.xml)
+- [Unified Atom feed: articles, CoCzyDziennik and Reactor](https://travny.pages.dev/teksty/feed.xml)
 - [Legacy article metadata only](https://travny.pages.dev/teksty/posts.json): does not include CoCzyDziennik issues or external editorial notes.

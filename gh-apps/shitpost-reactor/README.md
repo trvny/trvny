@@ -1,6 +1,6 @@
 # Shitpost Reactor
 
-Public presentation: **Biuletyn TRAVNY**. Post titles derive from the stored topic when it is a presentable subject or sourced headline; internal generation instructions fall back to the post's opening line. Homepage, archives, canonical posts, social metadata and feeds share this title. Public content is styled as editorial commentary without "shitpost" labels. Internal workflow, R2 keys, OIDC audience and historical feed identifiers remain unchanged.
+Public presentation: **Reactor**. Post titles derive from the stored topic when it is a presentable subject or sourced headline; internal generation instructions fall back to the post's opening line. Homepage, archives, canonical posts, social metadata and feeds share this title. Public content is styled as editorial commentary without "shitpost" labels. Internal workflow, R2 keys, OIDC audience and historical feed identifiers remain unchanged.
 
 Small scheduled shitpost generator and public feed. GitHub Actions is the only clock; the existing Kanarek free-router is the model pool; local `style-reference.md` owns Reactor-specific craft notes.
 

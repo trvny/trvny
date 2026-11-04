@@ -6,7 +6,7 @@ import {
 import { getMemeTemplate, memeImageUrl } from './templates.mjs';
 import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
 
-const FEED_TITLE = 'Biuletyn TRAVNY';
+const FEED_TITLE = 'Reactor';
 const FEED_DESCRIPTION = 'Komentarze i obserwacje z pogranicza technologii, kultury i codzienności.';
 const FEED_LIMIT = 50;
 const ARCHIVE_PAGE_SIZE = 25;
@@ -499,7 +499,7 @@ Sitemap: ${SITE_URL}/sitemap.xml
 }
 
 function renderLlms() {
-  return `# Biuletyn TRAVNY
+  return `# Reactor
 
 > Editorial-style satire and commentary. Entries are generated automatically; they are not independently verified reporting.
 
@@ -535,7 +535,7 @@ function renderManifest() {
   return `${JSON.stringify({
     id: '/',
     name: FEED_TITLE,
-    short_name: 'Biuletyn',
+    short_name: 'Reactor',
     description: FEED_DESCRIPTION,
     lang: 'pl-PL',
     dir: 'ltr',
@@ -628,7 +628,7 @@ ${structuredData}
 <link rel="manifest" href="/site.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Biuletyn">
+<meta name="apple-mobile-web-app-title" content="Reactor">
 <style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem}article h2{font-size:1.3rem;margin:0 0 1rem}article .entry-body{line-height:1.55}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}.meme{display:block;max-width:100%;height:auto;margin:1rem 0;border-radius:.5rem}</style>
 </head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a><a href="/archive">Full archive</a></p></header>${body}</body></html>`;
 }

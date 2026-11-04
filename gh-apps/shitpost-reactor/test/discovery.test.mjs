@@ -21,12 +21,12 @@ test('public feed title and icon metadata stay aligned', () => {
   const atom = renderAtom([post]);
   const json = JSON.parse(renderJsonFeed([post]));
 
-  assert.match(rss, /<title>Biuletyn TRAVNY<\/title>/);
+  assert.match(rss, /<title>Reactor<\/title>/);
   assert.match(rss, /<image>[\s\S]*favicon-96x96\.png/);
-  assert.match(atom, /<title>Biuletyn TRAVNY<\/title>/);
+  assert.match(atom, /<title>Reactor<\/title>/);
   assert.match(atom, /<icon>https:\/\/shitpost-reactor\.travny\.workers\.dev\/favicon\.svg<\/icon>/);
   assert.match(atom, /<logo>https:\/\/shitpost-reactor\.travny\.workers\.dev\/icon-512\.png<\/logo>/);
-  assert.equal(json.title, 'Biuletyn TRAVNY');
+  assert.equal(json.title, 'Reactor');
   assert.equal(json.favicon, 'https://shitpost-reactor.travny.workers.dev/favicon-32x32.png');
   assert.equal(json.icon, 'https://shitpost-reactor.travny.workers.dev/icon-512.png');
 });
@@ -52,7 +52,7 @@ test('individual posts expose truthful BlogPosting schema and publication date',
   assert.equal(schema.datePublished, post.published_at);
   assert.deepEqual(schema.author, {
     '@type': 'Organization',
-    name: 'Biuletyn TRAVNY',
+    name: 'Reactor',
     url: 'https://shitpost-reactor.travny.workers.dev/',
   });
   assert.match(html, /<time datetime="2026-10-01T18:01:00.000Z">/);
@@ -95,14 +95,14 @@ test('homepage hides the description while retaining discovery metadata', async 
     return attributes.name?.toLowerCase() === name && attributes.content === content;
   });
 
-  assert.match(html, /<title>Biuletyn TRAVNY<\/title>/);
+  assert.match(html, /<title>Reactor<\/title>/);
   assert.ok(hasVerification("msvalidate.01", "23A368B2C5F4DF3471A67EA6CB057149"), "Bing verification must be an active meta tag inside head");
   assert.ok(hasVerification("google-site-verification", "Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw"), "Google verification must be an active meta tag inside head");
   assert.match(html, /rel="describedby" href="\/llms\.txt"/);
   assert.match(html, /rel="manifest" href="\/site\.webmanifest"/);
   assert.match(html, /apple-touch-icon/);
   assert.match(html, /mask-icon/);
-  assert.match(body, /<header><h1>Biuletyn TRAVNY<\/h1><p class="feeds">/);
+  assert.match(body, /<header><h1>Reactor<\/h1><p class="feeds">/);
   assert.doesNotMatch(body, /Automatycznie generowane polskie shitposty/);
 });
 
@@ -134,7 +134,7 @@ test('llms.txt exposes canonical feeds and discovery routes', async () => {
   const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/llms.txt'), {});
   const text = await response.text();
 
-  assert.match(text, /^# Biuletyn TRAVNY/m);
+  assert.match(text, /^# Reactor/m);
   assert.match(text, /RSS 2\.0/);
   assert.match(text, /Atom 1\.0/);
   assert.match(text, /JSON Feed 1\.1/);
@@ -151,7 +151,7 @@ test('web manifest propagates raster, SVG and maskable icons', async () => {
   const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/site.webmanifest'), {});
   const manifest = JSON.parse(await response.text());
 
-  assert.equal(manifest.name, 'Biuletyn TRAVNY');
+  assert.equal(manifest.name, 'Reactor');
   assert.equal(manifest.theme_color, '#111111');
   assert.ok(manifest.icons.some((icon) => icon.src === '/favicon.svg' && icon.sizes === 'any'));
   assert.ok(manifest.icons.some((icon) => icon.src === '/icon-192.png'));

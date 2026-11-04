@@ -150,7 +150,7 @@ test('public presentation follows sourced topics and keeps stable entry IDs', as
     topic: "BBC World: AI policy and yesterday's meeting (https://bbc.com/news/example)",
   };
   const feed = JSON.parse(renderJsonFeed([topical]));
-  assert.equal(feed.title, 'Biuletyn TRAVNY');
+  assert.equal(feed.title, 'Reactor');
   assert.equal(feed.items[0].title, "AI policy and yesterday's meeting");
   assert.equal(feed.items[0].id, textPost.url);
   assert.match(renderRss([topical]), /<title>AI policy and yesterday&apos;s meeting<\/title>/);

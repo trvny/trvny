@@ -254,10 +254,11 @@ const MINI_APP_HTML = `<!doctype html>
       </audio>
       <div class="radio-controls">
         <button id="radio-toggle" type="button" aria-pressed="false">▶ Play</button>
-        <label class="radio-volume">Volume
+        <label id="radio-volume-label" class="radio-volume">Volume
           <input id="radio-volume" type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Radio volume">
         </label>
       </div>
+      <p id="radio-volume-note" class="radio-status muted" hidden>Use device volume buttons on iOS.</p>
       <p id="radio-status" class="radio-status muted" role="status">Ready to play · tap Play to start</p>
       <div class="radio-actions">
         <span id="radio-checked" class="muted">Track metadata not loaded</span>
@@ -579,7 +580,9 @@ const MINI_APP_HTML = `<!doctype html>
       if (!radioOpened || document.hidden || radioFetching) return;
       radioFetching = true;
       try {
-        const response = await fetch("/mini-app/api/radio-now", { cache: "no-store" });
+        const response = await fetch("/mini-app/api/radio-now", {
+          cache: "no-store", signal: AbortSignal.timeout(8_000),
+        });
         if (!response.ok) throw new Error("metadata unavailable");
         const track = await response.json();
         if (!track || typeof track.title !== "string" || typeof track.artist !== "string") {
@@ -617,6 +620,10 @@ const MINI_APP_HTML = `<!doctype html>
 
     radioAudio.hidden = true;
     radioAudio.volume = Number(radioVolume.value);
+    if (webApp && webApp.platform === "ios") {
+      document.getElementById("radio-volume-label").hidden = true;
+      document.getElementById("radio-volume-note").hidden = false;
+    }
     radioToggle.addEventListener("click", () => {
       if (radioWantsPlaying) stopRadio(); else void startRadio();
     });
@@ -635,7 +642,8 @@ const MINI_APP_HTML = `<!doctype html>
       }
     });
     radioAudio.addEventListener("error", () => {
-      if (radioWantsPlaying) {
+      // Old-source errors must not cancel a fresh playback attempt.
+      if (radioWantsPlaying && radioAudio.error) {
         radioWantsPlaying = false;
         radioAttempt += 1;
         radioPlayback(false, "Stream unavailable. Tap Play to retry.");

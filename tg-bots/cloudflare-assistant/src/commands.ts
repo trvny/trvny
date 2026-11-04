@@ -46,7 +46,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
 ];
 
 export function isRadioRequest(text: string): boolean {
-  const normalized = text.trim().toLowerCase().replace(/\s+/gu, " ");
+  const normalized = text.trim().toLowerCase().replace(/\s+/gu, " ").replace(/[!.]+$/u, "").trim();
   return [
     "/radio", "/radio@trvny_bot", "dawaj muze", "dawaj muzę",
     "dawaj muzyke", "dawaj muzykę", "puść radio", "pusc radio",

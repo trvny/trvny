@@ -41,7 +41,14 @@ export async function readRadioTrack(
       cf: { cacheEverything: true, cacheTtlByStatus: { "200-299": 20, "400-599": 0 } },
     } as RequestInit);
     if (!response.ok || !response.body ||
-        Number(response.headers.get("content-length") || "0") > METADATA_MAX_BYTES) return null;
+        Number(response.headers.get("content-length") || "0") > METADATA_MAX_BYTES) {
+      console.warn("Radio metadata upstream rejected", {
+        status: response.status,
+        contentType: response.headers.get("content-type"),
+        hasBody: Boolean(response.body),
+      });
+      return null;
+    }
 
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
@@ -73,7 +80,8 @@ export async function readRadioTrack(
       cover: safeCover(data.cover),
       checkedAt: new Date().toISOString(),
     };
-  } catch {
+  } catch (error) {
+    console.warn("Radio metadata relay error", error instanceof Error ? error.message : String(error));
     return null;
   }
 }

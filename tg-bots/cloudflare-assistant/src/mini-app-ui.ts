@@ -1,4 +1,5 @@
 import { DOC_STUDIO_CSS, DOC_STUDIO_HTML, DOC_STUDIO_SCRIPT } from "./mini-app-doc-ui.ts";
+import { PDF_TOOLS_CSS, PDF_TOOLS_HTML, PDF_TOOLS_SCRIPT } from "./mini-app-pdf-ui.ts";
 
 const MINI_APP_HTML = `<!doctype html>
 <html lang="pl">
@@ -150,6 +151,7 @@ const MINI_APP_HTML = `<!doctype html>
       .radio-track strong { font-size: 17px; }
     }
     ${DOC_STUDIO_CSS}
+    ${PDF_TOOLS_CSS}
     .task-list { display: grid; gap: 1px; border-radius: 18px; overflow: hidden; background: var(--line); }
     .task { padding: 14px 16px; background: var(--surface); }
     .task-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
@@ -270,6 +272,7 @@ const MINI_APP_HTML = `<!doctype html>
     </section>
 
     ${DOC_STUDIO_HTML}
+    ${PDF_TOOLS_HTML}
 
     <section aria-labelledby="tasks-title">
       <div class="section-head"><h2 id="tasks-title">Ostatnie zadania</h2><span id="task-count" class="muted"></span></div>
@@ -530,6 +533,7 @@ const MINI_APP_HTML = `<!doctype html>
       }
     }
     ${DOC_STUDIO_SCRIPT}
+    ${PDF_TOOLS_SCRIPT}
     const radioPanel = document.getElementById("radio-player");
     const radioOpenButton = document.querySelector ? document.querySelector("[data-radio-open]") : null;
     const radioAudio = document.getElementById("radio-audio");

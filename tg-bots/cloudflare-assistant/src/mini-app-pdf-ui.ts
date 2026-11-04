@@ -11,7 +11,7 @@ export const PDF_TOOLS_CSS = String.raw`
     .doc-print-view { display: none; }
     @media print {
       body { background: white !important; color: black !important; }
-      body > *:not(.doc-print-view) { display: none !important; }
+      .app > *:not(.doc-print-view) { display: none !important; }
       .doc-print-view { display: block !important; padding: 0; margin: 0; max-width: none; color: #000; background: #fff; white-space: pre-wrap; overflow-wrap: anywhere; }
       .doc-print-view h1 { font-size: 22pt; margin: 0 0 12pt; }
       .doc-print-view p, .doc-print-view blockquote, .doc-print-view pre { margin: 0 0 7pt; }

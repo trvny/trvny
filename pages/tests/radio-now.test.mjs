@@ -11,6 +11,7 @@ test("radio metadata exposes a bounded, safe track from the main mix", async (t)
   const response = await onRequestGet();
   assert.equal(requested, "https://api.radioparadise.com/api/now_playing?chan=0");
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://tg-assistant.travny.workers.dev");
   assert.match(response.headers.get("cache-control"), /s-maxage=20/);
   assert.deepEqual(await response.json(), { title: "Song", artist: "Artist", album: "Album", cover: "https://img.radioparadise.com/covers/m/123.jpg" });
 });
@@ -31,6 +32,7 @@ test("radio metadata failures stay uncached and never block playback", async (t)
     const fetchMock = t.mock.method(globalThis, "fetch", () => Promise.resolve(response));
     const result = await onRequestGet();
     assert.equal(result.status, 502);
+    assert.equal(result.headers.get("access-control-allow-origin"), "https://tg-assistant.travny.workers.dev");
     assert.equal(result.headers.get("cache-control"), "no-store");
     assert.deepEqual(await result.json(), { error: "metadata_unavailable" });
     fetchMock.mock.restore();

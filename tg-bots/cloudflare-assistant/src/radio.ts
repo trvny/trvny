@@ -37,6 +37,7 @@ export async function readRadioTrack(
   try {
     const response = await fetcher(RADIO_NOW_URL, {
       redirect: "error",
+      headers: { "user-agent": "Botek/1.0 (+https://tg-assistant.travny.workers.dev)", accept: "application/json" },
       signal: AbortSignal.timeout(timeoutMs),
       cf: { cacheEverything: true, cacheTtlByStatus: { "200-299": 20, "400-599": 0 } },
     } as RequestInit);
@@ -88,12 +89,11 @@ export async function readRadioTrack(
 
 export async function radioNowResponse(request: Request): Promise<Response> {
   if (request.method !== "GET") return Response.json({ error: "method_not_allowed" }, { status: 405 });
-  const track = await readRadioTrack();
-  return track
-    ? Response.json(track, { headers: { "cache-control": "public, max-age=0, s-maxage=20" } })
-    : Response.json({ error: "metadata_unavailable" }, {
-        status: 502, headers: { "cache-control": "no-store" },
-      });
+  // The browser follows this fixed redirect. Pages owns metadata and CORS.
+  return new Response(null, {
+    status: 307,
+    headers: { location: RADIO_NOW_URL, "cache-control": "no-store" },
+  });
 }
 
 export function radioMiniAppUrl(env: Env): string | null {

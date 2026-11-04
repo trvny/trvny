@@ -18,6 +18,8 @@ test("guest humans and peer bots use explicit commands only", () => {
     { kind: "ping", nonce: "peer_42" });
   assert.deepEqual(parsePublicAction(incoming("/ping")), { kind: "ping", nonce: "" });
   assert.deepEqual(parsePublicAction(incoming("/ping invalid:token")), { kind: "ping", nonce: null });
+  assert.deepEqual(parsePublicAction(incoming(`/ping ${"x".repeat(32)}`)),
+    { kind: "ping", nonce: "x".repeat(32) });
   assert.deepEqual(parsePublicAction(incoming(`/ping ${"x".repeat(33)}`)), { kind: "ping", nonce: null });
   for (const text of ["/tools", "/tools@other_bot", "/task@trvny_bot clone"]) {
     assert.equal(parsePublicAction(incoming(text, "group")), null);
@@ -42,6 +44,12 @@ test("public tool discovery has no owner commands or data", () => {
     "BOTEK/1 PONG");
   assert.match(publicReply(incoming("/ping ???"), { kind: "ping", nonce: null }, "").text, /Użycie:/u);
   assert.match(skillDocument(), /BOTEK\/1 PONG/u);
+  assert.match(skillDocument(), /A-Za-z0-9_-/u);
   assert.deepEqual(skillManifest().handshake,
-    { command: "/ping <nonce>", response: "BOTEK/1 PONG <nonce>", max_nonce_length: 32 });
+    {
+      command: "/ping <nonce>",
+      response: "BOTEK/1 PONG <nonce>",
+      nonce_pattern: "^[A-Za-z0-9_-]{1,32}$",
+      max_nonce_length: 32,
+    });
 });

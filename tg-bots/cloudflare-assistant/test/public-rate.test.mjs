@@ -35,6 +35,16 @@ test("public rate gate serializes per actor, suppresses bursts and resets window
   assert.equal(await send(14, 61000), true);
 });
 
+test("accepted retries survive newer commands without consuming quota", async () => {
+  const send = fixture();
+  assert.equal(await send(42, 0), true);
+  assert.equal(await send(43, 1_500), true);
+  assert.equal(await send(42, 1_600), true);
+  assert.equal(await send(44, 1_700), false);
+  assert.equal(await send(42, 90_000), true);
+  assert.equal(await send(45, 90_000), true);
+});
+
 test("public gate rejects malformed update identifiers", async () => {
   const gate = new TelegramPublicRateGate(memoryState());
   const response = await gate.fetch(new Request("https://rate/allow", {

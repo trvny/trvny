@@ -107,6 +107,46 @@ const MINI_APP_HTML = `<!doctype html>
     .tool-icon { display: block; margin-bottom: 12px; font-size: 24px; line-height: 1; }
     .tool-name { display: block; font-weight: 750; }
     .tool-desc { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
+    .radio-panel {
+      padding: 18px;
+      border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+      border-radius: 18px;
+      background: var(--surface);
+    }
+    .radio-panel[hidden], .radio-art img[hidden] { display: none; }
+    .radio-top, .radio-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .radio-live { color: var(--ok); font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+    .radio-live::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: currentColor; }
+    .radio-now { display: flex; gap: 16px; align-items: center; margin: 18px 0; }
+    .radio-art {
+      position: relative;
+      flex: 0 0 106px;
+      width: 106px;
+      aspect-ratio: 1;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #3b2158, #102d42);
+      color: #f8e889;
+      font-size: 40px;
+    }
+    .radio-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .radio-track { min-width: 0; overflow-wrap: anywhere; }
+    .radio-track strong { display: block; font-size: 19px; line-height: 1.2; }
+    .radio-track span { display: block; margin-top: 4px; }
+    .radio-controls { display: flex; gap: 14px; align-items: center; }
+    .radio-controls button { flex: 0 0 auto; }
+    .radio-volume { display: grid; gap: 4px; flex: 1; font-size: 12px; color: var(--muted); }
+    .radio-volume input { width: 100%; min-width: 0; accent-color: var(--accent); }
+    .radio-status { margin: 10px 0 0; font-size: 13px; }
+    .radio-actions { margin-top: 14px; font-size: 12px; }
+    .radio-actions a { color: var(--accent); }
+    @media (max-width: 420px) {
+      .radio-now { gap: 12px; }
+      .radio-art { width: 82px; flex-basis: 82px; }
+      .radio-track strong { font-size: 17px; }
+    }
     .task-list { display: grid; gap: 1px; border-radius: 18px; overflow: hidden; background: var(--line); }
     .task { padding: 14px 16px; background: var(--surface); }
     .task-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
@@ -180,16 +220,48 @@ const MINI_APP_HTML = `<!doctype html>
           <span class="tool-name">Codebench</span>
           <span class="tool-desc">QR i kody kreskowe</span>
         </button>
-        <button class="tool-card" type="button" data-tool-url="https://streambench.trfny.com">
+        <button class="tool-card" type="button" data-radio-open aria-controls="radio-player" aria-expanded="false">
           <span class="tool-icon" aria-hidden="true">📻</span>
-          <span class="tool-name">Streambench</span>
-          <span class="tool-desc">Radio, IPTV, HLS i playlisty</span>
+          <span class="tool-name">Radio · Streambench</span>
+          <span class="tool-desc">Radio Paradise live, right inside Botek</span>
         </button>
         <button class="tool-card" type="button" data-tool-url="https://docbench.travny.workers.dev">
           <span class="tool-icon" aria-hidden="true">📄</span>
           <span class="tool-name">Docbench</span>
           <span class="tool-desc">PDF i dokumenty lokalnie</span>
         </button>
+      </div>
+    </section>
+
+    <section id="radio-player" class="radio-panel" aria-labelledby="radio-title" hidden>
+      <div class="radio-top">
+        <h2 id="radio-title">Radio Paradise · Main Mix</h2>
+        <span class="radio-live">LIVE</span>
+      </div>
+      <div class="radio-now">
+        <div class="radio-art" aria-hidden="true">
+          <span>📻</span>
+          <img id="radio-cover" alt="" hidden>
+        </div>
+        <div class="radio-track" aria-live="polite">
+          <strong id="radio-track-title">Radio Paradise</strong>
+          <span id="radio-artist">Main Mix · live stream</span>
+          <span id="radio-album" class="muted"></span>
+        </div>
+      </div>
+      <audio id="radio-audio" controls preload="none" src="https://stream.radioparadise.com/aac-320">
+        Your browser cannot play this station.
+      </audio>
+      <div class="radio-controls">
+        <button id="radio-toggle" type="button" aria-pressed="false">▶ Play</button>
+        <label class="radio-volume">Volume
+          <input id="radio-volume" type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Radio volume">
+        </label>
+      </div>
+      <p id="radio-status" class="radio-status muted" role="status">Ready to play · tap Play to start</p>
+      <div class="radio-actions">
+        <span id="radio-checked" class="muted">Track metadata not loaded</span>
+        <a href="https://streambench.travny.workers.dev/" target="_blank" rel="noopener noreferrer">More stations</a>
       </div>
     </section>
 
@@ -451,6 +523,139 @@ const MINI_APP_HTML = `<!doctype html>
         }
       }
     }
+    const radioPanel = document.getElementById("radio-player");
+    const radioOpenButton = document.querySelector ? document.querySelector("[data-radio-open]") : null;
+    const radioAudio = document.getElementById("radio-audio");
+    const radioToggle = document.getElementById("radio-toggle");
+    const radioVolume = document.getElementById("radio-volume");
+    const radioCover = document.getElementById("radio-cover");
+    const radioStream = "https://stream.radioparadise.com/aac-320";
+    let radioOpened = false;
+    let radioWantsPlaying = false;
+    let radioAttempt = 0;
+    let radioTimer = null;
+    let radioFetching = false;
+
+    function radioPlayback(playing, message) {
+      radioToggle.textContent = playing ? "⏸ Pause" : "▶ Play";
+      radioToggle.setAttribute("aria-pressed", String(playing));
+      setText("radio-status", message);
+    }
+
+    function stopRadio() {
+      radioWantsPlaying = false;
+      radioAttempt += 1;
+      radioAudio.pause();
+      radioAudio.removeAttribute("src");
+      radioAudio.load();
+      radioPlayback(false, "Paused");
+    }
+
+    async function startRadio() {
+      radioWantsPlaying = true;
+      const attempt = ++radioAttempt;
+      radioAudio.src = radioStream;
+      radioPlayback(true, "Connecting…");
+      try {
+        await radioAudio.play();
+      } catch {
+        if (radioWantsPlaying && attempt === radioAttempt) {
+          radioWantsPlaying = false;
+          radioPlayback(false, "Cannot start playback. Tap Play to retry.");
+        }
+      }
+    }
+
+    function radioUnavailable() {
+      setText("radio-track-title", "Radio Paradise");
+      setText("radio-artist", "Track details unavailable");
+      setText("radio-album", "");
+      setText("radio-checked", "Metadata unavailable · audio may still work");
+      radioCover.hidden = true;
+      radioCover.removeAttribute("src");
+    }
+
+    async function refreshRadio() {
+      if (!radioOpened || document.hidden || radioFetching) return;
+      radioFetching = true;
+      try {
+        const response = await fetch("/mini-app/api/radio-now", { cache: "no-store" });
+        if (!response.ok) throw new Error("metadata unavailable");
+        const track = await response.json();
+        if (!track || typeof track.title !== "string" || typeof track.artist !== "string") {
+          throw new Error("invalid metadata");
+        }
+        setText("radio-track-title", track.title);
+        setText("radio-artist", track.artist);
+        setText("radio-album", typeof track.album === "string" ? track.album : "");
+        const checkedAt = new Date(track.checkedAt);
+        setText("radio-checked", "Metadata checked: " + (Number.isNaN(checkedAt.getTime())
+          ? "just now" : checkedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })));
+        if (track.cover) {
+          radioCover.src = track.cover;
+          radioCover.hidden = false;
+        } else {
+          radioCover.hidden = true;
+          radioCover.removeAttribute("src");
+        }
+      } catch {
+        radioUnavailable();
+      } finally {
+        radioFetching = false;
+        clearTimeout(radioTimer);
+        if (radioOpened && !document.hidden) radioTimer = setTimeout(refreshRadio, 30000);
+      }
+    }
+
+    function openRadio() {
+      radioOpened = true;
+      radioPanel.hidden = false;
+      if (radioOpenButton) radioOpenButton.setAttribute("aria-expanded", "true");
+      radioPanel.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      void refreshRadio();
+    }
+
+    radioAudio.hidden = true;
+    radioAudio.volume = Number(radioVolume.value);
+    radioToggle.addEventListener("click", () => {
+      if (radioWantsPlaying) stopRadio(); else void startRadio();
+    });
+    radioVolume.addEventListener("input", () => { radioAudio.volume = Number(radioVolume.value); });
+    radioAudio.addEventListener("playing", () => {
+      if (radioWantsPlaying) radioPlayback(true, "Playing live");
+    });
+    radioAudio.addEventListener("waiting", () => {
+      if (radioWantsPlaying) radioPlayback(true, "Buffering…");
+    });
+    radioAudio.addEventListener("pause", () => {
+      if (radioWantsPlaying && radioAudio.paused) {
+        radioWantsPlaying = false;
+        radioAttempt += 1;
+        radioPlayback(false, "Paused");
+      }
+    });
+    radioAudio.addEventListener("error", () => {
+      if (radioWantsPlaying) {
+        radioWantsPlaying = false;
+        radioAttempt += 1;
+        radioPlayback(false, "Stream unavailable. Tap Play to retry.");
+      }
+    });
+    radioCover.addEventListener("error", () => {
+      radioCover.hidden = true;
+      radioCover.removeAttribute("src");
+    });
+    if (radioOpenButton) radioOpenButton.addEventListener("click", openRadio);
+    document.addEventListener?.("visibilitychange", () => {
+      clearTimeout(radioTimer);
+      if (!document.hidden) void refreshRadio();
+    });
+    window.addEventListener?.("pagehide", () => {
+      clearTimeout(radioTimer);
+      if (radioWantsPlaying) stopRadio();
+    });
+    if (window.location && new URLSearchParams(window.location.search).get("tab") === "radio") openRadio();
+
     if (webApp) {
       webApp.ready();
       webApp.expand();

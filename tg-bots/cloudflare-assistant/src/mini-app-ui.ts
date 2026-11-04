@@ -1,3 +1,5 @@
+import { DOC_STUDIO_CSS, DOC_STUDIO_HTML, DOC_STUDIO_SCRIPT } from "./mini-app-doc-ui";
+
 const MINI_APP_HTML = `<!doctype html>
 <html lang="pl">
 <head>
@@ -147,6 +149,7 @@ const MINI_APP_HTML = `<!doctype html>
       .radio-art { width: 82px; flex-basis: 82px; }
       .radio-track strong { font-size: 17px; }
     }
+    ${DOC_STUDIO_CSS}
     .task-list { display: grid; gap: 1px; border-radius: 18px; overflow: hidden; background: var(--line); }
     .task { padding: 14px 16px; background: var(--surface); }
     .task-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
@@ -225,10 +228,10 @@ const MINI_APP_HTML = `<!doctype html>
           <span class="tool-name">Radio · Streambench</span>
           <span class="tool-desc">Radio Paradise live, right inside Botek</span>
         </button>
-        <button class="tool-card" type="button" data-tool-url="https://docbench.travny.workers.dev">
+        <button class="tool-card" id="doc-open" type="button" aria-controls="doc-studio" aria-expanded="false">
           <span class="tool-icon" aria-hidden="true">📄</span>
           <span class="tool-name">Docbench</span>
-          <span class="tool-desc">PDF i dokumenty lokalnie</span>
+          <span class="tool-desc">Create, preview, export and send a draft</span>
         </button>
       </div>
     </section>
@@ -265,6 +268,8 @@ const MINI_APP_HTML = `<!doctype html>
         <a href="https://streambench.travny.workers.dev/" target="_blank" rel="noopener noreferrer">More stations</a>
       </div>
     </section>
+
+    ${DOC_STUDIO_HTML}
 
     <section aria-labelledby="tasks-title">
       <div class="section-head"><h2 id="tasks-title">Ostatnie zadania</h2><span id="task-count" class="muted"></span></div>
@@ -524,6 +529,7 @@ const MINI_APP_HTML = `<!doctype html>
         }
       }
     }
+    ${DOC_STUDIO_SCRIPT}
     const radioPanel = document.getElementById("radio-player");
     const radioOpenButton = document.querySelector ? document.querySelector("[data-radio-open]") : null;
     const radioAudio = document.getElementById("radio-audio");

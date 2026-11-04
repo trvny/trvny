@@ -1945,9 +1945,9 @@ function providerAttempts(
       label: 'default',
       minimumMaxTokens: 2_048,
       maximumMaxTokens: 8_192,
-      // Creative candidates use medium thinking; judging uses low.
+      // Creative candidates use medium thinking; other tasks retain defaults.
       requestFields: { thinking_level: task === 'shitpost' ? 'medium'
-        : task === 'judge' ? 'low' : configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL) },
+        : configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL) },
     }];
   }
   if (provider.id === 'gemini-flex') {

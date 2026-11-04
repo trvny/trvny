@@ -3,6 +3,11 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import { routeOwnerCommand } from "../src/owner-command-router.ts";
+import {
+  DOC_PDF_MAX_UPLOAD_BYTES,
+  handleDocStudioPdfSendRequest,
+  validPdfSignature,
+} from "../src/doc-studio-pdf.ts";
 import { BOTEK_CAPABILITIES, toolDeckView } from "../src/capability-catalog.ts";
 import { BOTEK_COMMANDS } from "../src/commands.ts";
 import {
@@ -269,4 +274,88 @@ test("Telegram HTTP 200 with ok:false is a definite rejection", async (t) => {
   const result = await handleDocStudioSendRequest(request(payload()), env, (TIME + 40) * 1000);
   assert.equal(result.status, 502);
   assert.equal([...gates.values()][0].state.status, "failed");
+});
+
+
+function pdfBytes() {
+  return new TextEncoder().encode("%PDF-1.7\n" + "body".repeat(24) + "\n%%EOF\n");
+}
+function pdfRequest(data = pdfBytes(), headers = {}, method = "POST") {
+  return new Request("https://tg-assistant.travny.workers.dev/mini-app/api/documents/send-pdf", {
+    method,
+    headers: {
+      origin: "https://tg-assistant.travny.workers.dev",
+      "content-type": "application/pdf",
+      "x-telegram-init-data": initData(),
+      "x-doc-request-id": REQUEST_ID,
+      "x-doc-filename": encodeURIComponent("Notes 2026.pdf"),
+      ...headers,
+    },
+    ...(method === "POST" ? { body: data } : {}),
+  });
+}
+
+test("PDF upload validates magic and EOF markers before Telegram", () => {
+  const valid = pdfBytes();
+  assert.equal(validPdfSignature(valid), true);
+  assert.equal(validPdfSignature(new TextEncoder().encode("not PDF")), false);
+  assert.equal(validPdfSignature(new TextEncoder().encode("%PDF-1.7\n" + "x".repeat(70))), false);
+});
+
+test("owner PDF upload uses the existing gate and a real Telegram file", async (t) => {
+  const { env, gates } = fakeEnv();
+  let sends = 0;
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    sends += 1;
+    assert.match(String(url), /\/sendDocument$/u);
+    const form = init.body;
+    assert.ok(form instanceof FormData);
+    assert.equal(form.get("chat_id"), OWNER);
+    assert.equal(form.get("document").name, "Notes-2026.pdf");
+    assert.equal(form.get("document").type, "application/pdf");
+    assert.equal(await form.get("document").text(), new TextDecoder().decode(pdfBytes()));
+    return Response.json({ ok: true, result: { message_id: 73 } });
+  });
+  const result = await handleDocStudioPdfSendRequest(pdfRequest(), env, (TIME + 40) * 1000);
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { ok: true, filename: "Notes-2026.pdf" });
+  assert.equal(sends, 1);
+  assert.equal([...gates.values()][0].state.status, "sent");
+
+  const replay = await handleDocStudioPdfSendRequest(pdfRequest(), env, (TIME + 40) * 1000);
+  assert.deepEqual(await replay.json(), { ok: true, alreadySent: true });
+  assert.equal(sends, 1);
+});
+
+test("PDF upload rejects outsider, malformed and oversized files before side effects", async (t) => {
+  const { env, gates } = fakeEnv();
+  let sends = 0;
+  t.mock.method(globalThis, "fetch", async () => { sends += 1; return Response.json({ ok: true }); });
+
+  const forged = new URLSearchParams(initData());
+  forged.set("user", JSON.stringify({ id: 1, first_name: "Intruder" }));
+  const cases = [
+    [pdfRequest(pdfBytes(), { "x-telegram-init-data": forged.toString() }), 401],
+    [pdfRequest(pdfBytes(), { origin: "https://evil.example" }), 403],
+    [pdfRequest(pdfBytes(), { "content-type": "text/plain" }), 415],
+    [pdfRequest(pdfBytes(), { "x-doc-request-id": "oops" }), 400],
+    [pdfRequest(pdfBytes(), { "x-doc-filename": encodeURIComponent("../unsafe.pdf") }), 400],
+    [pdfRequest(new TextEncoder().encode("%PDF-1.7\n" + "x".repeat(64))), 400],
+    [pdfRequest(pdfBytes(), {}, "GET"), 405],
+  ];
+  for (const [request, status] of cases) {
+    const response = await handleDocStudioPdfSendRequest(request, env, (TIME + 40) * 1000);
+    assert.equal(response.status, status);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+  }
+  const expired = await handleDocStudioPdfSendRequest(pdfRequest(), env, (TIME + 4000) * 1000);
+  assert.equal(expired.status, 401);
+  assert.equal(sends, 0);
+  assert.equal(gates.size, 0);
+
+  const tooLarge = new Uint8Array(DOC_PDF_MAX_UPLOAD_BYTES + 1);
+  tooLarge.set(new TextEncoder().encode("%PDF-1.7"));
+  const large = await handleDocStudioPdfSendRequest(pdfRequest(tooLarge), env, (TIME + 40) * 1000);
+  assert.equal(large.status, 413);
+  assert.equal(sends, 0);
 });

@@ -512,7 +512,7 @@ export function renderMarkdown(record) {
     : `> ${content.text.replaceAll('\n', ' ')}`;
 
   return [
-    `# ${content.title || 'Biuletyn TRAVNY'}`,
+    `# ${content.title || 'Reactor'}`,
     '',
     body,
     '',

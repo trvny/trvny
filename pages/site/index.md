@@ -15,7 +15,7 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
 - [Codebench](https://codebench.travny.workers.dev/): local-first QR and barcode studio.
 - [Docbench](https://docbench.travny.workers.dev/): local-first document and PDF studio.
 - [Papagenerator](https://travny.pages.dev/papagenerator/): browser-only meme and PNG sticker editor, maintained in [travnie/twojstar](https://github.com/travnie/twojstar/tree/main/papagenerator).
-- [Teksty](https://travny.pages.dev/teksty/): the unified publication directory for essays, experiments, CoCzyDziennik news editions and Biuletyn TRAVNY notes, including GitHubowa Kraina and Tokenowy Mundial AI.
+- [Teksty](https://travny.pages.dev/teksty/): the unified publication directory for essays, experiments, CoCzyDziennik news editions and Reactor notes, including GitHubowa Kraina and Tokenowy Mundial AI.
 
 ## Discovery
 

@@ -50,7 +50,7 @@ function renderShitpostEntry(post) {
     <link rel="alternate" href="${escapeXml(post.url)}"/>
 ${publishedLine}    <updated>${escapeXml(post.updated)}</updated>
     <author><name>TRAVNY</name></author>
-    <source><id>https://shitpost.trfny.com/</id><title>Biuletyn TRAVNY</title></source>
+    <source><id>https://shitpost.trfny.com/</id><title>Reactor</title></source>
 ${categories}
     <summary type="text">${escapeXml(post.caption)}</summary>
   </entry>`;

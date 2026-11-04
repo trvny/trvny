@@ -3,7 +3,7 @@ import {
   SHITPOST_MEME_LINE_HARD_MAX_CHARS,
   SHITPOST_TEXT_HARD_MAX_CHARS,
 } from './limits.mjs';
-import { getMemeTemplate, memeImageUrl } from './templates.mjs';
+import { getMemeTemplate, memeImageUrl, normalizeMemeLook } from './templates.mjs';
 import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
 
 const FEED_TITLE = 'Reactor';
@@ -155,6 +155,8 @@ export function validateRecord(input) {
       topText.length > SHITPOST_MEME_LINE_HARD_MAX_CHARS
       || bottomText.length > SHITPOST_MEME_LINE_HARD_MAX_CHARS
     ) throw new Error('invalid_meme_text_length');
+    const look = normalizeMemeLook(content);
+    memeImageUrl(template, topText, bottomText, look);
     return {
       ...common,
       content: {
@@ -163,6 +165,7 @@ export function validateRecord(input) {
         template,
         top_text: topText,
         bottom_text: bottomText,
+        ...look,
       },
     };
   }
@@ -337,7 +340,7 @@ function postImageUrl(post) {
   // Stored posts are not re-validated; a template later dropped from the set
   // must degrade one post to text, not fail every feed render.
   try {
-    return memeImageUrl(post.content.template, post.content.top_text, post.content.bottom_text);
+    return memeImageUrl(post.content.template, post.content.top_text, post.content.bottom_text, post.content);
   } catch {
     return null;
   }

@@ -41,9 +41,10 @@ test("public quips need no provider or model when the bank is empty", async () =
 });
 
 test("failed owner generation returns retained bank text, not an error", async () => {
+  const retained = "Na spotkaniu botów najwięcej mówił timeout, ale nikt nie znalazł sensownego tłumacza.";
   const bank = new TelegramQuipBank({ storage: {
     get: () => Promise.resolve({ entries: [{
-      text: "Na spotkaniu botów najwięcej mówił timeout, ale nikt nie znalazł sensownego tłumacza.",
+      text: retained,
       provider: "free-router", createdAt: "2026-01-01T00:00:00Z",
     }] }),
     put: () => Promise.resolve(),
@@ -61,5 +62,5 @@ test("failed owner generation returns retained bank text, not an error", async (
     WORKERS_AI_ENABLED: "false",
   };
   const result = await quickQuip(env, true, () => true);
-  assert.match(result, /spotkaniu botów/u);
+  assert.equal(result, retained);
 });

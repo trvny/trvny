@@ -8,6 +8,8 @@ import {
 import { toolDeckSelection, toolDeckView } from "./capability-catalog";
 import { parsePublicAction, publicReply, skillDocument, skillManifest, skillUrlFromEnv } from "./public-tools";
 import { allowPublicCommand, TelegramPublicRateGate } from "./public-rate";
+import { quickIntent, quickQuip, staticQuickReply } from "./quick-replies";
+import { TelegramQuipBank } from "./quip-bank";
 import { automaticTaskRequest, looksLikeAutomaticTaskCandidate } from "./auto-task";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { replyFeedbackKeyboard, replyFeedbackRequest } from "./feedback";
@@ -140,6 +142,7 @@ export {
   TelegramUpdateDedup,
   TelegramWatchStore,
   TelegramPublicRateGate,
+  TelegramQuipBank,
 };
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
@@ -1561,9 +1564,17 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   const publicAction = parsePublicAction(message);
   if (publicAction && (
     !fromOwner || message.chat.type !== "private" ||
-    publicAction.kind === "skill" || publicAction.kind === "ping"
+    publicAction.kind === "skill" || publicAction.kind === "ping" ||
+    publicAction.kind === "quip"
   )) {
     if (!fromOwner && !await allowPublicCommand(env, message.from.id, update.update_id)) return null;
+    if (publicAction.kind === "quip") {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: await quickQuip(env, fromOwner && message.chat.type === "private"),
+      };
+    }
     return publicReply(message, publicAction, skillUrlFromEnv(env.TELEGRAM_WEBHOOK_URL));
   }
   if (!fromOwner) return null;
@@ -2030,6 +2041,37 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     }
   }
   if (!prompt) return null;
+
+  if (privateChat && !isDraft && message.text &&
+      !forwardedContext && !replyContext &&
+      !structuredInput && !stickerInput && !diceInput && !pollInput && !checklistInput &&
+      !photo && !visualMedia && !document) {
+    const quick = quickIntent(text);
+    if (quick === "hello" || quick === "thanks") {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: staticQuickReply(quick),
+      };
+    }
+    if (quick === "quip") {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: await quickQuip(env, true),
+      };
+    }
+    if (quick === "status") {
+      const status = await providerStatusView(env);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: status.plain,
+        richHtml: status.richHtml,
+        replyMarkup: STATUS_KEYBOARD,
+      };
+    }
+  }
 
   const chatSystem = groupChat
     ? `${ASSISTANT_SYSTEM}\nThe owner explicitly invoked /ask in a Telegram group or topic. Answer only that owner request. The reply is visible to other chat members, so do not expose private conversation context beyond what belongs to this chat/topic.`

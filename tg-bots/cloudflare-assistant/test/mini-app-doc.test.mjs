@@ -223,3 +223,18 @@ test("uncertain send can only retry on user click with the same dedup key", asyn
   assert.equal(after.length, 2);
   assert.equal(JSON.parse(after[1].options.body).requestId, id);
 });
+
+test("whitespace title defaults to Draft for an explicit send", async () => {
+  const { nodes, requests } = await harness();
+  nodes.get("doc-title").value = "   ";
+  nodes.get("doc-content").value = "Some text";
+  nodes.get("doc-send").dispatch("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  const send = requests.find((r) => r.url === "/mini-app/api/documents/send");
+  assert.equal(JSON.parse(send.options.body).title, "Draft");
+});
+
+test("CSS hides the editor label when preview mode is active", async () => {
+  const { html } = await harness();
+  assert.match(html, /#doc-editor\[hidden\]\s*\{\s*display:\s*none/u);
+});

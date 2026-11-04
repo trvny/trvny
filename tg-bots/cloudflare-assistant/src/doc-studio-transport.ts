@@ -39,10 +39,11 @@ export async function sendTelegramDocument(
   if (!response.ok) {
     throw new DocumentSendError(response.status, response.status === 429 || response.status >= 500);
   }
+  let result: { ok?: boolean };
   try {
-    const result = await response.json() as { ok?: boolean };
-    if (result.ok !== true) throw new Error("not confirmed");
+    result = await response.json() as { ok?: boolean };
   } catch {
     throw new DocumentSendError(0, true, true);
   }
+  if (result?.ok !== true) throw new DocumentSendError(400, false);
 }

@@ -120,7 +120,7 @@ test("private-chat document button is canonical; groups never get Web App button
   });
   assert.equal(docStudioReply(env, -101, 202, "supergroup").replyMarkup, undefined);
   assert.equal(docStudioUrl({}), null);
-  assert.equal(docStudioFilename("../🦊 Memo?.evil", "md"), "-Memo-evil.md");
+  assert.equal(docStudioFilename("../🦊 Memo?.evil", "md"), "Memo-evil.md");
 });
 
 test("authenticated sendDocument targets only the owner's private chat", async (t) => {

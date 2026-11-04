@@ -1,4 +1,4 @@
-import { DOC_STUDIO_CSS, DOC_STUDIO_HTML, DOC_STUDIO_SCRIPT } from "./mini-app-doc-ui";
+import { DOC_STUDIO_CSS, DOC_STUDIO_HTML, DOC_STUDIO_SCRIPT } from "./mini-app-doc-ui.ts";
 
 const MINI_APP_HTML = `<!doctype html>
 <html lang="pl">

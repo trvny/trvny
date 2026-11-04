@@ -720,39 +720,4 @@ export async function editTelegramMessage(
     true,
   );
 }
-export async function sendTelegramDocument(
-  env: Env,
-  chatId: string,
-  filename: string,
-  text: string,
-  format: "md" | "txt",
-): Promise<void> {
-  if (!env.TELEGRAM_BOT_TOKEN) {
-    throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
-  }
-  const form = new FormData();
-  form.set("chat_id", chatId);
-  form.set("document", new Blob([text], {
-    type: format === "md" ? "text/markdown; charset=utf-8" : "text/plain; charset=utf-8",
-  }), filename);
-  let response: Response;
-  try {
-    response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, {
-      method: "POST",
-      body: form,
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch {
-    throw new TelegramSendError(0, "Telegram document delivery uncertain", true, undefined, true);
-  }
-  if (!response.ok) {
-    throw new TelegramSendError(response.status, "Telegram sendDocument rejected",
-      response.status === 429 || response.status >= 500);
-  }
-  try {
-    const result = await response.json() as { ok?: boolean };
-    if (result.ok !== true) throw new Error("Telegram result not confirmed");
-  } catch {
-    throw new TelegramSendError(0, "Telegram document response uncertain", true, undefined, true);
-  }
-}
+export { sendTelegramDocument } from "./doc-studio-transport.ts";

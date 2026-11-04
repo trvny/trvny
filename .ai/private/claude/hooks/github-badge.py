@@ -99,12 +99,12 @@ def badged_file(path, temps):
     if path == "-":
         text = sys.stdin.read()
     else:
-        with open(path, encoding="utf-8") as f:
-            text = f.read()
+        with open(path, encoding="utf-8") as src:
+            text = src.read()
     fd, tmp = tempfile.mkstemp(prefix="gh-body-", suffix=".md")
     temps.append(tmp)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(badge(text))
+    with os.fdopen(fd, "w", encoding="utf-8") as out:
+        out.write(badge(text))
     return tmp
 
 
@@ -132,7 +132,7 @@ MATCHER = "^mcp__.*([Gg]it[Hh]ub|[Cc]laudiusz)"
 
 def install():
     me = os.path.realpath(__file__)
-    os.chmod(me, 0o755)
+    os.chmod(me, 0o700)  # owner-only; exec via symlink
     bindir = os.path.expanduser("~/.local/bin")
     os.makedirs(bindir, exist_ok=True)
     link = os.path.join(bindir, "gh")

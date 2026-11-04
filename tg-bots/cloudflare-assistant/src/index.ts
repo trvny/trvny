@@ -26,6 +26,7 @@ import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { routeOwnerCommand, type OwnerCommand } from "./owner-command-router";
 import { radioReply } from "./radio";
+import { docStudioReply } from "./doc-studio";
 import {
   durableMemoryContext,
   durableMemoryStatus,
@@ -938,6 +939,9 @@ async function handleOwnerCommand(
 
     case "radio":
       return radioReply(env, message.chat.id, message.message_id, undefined, message.chat.type);
+
+    case "doc-studio":
+      return docStudioReply(env, message.chat.id, message.message_id, message.chat.type);
 
     case "draft-usage":
       return {

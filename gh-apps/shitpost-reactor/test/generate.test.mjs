@@ -13,7 +13,7 @@ import {
   shouldProbeMySaas,
   validateContent,
 } from '../generate.mjs';
-import { chooseMemeLook, chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from '../templates.mjs';
+import { chooseMemeLook, chooseMemeTemplate, fitMemeCaption, memeImageUrl, resolveShitpostMode } from '../templates.mjs';
 import { chooseLLMTopic, loadNewsForLane, loadWorldNews, parseFeedseekJson, parseNewsRss, LOCAL_RSS_FEEDS, POLISH_RSS_FEEDS, resolveTopicLane } from '../topics.mjs';
 
 test('bundled style loads without a network fetch and preserves provenance', async () => {
@@ -173,6 +173,10 @@ test('mode and meme look are reproducible without forced poetry', () => {
   assert.equal(resolveShitpostMode('auto', 'same-seed'), resolveShitpostMode('auto', 'same-seed'));
   assert.equal(chooseMemeTemplate('same-seed').id, chooseMemeTemplate('same-seed').id);
   assert.deepEqual(chooseMemeLook('same-seed'), chooseMemeLook('same-seed'));
+  const looks = Array.from({ length: 96 }, (_, i) => chooseMemeLook('look-' + i));
+  assert.ok(new Set(looks.map((look) => look.font)).size >= 3);
+  assert.ok(looks.some((look) => look.layout === 'top'));
+  assert.ok(looks.some((look) => look.color));
   assert.equal(resolveGenerationPlan('meme', 'same-seed', '2').mode, 'meme');
   assert.ok(Array.from({ length: 16 }, (_, i) => resolveGenerationPlan('auto', 'seed', String(i + 1)))
     .every((plan) => plan.limerickLanguage === null));
@@ -181,6 +185,21 @@ test('mode and meme look are reproducible without forced poetry', () => {
   assert.match(image, /layout=top/);
   assert.match(image, /color=yellow%2Cblack/);
   assert.throws(() => memeImageUrl('bad', 'top', 'bottom', { font: 'random' }), /invalid_meme_font/);
+});
+
+test('oversized multilingual captions fit Memegen segments without emergency fallback', () => {
+  const long = 'Międzyplanetarna biurokracja 🚀 '.repeat(10);
+  const top = fitMemeCaption(long);
+  const bottom = fitMemeCaption(long, true);
+  assert.match(top, /…$/u);
+  assert.match(bottom, /^…/u);
+  const content = validateContent({
+    kind: 'meme', template: 'bad', top_text: long.slice(0, 220),
+    bottom_text: long.slice(0, 220),
+  }, { mode: 'meme', templateId: 'bad' });
+  const url = memeImageUrl(content.template, content.top_text, content.bottom_text);
+  assert.ok(url.length < 600);
+  assert.ok(content.top_text.length < long.length);
 });
 
 test('memeImageUrl produces a stateless image URL', () => {
@@ -533,6 +552,15 @@ function feedseekFeed(items) {
   return { version: 'https://jsonfeed.org/version/1.1', items };
 }
 
+test('Polish scandal and municipal wording is treated as live public-affairs material', () => {
+  const date = new Date(newsNow - 1000).toISOString();
+  const items = parseFeedseekJson(feedseekFeed([
+    feedseekItem('Afera korupcyjna: burdel i łapówki w urzędzie', date),
+    feedseekItem('Złodziejstwo i przekręt w gminie, radni odpowiadają', date),
+  ]), { now: newsNow, politicsOnly: true });
+  assert.equal(items.length, 2);
+});
+
 test('Feedseek political JSON Feed rejects sports, fake URLs, stale and future dates', () => {
   const date = new Date(newsNow - 1_000).toISOString();
   const candidates = [
@@ -742,6 +770,20 @@ test('Feedseek shitpost pool balances independently among sources and degrades g
   assert.equal(await loadNewsForLane('shitpost', {
     now: newsNow, fetchImpl: async () => new Response('', { status: 503 }),
   }), null);
+});
+
+test('missing feeds emit bounded diagnostics without blocking fallback', async () => {
+  const events = [];
+  const result = await loadNewsForLane('local', {
+    now: newsNow,
+    onDiagnostic: (event) => events.push(event),
+    fetchImpl: async () => new Response('', { status: 503 }),
+  });
+  assert.equal(result, null);
+  assert.equal(events.filter((event) => event.event === 'feed_http').length, LOCAL_RSS_FEEDS.length);
+  assert.deepEqual(events.at(-1), {
+    event: 'lane_no_usable_sources', lane: 'local', sources: LOCAL_RSS_FEEDS.length,
+  });
 });
 
 test('local Google News RSS is treated as dated data with host validation', async () => {

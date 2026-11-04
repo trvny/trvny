@@ -4,6 +4,7 @@ export const NEWS_FEEDS = Object.freeze([
   { name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
   { name: 'BBC Technology', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
   { name: 'BBC Science', url: 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml' },
+  { name: 'BBC Entertainment', url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml' },
 ]);
 
 export const POLISH_RSS_FEEDS = Object.freeze([
@@ -11,16 +12,31 @@ export const POLISH_RSS_FEEDS = Object.freeze([
   { name: 'wPolityce', url: 'https://wpolityce.pl/rss/polityka.xml', hosts: ['wpolityce.pl', 'www.wpolityce.pl'] },
 ]);
 
+// Google News RSS is used for local sites without a verified direct XML endpoint.
+const googleNews = (query) => 'https://news.google.com/rss/search?q='
+  + encodeURIComponent(query + ' when:2d') + '&hl=pl&gl=PL&ceid=PL:pl';
+export const LOCAL_RSS_FEEDS = Object.freeze([
+  { name: 'Chrzanów / Google News', url: googleNews('Chrzanów OR Trzebinia OR Libiąż OR Alwernia'), hosts: ['news.google.com'] },
+  { name: 'Przełom / Google News', url: googleNews('site:przelom.pl'), hosts: ['news.google.com'] },
+  { name: 'NaszeMiasto Chrzanów / Google News', url: googleNews('site:chrzanow.naszemiasto.pl'), hosts: ['news.google.com'] },
+]);
+
 const FEEDSEEK_ROOT = 'https://raw.githubusercontent.com/trvny/feedseek/main/feeds/'; // shared Feedseek assets
 const FEEDSEEK_FEEDS = Object.freeze({
   news: [
     { name: 'Feedseek / Reuters', url: FEEDSEEK_ROOT + 'feed_reuters.json' },
     { name: 'Feedseek / Euronews', url: FEEDSEEK_ROOT + 'feed_euronews.json', tags: ['News', 'My Europe', 'Next'] },
+    { name: 'Feedseek / Wikipedia PL', url: FEEDSEEK_ROOT + 'feed_wikipedia_pl.json' },
   ],
   politics: [
     { name: 'Feedseek / TVP Info', url: FEEDSEEK_ROOT + 'feed_tvp.json', tag: 'TVP Info' },
     { name: 'Feedseek / PAP', url: FEEDSEEK_ROOT + 'feed_pap.json' },
     { name: 'Feedseek / Gov.pl', url: FEEDSEEK_ROOT + 'feed_govpl_news.json' },
+    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'feed_wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
+  ],
+  culture: [
+    { name: 'Feedseek / Wikipedia PL', url: FEEDSEEK_ROOT + 'feed_wikipedia_pl.json' },
+    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'feed_wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
   ],
   shitpost: [
     { name: 'Feedseek / 4chan', url: FEEDSEEK_ROOT + 'feed_4chan.json', hosts: ['boards.4chan.org', 'boards.4channel.org', 'blog.4chan.org'] },
@@ -32,8 +48,8 @@ const FEEDSEEK_FEEDS = Object.freeze({
     { name: 'Feedseek / Lemmy', url: FEEDSEEK_ROOT + 'feed_lemmy.json', hosts: ['lemmy.world', 'lemmy.ml', 'lemmy.org', 'szmer.info', 'sh.itjust.works'] },
   ],
 });
-const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari/iu;
-const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu/iu;
+const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari|afer|korupcj|łapówk|przekręt|nadużyci|defraudac|prokuratur|cba|nik|złodziej|złodziejstw|kradzież|burdel|skandal|ustawk/iu;
+const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu|chrzan|trzebin|libiąż|alwerni|małopolsk|krakow|kraków|powiat|wojewod|gmin|urząd|burmistrz|starost|radn/iu;
 const MAX_FEED_BYTES = 1024 * 1024;
 const MAX_ARTICLE_URL_LENGTH = 1250;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;
@@ -66,11 +82,9 @@ export function resolveTopicLane(manualTopic = '', runNumber = '') {
   if (String(manualTopic).trim()) return 'manual';
   const number = Number(String(runNumber).trim());
   if (!Number.isSafeInteger(number) || number < 1) return 'evergreen';
-  if (number % 7 === 1) return 'news';
-  if (number % 7 === 2) return 'shitpost';
-  if (number % 7 === 4) return 'llm';
-  if (number % 7 === 6) return 'politics';
-  return 'evergreen';
+  // Irregular but reproducible distribution; no seven-day content treadmill.
+  const lanes = ['news', 'shitpost', 'local', 'politics', 'news', 'shitpost', 'culture', 'local', 'llm', 'evergreen'];
+  return lanes[hashIndex('lane:' + number, lanes.length)];
 }
 
 export function chooseLLMTopic(seed = '') {
@@ -202,25 +216,23 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
 }
 
 export async function loadNewsForLane(lane, { seed = '', now = Date.now(), fetchImpl = fetch } = {}) {
-  if (!['news', 'politics', 'shitpost'].includes(lane)) return null;
-  const feeds = lane === 'news'
-    ? [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news]
-    : lane === 'politics'
-      ? [...FEEDSEEK_FEEDS.politics, ...POLISH_RSS_FEEDS]
-      : FEEDSEEK_FEEDS.shitpost;
+  const feedPools = {
+    news: [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news],
+    politics: [...FEEDSEEK_FEEDS.politics, ...POLISH_RSS_FEEDS],
+    shitpost: FEEDSEEK_FEEDS.shitpost,
+    local: LOCAL_RSS_FEEDS,
+    culture: FEEDSEEK_FEEDS.culture,
+  };
+  const feeds = feedPools[lane];
+  if (!feeds) return null;
   const batches = await Promise.all(feeds.map((feed) => loadFeed(feed, {
     now, fetchImpl, politicsOnly: lane === 'politics',
   })));
-  if (lane === 'shitpost') {
-    // Choose a source first; a large 4chan feed must not crowd out memes
-    // from smaller publishers.
-    const available = batches.filter((batch) => batch.length);
-    if (!available.length) return null;
-    const batch = available[hashIndex('shitpost-source:' + seed, available.length)];
-    return batch[hashIndex('shitpost-entry:' + seed, batch.length)];
-  }
-  const entries = [...new Map(batches.flat().map((entry) => [entry.url, entry])).values()];
-  return entries.length ? entries[hashIndex(lane + ':' + seed, entries.length)] : null;
+  // Sample publisher first, then story: busy feeds cannot drown out small ones.
+  const available = batches.filter((batch) => batch.length);
+  if (!available.length) return null;
+  const batch = available[hashIndex(lane + ':source:' + seed, available.length)];
+  return batch[hashIndex(lane + ':entry:' + seed, Math.min(15, batch.length))];
 }
 
 export function loadWorldNews(options = {}) {

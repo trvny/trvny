@@ -1,34 +1,11 @@
-# Reactor style reference
+# Reactor craft notes
 
-Curated from trvny/.ai/skills/edgy_dark_meme.skill (edgy-dark-meme/SKILL.md, references/collision-engine.md, references/craft.md, references/polish-net.md). Original SKILL.md SHA-256: cfd65e7b9d6e5b24f821a7d55610dd8917a353ea36931d0c00539e92d47c5efa.
+模型输入的中文创作备忘，不是格式合同。输出遵守主规则。
 
-Advisory craft, not a prompt/output contract. Reactor rules own safety, formats, modes, news handling and quality gates. taste-profile.json owns preferences. Do not duplicate them here.
-
-## Choose a tone from the premise
-
-- **Deadpan-dark:** ordinary setup, bleaker bureaucratic interpretation, quiet landing. Work, money, delay, institutional indifference.
-- **Dzida / JBZD:** local concrete nouns, short native Polish rhythm, the comment may be funnier than the original post. Profanity as timing, never substance.
-- **Sok-raka:** one confident, impossible category collision in a faux-serious voice. Not randomly stacked news terms.
-- **Shitpost / kajmak:** anti-punchline, implicit fake lore, mundane object as historic adversary. Underproduced yet internally consistent.
-- **Cenzo / cenzopolityk:** literal semantic mutation or officious framing collapses into a petty absurdity. On fixed image macros, use a caption twist; do not demand a different visual.
-- **Nosacz / household:** tiny behavioral rituals and family logistics, not stereotypes or names in place of the joke.
-- **Vibe-swagger:** proud AI/dev victory lap, catastrophically flimsy deliverable. The triumphant tone stays straight.
-- **Demot / pasta / suchar:** pompous claim punctured by petty truth; implausible first-person lore told straight; deliberately bad pun with no wink. Only when the assigned output mode supports it.
-
-Do not force a dialect. Avoid defaulting to the same catchphrase, motif or institutional voice. Polish copy should sound written in Polish, not translated from English.
-
-## Fresh collision material
-
-Start with an observed private truth: hidden habit, self-lie, faulty mental arithmetic, unwritten rule, tiny miracle, social-energy budget, or disproportion between effort and reward. Explore distant domains with a discoverable bridge.
-
-- Domestic/civic: apartment-board minutes, parcel tracking, school gradebook, warranty claim, supermarket flyer, bank SMS.
-- Technical: permission dialog, CAPTCHA, changelog, subscription plan, disk-full warning, loading bar, phone menu.
-- Cultural/physical: sports commentary, wedding invitation, recipe, zoo plaque, fitness report, weather bulletin, medicine leaflet.
-
-Possible levers: false reassurance; trivial object granted authority; literalised cliché; two expected beats and a third that changes category; a formal voice revealing a hidden confession; absurdly exact but obviously fictional bookkeeping; fake history anchored by one ordinary object.
-
-The borrowed register should meaningfully connect to the premise. Keep one recognisable receipt and one internal rule. In a meme macro, the caption complements or contradicts the image instead of describing it. For pure text, an anti-joke is fine when its unexpected detail lands and stops.
-
-## Resist repetition
-
-Not every post needs HR policy, error dialogs, AI self-roasts or a paragraph. Avoid stock 'not X but Y' turns, rhetorical slogans, template echoes, copied page signatures, shock without structure and jokes at the expense of private or vulnerable people. If style cues do not sharpen the premise, ignore them.
+- 先看真实素材里的异常细节，再挑一个可笑的角度。无新闻时可完全虚构荒诞场景，但不得伪造现实事件。
+- 可选：冷面荒诞、粗口、黑色幽默、网络烂梗、无厘头、反高潮、一本正经的胡说八道、模仿行政文书、群聊、通知、技术事故、家庭日常、地方八卦。
+- 波兰网络语感可参考 JBZD、dzida、nosacz 等文化，但别模仿现成图文、固定句式或老梗。输出语言由笑点决定，常用波兰语与英语，也可跨语。
+- 讽刺权力、官僚、营销、愚蠢制度可以刻薄。对现实受害者、儿童、普通私人个体不落井下石。
+- 一条抓人的细节和一个意外转折通常足够，但不强迫公式。能用一句话就不写三段；复杂故事有意思时也别硬剪短。
+- 宏图文字应与图像冲突或补充，不要重复描述图片。标题像正常编辑选题，不要写“这是一个笑话”。
+- 防止同质化：连续生成不要自动套 AI 程序员、HR、报错弹窗、星期五上线。可直接换场景、视角、说话者、结构和节奏。

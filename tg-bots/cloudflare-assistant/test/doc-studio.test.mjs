@@ -159,6 +159,13 @@ test("forged, stale, cross-origin and invalid submissions never reach Telegram",
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload()),
   }), env, (TIME + 40) * 1000);
   assert.equal(unauth.status, 401);
+  const forged = new URLSearchParams(initData());
+  forged.set("user", JSON.stringify({ id: Number(OWNER) + 1, first_name: "Mallory" }));
+  const invalidSignature = await handleDocStudioSendRequest(
+    request(payload(), { "x-telegram-init-data": forged.toString() }),
+    env, (TIME + 40) * 1000,
+  );
+  assert.equal(invalidSignature.status, 401);
 
   const stale = await handleDocStudioSendRequest(request(payload()), env, (TIME + 4000) * 1000);
   assert.equal(stale.status, 401);
@@ -213,5 +220,45 @@ test("definitively rejected upload records failure without reattempting", async 
   assert.equal(res.status, 502);
   assert.deepEqual(await res.json(), { error: "telegram_rejected" });
   assert.equal([...gates.values()][0].state.status, "failed");
+  assert.equal(sent, 1);
+});
+
+test("lost Durable Object /sending acknowledgment is retried before the only Telegram upload", async (t) => {
+  const { env, gates } = fakeEnv();
+  const key = "doc-send:" + OWNER + ":" + REQUEST_ID;
+  const gate = new FakeGate();
+  const original = gate.fetch.bind(gate);
+  let dropped = false;
+  gate.fetch = async (request) => {
+    const response = await original(request);
+    if (new URL(request.url).pathname === "/sending" && !dropped) {
+      dropped = true;
+      throw new Error("lost DO ack");
+    }
+    return response;
+  };
+  gates.set(key, gate);
+  let sent = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    sent += 1;
+    return Response.json({ ok: true, result: {} });
+  });
+  const response = await handleDocStudioSendRequest(request(payload()), env, (TIME + 40) * 1000);
+  assert.equal(response.status, 200);
+  assert.equal(sent, 1);
+  assert.equal(gate.state.status, "sent");
+  assert.equal(gate.calls.filter((path) => path === "/sending").length, 2);
+});
+
+test("64 KiB control-character documents fit bounded escaped JSON transport", async (t) => {
+  const { env } = fakeEnv();
+  const source = "\u0000".repeat(DOC_STUDIO_MAX_TEXT_BYTES);
+  let sent = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    sent += 1;
+    return Response.json({ ok: true, result: {} });
+  });
+  const result = await handleDocStudioSendRequest(request(payload({ text: source })), env, (TIME + 40) * 1000);
+  assert.equal(result.status, 200);
   assert.equal(sent, 1);
 });

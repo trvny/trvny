@@ -4,7 +4,7 @@ import { sendTelegramDocument, DocumentSendError } from "./doc-studio-transport.
 import type { Env, TelegramReply } from "./types.ts";
 
 export const DOC_STUDIO_MAX_TEXT_BYTES = 64 * 1024;
-const REQUEST_MAX_BYTES = 80 * 1024;
+const REQUEST_MAX_BYTES = 6 * DOC_STUDIO_MAX_TEXT_BYTES + 4096;
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 type Submission = { requestId?: unknown; title?: unknown; text?: unknown; format?: unknown };
 type GateState = { outcome?: string; state?: { status?: string } };
@@ -120,7 +120,17 @@ export async function handleDocStudioSendRequest(
     if (state.outcome !== "claimed") return json({ error: "delivery_in_progress" }, 409);
     // Store only a minimal delivery marker, never the document itself.
     await gatePost(stub, "/prepare", token, { reply: { chatId, text: "[doc] " + filename } });
-    await gatePost(stub, "/sending", token);
+    // /sending is idempotent for the same claim. Retry the DO acknowledgement
+    // before any Telegram upload. Never replay an actual Telegram send.
+    let authorized = false;
+    for (let attempt = 0; attempt < 3 && !authorized; attempt += 1) {
+      try {
+        await gatePost(stub, "/sending", token);
+        authorized = true;
+      } catch {
+        if (attempt === 2) throw new Error("send_gate_unavailable");
+      }
+    }
   } catch {
     return json({ error: "delivery_unavailable" }, 503);
   }

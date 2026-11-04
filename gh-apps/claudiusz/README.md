@@ -14,6 +14,11 @@ Manufact runtime therefore act as the same `claudiusz69[bot]` installation.
 GraphQL node), `reply_review_comment`, `review`, `resolve_thread`,
 `discussion_comment`.
 
+Every posted body (comment, edit, review reply, review, discussion comment)
+gets a Claude badge on top (`src/badge.ts`). Skipped when the body already
+carries `<!-- claude-badge -->` (e.g. a cloud session's Claude Code badge);
+`<!-- no-badge -->` posts without one.
+
 Installations are resolved per owner and limited to `ALLOWED_OWNERS`
 (`trvny,travnie`). Install the app only on repositories it should touch.
 

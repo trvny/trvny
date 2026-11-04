@@ -38,14 +38,12 @@ export function assessFeedseekRuns(data: unknown, nowMs: number): FeedseekWatchd
     const started = Date.parse(run.run_started_at);
     if (!Number.isFinite(started)) throw new Error('feedseek_watchdog_invalid_timestamp');
     // A long-running job finishing recently also counts as fresh.
-    let recent = started;
-    if ('updated_at' in run) {
-      if (typeof run.updated_at !== 'string') throw new Error('feedseek_watchdog_invalid_timestamp');
-      const updated = Date.parse(run.updated_at);
-      if (!Number.isFinite(updated)) throw new Error('feedseek_watchdog_invalid_timestamp');
-      recent = Math.max(recent, updated);
+    if (!('updated_at' in run) || typeof run.updated_at !== 'string') {
+      throw new Error('feedseek_watchdog_invalid_timestamp');
     }
-    newest = Math.max(newest, recent);
+    const updated = Date.parse(run.updated_at);
+    if (!Number.isFinite(updated)) throw new Error('feedseek_watchdog_invalid_timestamp');
+    newest = Math.max(newest, started, updated);
   }
   // Clock skew or a future-dated run must never force a dispatch.
   return nowMs - newest >= STALE_AFTER_MS ? 'dispatch' : 'recent';

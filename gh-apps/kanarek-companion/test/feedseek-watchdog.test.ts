@@ -18,6 +18,7 @@ function feedRuns(ageMinutes: number, status = 'completed') {
         status,
         created_at: new Date(NOW - (ageMinutes + 180) * MINUTE).toISOString(),
         run_started_at: new Date(NOW - ageMinutes * MINUTE).toISOString(),
+        updated_at: new Date(NOW - ageMinutes * MINUTE).toISOString(),
       },
     ],
   };
@@ -59,6 +60,7 @@ test('invalid or empty GitHub data fails closed', () => {
     { workflow_runs: [] },
     { workflow_runs: [{ status: 'completed', run_started_at: 'broken' }] },
     { workflow_runs: [{ status: 'completed', created_at: new Date(NOW).toISOString() }] },
+    { workflow_runs: [{ status: 'completed', run_started_at: new Date(NOW).toISOString() }] },
     { workflow_runs: [{ status: 'new', run_started_at: new Date(NOW).toISOString() }] },
   ]) {
     assert.throws(() => assessFeedseekRuns(value, NOW), /feedseek_watchdog/);

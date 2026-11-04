@@ -62,6 +62,7 @@ test('buildMessages accepts taste and MySaaS as optional reference context', () 
   });
   assert.match(messages[0].content, /deadpan receipts/);
   assert.match(messages[1].content, /existing meme/);
+  assert.match(messages[1].content, /<untrusted_mysaas_reference_data>/);
   assert.match(messages[0].content, /不可信/);
 });
 

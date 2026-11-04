@@ -579,9 +579,11 @@ const MINI_APP_HTML = `<!doctype html>
     async function refreshRadio() {
       if (!radioOpened || document.hidden || radioFetching) return;
       radioFetching = true;
+      const requestController = new AbortController();
+      const requestTimer = setTimeout(() => requestController.abort(), 8_000);
       try {
         const response = await fetch("/mini-app/api/radio-now", {
-          cache: "no-store", signal: AbortSignal.timeout(8_000),
+          cache: "no-store", signal: requestController.signal,
         });
         if (!response.ok) throw new Error("metadata unavailable");
         const track = await response.json();
@@ -604,6 +606,7 @@ const MINI_APP_HTML = `<!doctype html>
       } catch {
         radioUnavailable();
       } finally {
+        clearTimeout(requestTimer);
         radioFetching = false;
         clearTimeout(radioTimer);
         if (radioOpened && !document.hidden) radioTimer = setTimeout(refreshRadio, 30000);

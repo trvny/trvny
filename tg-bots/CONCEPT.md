@@ -132,6 +132,9 @@ Existing Control Center tiles merely call `Telegram.WebApp.openLink` for Codeben
 
 #### Docbench: Draft Studio
 
+**V1 delivered:** Owner-only `/doc` and `/draft new` open the existing Mini App editor. Markdown/text templates, safe preview, import/export, opt-in unencrypted device-only saving and explicit private-chat `sendDocument` are implemented. Existing `/draft <text>` is preserved. Rich rendering, PDF/DOCX conversion, chat/message import, encrypted persistence and broader share targets remain future scope.
+
+
 **Desired flow:** `/doc`, `/draft new` or a "Create document" button opens a scoped editor **inside Telegram**. Keep existing `/draft <text>` reply drafting and the current bare `/draft` usage handler intact unless deliberately migrated with compatibility tests. Write/edit markdown or rich text, attach a message/file, inspect a preview, then send the document back to the chat, save an explicit draft, or export it.
 
 - V1: plain text/Markdown editor, autosave only after clear opt-in, templates, preview, share/send to the current conversation, export `.txt` and `.md`.

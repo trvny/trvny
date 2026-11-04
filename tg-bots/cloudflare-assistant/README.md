@@ -14,7 +14,26 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
 - **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
-- **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata from the canonical TRAVNY Pages API with an exact-origin CORS allowlist, plus Codebench/Docbench links and the Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. iOS uses hardware volume controls where programmatic media volume is unavailable. Watchtower keeps Secretary idle watches private.
+- **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata from the canonical TRAVNY Pages API with an exact-origin CORS allowlist, plus a native Docbench Draft Studio, Codebench link and Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. iOS uses hardware volume controls where programmatic media volume is unavailable. Watchtower keeps Secretary idle watches private.
+
+### Docbench Draft Studio (V1)
+
+The owner-only `/doc` or `/draft new` command launches the existing Mini App
+at `?tab=doc`. Existing `/draft <text>` reply drafting is unchanged.
+The editor supports local Markdown/plain text, note/memo/meeting templates,
+safe structural preview, local `.md`/`.txt` import and export, and a link
+to the standalone Docbench for advanced conversions.
+
+Drafts stay in the Mini App's memory by default. Device storage is opt-in,
+unencrypted, and cleared when disabled or explicitly forgotten. The Worker
+never stores draft contents; only an owner-authorized, explicitly confirmed
+`POST /mini-app/api/documents/send` uploads a file to the owner's **private**
+Telegram chat. The endpoint verifies signed Telegram initData, rejects foreign
+origins and oversized requests, bounds uploads to 64 KiB, and reuses the
+existing Telegram update dedup Durable Object as a per-request send gate.
+Ambiguous sends are never automatically replayed; check chat before retrying.
+Telegram client download/preview behavior still needs a device smoke test.
+PDF/DOCX/HTML conversion and Telegram message attachment import remain V2.
 
 ### Automation cancellation boundary
 

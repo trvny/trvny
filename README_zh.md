@@ -33,9 +33,18 @@
 <!--OPEN_PRS:START-->
 | 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1293](https://github.com/trvny/trvny/pull/1293) | feat(tg): public Botek command foundation | @trvny | 草稿 | 2026-11-04 |
-| trvny/WiFi-Automatic | [#58](https://github.com/trvny/WiFi-Automatic/pull/58) | deps: bump com.android.application from 9.4.1 to 9.5.0 in the gradle group | @dependabot[bot] | 就绪 | 2026-11-02 |
-| trvny/WiFi-Automatic | [#59](https://github.com/trvny/WiFi-Automatic/pull/59) | ci: bump the actions group across 1 directory with 2 updates | @dependabot[bot] | 就绪 | 2026-11-02 |
+| trvny/feedseek | [#567](https://github.com/trvny/feedseek/pull/567) | chore(deps-dev): bump ruff from 0.17.2 to 0.17.3 | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/feedseek | [#568](https://github.com/trvny/feedseek/pull/568) | chore(deps-dev): bump wrangler from 4.152.0 to 4.156.0 in /feeds-proxy | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/feedseek | [#569](https://github.com/trvny/feedseek/pull/569) | chore(deps): bump tzdata from 2026.5 to 2026.6 | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/feedseek | [#570](https://github.com/trvny/feedseek/pull/570) | chore(deps): bump python-dateutil from 3.0.0 to 4.0.0 | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/feedseek | [#571](https://github.com/trvny/feedseek/pull/571) | chore(deps-dev): bump feedsearch-crawler from 2.1.7 to 2.1.8 | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/feedseek | [#572](https://github.com/trvny/feedseek/pull/572) | chore(deps): bump pydantic from 2.14.1 to 2.14.2 | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/feedseek | [#573](https://github.com/trvny/feedseek/pull/573) | chore(deps): bump the actions group with 2 updates | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/trvny | [#1305](https://github.com/trvny/trvny/pull/1305) | fix(tg): surface bounded metadata relay diagnostics | @trvny | 就绪 | 2026-11-04 |
+| trvny/tvpi | [#137](https://github.com/trvny/tvpi/pull/137) | chore(deps-dev): bump wrangler from 4.152.0 to 4.156.0 in /worker in the worker-toolchain group | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/tvpi | [#139](https://github.com/trvny/tvpi/pull/139) | merge queue: checking #137 on main (946f148), stacked on #138 | @mergify[bot] | 草稿 | 2026-11-04 |
+| trvny/WiFi-Automatic | [#58](https://github.com/trvny/WiFi-Automatic/pull/58) | deps: bump com.android.application from 9.4.1 to 9.5.0 in the gradle group | @dependabot[bot] | 就绪 | 2026-11-04 |
+| trvny/WiFi-Automatic | [#61](https://github.com/trvny/WiFi-Automatic/pull/61) | merge queue: checking #58 on master (c81e7cc), stacked on #59 | @mergify[bot] | 草稿 | 2026-11-04 |
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
@@ -93,7 +102,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝“The goal is to turn data into information, and information into insight.”— Carly Fiorina❞</i>
+<i>❝The first ever hard disk drive was made in 1979, and could hold only 5MB of data.❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
@@ -101,11 +110,11 @@
 
 <!--README_FEED:START-->
 - [Trust but Verify: Implementing Frontier AI Policy in California and Beyond](https://carnegieendowment.org/research/2026/11/trust-but-verify-implementing-frontier-ai-policy-in-california-and-beyond)
-- [“\(The success\) is by committee. I'll say it over and …](https://sports.yahoo.com/articles/success-committee-ill-over-232757875.html)
-- [Welsh injury adds to Swans' misery at Portsmouth](https://sports.yahoo.com/articles/welsh-injury-adds-swans-misery-232701543.html)
-- [History made. Liberty High player commits to Nebraska for flag football](https://sports.yahoo.com/articles/history-made-liberty-high-player-232552298.html)
-- [Ohio high school football powerhouse wins court ruling, but playoff future uncertain](https://sports.yahoo.com/articles/ohio-high-school-football-powerhouse-232522260.html)
-- [Details emerge following crash that killed 2 Texas Lutheran football players](https://sports.yahoo.com/articles/details-emerge-following-crash-killed-230600327.html)
+- [Bridging the Gap Between Climate Mobility Modeling and Policy Action](https://carnegieendowment.org/research/2026/11/bridging-the-gap-between-climate-mobility-modeling-and-policy-action)
+- [The Long War: Rethinking Defence Strategy in Prolonged Conflict](https://www.rusi.org/news-and-comment/video-commentary/long-war-rethinking-defence-strategy-prolonged-conflict)
+- [COP31 and the Future of Climate Clubs](https://carnegieendowment.org/emissary/2026/11/cop31-climate-clubs-us-withdraw)
+- [Jaworzno przygotowuje się do zimy. Ponad 800 ton soli i 16 pojazdów w gotowości - jaw.pl](https://news.google.com/atom/articles/CBMiY0FVX3lxTE9qOWcybGgxQVpOMjJIMVpja0RQVkUySnVHXzNCZk9SRGFZY2M1R2RBUFhRRjVTanJlZndONkFUNEhsZHFfVWlVU2pUOFBaaVFTZjVvMWdrdGxjNmxUTHcxOWtfVQ?oc=5)
+- [Qualcomm's smartphone chip sales miss estimates, shares fall](https://www.reuters.com/business/media-telecom/qualcomm-forecasts-upbeat-sales-strength-non-smartphone-segments-2026-11-04/)
 <!--README_FEED:END-->
 
 <div align="center">

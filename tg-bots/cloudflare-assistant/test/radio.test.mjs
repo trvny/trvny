@@ -14,9 +14,8 @@ function trackResponse(overrides = {}) {
 
 test("radio shortcuts are exact and do not hijack ordinary chat", async () => {
   for (const command of ["/radio", "/radio@trvny_bot", "Dawaj MUZĘ!", "dawaj muze", "  puść   radio  "]) {
-    const input = command.replace(/!$/u, "");
-    assert.equal(isRadioRequest(input), true);
-    assert.deepEqual((await routeOwnerCommand(input)).value, { kind: "radio" });
+    assert.equal(isRadioRequest(command), true);
+    assert.deepEqual((await routeOwnerCommand(command)).value, { kind: "radio" });
   }
   for (const input of ["dawaj muze o historii", "radioterapia", "nie dawaj muze", "/radio coś", "/task radio"]) {
     assert.equal(isRadioRequest(input), false);
@@ -26,9 +25,9 @@ test("radio shortcuts are exact and do not hijack ordinary chat", async () => {
 
 test("radio data is read only from the existing TRAVNY metadata endpoint", async () => {
   const called = [];
-  const result = await readRadioTrack(async (url, init) => {
+  const result = await readRadioTrack((url, init) => {
     called.push({ url, init });
-    return trackResponse();
+    return Promise.resolve(trackResponse());
   });
   assert.equal(called[0].url, "https://travny.pages.dev/api/radio-now");
   assert.equal(called[0].init.redirect, "error");
@@ -68,7 +67,7 @@ test("relay only supports GET, failed upstream stays uncached", async (t) => {
 test("owner radio card opens same-origin player without leaking tokens", async () => {
   const env = { TELEGRAM_WEBHOOK_URL: "https://tg-assistant.travny.workers.dev/telegram/webhook" };
   assert.equal(radioMiniAppUrl(env), "https://tg-assistant.travny.workers.dev/mini-app?tab=radio");
-  const result = await radioReply(env, 123, 45, async () => ({
+  const result = await radioReply(env, 123, 45, () => Promise.resolve({
     title: "Song", artist: "Artist", album: "", cover: "", checkedAt: new Date().toISOString(),
   }));
   assert.equal(result.chatId, 123);
@@ -78,7 +77,10 @@ test("owner radio card opens same-origin player without leaking tokens", async (
     text: "▶️ Play in Botek",
     web_app: { url: "https://tg-assistant.travny.workers.dev/mini-app?tab=radio" },
   });
-  const fallback = await radioReply({}, 123, 45, async () => null);
+  const fallback = await radioReply({}, 123, 45, () => Promise.resolve(null));
   assert.equal(fallback.replyMarkup, undefined);
+  const group = await radioReply(env, -123, 99, () => Promise.resolve(null), "supergroup");
+  assert.equal(group.replyMarkup, undefined);
+  assert.match(group.text, /private chat/u);
   assert.doesNotMatch(fallback.text, /undefined|Bearer|token/iu);
 });

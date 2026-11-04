@@ -937,7 +937,7 @@ async function handleOwnerCommand(
       };
 
     case "radio":
-      return radioReply(env, message.chat.id, message.message_id);
+      return radioReply(env, message.chat.id, message.message_id, undefined, message.chat.type);
 
     case "draft-usage":
       return {

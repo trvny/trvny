@@ -31,12 +31,13 @@ function safeCover(value: unknown): string {
 
 // Fixed Pages endpoint owns Radio Paradise upstream normalization.
 export async function readRadioTrack(
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
+  timeoutMs = 6_000,
 ): Promise<RadioTrack | null> {
   try {
     const response = await fetcher(RADIO_NOW_URL, {
       redirect: "error",
-      signal: AbortSignal.timeout(6_000),
+      signal: AbortSignal.timeout(timeoutMs),
       cf: { cacheEverything: true, cacheTtlByStatus: { "200-299": 20, "400-599": 0 } },
     } as RequestInit);
     if (!response.ok || !response.body ||
@@ -101,10 +102,11 @@ export async function radioReply(
   env: Env,
   chatId: string | number,
   replyToMessageId: number,
-  readTrack: () => Promise<RadioTrack | null> = readRadioTrack,
+  readTrack: () => Promise<RadioTrack | null> = () => readRadioTrack(undefined, 800),
+  chatType = "private",
 ): Promise<TelegramReply> {
   const track = await readTrack();
-  const url = radioMiniAppUrl(env);
+  const url = chatType === "private" ? radioMiniAppUrl(env) : null;
   return {
     chatId,
     replyToMessageId,
@@ -113,7 +115,7 @@ export async function radioReply(
       track ? `🎵 ${track.artist} · ${track.title}` : "🎵 Track details unavailable",
       track ? "Metadata checked just now · live stream" : "Live stream · metadata temporarily unavailable",
       "",
-      url ? "Tap to open the player. Playback starts after Play." : "Open Botek Control Center to play.",
+      url ? "Tap to open the player. Playback starts after Play." : "Open Botek in a private chat and send /radio to play.",
     ].join("\n"),
     ...(url ? { replyMarkup: { inline_keyboard: [[{
       text: "▶️ Play in Botek",

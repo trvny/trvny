@@ -18,7 +18,7 @@ class FakeElement {
   setAttribute(name, value) { this.attributes[name] = value; }
   removeAttribute(name) { delete this.attributes[name]; }
   replaceChildren(...children) { this.children = children; }
-  scrollIntoView() {}
+  scrollIntoView() { this.scrolled = true; }
 }
 
 class FakeAudio extends FakeElement {
@@ -32,10 +32,10 @@ class FakeAudio extends FakeElement {
     return Promise.resolve();
   }
   pause() { this.paused = true; this.dispatch("pause"); }
-  load() {}
+  load() { this.loadCalls = (this.loadCalls ?? 0) + 1; }
 }
 
-async function radioHarness(response) {
+async function radioHarness(response, platform = "") {
   const html = await miniAppHtmlResponse().text();
   const start = html.indexOf("<script>") + "<script>".length;
   const source = html.slice(start, html.indexOf("</script>", start));
@@ -53,16 +53,24 @@ async function radioHarness(response) {
     createElement: () => new FakeElement(),
     querySelector: (selector) => selector === "[data-radio-open]" ? radioButton : null,
     querySelectorAll: () => [],
-    addEventListener() {},
+    events: {},
+    addEventListener(name, handler) { this.events[name] = handler; },
   };
-  const window = { location: { search: "?tab=radio" }, addEventListener() {} };
+  const window = {
+    location: { search: "?tab=radio" },
+    events: {},
+    addEventListener(name, handler) { this.events[name] = handler; },
+    ...(platform ? { Telegram: { WebApp: {
+      platform, ready: () => 1, expand: () => 1,
+    } } } : {}),
+  };
   const fetch = (url) => {
     requests.push(url);
     return Promise.resolve(response);
   };
   const noop = () => 1;
   new Script(source).runInNewContext({
-    document, window, fetch, Date, URLSearchParams, Response,
+    document, window, fetch, Date, URLSearchParams, Response, AbortSignal,
     setTimeout: noop, clearTimeout: noop,
   });
   await new Promise((resolve) => setImmediate(resolve));
@@ -99,6 +107,28 @@ test("deep-link opens player and fetches metadata without autoplay", async () =>
   assert.equal(audio.paused, true);
   assert.equal(nodes.get("radio-status").textContent, "Paused");
   assert.equal(audio.attributes.src, undefined);
+});
+
+test("iOS gets device-volume guidance instead of a broken slider", async () => {
+  const { nodes } = await radioHarness(Response.json({
+    title: "Song", artist: "Artist", checkedAt: "2026-11-04T19:00:00Z",
+  }), "ios");
+  assert.equal(nodes.get("radio-volume-label").hidden, true);
+  assert.equal(nodes.get("radio-volume-note").hidden, false);
+});
+
+test("stale stream errors do not cancel a working replacement stream", async () => {
+  const { nodes, audio } = await radioHarness(Response.json({
+    title: "Song", artist: "Artist", checkedAt: "2026-11-04T19:00:00Z",
+  }));
+  nodes.get("radio-toggle").dispatch("click");
+  await Promise.resolve();
+  audio.error = null;
+  audio.dispatch("error");
+  assert.equal(nodes.get("radio-status").textContent, "Playing live");
+  audio.error = { code: 3 };
+  audio.dispatch("error");
+  assert.equal(nodes.get("radio-status").textContent, "Stream unavailable. Tap Play to retry.");
 });
 
 test("missing radio metadata does not block playback", async () => {

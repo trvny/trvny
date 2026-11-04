@@ -14,7 +14,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
 - **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
-- **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata through a fixed same-origin relay, plus Codebench/Docbench links and the Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. Watchtower keeps Secretary idle watches private.
+- **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata through a fixed same-origin relay, plus Codebench/Docbench links and the Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. iOS uses hardware volume controls where programmatic media volume is unavailable. Watchtower keeps Secretary idle watches private.
 
 ### Automation cancellation boundary
 

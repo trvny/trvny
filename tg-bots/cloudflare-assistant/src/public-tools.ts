@@ -101,8 +101,8 @@ export function publicReply(message: TelegramMessage, action: PublicAction, skil
     return {
       ...base,
       text: action.nonce === null
-        ? "Użycie: /ping [id: 1-32 znaków A-Z a-z 0-9 _ -]"
-        : `🏓 BOTEK/1 PONG${action.nonce ? ` ${action.nonce}` : ""}`,
+        ? "Użycie: /ping [nonce: 1-32 znaków A-Z a-z 0-9 _ -]"
+        : `BOTEK/1 PONG${action.nonce ? ` ${action.nonce}` : ""}`,
     };
   }
   if (action.kind === "dice") {

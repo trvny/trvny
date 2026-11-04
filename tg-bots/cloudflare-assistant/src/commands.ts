@@ -12,7 +12,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "help", usage: "/help", description: "Pokaż dostępne komendy", public: true },
   { command: "tools", usage: "/tools [obszar]", description: "Odkryj możliwości Botka", public: true },
   { command: "skill", usage: "/skill", description: "Instrukcja narzędzi dla agentów", public: true },
-  { command: "ping", usage: "/ping [id]", description: "Sprawdź połączenie (PONG z identyfikatorem)", public: true },
+  { command: "ping", usage: "/ping [nonce]", description: "Sprawdź połączenie (PONG z identyfikatorem)", public: true },
   { command: "ask", usage: "/ask <pytanie>", description: "Zapytaj Botka jawnie, także w grupie", groupMode: "visible" },
   { command: "whisper", usage: "/whisper <pytanie>", description: "Zapytaj prywatnie w grupie", private: false, groupMode: "ephemeral" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },

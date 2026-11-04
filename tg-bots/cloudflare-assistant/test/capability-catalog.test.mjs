@@ -19,7 +19,7 @@ test("catalog maps each registered command to exactly one implemented capability
   });
   assert.equal(ids.length, new Set(ids).size);
   assert.deepEqual(new Set(ids), new Set(BOTEK_COMMANDS.map((command) => command.command)));
-  assert.equal(BOTEK_CAPABILITIES.length, 7);
+  assert.equal(BOTEK_CAPABILITIES.length, 8);
 });
 
 test("tool deck shows existing commands with safe rich markup and bounded callbacks", () => {
@@ -31,6 +31,9 @@ test("tool deck shows existing commands with safe rich markup and bounded callba
     assert.ok(button.callback_data.length <= 64);
     assert.ok(capabilityById(toolDeckSelection(button.callback_data)));
   }
+  const media = toolDeckView("media");
+  assert.match(media.plain, /\/radio/u);
+  assert.match(media.plain, /mini-app/u);
   const telegram = toolDeckView("telegram");
   assert.match(telegram.plain, /\/poll/u);
   assert.match(telegram.richHtml, /&lt;pytanie&gt;|&lt;nazwa&gt;|&lt;tekst&gt;/u);
@@ -52,6 +55,7 @@ test("public catalogue hides private capabilities and commands", () => {
   const deck = toolDeckView("", "public");
   assert.doesNotMatch(deck.plain, /Legion|GitHub|Engram/i);
   assert.ok(toolDeckSelection("tools:open:machine", "public") === undefined);
+  assert.ok(toolDeckSelection("tools:open:media", "public") === undefined);
   assert.match(toolDeckView("telegram", "public").plain, /\/dice/u);
   assert.match(toolDeckView("fun", "public").plain, /\/quip/u);
   assert.equal(BOTEK_CAPABILITIES.find((item) => item.id === "fun").surfaces.join(","), "chat");

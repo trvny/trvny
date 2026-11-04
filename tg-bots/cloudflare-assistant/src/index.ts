@@ -1559,7 +1559,10 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   if (!message?.from) return null;
   const fromOwner = ownerConfigured(env) && String(message.from.id) === env.OWNER_TELEGRAM_USER_ID;
   const publicAction = parsePublicAction(message);
-  if (publicAction && (!fromOwner || message.chat.type !== "private" || publicAction.kind === "skill")) {
+  if (publicAction && (
+    !fromOwner || message.chat.type !== "private" ||
+    publicAction.kind === "skill" || publicAction.kind === "ping"
+  )) {
     if (!fromOwner && !await allowPublicCommand(env, message.from.id, update.update_id)) return null;
     return publicReply(message, publicAction, skillUrlFromEnv(env.TELEGRAM_WEBHOOK_URL));
   }

@@ -38,6 +38,6 @@ Cloud environment setup script, after `~/.claude/settings.json` is written
 
 ```bash
 B=~/.claude/hooks/github-badge.py
-curl -fsSL -o $B https://raw.githubusercontent.com/trvny/trvny/main/.ai/private/claude/hooks/github-badge.py \
+mkdir -p ~/.claude/hooks && curl -fsSL -o $B https://raw.githubusercontent.com/trvny/trvny/main/.ai/private/claude/hooks/github-badge.py \
   && python3 $B install || echo "github-badge: install failed"
 ```

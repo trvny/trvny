@@ -136,11 +136,15 @@ def install():
     bindir = os.path.expanduser("~/.local/bin")
     os.makedirs(bindir, exist_ok=True)
     link = os.path.join(bindir, "gh")
-    if os.path.lexists(link):
-        os.remove(link)
-    os.symlink(me, link)
-    if shutil.which("gh") != link:
-        print(f"github-badge: {link} not first on PATH, gh posts stay unbadged", file=sys.stderr)
+    ours = os.path.islink(link) and os.path.realpath(link) == me
+    if os.path.lexists(link) and not ours:
+        print(f"github-badge: {link} is not the shim, left alone; gh posts stay unbadged", file=sys.stderr)
+    else:
+        if ours:
+            os.remove(link)
+        os.symlink(me, link)
+        if shutil.which("gh") != link:
+            print(f"github-badge: {link} not first on PATH, gh posts stay unbadged", file=sys.stderr)
     path = os.path.expanduser("~/.claude/settings.json")
     try:
         with open(path, encoding="utf-8") as f:

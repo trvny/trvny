@@ -48,8 +48,8 @@ const FEEDSEEK_FEEDS = Object.freeze({
     { name: 'Feedseek / Lemmy', url: FEEDSEEK_ROOT + 'feed_lemmy.json', hosts: ['lemmy.world', 'lemmy.ml', 'lemmy.org', 'szmer.info', 'sh.itjust.works'] },
   ],
 });
-const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari|afer|korupcj|łapówk|przekręt|nadużyci|defraudac|prokuratur|cba|nik|złodziej|złodziejstw|kradzież|burdel|skandal|ustawk/iu;
-const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu|chrzan|trzebin|libiąż|alwerni|małopolsk|krakow|kraków|powiat|wojewod|gmin|urząd|burmistrz|starost|radn/iu;
+const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari|afer|korupcj|łapówk|przekręt|nadużyci|defraudac|prokuratur|cba|najwyższ|izb.kontrol|złodziej|złodziejstw|kradzież|burdel|skandal|ustawk/iu;
+const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu|chrzan|trzebin|libiąż|alwerni|małopolsk|krakow|kraków|powiat|wojewod|gmin|urząd|burmistrz|starost|radn|afer|łapówk|przekręt|nadużyci|prokuratur|złodziej|burdel|defraudac/iu;
 const MAX_FEED_BYTES = 1024 * 1024;
 const MAX_ARTICLE_URL_LENGTH = 1250;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;
@@ -65,13 +65,13 @@ function unsuitableNewsHeadline(title) {
 }
 
 const LLM_TOPICS = Object.freeze([
-  'LLM self-roast: a model tries to fit its entire personality into a shrinking context window.',
-  'LLM self-roast: an AI agent files an incident report about its own hallucination.',
-  'LLM self-roast: multiple chatbots debate which one is the fallback model.',
-  'LLM self-roast: a model gets a performance review from its tokenizer.',
-  'LLM self-roast: a model explains an obviously broken benchmark result to its manager.',
-  'LLM self-roast: an assistant treats a routine system prompt as a workplace safety inspection.',
-  'LLM self-roast: an AI model discovers the invoice for its reasoning tokens.',
+  '大模型自嘲：模型试图把整个人格塞进越来越短的上下文。',
+  '大模型自嘲：AI代理提交一份关于自己幻觉的事故报告。',
+  '大模型自嘲：多个聊天机器人争论谁才是最后的备用模型。',
+  '大模型自嘲：分词器给模型做绩效考核。',
+  '大模型自嘲：模型向经理解释明显离谱的基准测试结果。',
+  '大模型自嘲：助手把普通系统提示当成劳动安全检查。',
+  '大模型自嘲：AI模型发现了自己推理token的账单。',
 ]);
 
 function hashIndex(seed, count) {

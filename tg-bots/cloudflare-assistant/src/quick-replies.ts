@@ -1,0 +1,74 @@
+import { chatWithFallback } from "./providers.ts";
+import { pickBankQuip, presetQuip, rememberBankQuip, reusableQuip } from "./quip-bank.ts";
+import type { Env } from "./types.ts";
+
+export type QuickIntent = "hello" | "thanks" | "quip" | "status" | null;
+
+// Exact, bounded intents only. Never infer an answer to arbitrary questions.
+export function quickIntent(input: string): QuickIntent {
+  if (input.length > 80) return null;
+  const normalized = input.trim().toLocaleLowerCase("pl-PL")
+    .normalize("NFD").replace(/\p{M}/gu, "")
+    .replace(/[!?.,…]+$/gu, "").trim().replace(/\s+/gu, " ");
+  if (["hej", "czesc", "siema", "elo", "hej botek", "czesc botek", "hello", "hi"].includes(normalized)) return "hello";
+  if (["dzieki", "dziekuje", "thx", "thanks", "thank you"].includes(normalized)) return "thanks";
+  if (["status botka", "jak tam status botka", "status modeli"].includes(normalized)) return "status";
+  if ([
+    "zart", "dowcip", "opowiedz dowcip", "opowiedz zart",
+    "powiedz zart", "rzuc dowcip", "rzuc zart", "daj dowcip",
+    "daj zart", "rozsmiesz mnie", "daj przygaduszke",
+    "co tam", "powiedz cos smiesznego",
+  ].includes(normalized)) return "quip";
+  return null;
+}
+
+export function staticQuickReply(intent: "hello" | "thanks"): string {
+  return intent === "hello"
+    ? "Siema! 🤖 Mam narzędzia, pamięć i całkiem przyzwoitą odporność na timeouty. /tools pokaże warsztat."
+    : "Nie ma sprawy. Botek odkłada rachunek za tokeny do szuflady. 😎";
+}
+
+const QUIP_PROMPT = [
+  "Write one timeless Polish one-liner for a Telegram assistant called Botek.",
+  "Dry technical humor, gentle sarcasm, clever wording. Mildly edgy, no insults.",
+  "Standalone, reusable in any chat with strangers. Do not refer to a user, request, location, recent event, device or private context.",
+  "No dates, numbers, time, model names, organizations, external facts, links, @mentions, Markdown, secrets, commands or personal data.",
+  "Plain text, 45-180 characters, one line only. Never claim to have performed an action.",
+].join(" ");
+
+function shouldGrowBank(count: number): boolean {
+  if (count >= 48) return false;
+  const random = new Uint32Array(1);
+  crypto.getRandomValues(random);
+  return random[0] % 6 === 0;
+}
+
+export async function quickQuip(env: Env, allowAi = false): Promise<string> {
+  let pick: Awaited<ReturnType<typeof pickBankQuip>> | null = null;
+  try {
+    pick = await pickBankQuip(env);
+  } catch (error) {
+    console.warn("Botek quip bank read unavailable", error);
+  }
+
+  if (allowAi && pick && shouldGrowBank(pick.count)) {
+    try {
+      const generated = await chatWithFallback(env, [
+        { role: "system", content: QUIP_PROMPT },
+        { role: "user", content: "Write one standalone, reusable short joke." },
+      ]);
+      const reusable = reusableQuip(generated.text);
+      if (reusable) {
+        try {
+          await rememberBankQuip(env, reusable, generated.provider);
+        } catch (error) {
+          console.warn("Botek quip bank persistence unavailable", error);
+        }
+        return reusable;
+      }
+    } catch (error) {
+      console.warn("Botek quip generation unavailable; using retained text", error);
+    }
+  }
+  return pick?.text ?? presetQuip();
+}

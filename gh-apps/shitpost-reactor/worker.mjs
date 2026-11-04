@@ -3,7 +3,7 @@ import {
   SHITPOST_MEME_LINE_HARD_MAX_CHARS,
   SHITPOST_TEXT_HARD_MAX_CHARS,
 } from './limits.mjs';
-import { getMemeTemplate, memeImageUrl, normalizeMemeLook } from './templates.mjs';
+import { fitMemeCaption, getMemeTemplate, memeImageUrl, normalizeMemeLook } from './templates.mjs';
 import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
 
 const FEED_TITLE = 'Reactor';
@@ -156,15 +156,17 @@ export function validateRecord(input) {
       || bottomText.length > SHITPOST_MEME_LINE_HARD_MAX_CHARS
     ) throw new Error('invalid_meme_text_length');
     const look = normalizeMemeLook(content);
-    memeImageUrl(template, topText, bottomText, look);
+    const fittedTop = fitMemeCaption(topText);
+    const fittedBottom = fitMemeCaption(bottomText, true);
+    memeImageUrl(template, fittedTop, fittedBottom, look);
     return {
       ...common,
       content: {
         kind: 'meme',
         ...optionalHeadline(content),
         template,
-        top_text: topText,
-        bottom_text: bottomText,
+        top_text: fittedTop,
+        bottom_text: fittedBottom,
         ...look,
       },
     };

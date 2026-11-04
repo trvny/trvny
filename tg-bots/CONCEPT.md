@@ -128,21 +128,21 @@ Botek should feel like a Telegram-native operating surface, not a folder of larg
 
 ### Interactive Bench integrations (replace link-only tiles)
 
-Existing Control Center tiles merely call `Telegram.WebApp.openLink` for Codebench, Streambench and Docbench. Keep their standalone sites, but replace the Mini App's link-only behavior with usable flows. Reuse real Bench code/APIs where feasible; do not fork three full applications into `tg-assistant`.
+Codebench remains link-only; Streambench radio and Docbench Draft Studio are now native Control Center panels. Keep their standalone sites, but replace the Mini App's link-only behavior with usable flows. Reuse real Bench code/APIs where feasible; do not fork three full applications into `tg-assistant`.
 
 #### Docbench: Draft Studio
 
 **V1 delivered:** Owner-only `/doc` and `/draft new` open the existing Mini App editor. Markdown/text templates, safe preview, import/export, opt-in unencrypted device-only saving and explicit private-chat `sendDocument` are implemented. Existing `/draft <text>` is preserved. Rich rendering, PDF/DOCX conversion, chat/message import, encrypted persistence and broader share targets remain future scope.
 
 
-**Desired flow:** `/doc`, `/draft new` or a "Create document" button opens a scoped editor **inside Telegram**. Keep existing `/draft <text>` reply drafting and the current bare `/draft` usage handler intact unless deliberately migrated with compatibility tests. Write/edit markdown or rich text, attach a message/file, inspect a preview, then send the document back to the chat, save an explicit draft, or export it.
+**Implemented V1:** `/doc`, `/draft new` and the Docbench tile open the editor inside Telegram **in the owner private chat**. Existing `/draft <text>` and bare `/draft` behavior is preserved. Editable Markdown/text, templates, local `.md`/`.txt` import, structural preview, explicit private-chat send and opt-in local save/export are available. Attaching a Telegram reply and sending to other chats/threads remain future work.
 
-- V1: plain text/Markdown editor, autosave only after clear opt-in, templates, preview, share/send to the current conversation, export `.txt` and `.md`.
+- V1 delivered: text/Markdown editor, templates, safe preview, local import, opt-in unencrypted device saving, private-owner-chat `sendDocument`, export `.txt` and `.md`. Telegram-client E2E is still unverified.
 - V2: existing Docbench rendering/conversion where its interface supports reuse; `.html`, `.pdf`, possibly `.docx`, plus document import and formatting presets. Verify actual worker/client conversion interfaces before promising formats.
 - Import Telegram content only from explicitly replied-to/forwarded messages, user-uploaded files, or a voluntarily supplied chat export. Bot API does **not** grant arbitrary historical access to someone's chats.
 - Export a selected message/thread as Markdown/JSON/JSONL with timestamps, author labels, provenance, attachments or safe links when available; offer redaction before sharing or publishing. Manual Telegram Desktop export import is a separate, consent-based path.
-- Keep the composer useful offline where feasible; encrypted/private draft handling, bounded attachments, no accidental server retention. Large documents use a scoped API, not `WebApp.sendData` as a bulk transport.
-- Add a bounded `sendDocument` upload method to the **existing** Telegram transport/allowlist; there is no dedicated document-send wrapper today. Reuse the existing delivery guards and Docbench conversion functions where they actually exist, instead of silently sending drafts to an AI provider.
+- Keep the composer useful offline where feasible; draft contents remain client-side until explicit send. Local saving is opt-in and **unencrypted**, with an explicit warning. Encrypted storage and broader attachments remain future scope. Large documents use a scoped API, not `WebApp.sendData` as bulk transport.
+- The existing Telegram transport exposes bounded `sendDocument` through one dedicated module. Signed `initData` gates uploads to the owner private chat; the existing Durable Object dedup gate prevents ambiguous delivery replay. Only reuse Docbench conversion functions when their interfaces have been verified; never send drafts to an AI provider implicitly.
 
 **Done when:** a user can compose inside the Mini App and receive a real file in their Telegram chat without navigating to the standalone Docbench page.
 
@@ -151,7 +151,7 @@ Existing Control Center tiles merely call `Telegram.WebApp.openLink` for Codeben
 **Desired flow:** `@trvny_bot dawaj muze` (or `/radio`) replies with a compact station/now-playing card and a **Play in Botek** Mini App button. It opens a real audio player, not the current Streambench link tile.
 
 - V1: Radio Paradise Main Mix, play/pause, volume, station icon/cover, title, artist, live state, fallback art, and "More stations." Share the existing `pages/astro/src/components/RadioMini.astro` interaction pattern and `pages/functions/api/radio-now.js` metadata endpoint instead of duplicating upstream scraping.
-- The Pages metadata response currently has no cross-origin allowance for the Telegram Worker's Mini App. Provide a small **same-origin, fixed-upstream** metadata relay in `tg-assistant` (or a narrowly authorized CORS policy) before wiring the player. Cache briefly; never create an arbitrary URL proxy.
+- Pages metadata uses an exact-origin CORS allowlist for the Telegram Mini App. The player reads the canonical Pages API directly; the legacy Worker metadata route redirects to it. No arbitrary URL proxy.
 - V2: station picker/favorites and playlist import from Streambench's maintained catalog; verify each upstream station's embed/CORS/format/rights before exposing it. Preserve Streambench as the streaming catalog/player source of truth.
 - Prefer HTML5 audio inside the Telegram Mini App, opened by `web_app` button or `?startapp=radio` deep link when the Main Mini App is configured. Playback may **require a user tap** due to browser and Telegram client autoplay policies. No promise of sound starting automatically from a bot message.
 - Telegram `sendAudio` is for an audio file, not a guarantee of an indefinitely playing live radio stream. Do not upload copyrighted streams or proxy arbitrary remote URLs.

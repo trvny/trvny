@@ -18,7 +18,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 
 ### Docbench Draft Studio (V1)
 
-The owner-only `/doc` or `/draft new` command launches the existing Mini App
+In the **owner private chat**, `/doc` or `/draft new` launches the existing Mini App
 at `?tab=doc`. Existing `/draft <text>` reply drafting is unchanged.
 The editor supports local Markdown/plain text, note/memo/meeting templates,
 safe structural preview, local `.md`/`.txt` import and export, and a link

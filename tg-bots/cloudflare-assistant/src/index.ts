@@ -2051,7 +2051,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: staticQuickReply(quick),
+        text: staticQuickReply(quick, text),
       };
     }
     if (quick === "quip") {

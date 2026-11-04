@@ -26,13 +26,13 @@ function renderCard(post) {
 
 function renderShitpostCard(post) {
   const tags = post.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
-  const meta = post.date ? `AUTO · ${escapeHtml(post.date)}` : "AUTO";
-  const caption = escapeHtml(post.caption).replaceAll("\n", "<br>");
-  return `<a class="card shitpost-card" href="${escapeHtml(post.url)}">
+  const meta = post.date ? `${escapeHtml(post.date)} · KOMENTARZ` : "KOMENTARZ";
+  const caption = escapeHtml(post.excerpt).replaceAll("\n", "<br>");
+  return `<a class="card" href="${escapeHtml(post.url)}">
 <span class="go">ŹRÓDŁO ↗</span>
 <div class="meta">${meta}</div>
-<h2>SHITPOST OF THE DAY</h2>
-<p>${caption}</p>
+<h2>${escapeHtml(post.title)}</h2>
+${post.excerpt ? `<p>${caption}</p>` : ""}
 <div class="tags">${tags}</div>
 </a>`;
 }

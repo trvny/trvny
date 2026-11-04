@@ -762,3 +762,14 @@ test('Feedseek shitpost pool balances independently among sources and degrades g
     now: newsNow, fetchImpl: async () => new Response('', { status: 503 }),
   }), null);
 });
+
+test('optional editorial headline stays attached to validated new content', () => {
+  const text = parseContent('{"kind":"text","title":"The Friday deployment assessment","text":"the servers disagreed"}', { mode: 'text' });
+  assert.deepEqual(text, { kind: 'text', title: 'The Friday deployment assessment', text: 'the servers disagreed' });
+  const meme = validateContent({ kind: 'meme', title: 'A departmental update',
+    template: 'bad', top_text: 'top', bottom_text: 'bottom' }, { mode: 'meme', templateId: 'bad' });
+  assert.equal(meme.title, 'A departmental update');
+  assert.ok(!('title' in validateContent({ kind: 'text', text: 'legacy' }, { mode: 'text' })));
+  assert.match(buildMessages('# style', 'a topic', 'seed', 'text')[0].content, /"title":"\.\.\."/);
+  assert.match(buildMessages('# style', 'a topic', 'seed', 'meme', { id: 'bad', name: 'Bad' })[0].content, /"title":"\.\.\."/);
+});

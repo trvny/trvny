@@ -2,13 +2,13 @@
 
 > Static guide to TRAVNY publications. The [live Teksty directory](https://travny.pages.dev/teksty/) and [unified Atom feed](https://travny.pages.dev/teksty/feed.xml) cover the current publication stream. Atom includes at most 100 entries.
 
-## Shitpost of the Day
+## Biuletyn TRAVNY
 
-- [Current Shitpost of the Day](https://shitpost-reactor.travny.workers.dev/): the newest Shitpost Reactor entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
+- [Latest editorial note](https://shitpost-reactor.travny.workers.dev/): the newest Biuletyn TRAVNY entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
 
 ## CoCzyDziennik
 
-- [CoCzyDziennik archive](https://travny.pages.dev/przeglad/): dated Markdown news editions, also listed alongside the articles and shitposts in the same Teksty directory and Atom feed. Individual issue URLs remain under `/przeglad/YYYY-MM-DD/`.
+- [CoCzyDziennik archive](https://travny.pages.dev/przeglad/): dated Markdown news editions, also listed alongside the articles and editorial notes in the same Teksty directory and Atom feed. Individual issue URLs remain under `/przeglad/YYYY-MM-DD/`.
 
 ## Existing articles
 
@@ -19,5 +19,5 @@
 
 ## Feed
 
-- [Unified Atom feed: articles, CoCzyDziennik and Shitpost Reactor](https://travny.pages.dev/teksty/feed.xml)
-- [Legacy article metadata only](https://travny.pages.dev/teksty/posts.json): does not include CoCzyDziennik issues or external shitposts.
+- [Unified Atom feed: articles, CoCzyDziennik and Biuletyn TRAVNY](https://travny.pages.dev/teksty/feed.xml)
+- [Legacy article metadata only](https://travny.pages.dev/teksty/posts.json): does not include CoCzyDziennik issues or external editorial notes.

@@ -6,8 +6,8 @@ import {
 import { getMemeTemplate, memeImageUrl } from './templates.mjs';
 import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
 
-const FEED_TITLE = 'Shitpost Reactor';
-const FEED_DESCRIPTION = 'Automatycznie generowane shitposty z Shitpost Reactora.';
+const FEED_TITLE = 'Biuletyn TRAVNY';
+const FEED_DESCRIPTION = 'Komentarze i obserwacje z pogranicza technologii, kultury i codzienności.';
 const FEED_LIMIT = 50;
 const ARCHIVE_PAGE_SIZE = 25;
 const MAX_BODY_BYTES = 64 * 1024;
@@ -55,8 +55,25 @@ function cdata(value) {
 }
 
 function shortTitle(caption) {
-  const oneLine = caption.replace(/\s+/gu, ' ').trim();
+  const oneLine = String(caption || '').replace(/\s+/gu, ' ').trim();
   return oneLine.length <= 120 ? oneLine : `${oneLine.slice(0, 117)}...`;
+}
+
+// Stored topic may be an internal lane instruction or a sourced headline.
+// Prefer the subject, not the provider prefix, URL, or generation instructions.
+function postTitle(post) {
+  const raw = typeof post.topic === 'string' ? post.topic.replace(/\s+/gu, ' ').trim() : '';
+  const internal = /^(?:Bacon Ipsum emergency|A recent world headline|An original absurd internet joke|Evergreen Polish political satire|Polish political satire inspired by)/iu;
+  if (raw && !internal.test(raw)) {
+    const sourced = /\s+\(https?:\/\/[^()\s]+\)$/iu.test(raw);
+    let candidate = raw.replace(/\s+\(https?:\/\/[^()\s]+\)$/iu, '')
+      .replace(/^Polish politics\s*\/\s*/iu, '');
+    if (sourced) candidate = candidate.replace(/^[^:]{2,50}:\s*/u, '');
+    if (candidate.trim() && !/https?:\/\//iu.test(candidate)) return shortTitle(candidate);
+  }
+  const modelTitle = typeof post.content?.title === 'string' ? post.content.title.trim() : '';
+  if (modelTitle && !/\b(?:shitpost|meme)\b|żart/iu.test(modelTitle)) return shortTitle(modelTitle);
+  return shortTitle(postSummary(post).split(/\r?\n/u).find((line) => line.trim()) || FEED_TITLE);
 }
 
 function nonEmptyString(value, field, maxLength) {
@@ -64,6 +81,12 @@ function nonEmptyString(value, field, maxLength) {
   const result = value.trim();
   if (result.length > maxLength) throw new Error(`invalid_${field}_length`);
   return result;
+}
+
+function optionalHeadline(content) {
+  const title = typeof content.title === 'string'
+    ? content.title.replace(/\s+/gu, ' ').trim().slice(0, 120) : '';
+  return title ? { title } : {};
 }
 
 export function validateRecord(input) {
@@ -114,6 +137,7 @@ export function validateRecord(input) {
       ...common,
       content: {
         kind: 'text',
+        ...optionalHeadline(content),
         text: nonEmptyString(content.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS),
       },
     };
@@ -135,6 +159,7 @@ export function validateRecord(input) {
       ...common,
       content: {
         kind: 'meme',
+        ...optionalHeadline(content),
         template,
         top_text: topText,
         bottom_text: bottomText,
@@ -277,7 +302,7 @@ async function renderArchive(env, url) {
     const preview = image
       ? `<a href="/posts/${escapeHtml(post.id)}"><img class="meme" src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}" loading="lazy"></a>`
       : `<p>${escapeHtml(summary).replaceAll('\n', '<br>')}</p>`;
-    return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(shortTitle(summary))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
+    return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(postTitle(post))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
   }).join('');
 
   const olderCursor = start + entries.length < index.length ? entries.at(-1)?.id : null;
@@ -300,7 +325,7 @@ function postSummary(post) {
   if (post.schema_version === 2 && post.content?.kind === 'meme') {
     return [post.content.top_text, post.content.bottom_text].filter(Boolean).join(' / ');
   }
-  return post.meme?.caption || 'Shitpost';
+  return post.meme?.caption || 'Notatka';
 }
 
 function postKind(post) {
@@ -329,8 +354,8 @@ function postHtml(post) {
   const image = postImageUrl(post);
   const content = image
     ? `<figure><img class="meme" src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}" loading="eager"></figure>`
-    : `<h1>${escapeHtml(postSummary(post)).replaceAll('\n', '<br>')}</h1>`;
-  return `<article>${content}<p class="meta"><time datetime="${escapeHtml(post.published_at)}">${escapeHtml(post.published_at)}</time></p></article>`;
+    : `<div class="entry-body">${escapeHtml(postSummary(post)).replaceAll('\n', '<br>')}</div>`;
+  return `<article><h2>${escapeHtml(postTitle(post))}</h2>${content}<p class="meta"><time datetime="${escapeHtml(post.published_at)}">${escapeHtml(post.published_at)}</time></p></article>`;
 }
 
 function feedContentHtml(post) {
@@ -350,7 +375,7 @@ export function renderRss(posts) {
   const items = posts.map((post) => {
     const summary = postSummary(post);
     return `    <item>
-      <title>${escapeXml(shortTitle(summary))}</title>
+      <title>${escapeXml(postTitle(post))}</title>
       <link>${escapeXml(publicPostUrl(post))}</link>
       <guid isPermaLink="true">${escapeXml(post.url)}</guid>
       <pubDate>${escapeXml(new Date(post.published_at).toUTCString())}</pubDate>
@@ -366,7 +391,7 @@ export function renderRss(posts) {
     <link>${escapeXml(`${SITE_URL}/`)}</link>
     <description>${escapeXml(FEED_DESCRIPTION)}</description>
     <lastBuildDate>${escapeXml(new Date(latest).toUTCString())}</lastBuildDate>
-    <generator>trvny/shitpost-reactor</generator>
+    <generator>TRAVNY</generator>
     <ttl>5</ttl>
     <image>
       <url>${escapeXml(`${SITE_URL}/favicon-96x96.png`)}</url>
@@ -388,7 +413,7 @@ export function renderAtom(posts) {
     const summary = postSummary(post);
     const html = feedContentHtml(post);
     return `  <entry>
-    <title>${escapeXml(shortTitle(summary))}</title>
+    <title>${escapeXml(postTitle(post))}</title>
     <id>${escapeXml(post.url)}</id>
     <link href="${escapeXml(publicPostUrl(post))}" rel="alternate" type="text/html" />
     <published>${escapeXml(post.published_at)}</published>
@@ -406,10 +431,10 @@ export function renderAtom(posts) {
   <link href="${escapeXml(`${SITE_URL}/`)}" rel="alternate" type="text/html" />
   <link href="${escapeXml(`${SITE_URL}/atom.xml`)}" rel="self" type="application/atom+xml" />
   <updated>${escapeXml(latest)}</updated>
-  <generator uri="https://github.com/trvny/trvny">trvny/shitpost-reactor</generator>
+  <generator uri="https://github.com/trvny/trvny">TRAVNY</generator>
   <icon>${escapeXml(`${SITE_URL}/favicon.svg`)}</icon>
   <logo>${escapeXml(`${SITE_URL}/icon-512.png`)}</logo>
-  <author><name>Shitpost Reactor</name></author>
+  <author><name>TRAVNY</name></author>
 ${entries}
 </feed>
 `;
@@ -431,7 +456,7 @@ export function renderJsonFeed(posts) {
       return {
         id: post.url,
         url: publicPostUrl(post),
-        title: shortTitle(summary),
+        title: postTitle(post),
         content_html: feedContentHtml(post),
         summary,
         date_published: post.published_at,
@@ -474,9 +499,9 @@ Sitemap: ${SITE_URL}/sitemap.xml
 }
 
 function renderLlms() {
-  return `# Shitpost Reactor
+  return `# Biuletyn TRAVNY
 
-> Public archive and machine-readable feeds of automatically generated Polish shitposts.
+> Editorial-style satire and commentary. Entries are generated automatically; they are not independently verified reporting.
 
 Canonical site: ${SITE_URL}/
 
@@ -510,7 +535,7 @@ function renderManifest() {
   return `${JSON.stringify({
     id: '/',
     name: FEED_TITLE,
-    short_name: 'Shitpost',
+    short_name: 'Biuletyn',
     description: FEED_DESCRIPTION,
     lang: 'pl-PL',
     dir: 'ltr',
@@ -551,7 +576,7 @@ function postStructuredData(post) {
     '@type': 'BlogPosting',
     '@id': `${publicPostUrl(post)}#post`,
     mainEntityOfPage: { '@type': 'WebPage', '@id': publicPostUrl(post) },
-    headline: shortTitle(summary),
+    headline: postTitle(post),
     description: summary,
     datePublished: post.published_at,
     author: site,
@@ -563,12 +588,12 @@ function postStructuredData(post) {
   return `<script type="application/ld+json">${JSON.stringify(schema).replaceAll('<', '\\u003c')}</script>`;
 }
 
-function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`, structuredData = '') {
+function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`, structuredData = '', description = FEED_DESCRIPTION) {
   return `<!doctype html><html lang="pl"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<meta name="description" content="${escapeHtml(FEED_DESCRIPTION)}">
+<meta name="description" content="${escapeHtml(description)}">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="msvalidate.01" content="23A368B2C5F4DF3471A67EA6CB057149">
 <meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw">
@@ -578,13 +603,13 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${S
 <meta property="og:locale" content="pl_PL">
 <meta property="og:site_name" content="${escapeHtml(FEED_TITLE)}">
 <meta property="og:title" content="${escapeHtml(title)}">
-<meta property="og:description" content="${escapeHtml(FEED_DESCRIPTION)}">
+<meta property="og:description" content="${escapeHtml(description)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
 <meta property="og:image" content="${escapeHtml(socialImage)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(title)}">
-<meta name="twitter:description" content="${escapeHtml(FEED_DESCRIPTION)}">
+<meta name="twitter:description" content="${escapeHtml(description)}">
 <meta name="twitter:image" content="${escapeHtml(socialImage)}">
 <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
 ${structuredData}
@@ -603,8 +628,8 @@ ${structuredData}
 <link rel="manifest" href="/site.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Shitpost">
-<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem;white-space:pre-wrap}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}.meme{display:block;max-width:100%;height:auto;margin:1rem 0;border-radius:.5rem}</style>
+<meta name="apple-mobile-web-app-title" content="Biuletyn">
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem}article h2{font-size:1.3rem;margin:0 0 1rem}article .entry-body{line-height:1.55}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}.meme{display:block;max-width:100%;height:auto;margin:1rem 0;border-radius:.5rem}</style>
 </head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a><a href="/archive">Full archive</a></p></header>${body}</body></html>`;
 }
 
@@ -777,7 +802,7 @@ async function handleGet(url, env) {
     const post = await readPost(env, match[1]);
     if (!post) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
     const summary = postSummary(post);
-    return response(htmlPage(shortTitle(summary), postHtml(post), publicPostUrl(post), postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post)), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
+    return response(htmlPage(postTitle(post), postHtml(post), publicPostUrl(post), postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post), shortTitle(summary)), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
   }
 
   const aggregatePaths = new Set(['/', '/rss.xml', '/feed.xml', '/atom.xml', '/feed.json', '/sitemap.xml']);
@@ -811,9 +836,9 @@ async function handleGet(url, env) {
     const preview = image
       ? `<a href="/posts/${escapeHtml(post.id)}"><img class="meme" src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}" loading="lazy"></a>`
       : `<p>${escapeHtml(summary).replaceAll('\n', '<br>')}</p>`;
-    return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(shortTitle(summary))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
+    return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(postTitle(post))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
   }).join('');
-  return response(htmlPage(FEED_TITLE, items || '<p>Jeszcze pusto. Automat dopiero ostrzy kredki.</p>'), 'text/html; charset=utf-8', { lastModified: latest });
+  return response(htmlPage(FEED_TITLE, items || '<p>Pierwsze wydanie w przygotowaniu.</p>'), 'text/html; charset=utf-8', { lastModified: latest });
 }
 
 export default {

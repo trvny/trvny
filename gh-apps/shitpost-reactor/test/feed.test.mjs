@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { renderAtom, renderJsonFeed, renderRss, validateOidcClaims, validateRecord } from '../worker.mjs';
+import worker, { renderAtom, renderJsonFeed, renderRss, validateOidcClaims, validateRecord } from '../worker.mjs';
 
 const textPost = {
   id: 'gh-123-1',
@@ -142,4 +142,44 @@ test('a meme post with a retired template degrades to text instead of failing th
   assert.ok(!('image' in feed.items[1]));
   assert.match(renderRss([retired]), /<rss version="2\.0"/);
   assert.match(renderAtom([retired]), /<feed /);
+});
+
+test('public presentation follows sourced topics and keeps stable entry IDs', async () => {
+  const topical = {
+    ...textPost,
+    topic: "BBC World: AI policy and yesterday's meeting (https://bbc.com/news/example)",
+  };
+  const feed = JSON.parse(renderJsonFeed([topical]));
+  assert.equal(feed.title, 'Biuletyn TRAVNY');
+  assert.equal(feed.items[0].title, "AI policy and yesterday's meeting");
+  assert.equal(feed.items[0].id, textPost.url);
+  assert.match(renderRss([topical]), /<title>AI policy and yesterday&apos;s meeting<\/title>/);
+  assert.match(renderAtom([topical]), /<author><name>TRAVNY<\/name><\/author>/);
+  const html = await (await worker.fetch(
+    new Request('https://shitpost-reactor.travny.workers.dev/posts/gh-123-1'),
+    { FEED: { get: () => ({ json: () => topical }) } },
+  )).text();
+  assert.match(html, /<h2>AI policy and yesterday&#39;s meeting<\/h2>/);
+  assert.ok(!html.includes('Shitpost Reactor'));
+  assert.ok(!html.includes('bbc.com/news/example'));
+  assert.match(html, /<div class="entry-body">/);
+  assert.match(html, /property="og:title" content="AI policy and yesterday&#39;s meeting"/);
+});
+
+test('internal routing prompts do not become published titles', () => {
+  const fallback = { ...textPost, topic: 'Bacon Ipsum emergency (Esperanto)' };
+  assert.equal(JSON.parse(renderJsonFeed([fallback])).items[0].title,
+    'deploy <przeszedł> & aplikacja nie');
+});
+
+test('generated editorial headline survives publishing validation and feeds', () => {
+  const titled = validateRecord({
+    ...textPost,
+    topic: null,
+    content: { ...textPost.content, title: 'A departmental incident report' },
+  });
+  assert.equal(titled.content.title, 'A departmental incident report');
+  const feed = JSON.parse(renderJsonFeed([{ ...textPost, content: titled.content }]));
+  assert.equal(feed.items[0].title, 'A departmental incident report');
+  assert.equal(feed.items[0].id, textPost.url);
 });

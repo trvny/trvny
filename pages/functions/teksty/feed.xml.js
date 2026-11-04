@@ -39,9 +39,9 @@ ${categories}
 }
 
 function renderShitpostEntry(post) {
-  const title = post.caption.split(/\r?\n/u)[0].slice(0, 100);
+  const title = post.title;
   const publishedLine = post.published ? `    <published>${escapeXml(post.published)}</published>\n` : "";
-  const categories = ["Shitpost", ...post.tags]
+  const categories = ["Komentarz", ...post.tags]
     .map((tag) => `    <category term="${escapeXml(tag)}"/>`)
     .join("\n");
   return `  <entry xml:lang="pl">
@@ -49,8 +49,8 @@ function renderShitpostEntry(post) {
     <id>${escapeXml(post.id)}</id>
     <link rel="alternate" href="${escapeXml(post.url)}"/>
 ${publishedLine}    <updated>${escapeXml(post.updated)}</updated>
-    <author><name>Shitpost Reactor</name></author>
-    <source><id>https://shitpost.trfny.com/</id><title>Shitpost Reactor</title></source>
+    <author><name>TRAVNY</name></author>
+    <source><id>https://shitpost.trfny.com/</id><title>Biuletyn TRAVNY</title></source>
 ${categories}
     <summary type="text">${escapeXml(post.caption)}</summary>
   </entry>`;
@@ -72,8 +72,8 @@ async function feedResponse(context, headOnly = false) {
     ].sort((a, b) => Date.parse(b.updated) - Date.parse(a.updated)).slice(0, 100);
     const xml = `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>TRAVNY · Teksty + Shitposts</title>
-  <subtitle>Articles, experiments and Shitpost Reactor transmissions.</subtitle>
+  <title>TRAVNY · Teksty i komentarze</title>
+  <subtitle>Essays, experiments, daily editions and editorial commentary.</subtitle>
   <id>https://trfny.com/teksty/</id>
   <link rel="alternate" href="https://travny.pages.dev/teksty/"/>
   <link rel="self" type="application/atom+xml" href="https://travny.pages.dev/teksty/feed.xml"/>

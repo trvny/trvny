@@ -1,8 +1,12 @@
 import { chatWithInlineFallback } from "./providers.ts";
+import { withDeadline } from "./deadline.ts";
 import { pickBankQuip, presetQuip, rememberBankQuip, reusableQuip } from "./quip-bank.ts";
 import type { Env } from "./types.ts";
 
 export type QuickIntent = "hello" | "thanks" | "quip" | "status" | null;
+
+const BANK_READ_TIMEOUT_MS = 1_500;
+const BANK_WRITE_TIMEOUT_MS = 1_500;
 
 // Exact, bounded intents only. Never infer an answer to arbitrary questions.
 export function quickIntent(input: string): QuickIntent {
@@ -50,7 +54,7 @@ export async function quickQuip(
 ): Promise<string> {
   let pick: Awaited<ReturnType<typeof pickBankQuip>> | null = null;
   try {
-    pick = await pickBankQuip(env);
+    pick = await withDeadline(pickBankQuip(env), BANK_READ_TIMEOUT_MS, "Botek quip bank read");
   } catch (error) {
     console.warn("Botek quip bank read unavailable", error);
   }
@@ -64,7 +68,11 @@ export async function quickQuip(
       const reusable = reusableQuip(generated.text);
       if (reusable) {
         try {
-          await rememberBankQuip(env, reusable, generated.provider);
+          await withDeadline(
+            rememberBankQuip(env, reusable, generated.provider),
+            BANK_WRITE_TIMEOUT_MS,
+            "Botek quip bank write",
+          );
         } catch (error) {
           console.warn("Botek quip bank persistence unavailable", error);
         }

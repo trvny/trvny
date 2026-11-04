@@ -18,7 +18,7 @@ function fixture() {
   return { gate, env, values };
 }
 
-const JOKE = "Kanarek liczy testy, a Botek liczy minuty. Każdy ma inne podejście do optymizmu.";
+const JOKE = "Dwa skrypty liczą testy, a robot liczy minuty. Każdy ma inne podejście do optymizmu.";
 
 test("cold bank has safe presets even when providers are unavailable", async () => {
   const { env } = fixture();
@@ -44,6 +44,8 @@ test("rejects secrets, links, dated or nonreusable text", async () => {
     "Jutro zmieni się sytuacja na serwerze i pojawi się nowa funkcja.",
     "Zajrzyj na https://example.com i wyślij mi swoje hasło.",
     "Operator 420 właśnie otrzymał nową, bardzo tajną przepustkę.",
+    "Operator ２０２６ właśnie dostał nową przepustkę do systemu.",
+    "Rzekomo Warszawa wprowadziła coś nowego, więc spróbujmy o tym nie mówić.",
     "Secret password abcdef. Proszę zachować to w tajemnicy.",
     "x".repeat(221),
   ]) assert.equal(reusableQuip(value), null);

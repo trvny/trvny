@@ -31,10 +31,11 @@ test('watchdog skips recent, future and active generator runs', () => {
   assert.equal(assessFeedseekRuns(feedRuns(600, 'waiting'), NOW), 'active');
   assert.equal(assessFeedseekRuns(feedRuns(600), NOW), 'dispatch');
   assert.equal(assessFeedseekRuns(feedRuns(150), NOW), 'dispatch');
-  const longRunning = feedRuns(220);
-  longRunning.workflow_runs[0] = {
-    ...longRunning.workflow_runs[0],
-    updated_at: new Date(NOW - 5 * MINUTE).toISOString(),
+  const longRunning = {
+    workflow_runs: [{
+      ...feedRuns(220).workflow_runs[0],
+      updated_at: new Date(NOW - 5 * MINUTE).toISOString(),
+    }],
   };
   assert.equal(assessFeedseekRuns(longRunning, NOW), 'recent');
 });

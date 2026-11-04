@@ -15,6 +15,7 @@ test('foreign marker (cloud hook) is kept as is', () => {
   assert.equal(withBadge(cloud), cloud);
 });
 
-test('opt-out strips marker, no badge', () => {
+test('opt-out strips marker only, no badge', () => {
   assert.equal(withBadge(`${OPT_OUT}\nas me`), 'as me');
+  assert.equal(withBadge(`${OPT_OUT}\n    code\n`), '    code\n');
 });

@@ -218,9 +218,9 @@ export async function callTool(env: GitHubEnv, name: string, args: Args): Promis
       const { owner, base } = repoPath(args);
       const event = str(args, 'event');
       if (!['APPROVE', 'REQUEST_CHANGES', 'COMMENT'].includes(event)) throw new ToolError(`unknown event: ${event}`);
-      const raw = typeof args.body === 'string' && args.body.trim() ? args.body : undefined;
-      if (event !== 'APPROVE' && !raw) throw new ToolError(`body is required for ${event}`);
-      const body = raw ? withBadge(raw) : undefined;
+      const raw = typeof args.body === 'string' && args.body.trim() ? withBadge(args.body) : undefined;
+      const body = raw?.trim() ? raw : undefined;
+      if (event !== 'APPROVE' && !body) throw new ToolError(`body is required for ${event}`);
       const review = await rest<Html & { state?: string }>(
         env,
         owner,

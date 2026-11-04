@@ -9,7 +9,8 @@ const BADGE =
   '[![Claude](https://img.shields.io/badge/Claude-d97757?logo=claude&logoColor=white)](https://claude.ai)';
 
 export function withBadge(body: string): string {
-  if (body.includes(OPT_OUT)) return body.replaceAll(OPT_OUT, '').trim();
+  // Marker only (+ its newline); authored whitespace kept.
+  if (body.includes(OPT_OUT)) return body.replaceAll(`${OPT_OUT}\n`, '').replaceAll(OPT_OUT, '');
   if (body.includes(MARKER)) return body;
   return `${MARKER}\n${BADGE}\n\n${body}`;
 }

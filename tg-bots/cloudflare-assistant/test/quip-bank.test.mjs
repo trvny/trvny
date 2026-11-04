@@ -15,7 +15,7 @@ function fixture() {
     get: () => ({ fetch: (input, init) =>
       gate.fetch(input instanceof Request ? input : new Request(input, init)) }),
   } };
-  return { gate, env };
+  return { gate, env, values };
 }
 
 const JOKE = "Kanarek liczy testy, a Botek liczy minuty. Każdy ma inne podejście do optymizmu.";
@@ -56,11 +56,12 @@ test("rejects secrets, links, dated or nonreusable text", async () => {
 });
 
 test("bank keeps a bounded pool instead of growing forever", async () => {
-  const { env } = fixture();
+  const { env, values } = fixture();
   for (let i = 0; i < 83; i++) {
     const suffix = String.fromCharCode(65 + Math.floor(i / 26), 65 + i % 26);
     const text = `Dwie maszyny rozmawiają o kablach, ale ich żart zapisano pod symbolem ${suffix}.`;
     assert.equal(await rememberBankQuip(env, text, "free-router"), true);
   }
   assert.equal((await pickBankQuip(env)).count, 80);
+  assert.equal(values.get("timeless-quip-bank:v1").entries.length, 80);
 });

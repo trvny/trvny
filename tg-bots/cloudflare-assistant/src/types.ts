@@ -188,7 +188,8 @@ export type TelegramDeadLetter = {
 };
 
 export type TelegramUpdateRecord = {
-  status: "prepared" | "sending" | "sent" | "failed" | "ambiguous";
+  status: "preparing" | "prepared" | "sending" | "sent" | "failed" | "ambiguous";
+  claim?: { token: string; expiresAt: number };
   reply?: TelegramReply;
   updatedAt: string;
   detail?: string;

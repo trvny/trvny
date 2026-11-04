@@ -42,6 +42,7 @@ export type OwnerCommand =
   | { kind: "reset" }
   | { kind: "draft-usage" }
   | { kind: "radio" }
+  | { kind: "doc-studio" }
   | { kind: "status" }
   | { kind: "legion" }
   | { kind: "wake"; request: WakeRequest | null }
@@ -101,6 +102,8 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
   textRoute("reset", (text) => text === "/reset" ? { kind: "reset" } : undefined),
   textRoute("draft-usage", (text) => text === "/draft" ? { kind: "draft-usage" } : undefined),
   textRoute("radio", (text) => isRadioRequest(text) ? { kind: "radio" } : undefined),
+  textRoute("doc-studio", (text) => /^\/(?:doc(?:@trvny_bot)?|draft\s+new)$/iu.test(text.trim())
+    ? { kind: "doc-studio" } : undefined),
   textRoute("status", (text) => text === "/status" ? { kind: "status" } : undefined),
   textRoute("legion", (text) => text === "/legion" ? { kind: "legion" } : undefined),
   textRoute("wake", (text) => /^\/wake(?:\s|$)/iu.test(text) ? { kind: "wake", request: parseWakeCommand(text) } : undefined),

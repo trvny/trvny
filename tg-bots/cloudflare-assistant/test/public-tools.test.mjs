@@ -17,6 +17,11 @@ test("guest humans and peer bots use explicit commands only", () => {
   assert.deepEqual(parsePublicAction(incoming("/ping peer_42", "private", { id: 8, is_bot: true })),
     { kind: "ping", nonce: "peer_42" });
   assert.deepEqual(parsePublicAction(incoming("/ping")), { kind: "ping", nonce: "" });
+  assert.deepEqual(parsePublicAction(incoming("/quip", "private", { id: 8, is_bot: true })),
+    { kind: "quip" });
+  assert.deepEqual(parsePublicAction(incoming("/quip@trvny_bot", "group")),
+    { kind: "quip" });
+  assert.equal(parsePublicAction(incoming("/quip about someone's private messages")), null);
   assert.deepEqual(parsePublicAction(incoming("/ping invalid:token")), { kind: "ping", nonce: null });
   assert.deepEqual(parsePublicAction(incoming(`/ping ${"x".repeat(32)}`)),
     { kind: "ping", nonce: "x".repeat(32) });
@@ -31,7 +36,7 @@ test("guest humans and peer bots use explicit commands only", () => {
 test("public tool discovery has no owner commands or data", () => {
   const manifest = skillManifest();
   assert.deepEqual(manifest.commands.map((command) => command.command),
-    ["start", "help", "tools", "skill", "ping", "dice"]);
+    ["start", "help", "tools", "skill", "ping", "quip", "dice"]);
   assert.doesNotMatch(skillDocument(), /\/task\b|\/remember\b|\/watches\b/u);
   const reply = publicReply(incoming("/help"), { kind: "help" }, "");
   assert.match(reply.text, /\/tools/u);

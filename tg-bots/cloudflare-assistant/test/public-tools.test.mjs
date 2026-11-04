@@ -18,7 +18,7 @@ test("guest humans and peer bots use explicit commands only", () => {
     { kind: "ping", nonce: "peer_42" });
   assert.deepEqual(parsePublicAction(incoming("/ping")), { kind: "ping", nonce: "" });
   assert.deepEqual(parsePublicAction(incoming("/ping invalid:token")), { kind: "ping", nonce: null });
-  assert.deepEqual(parsePublicAction(incoming("/ping " + "x".repeat(33))), { kind: "ping", nonce: null });
+  assert.deepEqual(parsePublicAction(incoming(`/ping ${"x".repeat(33)}`)), { kind: "ping", nonce: null });
   for (const text of ["/tools", "/tools@other_bot", "/task@trvny_bot clone"]) {
     assert.equal(parsePublicAction(incoming(text, "group")), null);
   }

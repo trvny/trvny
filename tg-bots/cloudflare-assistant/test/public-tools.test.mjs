@@ -36,10 +36,10 @@ test("public tool discovery has no owner commands or data", () => {
   assert.doesNotMatch(reply.text, /\/task\b/u);
   assert.deepEqual(publicReply(incoming("/dice"), { kind: "dice", emoji: "⚽" }, "").dice, { emoji: "⚽" });
   const pong = publicReply(incoming("/ping peer-42"), { kind: "ping", nonce: "peer-42" }, "");
-  assert.equal(pong.text, "🏓 BOTEK/1 PONG peer-42");
+  assert.equal(pong.text, "BOTEK/1 PONG peer-42");
   assert.equal(pong.replyToMessageId, 7);
   assert.equal(publicReply(incoming("/ping"), { kind: "ping", nonce: "" }, "").text,
-    "🏓 BOTEK/1 PONG");
+    "BOTEK/1 PONG");
   assert.match(publicReply(incoming("/ping ???"), { kind: "ping", nonce: null }, "").text, /Użycie:/u);
   assert.match(skillDocument(), /BOTEK\/1 PONG/u);
   assert.deepEqual(skillManifest().handshake,

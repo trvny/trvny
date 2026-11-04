@@ -31,9 +31,18 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1293](https://github.com/trvny/trvny/pull/1293) | feat(tg): public Botek command foundation | @trvny | draft | 2026-11-04 |
-| trvny/WiFi-Automatic | [#58](https://github.com/trvny/WiFi-Automatic/pull/58) | deps: bump com.android.application from 9.4.1 to 9.5.0 in the gradle group | @dependabot[bot] | ready | 2026-11-02 |
-| trvny/WiFi-Automatic | [#59](https://github.com/trvny/WiFi-Automatic/pull/59) | ci: bump the actions group across 1 directory with 2 updates | @dependabot[bot] | ready | 2026-11-02 |
+| trvny/feedseek | [#567](https://github.com/trvny/feedseek/pull/567) | chore(deps-dev): bump ruff from 0.17.2 to 0.17.3 | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/feedseek | [#568](https://github.com/trvny/feedseek/pull/568) | chore(deps-dev): bump wrangler from 4.152.0 to 4.156.0 in /feeds-proxy | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/feedseek | [#569](https://github.com/trvny/feedseek/pull/569) | chore(deps): bump tzdata from 2026.5 to 2026.6 | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/feedseek | [#570](https://github.com/trvny/feedseek/pull/570) | chore(deps): bump python-dateutil from 3.0.0 to 4.0.0 | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/feedseek | [#571](https://github.com/trvny/feedseek/pull/571) | chore(deps-dev): bump feedsearch-crawler from 2.1.7 to 2.1.8 | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/feedseek | [#572](https://github.com/trvny/feedseek/pull/572) | chore(deps): bump pydantic from 2.14.1 to 2.14.2 | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/feedseek | [#573](https://github.com/trvny/feedseek/pull/573) | chore(deps): bump the actions group with 2 updates | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/trvny | [#1305](https://github.com/trvny/trvny/pull/1305) | fix(tg): surface bounded metadata relay diagnostics | @trvny | ready | 2026-11-04 |
+| trvny/tvpi | [#137](https://github.com/trvny/tvpi/pull/137) | chore(deps-dev): bump wrangler from 4.152.0 to 4.156.0 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/tvpi | [#139](https://github.com/trvny/tvpi/pull/139) | merge queue: checking #137 on main (946f148), stacked on #138 | @mergify[bot] | draft | 2026-11-04 |
+| trvny/WiFi-Automatic | [#58](https://github.com/trvny/WiFi-Automatic/pull/58) | deps: bump com.android.application from 9.4.1 to 9.5.0 in the gradle group | @dependabot[bot] | ready | 2026-11-04 |
+| trvny/WiFi-Automatic | [#61](https://github.com/trvny/WiFi-Automatic/pull/61) | merge queue: checking #58 on master (c81e7cc), stacked on #59 | @mergify[bot] | draft | 2026-11-04 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

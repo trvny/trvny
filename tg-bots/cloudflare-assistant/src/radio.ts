@@ -81,7 +81,7 @@ export async function readRadioTrack(
       checkedAt: new Date().toISOString(),
     };
   } catch (error) {
-    console.warn("Radio metadata relay error", error instanceof Error ? error.message : String(error));
+    console.warn("Radio metadata relay error", error instanceof SyntaxError ? "invalid_json" : "relay_failure");
     return null;
   }
 }

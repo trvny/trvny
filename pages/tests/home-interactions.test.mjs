@@ -26,7 +26,9 @@ test("Feedseek uses its existing XML media and icons with lazy image fallback", 
 });
 
 test("home inline script remains parseable", () => {
-  const script = [...home.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)?.[1];
-  assert.ok(script);
-  assert.doesNotThrow(() => new Script(script));
+  const marker = "<script>";
+  const begin = home.lastIndexOf(marker);
+  const end = home.indexOf("</script>", begin);
+  assert.ok(begin >= 0 && end > begin);
+  assert.doesNotThrow(() => new Script(home.slice(begin + marker.length, end)));
 });

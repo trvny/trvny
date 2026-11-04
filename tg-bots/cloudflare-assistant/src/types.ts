@@ -209,6 +209,7 @@ export type Env = {
   TELEGRAM_TASK_WATCH: DurableObjectNamespaceLike;
   TELEGRAM_REMINDERS: DurableObjectNamespaceLike;
   TELEGRAM_WATCHES: DurableObjectNamespaceLike;
+  TELEGRAM_PUBLIC_GATE: DurableObjectNamespaceLike;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   TELEGRAM_WEBHOOK_URL?: string;

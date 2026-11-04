@@ -81,6 +81,10 @@
       {
         "name": "TELEGRAM_WATCHES",
         "class_name": "TelegramWatchStore"
+      },
+      {
+        "name": "TELEGRAM_PUBLIC_GATE",
+        "class_name": "TelegramPublicRateGate"
       }
     ]
   },
@@ -112,6 +116,10 @@
     {
       "tag": "v7",
       "new_sqlite_classes": ["TelegramWatchStore"]
+    },
+    {
+      "tag": "v8",
+      "new_sqlite_classes": ["TelegramPublicRateGate"]
     }
   ],
   "vars": {

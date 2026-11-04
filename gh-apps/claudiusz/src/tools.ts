@@ -1,3 +1,4 @@
+import { withBadge } from './badge.ts';
 import { ToolError, appIdentity, graphql, rest, type GitHubEnv } from './github.ts';
 
 type Args = Record<string, unknown>;
@@ -159,7 +160,7 @@ export async function callTool(env: GitHubEnv, name: string, args: Args): Promis
     case 'comment': {
       const { owner, base } = repoPath(args);
       const created = await rest<Html>(env, owner, 'POST', `${base}/issues/${int(args, 'number')}/comments`, 'comment', {
-        body: str(args, 'body'),
+        body: withBadge(str(args, 'body')),
       });
       return brief(created);
     }
@@ -167,7 +168,7 @@ export async function callTool(env: GitHubEnv, name: string, args: Args): Promis
     case 'edit_comment': {
       const { owner, base } = repoPath(args);
       const updated = await rest<Html>(env, owner, 'PATCH', `${base}/issues/comments/${int(args, 'comment_id')}`, 'edit comment', {
-        body: str(args, 'body'),
+        body: withBadge(str(args, 'body')),
       });
       return brief(updated);
     }
@@ -208,7 +209,7 @@ export async function callTool(env: GitHubEnv, name: string, args: Args): Promis
         'POST',
         `${base}/pulls/${int(args, 'pull_number')}/comments/${int(args, 'comment_id')}/replies`,
         'reply review comment',
-        { body: str(args, 'body') },
+        { body: withBadge(str(args, 'body')) },
       );
       return brief(created);
     }
@@ -217,8 +218,9 @@ export async function callTool(env: GitHubEnv, name: string, args: Args): Promis
       const { owner, base } = repoPath(args);
       const event = str(args, 'event');
       if (!['APPROVE', 'REQUEST_CHANGES', 'COMMENT'].includes(event)) throw new ToolError(`unknown event: ${event}`);
-      const body = typeof args.body === 'string' ? args.body : undefined;
-      if (event !== 'APPROVE' && !body?.trim()) throw new ToolError(`body is required for ${event}`);
+      const raw = typeof args.body === 'string' && args.body.trim() ? args.body : undefined;
+      if (event !== 'APPROVE' && !raw) throw new ToolError(`body is required for ${event}`);
+      const body = raw ? withBadge(raw) : undefined;
       const review = await rest<Html & { state?: string }>(
         env,
         owner,
@@ -259,7 +261,7 @@ export async function callTool(env: GitHubEnv, name: string, args: Args): Promis
         env,
         owner,
         'mutation($d:ID!,$b:String!,$r:ID){addDiscussionComment(input:{discussionId:$d,body:$b,replyToId:$r}){comment{id url}}}',
-        { d: discussionId, b: str(args, 'body'), r: replyTo ?? null },
+        { d: discussionId, b: withBadge(str(args, 'body')), r: replyTo ?? null },
         'discussion comment',
       );
       return { node_id: data.addDiscussionComment?.comment?.id, url: data.addDiscussionComment?.comment?.url };

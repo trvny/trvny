@@ -60,6 +60,7 @@ export function skillDocument(): string {
     "Bot-to-bot communication in private chats requires BotFather Bot-to-Bot Mode on both bots.",
     "Bot-to-bot group commands require Telegram delivery rules; do not assume a message was received.",
     "Round-trip test: /ping <nonce> in private chat, or /ping@trvny_bot <nonce> in a group.",
+    "Nonce: 1-32 characters, ASCII letters, digits, underscore or hyphen. Pattern: ^[A-Za-z0-9_-]{1,32}$.",
     "Expected: BOTEK/1 PONG <nonce>. Match the nonce and reply target; never automatically ping back.",
     "",
     "## Commands",
@@ -86,7 +87,12 @@ export function skillManifest(): Record<string, unknown> {
     visibility: "public",
     commands: publicCommands().map(({ command, usage, description }) => ({ command, usage, description })),
     bot_to_bot: { private: "BotFather mode required on both peers", group: "explicit @trvny_bot commands" },
-    handshake: { command: "/ping <nonce>", response: "BOTEK/1 PONG <nonce>", max_nonce_length: 32 },
+    handshake: {
+      command: "/ping <nonce>",
+      response: "BOTEK/1 PONG <nonce>",
+      nonce_pattern: "^[A-Za-z0-9_-]{1,32}$",
+      max_nonce_length: 32,
+    },
     requires_owner_authorization: false,
   };
 }

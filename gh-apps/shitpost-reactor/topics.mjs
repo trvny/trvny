@@ -49,7 +49,7 @@ const FEEDSEEK_FEEDS = Object.freeze({
   ],
 });
 const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari|afer|korupcj|łapówk|przekręt|nadużyci|defraudac|prokuratur|cba|najwyższ|izb.kontrol|złodziej|złodziejstw|kradzież|burdel|skandal|ustawk/iu;
-const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu|chrzan|trzebin|libiąż|alwerni|małopolsk|krakow|kraków|powiat|wojewod|gmin|urząd|burmistrz|starost|radn|afer|łapówk|przekręt|nadużyci|prokuratur|złodziej|burdel|defraudac/iu;
+const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu|chrzan|trzebin|libiąż|alwerni|małopolsk|krakow|kraków|powiat|wojewod|gmin|urząd|burmistrz|starost|radn/iu;
 const MAX_FEED_BYTES = 1024 * 1024;
 const MAX_ARTICLE_URL_LENGTH = 1250;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;

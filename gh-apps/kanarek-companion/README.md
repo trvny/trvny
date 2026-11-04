@@ -12,8 +12,10 @@ deployment without pretending every feature belongs to Kanarek.
 The shared `automation` Worker runs a Cloudflare Cron Trigger at minute 15 of
 every UTC hour. The specialist checks recent `main` runs of
 `trvny/feedseek`'s `Update Feeds` workflow using the existing GPTomek GitHub
-App installation. If no workflow run has started for at least 150 minutes,
-and none is active or queued, it sends one `workflow_dispatch` request.
+App installation. The check uses the actual `run_started_at` time instead of
+queue creation, and treats recent completion as fresh. If no refresh has
+started or finished for at least 150 minutes, and none is active or queued,
+it sends one `workflow_dispatch` request.
 
 GitHub's native two-hour schedule remains the primary trigger. The watchdog
 is a missed-run fallback, not a second feed generator or cache owner. Missing

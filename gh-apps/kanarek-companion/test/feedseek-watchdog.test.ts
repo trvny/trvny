@@ -14,7 +14,11 @@ const MINUTE = 60_000;
 function feedRuns(ageMinutes: number, status = 'completed') {
   return {
     workflow_runs: [
-      { status, created_at: new Date(NOW - ageMinutes * MINUTE).toISOString() },
+      {
+        status,
+        created_at: new Date(NOW - (ageMinutes + 180) * MINUTE).toISOString(),
+        run_started_at: new Date(NOW - ageMinutes * MINUTE).toISOString(),
+      },
     ],
   };
 }
@@ -27,6 +31,12 @@ test('watchdog skips recent, future and active generator runs', () => {
   assert.equal(assessFeedseekRuns(feedRuns(600, 'waiting'), NOW), 'active');
   assert.equal(assessFeedseekRuns(feedRuns(600), NOW), 'dispatch');
   assert.equal(assessFeedseekRuns(feedRuns(150), NOW), 'dispatch');
+  const longRunning = feedRuns(220);
+  longRunning.workflow_runs[0] = {
+    ...longRunning.workflow_runs[0],
+    updated_at: new Date(NOW - 5 * MINUTE).toISOString(),
+  };
+  assert.equal(assessFeedseekRuns(longRunning, NOW), 'recent');
 });
 
 test('watchdog considers all recent runs, not just the first entry', () => {
@@ -46,8 +56,9 @@ test('invalid or empty GitHub data fails closed', () => {
     null,
     {},
     { workflow_runs: [] },
-    { workflow_runs: [{ status: 'completed', created_at: 'broken' }] },
-    { workflow_runs: [{ status: 'new', created_at: new Date(NOW).toISOString() }] },
+    { workflow_runs: [{ status: 'completed', run_started_at: 'broken' }] },
+    { workflow_runs: [{ status: 'completed', created_at: new Date(NOW).toISOString() }] },
+    { workflow_runs: [{ status: 'new', run_started_at: new Date(NOW).toISOString() }] },
   ]) {
     assert.throws(() => assessFeedseekRuns(value, NOW), /feedseek_watchdog/);
   }
@@ -57,14 +68,15 @@ test('only stale runs dispatch, and the target is fixed', async () => {
   const calls: string[] = [];
   const github = {
     permissions: { actions: 'write' },
-    async json(path: string) {
+    json(path: string) {
       calls.push(`GET ${path}`);
-      return feedRuns(151);
+      return Promise.resolve(feedRuns(151));
     },
-    async void(path: string, operation: string, init: RequestInit) {
+    void(path: string, operation: string, init: RequestInit) {
       calls.push(`${init.method} ${path}`);
       assert.equal(operation, 'feedseek_watchdog_dispatch');
       assert.deepEqual(JSON.parse(String(init.body)), { ref: 'main' });
+      return Promise.resolve();
     },
   } as unknown as GitHubInstallationClient;
   assert.equal(await checkFeedseekWatchdog(github, NOW), 'dispatch');
@@ -78,16 +90,16 @@ test('recent runs and missing permissions never dispatch', async () => {
   let dispatched = 0;
   const client = {
     permissions: { actions: 'write' },
-    async json() { return feedRuns(100); },
-    async void() { dispatched += 1; },
+    json() { return Promise.resolve(feedRuns(100)); },
+    void() { dispatched += 1; return Promise.resolve(); },
   } as unknown as GitHubInstallationClient;
   assert.equal(await checkFeedseekWatchdog(client, NOW), 'recent');
   assert.equal(dispatched, 0);
 
   const missingPermission = {
     permissions: { actions: 'read' },
-    async json() { throw new Error('must not read'); },
-    async void() { dispatched += 1; },
+    json() { return Promise.reject(new Error('must not read')); },
+    void() { dispatched += 1; return Promise.resolve(); },
   } as unknown as GitHubInstallationClient;
   await assert.rejects(() => checkFeedseekWatchdog(missingPermission, NOW), /actions_write_required/);
   assert.equal(dispatched, 0);

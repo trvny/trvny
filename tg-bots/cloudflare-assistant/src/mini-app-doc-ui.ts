@@ -96,9 +96,17 @@ export const DOC_STUDIO_SCRIPT = String.raw`
     function docText() {
       const markdown = String(docContent.value || "");
       if (docFormat.value !== "txt") return markdown;
-      return markdown.replace(/^#{1,6}\s+/gmu, "")
+      const tick = String.fromCharCode(96);
+      const source = markdown.split("\n")
+        .filter((line) => !line.trim().startsWith(tick.repeat(3))).join("\n");
+      return source.replace(/^#{1,6}\s+/gmu, "")
         .replace(/^\s*[-*]\s+/gmu, "• ")
-        .replace(/\*\*([^*]+)\*\*/gu, "$1");
+        .replace(/^>\s?/gmu, "")
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gu, "$1 ($2)")
+        .replace(/\*\*([^*\n]+)\*\*/gu, "$1")
+        .replace(/\*([^*\n]+)\*/gu, "$1")
+        .replace(/_([^_\n]+)_/gu, "$1")
+        .replace(new RegExp(tick + "([^" + tick + "\\n]+)" + tick, "gu"), "$1");
     }
     function docByteCount(text) { return new TextEncoder().encode(text).byteLength; }
     function docFilename() {
@@ -116,6 +124,7 @@ export const DOC_STUDIO_SCRIPT = String.raw`
       docRequestId = "";
       if (!docSending) docSend.disabled = false;
       docUpdateSize();
+      if (!docPreview.hidden) docRenderPreview();
       if (docAutosave.checked) {
         clearTimeout(docSaveTimer);
         docSaveTimer = setTimeout(docSaveLocal, 500);
@@ -223,6 +232,7 @@ export const DOC_STUDIO_SCRIPT = String.raw`
       docStatus("Exported " + link.download + ". File download support varies by Telegram client.");
     }
     async function docSendPrivate() {
+      if (docSending) return;
       const text = docText();
       if (!text.trim() || docUpdateSize() > docMaxBytes) {
         docStatus("Enter a document under 64 KiB first.");
@@ -235,6 +245,8 @@ export const DOC_STUDIO_SCRIPT = String.raw`
       }
       if (!(await confirmCancel("Send " + docFilename() + " to your private Botek chat?"))) return;
       docSending = true;
+      const attemptSnapshot = JSON.stringify([docTitle.value, docContent.value, docFormat.value]);
+      let confirmed = false;
       docSend.disabled = true;
       docStatus("Sending document…");
       if (!docRequestId) docRequestId = docNewId();
@@ -259,6 +271,7 @@ export const DOC_STUDIO_SCRIPT = String.raw`
             : "Send failed. Check the private chat before trying again.");
           return;
         }
+        confirmed = true;
         docStatus(result.alreadySent ? "This document was already sent."
           : "Sent " + result.filename + " to your private Botek chat.");
         if (webApp.HapticFeedback) webApp.HapticFeedback.notificationOccurred("success");
@@ -266,6 +279,9 @@ export const DOC_STUDIO_SCRIPT = String.raw`
         docStatus("Connection lost. Delivery may have succeeded. Check Telegram before retrying.");
       } finally {
         docSending = false;
+        // Repeated submissions reuse the same idempotency key until an edit.
+        docSend.disabled = confirmed &&
+          JSON.stringify([docTitle.value, docContent.value, docFormat.value]) === attemptSnapshot;
       }
     }
     async function docImportFile() {

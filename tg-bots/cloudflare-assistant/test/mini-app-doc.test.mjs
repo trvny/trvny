@@ -179,3 +179,47 @@ test("export downloads a local Markdown blob, never calls the server", async () 
   assert.equal(downloads[1].clicked, true);
   assert.equal(requests.filter((r) => r.url.includes("documents/send")).length, 0);
 });
+
+test("import or template refreshes an already visible safe preview", async () => {
+  const { nodes } = await harness();
+  nodes.get("doc-content").value = "# Old";
+  nodes.get("doc-preview-button").dispatch("click");
+  assert.equal(nodes.get("doc-preview").children[0].textContent, "Old");
+  nodes.get("doc-import").files = [{
+    name: "new.md", size: 16, text: async () => "## Fresh",
+  }];
+  nodes.get("doc-import").dispatch("change");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(nodes.get("doc-preview").children[0].textContent, "Fresh");
+  assert.equal(nodes.get("doc-title").value, "new");
+});
+
+test("text export removes basic Markdown and retains link targets", async () => {
+  const { nodes, downloads } = await harness();
+  nodes.get("doc-title").value = "Plain";
+  nodes.get("doc-content").value = "# Heading\n*italic* **bold** " + String.fromCharCode(96) + "code" + String.fromCharCode(96) + " [site](https://example.com)";
+  nodes.get("doc-format").value = "txt";
+  nodes.get("doc-export").dispatch("click");
+  assert.equal(downloads[1].download, "Plain.txt");
+  assert.equal(await downloads[0].text(), "Heading\nitalic bold code site (https://example.com)");
+});
+
+test("uncertain send can only retry on user click with the same dedup key", async () => {
+  const { nodes, requests } = await harness({
+    sendResponse: Response.json({ error: "delivery_uncertain" }, { status: 202 }),
+  });
+  nodes.get("doc-title").value = "Maybe";
+  nodes.get("doc-content").value = "Send once";
+  nodes.get("doc-send").dispatch("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(nodes.get("doc-send").disabled, false);
+  assert.match(nodes.get("doc-status").textContent, /uncertain/u);
+  const before = requests.filter((x) => x.url.endsWith("/documents/send"));
+  assert.equal(before.length, 1);
+  const id = JSON.parse(before[0].options.body).requestId;
+  nodes.get("doc-send").dispatch("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  const after = requests.filter((x) => x.url.endsWith("/documents/send"));
+  assert.equal(after.length, 2);
+  assert.equal(JSON.parse(after[1].options.body).requestId, id);
+});

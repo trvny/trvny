@@ -2489,8 +2489,9 @@ async function processQueuedTelegram(
     return;
   }
   if (claim.outcome === "busy") {
-    // Retry beyond the three-minute lease within the Queue's five-retry budget.
-    message.retry({ delaySeconds: 60 });
+    // Wait for the claim deadline instead of burning the Queue's retry budget.
+    const remainingMs = (claim.state.claim?.expiresAt ?? Date.now()) - Date.now();
+    message.retry({ delaySeconds: Math.max(5, Math.min(300, Math.ceil(remainingMs / 1_000) + 1)) });
     return;
   }
   if (claim.outcome === "uncertain") {
@@ -2541,7 +2542,17 @@ async function processClaimedTelegram(
     try {
       await dedupTransition(env, update.update_id, "release", claimToken);
     } catch (releaseError) {
-      console.warn("Telegram pre-send claim release unavailable", releaseError);
+      // No Telegram request has started. A committed /sending can be reset safely.
+      try {
+        const current = await dedupState(env, update.update_id);
+        if (current?.status === "sending" && current.claim?.token === claimToken) {
+          await dedupTransition(env, update.update_id, "retry", claimToken);
+        } else {
+          console.warn("Telegram pre-send claim release unavailable", releaseError);
+        }
+      } catch (recoveryError) {
+        console.warn("Telegram pre-send claim recovery unavailable", recoveryError);
+      }
     }
     console.warn("Telegram pre-send preparation failed", error);
     message.retry({ delaySeconds: DEFAULT_RETRY_DELAY_SECONDS });

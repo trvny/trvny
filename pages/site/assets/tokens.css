@@ -58,7 +58,7 @@
   --tr-t-text: #1d1916;
   --tr-t-muted: #5b524a;
   --tr-t-line: #d8d0bf;
-  --tr-t-accent: #d8412f;
+  --tr-t-accent: #c63a28; /* repo #d8412f; darkened for 4.5:1 with on-accent */
   --tr-t-on-accent: #fff;
   --tr-t-accent2: #1d1916;
   --tr-t-on-accent2: #f3efe6;
@@ -136,7 +136,7 @@
   --tr-t-text: #f8fafc;
   --tr-t-muted: #cbd5e1;
   --tr-t-line: #334155;
-  --tr-t-accent: #8b5cf6;
+  --tr-t-accent: #7c3aed; /* repo #8b5cf6; darkened for 4.5:1 with on-accent */
   --tr-t-on-accent: #fff;
   --tr-t-accent2: #f59e0b;
   --tr-t-on-accent2: #0f172a;

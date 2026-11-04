@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Claude Code badge on GitHub posts made from cloud sessions.
 
-Two entry points, one file:
-  github-badge.py hook   PreToolUse hook for GitHub/Claudiusz MCP write tools (stdin JSON)
-  gh ...                 symlinked as gh ahead of the real one; rewrites --body/--body-file
+Entry points, one file:
+  github-badge.py install  cloud setup: gh symlink in ~/.local/bin + PreToolUse entry in settings.json
+  github-badge.py hook     PreToolUse hook for GitHub/Claudiusz MCP write tools (stdin JSON)
+  gh ...                   via that symlink, ahead of the real gh; rewrites --body/--body-file
 
 Contract shared with gh-apps/claudiusz/src/badge.ts: MARKER = already badged, skip;
 OPT_OUT = no badge (posts written as the user), marker stripped.
 """
 import json
 import os
-import re
 import sys
 import tempfile
 
@@ -102,10 +102,40 @@ def shim():
     os.execv(gh, [gh] + args)
 
 
+# Connector names vary: mcp__github__, mcp__claude_ai_Claudiusz-MCP__, mcp__plugin_github_claudiusz__.
+MATCHER = "^mcp__.*([Gg]it[Hh]ub|[Cc]laudiusz)"
+
+
+def install():
+    me = os.path.realpath(__file__)
+    os.chmod(me, 0o755)
+    bindir = os.path.expanduser("~/.local/bin")
+    os.makedirs(bindir, exist_ok=True)
+    link = os.path.join(bindir, "gh")
+    if os.path.lexists(link):
+        os.remove(link)
+    os.symlink(me, link)
+    path = os.path.expanduser("~/.claude/settings.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            settings = json.load(f)
+    except FileNotFoundError:
+        settings = {}
+    pre = settings.setdefault("hooks", {}).setdefault("PreToolUse", [])
+    pre[:] = [e for e in pre if "github-badge" not in json.dumps(e)]  # idempotent
+    pre.append({"matcher": MATCHER, "hooks": [{"type": "command", "command": f"python3 {me} hook", "timeout": 10}]})
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print(f"github-badge: gh shim {link}, hook in {path}")
+
+
 if __name__ == "__main__":
     if os.path.basename(sys.argv[0]) == "gh":
         shim()
     elif sys.argv[1:] == ["hook"]:
         hook()
+    elif sys.argv[1:] == ["install"]:
+        install()
     else:
         sys.exit(__doc__)

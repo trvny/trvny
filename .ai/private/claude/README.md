@@ -32,22 +32,12 @@ cloud sessions; claude.ai posts get theirs from Claudiusz
 (`gh-apps/claudiusz/src/badge.ts`). Shared markers: `<!-- claude-badge -->`
 (already badged), `<!-- no-badge -->` (post written as the user, no badge).
 
-Cloud environment setup script:
+Cloud environment setup script, after `~/.claude/settings.json` is written
+(`install` symlinks `gh` into `~/.local/bin`, ahead of the real one, and adds the
+`PreToolUse` entry to settings, idempotently):
 
 ```bash
-mkdir -p ~/.claude/hooks ~/.local/bin
-curl -fsSL https://raw.githubusercontent.com/trvny/trvny/main/.ai/private/claude/hooks/github-badge.py \
-  -o ~/.claude/hooks/github-badge.py && chmod +x ~/.claude/hooks/github-badge.py
-ln -sf ~/.claude/hooks/github-badge.py ~/.local/bin/gh   # ~/.local/bin precedes the real gh
-```
-
-`~/.claude/settings.json`, under `hooks`:
-
-```json
-"PreToolUse": [
-  {
-    "matcher": "^mcp__.*(GitHub|github|claudiusz).*__",
-    "hooks": [{ "type": "command", "command": "python3 ~/.claude/hooks/github-badge.py hook", "timeout": 10 }]
-  }
-]
+B=~/.claude/hooks/github-badge.py
+curl -fsSL -o $B https://raw.githubusercontent.com/trvny/trvny/main/.ai/private/claude/hooks/github-badge.py \
+  && python3 $B install || echo "github-badge: install failed"
 ```

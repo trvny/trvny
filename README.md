@@ -31,8 +31,9 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#547](https://github.com/trvny/feedseek/pull/547) | Add a searchable source picker to the reader | @trvny | ready | 2026-11-02 |
-| trvny/feedseek | [#548](https://github.com/trvny/feedseek/pull/548) | Show reliable reader dates | @trvny | ready | 2026-11-02 |
+| trvny/trvny | [#1293](https://github.com/trvny/trvny/pull/1293) | feat(tg): public Botek command foundation | @trvny | draft | 2026-11-04 |
+| trvny/WiFi-Automatic | [#58](https://github.com/trvny/WiFi-Automatic/pull/58) | deps: bump com.android.application from 9.4.1 to 9.5.0 in the gradle group | @dependabot[bot] | ready | 2026-11-02 |
+| trvny/WiFi-Automatic | [#59](https://github.com/trvny/WiFi-Automatic/pull/59) | ci: bump the actions group across 1 directory with 2 updates | @dependabot[bot] | ready | 2026-11-02 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

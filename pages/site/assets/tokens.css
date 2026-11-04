@@ -1,0 +1,170 @@
+/*
+ * TRAVNY design tokens. Opt-in: variables only, --tr-* prefix, no element
+ * styles, no font loading. Linking this file changes nothing by itself.
+ * Repo themes: data-theme="<repo>" on any element; data-mode="dark" where
+ * the repo ships a dark palette. Values mirror each repo's own source.
+ */
+
+:root {
+  /* core: CRT black + test-card bars */
+  --tr-bg: #04060a;
+  --tr-panel: #10161d;
+  --tr-line: #35414a;
+  --tr-dim: #74828d;
+  --tr-muted: #aab1b5;
+  --tr-ink: #f4f0e6;
+  --tr-kanarek: #f5e94e;
+  --tr-cyan: #46e0e0;
+  --tr-green: #54e06a;
+  --tr-magenta: #e85ad0;
+  --tr-red: #ff5147;
+  --tr-blue: #6f8cff;
+  --tr-kremowka: #f3e6c4;
+  --tr-gold: #ffce74;
+  --tr-clay: #d97757;
+  --tr-lcd: #c7f0d8;
+  --tr-lcd-pixel: #43523d;
+
+  --tr-font-display: "Archivo Black", sans-serif;
+  --tr-font-body: "IBM Plex Sans", sans-serif;
+  --tr-font-label: "IBM Plex Mono", monospace;
+  --tr-font-code: "JetBrains Mono", monospace;
+  --tr-font-retro: "Space Mono", monospace;
+  --tr-font-teletext: "VT323", monospace;
+  --tr-font-lcd: "Silkscreen", monospace;
+  --tr-font-8bit: "Press Start 2P", monospace;
+  --tr-font-logo: "Major Mono Display", monospace;
+
+  --tr-shadow-hard: 4px 4px 0 var(--tr-red);
+  --tr-touch-min: 44px;
+
+  /* themable roles; default = trvny */
+  --tr-t-bg: var(--tr-bg);
+  --tr-t-surface: var(--tr-panel);
+  --tr-t-text: var(--tr-ink);
+  --tr-t-muted: var(--tr-muted);
+  --tr-t-line: var(--tr-line);
+  --tr-t-accent: var(--tr-kanarek);
+  --tr-t-on-accent: var(--tr-bg);
+  --tr-t-accent2: var(--tr-cyan);
+  --tr-t-on-accent2: var(--tr-bg);
+  --tr-t-radius: 0;
+}
+
+/* feedseek: site/ + reader.html */
+[data-theme="feedseek"] {
+  --tr-t-bg: #f3efe6;
+  --tr-t-surface: #ece6d8;
+  --tr-t-text: #1d1916;
+  --tr-t-muted: #5b524a;
+  --tr-t-line: #d8d0bf;
+  --tr-t-accent: #c63a28; /* repo #d8412f; darkened for 4.5:1 with on-accent */
+  --tr-t-on-accent: #fff;
+  --tr-t-accent2: #1d1916;
+  --tr-t-on-accent2: #f3efe6;
+  --tr-t-radius: 2px;
+}
+
+[data-theme="feedseek"][data-mode="dark"] {
+  --tr-t-bg: #0f0e0d;
+  --tr-t-surface: #1a1817;
+  --tr-t-text: #ece8e3;
+  --tr-t-muted: #8c857c;
+  --tr-t-line: #2a2725;
+  --tr-t-accent: #d6541a;
+  --tr-t-on-accent: #0f0e0d;
+  --tr-t-accent2: #ece8e3;
+  --tr-t-on-accent2: #0f0e0d;
+}
+
+/* Kanarek: app/.../ui/theme/Color.kt */
+[data-theme="kanarek"] {
+  --tr-t-bg: #f6f7f8;
+  --tr-t-surface: #fff;
+  --tr-t-text: #171a1f;
+  --tr-t-muted: #616a75;
+  --tr-t-line: #d6dce4;
+  --tr-t-accent: #3569b7;
+  --tr-t-on-accent: #fff;
+  --tr-t-accent2: #c88b00;
+  --tr-t-on-accent2: #171a1f;
+  --tr-t-radius: 12px;
+}
+
+[data-theme="kanarek"][data-mode="dark"] {
+  --tr-t-bg: #101419;
+  --tr-t-surface: #171c22;
+  --tr-t-text: #e8edf4;
+  --tr-t-muted: #b5bec9;
+  --tr-t-line: #3a4654;
+  --tr-t-accent: #a9c7ff;
+  --tr-t-on-accent: #101419;
+  --tr-t-accent2: #ffbd4a;
+  --tr-t-on-accent2: #101419;
+}
+
+/* Autka: Roadbook palette, ui/theme/Color.kt */
+[data-theme="autka"] {
+  --tr-t-bg: #f5f7fa;
+  --tr-t-surface: #fff;
+  --tr-t-text: #171a1f;
+  --tr-t-muted: #5d6672;
+  --tr-t-line: #d2d9e2;
+  --tr-t-accent: #1e5a96;
+  --tr-t-on-accent: #fff;
+  --tr-t-accent2: #f4d9b3;
+  --tr-t-on-accent2: #8a4f00;
+  --tr-t-radius: 14px;
+}
+
+[data-theme="autka"][data-mode="dark"] {
+  --tr-t-bg: #111418;
+  --tr-t-surface: #191d22;
+  --tr-t-text: #e8edf3;
+  --tr-t-muted: #b2bbc6;
+  --tr-t-line: #3c4652;
+  --tr-t-accent: #a8c8f0;
+  --tr-t-on-accent: #111418;
+  --tr-t-accent2: #ffb95c;
+  --tr-t-on-accent2: #111418;
+}
+
+/* dark-only palettes */
+[data-theme="aistee"] {
+  --tr-t-bg: #0f172a;
+  --tr-t-surface: #1e293b;
+  --tr-t-text: #f8fafc;
+  --tr-t-muted: #cbd5e1;
+  --tr-t-line: #334155;
+  --tr-t-accent: #7c3aed; /* repo #8b5cf6; darkened for 4.5:1 with on-accent */
+  --tr-t-on-accent: #fff;
+  --tr-t-accent2: #f59e0b;
+  --tr-t-on-accent2: #0f172a;
+  --tr-t-radius: 10px;
+}
+
+[data-theme="wambridge"] {
+  --tr-t-bg: #171e26;
+  --tr-t-surface: #232d38;
+  --tr-t-text: #eaf0f6;
+  --tr-t-muted: #b4c0cc;
+  --tr-t-line: #33404d;
+  --tr-t-accent: #83aeff;
+  --tr-t-on-accent: #0b1220;
+  --tr-t-accent2: #3568b8;
+  --tr-t-on-accent2: #fff;
+  --tr-t-radius: 6px;
+}
+
+[data-theme="twojstar"] {
+  --tr-t-bg: #0b1015;
+  --tr-t-surface: #151d26;
+  --tr-t-text: #f5f7fa;
+  --tr-t-muted: #d9dee6;
+  --tr-t-line: #2a3642;
+  --tr-t-accent: #55e6a5;
+  --tr-t-on-accent: #0b1015;
+  --tr-t-accent2: #dfac6d;
+  --tr-t-on-accent2: #0b1015;
+  --tr-t-radius: 4px;
+}

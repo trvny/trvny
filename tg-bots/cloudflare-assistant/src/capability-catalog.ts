@@ -15,6 +15,7 @@ export type BotekCapability = {
 export const BOTEK_CAPABILITIES: readonly BotekCapability[] = [
   { id: "conversation", title: "Rozmowa i szkice", icon: "💬", description: "Pytaj, twórz szkice i zarządzaj kontekstem rozmowy.", executor: "botek", surfaces: ["chat", "inline"], commands: ["ask", "whisper", "draft", "reset"] },
   { id: "fun", title: "Żarty i przygaduszki", icon: "🎭", description: "Wylosuj gotowy żart bez kosztu generowania.", executor: "botek", surfaces: ["chat"], commands: ["quip"] },
+  { id: "media", title: "Radio", icon: "📻", description: "Live radio and now-playing details in Telegram.", executor: "botek", surfaces: ["chat", "mini-app"], commands: ["radio"] },
   { id: "telegram", title: "Narzędzia Telegrama", icon: "🎛️", description: "Ankiety, quizy, tematy, stickery, lokalizacje, miejsca, kontakty i kostki.", executor: "botek", surfaces: ["chat"], commands: ["poll", "quiz", "topic", "dice", "sticker", "location", "venue", "contact"] },
   { id: "automations", title: "Przypomnienia i obserwatory", icon: "⏰", description: "Ustawiaj przypomnienia oraz obserwuj Legiona, GitHub i Feedseek.", executor: "botek", surfaces: ["chat", "mini-app"], commands: ["remind", "reminders", "remind_cancel", "watch", "watches", "watch_cancel"] },
   { id: "memory", title: "Pamięć długoterminowa", icon: "🧠", description: "Zapisuj i wyszukuj wspomnienia przez istniejącą usługę.", executor: "specialist", surfaces: ["chat"], commands: ["remember", "recall", "memory_status"] },

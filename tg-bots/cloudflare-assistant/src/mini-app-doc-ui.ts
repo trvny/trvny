@@ -1,7 +1,7 @@
 // Draft Studio source for the existing Mini App shell.
 export const DOC_STUDIO_CSS = String.raw`
     .doc-studio { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
-    .doc-studio[hidden], .doc-preview[hidden], .doc-editor[hidden] { display: none; }
+    .doc-studio[hidden], .doc-preview[hidden], #doc-editor[hidden] { display: none; }
     .doc-field { display: grid; gap: 5px; font-weight: 600; font-size: 13px; }
     .doc-field input, .doc-field select, .doc-field textarea {
       width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 10px;
@@ -256,7 +256,7 @@ export const DOC_STUDIO_SCRIPT = String.raw`
           headers: { "content-type": "application/json", "x-telegram-init-data": initData },
           body: JSON.stringify({
             requestId: docRequestId,
-            title: String(docTitle.value || "Draft"),
+            title: String(docTitle.value || "").trim() || "Draft",
             text,
             format: docFormat.value === "txt" ? "txt" : "md",
           }),

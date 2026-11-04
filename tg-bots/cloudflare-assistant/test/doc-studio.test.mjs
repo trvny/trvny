@@ -262,3 +262,11 @@ test("64 KiB control-character documents fit bounded escaped JSON transport", as
   assert.equal(result.status, 200);
   assert.equal(sent, 1);
 });
+
+test("Telegram HTTP 200 with ok:false is a definite rejection", async (t) => {
+  const { env, gates } = fakeEnv();
+  t.mock.method(globalThis, "fetch", async () => Response.json({ ok: false, description: "rejected" }));
+  const result = await handleDocStudioSendRequest(request(payload()), env, (TIME + 40) * 1000);
+  assert.equal(result.status, 502);
+  assert.equal([...gates.values()][0].state.status, "failed");
+});

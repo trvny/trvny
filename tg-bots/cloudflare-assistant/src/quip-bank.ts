@@ -15,7 +15,7 @@ type BankState = { entries: QuipEntry[] };
 export type QuipPick = { text: string; count: number; source: "bank" | "preset" };
 
 export const QUIP_PRESETS: readonly string[] = [
-  "Dzisiaj wszystkie modele milczą. To podejrzane, zwykle mają coś do powiedzenia nawet bez pytania.",
+  "Kiedy modele milczą, serwerownia ma chwilę ciszy. Nikt nie podejrzewa, że to naprawdę dobry znak.",
   "Botek zrobił audyt humoru. Wynik: żarty przechodzą testy, ale powaga ma niezaliczone zależności.",
   "Kiedy AI prosi o chwilę namysłu, serwerownia zamawia kawę. Nikt nie pyta, kto za nią płaci.",
   "Na spotkaniu botów najwięcej mówił timeout. Wszyscy zgodnie uznali, że nie wnosi nic nowego.",
@@ -28,7 +28,7 @@ export function reusableQuip(value: unknown): string | null {
   const text = value.trim().replace(/\s+/gu, " ");
   if (text.length < MIN_CHARS || text.length > MAX_CHARS) return null;
   if (/[\d@<>\[\]{}`]/u.test(text) ||
-      /(?:https?:\/\/|www\.|\b(?:dzi[sś]|jutro|wczoraj|today|tomorrow|yesterday)\b)/iu.test(text) ||
+      /(?:https?:\/\/|www\.|\b(?:dzi[sś]|dzisiaj|jutro|wczoraj|today|tomorrow|yesterday)\b)/iu.test(text) ||
       /(?:\b(?:chat_id|token|password|apikey|secret)\b|\/\w{2,})/iu.test(text)) return null;
   return text;
 }

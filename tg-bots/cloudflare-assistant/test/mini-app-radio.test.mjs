@@ -84,7 +84,7 @@ test("deep-link opens player and fetches metadata without autoplay", async () =>
     checkedAt: "2026-11-04T19:00:00Z",
   };
   const { nodes, audio, requests, radioButton } = await radioHarness(Response.json(testTrack));
-  assert.deepEqual(requests, ["/mini-app/api/radio-now"]);
+  assert.deepEqual(requests, ["https://travny.pages.dev/api/radio-now"]);
   assert.equal(nodes.get("radio-player").hidden, false);
   assert.equal(radioButton.attributes["aria-expanded"], "true");
   assert.equal(audio.hidden, true);

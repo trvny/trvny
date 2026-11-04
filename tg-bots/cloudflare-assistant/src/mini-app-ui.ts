@@ -582,7 +582,7 @@ const MINI_APP_HTML = `<!doctype html>
       const requestController = new AbortController();
       const requestTimer = setTimeout(() => requestController.abort(), 8_000);
       try {
-        const response = await fetch("/mini-app/api/radio-now", {
+        const response = await fetch("https://travny.pages.dev/api/radio-now", {
           cache: "no-store", signal: requestController.signal,
         });
         if (!response.ok) throw new Error("metadata unavailable");

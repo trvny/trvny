@@ -91,6 +91,16 @@ export class TelegramUpdateDedup {
     }
     if (terminal(current.status)) return json({ error: "already_terminal" }, 409);
 
+    if (url.pathname === "/renew") {
+      const next: TelegramUpdateRecord = {
+        ...current,
+        claim: { token, expiresAt: time + CLAIM_LEASE_MS },
+        updatedAt: now,
+      };
+      await this.state.storage.put(RECORD_KEY, next);
+      return json(next);
+    }
+
     if (url.pathname === "/prepare") {
       if (current.status !== "preparing" && current.status !== "prepared") {
         return json({ error: "not_preparing" }, 409);
@@ -105,6 +115,8 @@ export class TelegramUpdateDedup {
       return json(next, 201);
     }
     if (url.pathname === "/sending") {
+      // Response loss after committing "sending" is safe to retry with the same owner.
+      if (current.status === "sending") return json(current);
       if (current.status !== "prepared" || !current.reply) {
         return json({ error: "not_prepared" }, 409);
       }

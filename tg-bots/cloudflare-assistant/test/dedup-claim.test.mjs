@@ -90,6 +90,37 @@ test("stale send is marked ambiguous and never authorized again", async () => {
   assert.equal(values.get("record").status, "ambiguous");
 });
 
+test("renewal holds the same owner through a long preparation and send", async () => {
+  const { values, post, claim } = fixture();
+  await claim(FIRST_TOKEN);
+  values.get("record").claim.expiresAt = Date.now() + 10;
+  const preparing = await post("renew", FIRST_TOKEN);
+  assert.equal(preparing.status, 200);
+  assert.ok(preparing.data.claim.expiresAt > Date.now() + 120_000);
+  assert.equal((await claim(OTHER_TOKEN)).data.outcome, "busy");
+  await post("prepare", FIRST_TOKEN, { reply });
+  await post("sending", FIRST_TOKEN);
+  const sending = await post("renew", FIRST_TOKEN);
+  assert.equal(sending.data.status, "sending");
+  assert.equal((await claim(OTHER_TOKEN)).data.outcome, "busy");
+  assert.equal((await post("renew", OTHER_TOKEN)).status, 409);
+  assert.equal((await post("sent", FIRST_TOKEN)).data.status, "sent");
+  assert.equal((await post("renew", FIRST_TOKEN)).status, 409);
+});
+
+test("lost /sending response can be retried by the same owner, not another", async () => {
+  const { post, claim } = fixture();
+  await claim(FIRST_TOKEN);
+  await post("prepare", FIRST_TOKEN, { reply });
+  const first = await post("sending", FIRST_TOKEN);
+  assert.equal(first.data.status, "sending");
+  const recovered = await post("sending", FIRST_TOKEN);
+  assert.equal(recovered.status, 200);
+  assert.equal(recovered.data.status, "sending");
+  assert.equal((await post("sending", OTHER_TOKEN)).status, 409);
+  assert.equal((await post("sent", FIRST_TOKEN)).data.status, "sent");
+});
+
 test("known retryable rejection releases send permit, retaining the reply", async () => {
   const { post, claim } = fixture();
   await claim(FIRST_TOKEN);

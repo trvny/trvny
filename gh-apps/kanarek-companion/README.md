@@ -7,6 +7,24 @@ Kanarek GitHub App slug. It hosts several related subsystems so they can reuse G
 authentication, policy, Durable Objects, bounded network plumbing, and one
 deployment without pretending every feature belongs to Kanarek.
 
+## Feedseek freshness watchdog
+
+The shared `automation` Worker runs a Cloudflare Cron Trigger at minute 15 of
+every UTC hour. The specialist checks recent `main` runs of
+`trvny/feedseek`'s `Update Feeds` workflow using the existing GPTomek GitHub
+App installation. If no workflow run has started for at least 150 minutes,
+and none is active or queued, it sends one `workflow_dispatch` request.
+
+GitHub's native two-hour schedule remains the primary trigger. The watchdog
+is a missed-run fallback, not a second feed generator or cache owner. Missing
+permissions, bad API responses and unexpected run metadata fail closed. The
+Feedseek workflow must serialize refreshes without cancelling a running job,
+because a late native cron may still arrive after a fallback dispatch.
+
+Keep the cron in `wrangler.jsonc`; do not manually configure a parallel
+schedule in the Cloudflare dashboard. Verify production schedules after
+Workers Builds deploys the shared Worker.
+
 ## Runtime boundaries
 
 Use these names in code, docs, PRs, and logs:

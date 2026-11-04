@@ -1,7 +1,7 @@
-import { miniAppOwnerAuthError } from "./mini-app";
-import { PayloadTooLargeError, readJsonWithLimit } from "./http";
-import { sendTelegramDocument, TelegramSendError } from "./telegram";
-import type { Env, TelegramReply } from "./types";
+import { miniAppOwnerAuthError } from "./mini-app.ts";
+import { PayloadTooLargeError, readJsonWithLimit } from "./http.ts";
+import { sendTelegramDocument, DocumentSendError } from "./doc-studio-transport.ts";
+import type { Env, TelegramReply } from "./types.ts";
 
 export const DOC_STUDIO_MAX_TEXT_BYTES = 64 * 1024;
 const REQUEST_MAX_BYTES = 80 * 1024;
@@ -128,7 +128,7 @@ export async function handleDocStudioSendRequest(
   try {
     await sendTelegramDocument(env, chatId, filename, input.text, input.format);
   } catch (error) {
-    const definitive = error instanceof TelegramSendError && !error.ambiguous && !error.retryable;
+    const definitive = error instanceof DocumentSendError && !error.ambiguous && !error.retryable;
     try {
       await gatePost(stub, definitive ? "/failed" : "/ambiguous", token);
     } catch {

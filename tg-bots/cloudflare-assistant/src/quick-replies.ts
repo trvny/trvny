@@ -26,9 +26,15 @@ export function quickIntent(input: string): QuickIntent {
   return null;
 }
 
-export function staticQuickReply(intent: "hello" | "thanks"): string {
-  return intent === "hello"
-    ? "Siema! 🤖 Mam narzędzia, pamięć i całkiem przyzwoitą odporność na timeouty. /tools pokaże warsztat."
+export function staticQuickReply(intent: "hello" | "thanks", input = ""): string {
+  const english = /^(?:hello|hi|thanks|thank you|thx)[!?.,…\s]*$/iu.test(input.trim());
+  if (intent === "hello") {
+    return english
+      ? "Hey! 🤖 I've got tools, a memory, and a pretty decent resistance to timeouts. Try /tools."
+      : "Siema! 🤖 Mam narzędzia, pamięć i całkiem przyzwoitą odporność na timeouty. /tools pokaże warsztat.";
+  }
+  return english
+    ? "You're welcome. Botek files the token bill in a drawer. 😎"
     : "Nie ma sprawy. Botek odkłada rachunek za tokeny do szuflady. 😎";
 }
 

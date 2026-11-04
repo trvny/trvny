@@ -107,6 +107,7 @@
   .live::before{content:"\25CF"; color:var(--r); animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
   .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:30px}
+  .feature-rail{display:contents}
   .panel{grid-column:span 1; display:block; text-decoration:none; color:inherit; min-width:0;
     background:#0b0f16; border-top:6px solid var(--faint); padding:14px 16px 16px;
     position:relative; transition:background .12s, transform .12s}
@@ -143,14 +144,21 @@
   .wxplace{font-size:19px; color:var(--dim); margin-top:9px}
   .feedlist{list-style:none; margin:2px 0 4px}
   .feedlist li{border-bottom:1px solid #0e131c}
-  .feedlist a{display:flex; gap:10px; align-items:baseline; padding:8px 2px; text-decoration:none;
-    color:var(--w); font-size:22px; min-width:0}
+  .feedlist a{display:flex;gap:11px;align-items:center;padding:8px 2px;text-decoration:none;
+    color:var(--w);font-size:22px;min-width:0}
   .feedlist a:hover{background:rgba(84,224,106,.07)}
   .feedlist a:hover .ttl{color:var(--g)}
-  .feedlist .src{font-family:"Silkscreen"; font-size:10px; text-shadow:none; padding:2px 6px; color:var(--k);
-    flex:none; min-width:8.5ch; text-align:center; letter-spacing:.02em}
-  .feedlist .ttl{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .feedlist .ago{flex:none; color:var(--dim); font-size:17px; letter-spacing:.03em}
+  .feedpic{position:relative;flex:0 0 48px;width:48px;height:48px;display:grid;place-items:center;
+    border:1px solid #263448;background:#090e16;overflow:hidden;color:var(--g)}
+  .feedpic::before{content:"▧";font-family:"Silkscreen";font-size:21px;opacity:.65}
+  .feedpic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .feedpic img.is-icon{object-fit:contain;padding:7px}
+  .feedcopy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+  .feedmeta{display:flex;align-items:center;gap:9px;min-width:0}
+  .feedlist .src{font-family:"Silkscreen";font-size:10px;text-shadow:none;padding:2px 6px;color:var(--k);
+    flex:none;min-width:8.5ch;text-align:center;letter-spacing:.02em}
+  .feedlist .ttl{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.05}
+  .feedlist .ago{color:var(--dim);font-size:17px;letter-spacing:.03em}
   .fdload{color:var(--dim); font-size:21px; padding:8px 2px}
   .pgo{display:inline-block; margin-top:8px; font-family:"Silkscreen"; font-size:12px; text-shadow:none;
     color:var(--g); text-decoration:none; letter-spacing:.03em}
@@ -164,6 +172,14 @@
   .labhead h2{font-family:"Silkscreen";font-size:17px;letter-spacing:.04em}
   .labhead span{color:var(--dim);font-size:19px}
   .benchgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .rail-controls{display:none}
+  .rail-hint{font-family:"Silkscreen";font-size:10px;color:var(--dim);letter-spacing:.08em}
+  .rail-dots{display:flex;gap:7px}
+  .rail-dots button{min-width:42px;min-height:32px;border:1px solid var(--faint);background:#0b0f16;
+    color:var(--dim);font-family:"Silkscreen";font-size:10px;cursor:pointer;
+    transition:background .15s,border-color .15s,color .15s}
+  .rail-dots button[aria-pressed="true"]{border-color:var(--c);background:#17303a;color:var(--c)}
+  .bench-controls .rail-dots button[aria-pressed="true"]{border-color:var(--m);background:#2a1930;color:var(--m)}
   .bench{position:relative;min-width:0;min-height:186px;padding:15px 16px 38px;border-top:6px solid;
     background:#0b0f16;color:var(--w);text-decoration:none;transition:background .12s,transform .12s}
   .bench:hover,.bench:focus-visible{background:#111826;transform:translateY(-1px)}
@@ -202,13 +218,23 @@
   }
   @media (max-width:640px){
     body{padding:8px}
-    .grid,.benchgrid{grid-template-columns:minmax(0,1fr)}
-    .panel.tv,.panel.wx{grid-column:1 / -1}
+    .crt::after{animation:none}
+    .grid{grid-template-columns:minmax(0,1fr);row-gap:8px}
+    .feature-rail,.benchgrid{position:relative;display:flex;gap:12px;overflow-x:auto;
+      scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch}
+    .feature-rail::-webkit-scrollbar,.benchgrid::-webkit-scrollbar{display:none}
+    .feature-rail>.panel,.benchgrid>.bench{scroll-snap-align:start;scroll-snap-stop:always;min-width:0}
+    .feature-rail>.panel{flex:0 0 94%}
+    .benchgrid>.bench{flex:0 0 86%;min-height:220px}
+    .rail-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 1px}
+    .grid>.panel.fd{margin-top:12px}
     .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
     .fastext{grid-template-columns:repeat(2,minmax(0,1fr))}
     .labhead{align-items:flex-start;flex-direction:column;gap:3px}
-    .feedlist .ago{display:none}
     .feedlist .ttl{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .feedlist .ago{font-size:15px}
+    .feedpic{flex-basis:44px;width:44px;height:44px}
   }
   @media (prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
@@ -232,6 +258,7 @@
     </div>
   </div>
   <div class="grid">
+    <div class="feature-rail" id="featureRail" aria-label="TV and weather panels">
     <a class="panel tv" href="/tv/">
       <div class="phead"><span class="blk">P101</span> TVP ✕ IPTV <span class="en" id="tvcount">—/9 ON AIR</span></div>
       <div class="tvbig"><span class="n" id="tvbig">—/9</span><span class="lbl">ON&nbsp;AIR</span></div>
@@ -259,6 +286,14 @@
       <div class="wxplace">Kościelec (Chrzanów) · mediana źródeł</div>
       <span class="go">OTWÓRZ ›</span>
     </a>
+    </div>
+    <div class="rail-controls" id="featureDots">
+      <span class="rail-hint">SWIPE ↔</span>
+      <div class="rail-dots" role="group" aria-label="Choose a live panel">
+        <button type="button" data-slide="0" aria-label="TV status" aria-pressed="true">101</button>
+        <button type="button" data-slide="1" aria-label="Weather" aria-pressed="false">200</button>
+      </div>
+    </div>
     <section class="panel fd">
       <a class="phead" href="https://trvny.github.io/feedseek/">
         <span class="blk">P300</span> FEEDY <span class="en">NAJNOWSZE ›</span>
@@ -272,7 +307,7 @@
       <h2 id="labHeading">P400 · BENCH LAB</h2>
       <span>trzy wyspecjalizowane warsztaty</span>
     </div>
-    <div class="benchgrid">
+    <div class="benchgrid" id="benchRail" aria-label="Benchmark tools">
       <a class="bench stream" href="https://streambench.travny.workers.dev/">
         <div class="benchtop"><span class="benchno">P401</span><span class="benchicon" aria-hidden="true">▶⌁</span></div>
         <h3>STREAMBENCH</h3>
@@ -294,6 +329,14 @@
         <div class="benchtags"><span>TXT</span><span>PDF</span><span>MARKDOWN</span><span>LOCAL</span></div>
         <span class="go">URUCHOM ›</span>
       </a>
+    </div>
+    <div class="rail-controls bench-controls" id="benchDots">
+      <span class="rail-hint">SWIPE ↔</span>
+      <div class="rail-dots" role="group" aria-label="Choose a benchmark">
+        <button type="button" data-slide="0" aria-label="Streambench" aria-pressed="true">401</button>
+        <button type="button" data-slide="1" aria-label="Codebench" aria-pressed="false">402</button>
+        <button type="button" data-slide="2" aria-label="Docbench" aria-pressed="false">403</button>
+      </div>
     </div>
   </section>
   <nav class="fastext" aria-label="Skróty do narzędzi TRAVNY">
@@ -319,6 +362,50 @@ const pad = n => String(n).padStart(2,"0");
     `${pad(d.getDate())}.${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   setTimeout(tick, 1000);
 })();
+// Native scroll snapping; no carousel dependencies or offscreen animation.
+function setupRail(trackId, dotsId, delay) {
+  const track=document.getElementById(trackId);
+  const nav=document.getElementById(dotsId);
+  if(!track||!nav)return;
+  const slides=[...track.children],buttons=[...nav.querySelectorAll("button[data-slide]")];
+  const mobile=matchMedia("(max-width:640px)");
+  const reduced=matchMedia("(prefers-reduced-motion:reduce)");
+  let visible=false,manual=false,frame=0;
+  const select=index=>buttons.forEach((button,i)=>button.setAttribute("aria-pressed",String(i===index)));
+  function current(){
+    const first=slides[0].offsetLeft;
+    let best=0,distance=Infinity;
+    slides.forEach((slide,i)=>{
+      const delta=Math.abs(slide.offsetLeft-first-track.scrollLeft);
+      if(delta<distance){best=i;distance=delta;}
+    });
+    return best;
+  }
+  function show(index){
+    track.scrollTo({left:slides[index].offsetLeft-slides[0].offsetLeft,
+      behavior:reduced.matches?"auto":"smooth"});
+    select(index);
+  }
+  buttons.forEach((button,i)=>button.addEventListener("click",()=>{manual=true;show(i);}));
+  ["pointerdown","touchstart","wheel","keydown"].forEach(type=>
+    track.addEventListener(type,()=>{manual=true;},{passive:true}));
+  track.addEventListener("scroll",()=>{
+    if(frame)return;
+    frame=requestAnimationFrame(()=>{frame=0;if(mobile.matches)select(current());});
+  },{passive:true});
+  if("IntersectionObserver" in window){
+    const observer=new IntersectionObserver(entries=>{
+      visible=entries.some(entry=>entry.isIntersecting&&entry.intersectionRatio>=.35);
+    },{threshold:[0,.35]});
+    observer.observe(track);
+  }else{visible=true;}
+  setInterval(()=>{
+    if(!mobile.matches||reduced.matches||document.hidden||!visible||manual)return;
+    show((current()+1)%slides.length);
+  },delay);
+}
+setupRail("featureRail","featureDots",14000);
+setupRail("benchRail","benchDots",19000);
 const WORKER = "https://tvpi.travny.workers.dev";
 const CH = [
   {no:"101", slug:"tvp1",        tag:"TVP1"},
@@ -401,6 +488,9 @@ const FEEDS=[
   {file:"jbzd",        src:"JBZD",    col:"var(--v)"},
 ];
 const FBASE="https://trvny.github.io/feedseek/feed_";
+function safeImage(raw){
+  try{const u=new URL(String(raw||"").trim());return u.protocol==="https:"?u.href:"";}catch(_){return"";}
+}
 function rel(d){const s=(Date.now()-d)/1000; return s<3600?Math.max(1,Math.round(s/60))+"m":s<86400?Math.round(s/3600)+"h":Math.round(s/86400)+"d";}
 function clean(t){const x=document.createElement("textarea");x.innerHTML=t;return x.value.replace(/\s+[-\u2013\u2014]\s+[^-\u2013\u2014]{2,30}$/g,"").trim();}
 async function grabFeed(f){
@@ -409,6 +499,7 @@ async function grabFeed(f){
     const r=await fetch(FBASE+f.file+".xml",{signal:ac.signal});clearTimeout(t);
     if(!r.ok)return[];
     const xml=new DOMParser().parseFromString(await r.text(),"application/xml");
+    const icon=safeImage((xml.querySelector("feed > icon, channel > image > url")||{}).textContent);
     return[...xml.querySelectorAll("entry,item")].slice(0,5).map(n=>{
       const title=(n.querySelector("title")||{}).textContent||"";
       const le=n.querySelector("link");
@@ -416,7 +507,14 @@ async function grabFeed(f){
       // Feed XML is untrusted: keep only absolute http(s) links.
       let href="";try{const u=new URL(raw.trim());if(u.protocol==="https:"||u.protocol==="http:")href=u.href;}catch(_){}
       const dt=(n.querySelector("updated,published,pubDate")||{}).textContent||"";
-      return{src:f.src,col:f.col,title:clean(title),href,ts:dt?Date.parse(dt):0};
+      const ns="http://search.yahoo.com/mrss/";
+      const thumb=n.getElementsByTagNameNS(ns,"thumbnail")[0];
+      const media=n.getElementsByTagNameNS(ns,"content")[0];
+      const enclosure=n.querySelector('link[rel="enclosure"][type^="image/"],enclosure[type^="image/"]');
+      const image=safeImage((thumb&&thumb.getAttribute("url"))||
+        (media&&media.getAttribute("medium")==="image"&&media.getAttribute("url"))||
+        (enclosure&&enclosure.getAttribute(enclosure.localName==="link"?"href":"url")));
+      return{src:f.src,col:f.col,title:clean(title),href,ts:dt?Date.parse(dt):0,image,icon};
     }).filter(x=>x.title&&x.href);
   }catch(_){return[];}
 }
@@ -449,8 +547,25 @@ function rank(x){return Math.min(x.ts,NOW);}
   el.replaceChildren(...all.map(x=>{
     const li=document.createElement("li"),a=document.createElement("a");
     a.href=x.href;a.target="_blank";a.rel="noopener";
+    const pic=document.createElement("span");pic.className="feedpic";pic.setAttribute("aria-hidden","true");
+    const url=x.image||x.icon;
+    if(url){
+      const img=document.createElement("img");
+      img.src=url;img.alt="";img.width=48;img.height=48;
+      img.loading="lazy";img.decoding="async";img.fetchPriority="low";img.referrerPolicy="no-referrer";
+      if(!x.image||x.image===x.icon)img.className="is-icon";
+      img.onerror=()=>{
+        if(x.icon&&img.src!==x.icon){img.className="is-icon";img.src=x.icon;}
+        else img.remove();
+      };
+      pic.append(img);
+    }
+    const copy=document.createElement("span");copy.className="feedcopy";
+    const meta=document.createElement("span");meta.className="feedmeta";
     const src=span("src",x.src);src.style.background=x.col;
-    a.append(src,span("ttl",x.title),span("ago",rel(rank(x))));
+    meta.append(src,span("ago",rel(rank(x))));
+    copy.append(span("ttl",x.title),meta);
+    a.append(pic,copy);
     li.append(a);return li;
   }));
 });

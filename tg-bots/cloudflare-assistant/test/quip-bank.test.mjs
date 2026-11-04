@@ -36,6 +36,16 @@ test("stores only valid reusable quips, deduplicated by content", async () => {
   assert.deepEqual(await pickBankQuip(env), { text: JOKE, count: 1, source: "bank" });
 });
 
+test("allows capitalized words after colons, semicolons and dashes", () => {
+  for (const value of [
+    "Administrator wszedł do baru i powiedział: Komputer ma wolne, bo cache przejął dyżur.",
+    "Botek zrobił przegląd żartów; Komputer uznał, że puenta wymaga jeszcze jednej kawy.",
+    "Serwerownia po cichu zmienia tryb pracy - Komputer udaje, że wszystko idzie zgodnie z planem.",
+    "Serwerownia po cichu zmienia tryb pracy – Komputer udaje, że wszystko idzie zgodnie z planem.",
+    "Serwerownia po cichu zmienia tryb pracy — Komputer udaje, że wszystko idzie zgodnie z planem.",
+  ]) assert.equal(reusableQuip(value), value);
+});
+
 test("rejects secrets, links, dated or nonreusable text", async () => {
   const { gate, env } = fixture();
   for (const value of [

@@ -1,5 +1,6 @@
 const UPSTREAM = "https://api.radioparadise.com/api/now_playing?chan=0";
 const MAX_BYTES = 32768;
+const BOTEK_ORIGIN = "https://tg-assistant.travny.workers.dev";
 
 async function readJson(response) {
   if (!response.body) throw new Error("empty response");
@@ -47,9 +48,9 @@ export async function onRequestGet() {
     const artist = text(data.artist);
     if (!title || !artist) throw new Error("missing track");
     return Response.json({ title, artist, album: text(data.album), cover: coverUrl(data.cover_med || data.cover) }, {
-      headers: { "cache-control": "public, max-age=0, s-maxage=20" },
+      headers: { "access-control-allow-origin": BOTEK_ORIGIN, "cache-control": "public, max-age=0, s-maxage=20" },
     });
   } catch {
-    return Response.json({ error: "metadata_unavailable" }, { status: 502, headers: { "cache-control": "no-store" } });
+    return Response.json({ error: "metadata_unavailable" }, { status: 502, headers: { "access-control-allow-origin": BOTEK_ORIGIN, "cache-control": "no-store" } });
   }
 }

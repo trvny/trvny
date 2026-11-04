@@ -31,6 +31,7 @@ test("radio data is read only from the existing TRAVNY metadata endpoint", async
   });
   assert.equal(called[0].url, "https://travny.pages.dev/api/radio-now");
   assert.equal(called[0].init.redirect, "error");
+  assert.match(called[0].init.headers["user-agent"], /Botek\/1\.0/u);
   assert.equal(result.title, "Song");
   assert.equal(result.artist, "Artist");
   assert.equal(result.album, "Album");
@@ -54,14 +55,15 @@ test("radio data rejects unsafe cover URLs, invalid payloads and oversized bodie
   }
 });
 
-test("relay only supports GET, failed upstream stays uncached", async (t) => {
+test("legacy relay redirects GET to the fixed Pages source without Worker fetch", async (t) => {
   const bad = await radioNowResponse(new Request("https://bot/mini-app/api/radio-now", { method: "POST" }));
   assert.equal(bad.status, 405);
-  t.mock.method(globalThis, "fetch", () => Promise.resolve(new Response("down", { status: 500 })));
-  const unavailable = await radioNowResponse(new Request("https://bot/mini-app/api/radio-now"));
-  assert.equal(unavailable.status, 502);
-  assert.equal(unavailable.headers.get("cache-control"), "no-store");
-  assert.deepEqual(await unavailable.json(), { error: "metadata_unavailable" });
+  const outbound = t.mock.method(globalThis, "fetch", () => { throw new Error("unexpected worker fetch"); });
+  const redirect = await radioNowResponse(new Request("https://bot/mini-app/api/radio-now"));
+  assert.equal(redirect.status, 307);
+  assert.equal(redirect.headers.get("location"), "https://travny.pages.dev/api/radio-now");
+  assert.equal(redirect.headers.get("cache-control"), "no-store");
+  assert.equal(outbound.mock.callCount(), 0);
 });
 
 test("owner radio card opens same-origin player without leaking tokens", async () => {

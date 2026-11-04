@@ -1,10 +1,25 @@
 export const MEME_TEMPLATES = Object.freeze([
   { id: 'aag', name: 'Ancient Aliens Guy' },
+  { id: 'ackbar', name: "It's a Trap!" },
   { id: 'afraid', name: 'Afraid to Ask Andy' },
+  { id: 'agnes', name: 'Agnes Harkness Winking' },
+  { id: 'aint-got-time', name: 'Sweet Brown' },
+  { id: 'ams', name: 'Awkward Moment Seal' },
+  { id: 'ants', name: 'Do You Want Ants?' },
+  { id: 'atis', name: 'And Then I Said' },
+  { id: 'away', name: 'Life Finds a Way' },
+  { id: 'awesome', name: 'Socially Awesome Penguin' },
+  { id: 'awesome-awkward', name: 'Awesome Awkward Penguin' },
+  { id: 'awkward', name: 'Socially Awkward Penguin' },
+  { id: 'awkward-awesome', name: 'Awkward Awesome Penguin' },
   { id: 'bad', name: 'You Should Feel Bad' },
+  { id: 'badchoice', name: 'Milk Was a Bad Choice' },
+  { id: 'bd', name: 'Butthurt Dweller' },
   { id: 'bender', name: "I'm Going to Build My Own Theme Park" },
   { id: 'bihw', name: "But It's Honest Work" },
   { id: 'buzz', name: 'X Everywhere' },
+  { id: 'both', name: 'Why Not Both' },
+  { id: 'rollsafe', name: 'Roll Safe' },
 ]);
 
 const TEMPLATE_MAP = new Map(MEME_TEMPLATES.map((template) => [template.id, template]));
@@ -29,13 +44,45 @@ export function resolveShitpostMode(rawMode = 'auto', seed = '') {
   return stableHash(seed) % 2 === 0 ? 'text' : 'meme';
 }
 
+const FONTS = Object.freeze(['impact', 'notosans', 'kalam', 'titilliumweb']);
+const COLORS = Object.freeze(['white,black', 'yellow,black', 'black,white']);
+const LAYOUTS = Object.freeze(['default', 'top']);
+
+export function normalizeMemeLook(look = {}) {
+  if (!look || typeof look !== 'object' || Array.isArray(look)) throw new Error('invalid_meme_look');
+  const result = {};
+  if (look.font !== undefined) {
+    if (!FONTS.includes(look.font)) throw new Error('invalid_meme_font');
+    result.font = look.font;
+  }
+  if (look.color !== undefined) {
+    if (!COLORS.includes(look.color)) throw new Error('invalid_meme_color');
+    result.color = look.color;
+  }
+  if (look.layout !== undefined) {
+    if (!LAYOUTS.includes(look.layout)) throw new Error('invalid_meme_layout');
+    result.layout = look.layout;
+  }
+  return result;
+}
+
+export function chooseMemeLook(seed = '') {
+  const font = FONTS[stableHash('font:' + seed) % FONTS.length];
+  const color = stableHash('color:' + seed) % 4 === 0
+    ? COLORS[stableHash('palette:' + seed) % COLORS.length] : undefined;
+  const layout = stableHash('layout:' + seed) % 5 === 0 ? 'top' : undefined;
+  return normalizeMemeLook({ font, ...(color ? { color } : {}), ...(layout ? { layout } : {}) });
+}
+
 export function chooseMemeTemplate(seed = '') {
   return MEME_TEMPLATES[stableHash(`template:${seed}`) % MEME_TEMPLATES.length];
 }
 
 function memegenSegment(value) {
-  const text = String(value || '').trim();
-  if (!text) return '_';
+  const raw = String(value || '').trim();
+  if (!raw) return '_';
+  // Dot-only URL segments are normalized away; use visual equivalents.
+  const text = raw === '.' || raw === '..' ? raw.replaceAll('.', '．') : raw;
   // memegen has no escape for a literal '~', so swap it for a lookalike before
   // the '~x' escape sequences below are introduced.
   const escaped = text
@@ -56,8 +103,28 @@ function memegenSegment(value) {
   return encodeURIComponent(escaped);
 }
 
-export function memeImageUrl(templateId, topText = '', bottomText = '') {
+// Bound URL segments without dropping an otherwise useful post.
+export function fitMemeCaption(value, keepEnd = false) {
+  const text = String(value || '').trim();
+  if (memegenSegment(text).length <= 190) return text;
+  let fitted = '';
+  const chars = [...text];
+  if (keepEnd) chars.reverse();
+  for (const char of chars) {
+    const candidate = keepEnd ? char + fitted : fitted + char;
+    if (memegenSegment(keepEnd ? '…' + candidate : candidate + '…').length > 190) break;
+    fitted = candidate;
+  }
+  return keepEnd ? '…' + fitted.trimStart() : fitted.trimEnd() + '…';
+}
+
+export function memeImageUrl(templateId, topText = '', bottomText = '', look = {}) {
   const template = getMemeTemplate(templateId);
   if (!template) throw new Error('invalid_meme_template');
-  return `https://api.memegen.link/images/${template.id}/${memegenSegment(topText)}/${memegenSegment(bottomText)}.webp`;
+  const top = memegenSegment(fitMemeCaption(topText));
+  const bottom = memegenSegment(fitMemeCaption(bottomText, true));
+  const url = new URL(`https://api.memegen.link/images/${template.id}/${top}/${bottom}.webp`);
+  const options = normalizeMemeLook(look);
+  for (const [key, value] of Object.entries(options)) url.searchParams.set(key, value);
+  return url.toString();
 }

@@ -177,8 +177,7 @@ families are:
 7. Hugging Face Inference Providers pinned to Public AI
 8. DeepSeek V4.1 Flash through the direct DeepSeek API, only for the
    `kanarek-review` PR-review contract when `DEEPSEEK_API_KEY` is configured
-9. Gemini 3.8 Flash through free Standard after the earlier free candidates,
-   when the project billing is disabled and `GEMINI_API_KEY` is configured
+9. Gemini 3.8 Flash via free Standard is third in the Reactor candidate pool, after AIHubMix and OpenRouter, when the project is unbilled and `GEMINI_API_KEY` is configured. It stays late for reviews and quips.
 10. Cloudflare Workers AI fallback (temporarily disabled; budget reserved for SpaceMolt)
 
 Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
@@ -255,7 +254,8 @@ Gemini uses the native Interactions endpoint. When
 `KANAREK_REVIEW_GEMINI_SERVICE_TIER=standard`, the request omits `service_tier`
 (Standard is Google's default), joins the free pool and caps output at 8K tokens.
 The `gemini-flex` paid fallback is omitted in this mode to avoid retrying the
-same unbilled key after free attempts. Switching this setting back to `flex`
+same unbilled key after free attempts.
+Reactor candidates use `thinking_level: medium` with the existing 8K free-tier output ceiling; judges and review tasks keep their configured reasoning level. Provider keys stay in the shared private router. Switching this setting back to `flex`
 restores the old paid reserve instead; neither mode overrides the project's
 actual Google billing status. Quota 429s continue through shared cooldowns.
 

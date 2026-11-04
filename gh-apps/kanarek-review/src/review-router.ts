@@ -229,10 +229,10 @@ const PROVIDER_CONTEXT_SAFETY_TOKENS = 4_096;
 const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
   quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai', 'gemini-standard'],
   // Review/judge: fresh models first; gpt-oss (Groq, Ollama) and Bielik predate recent releases.
-  // gemini-standard last everywhere: free tier can hang to the full timeout.
+  // Gemini stays late for latency-sensitive tasks; Reactor samples it early.
   review: ['openrouter', 'aihubmix', 'orcarouter', 'vercel', 'ollama', 'groq', 'huggingface-publicai', 'gemini-standard'],
   judge: ['aihubmix', 'openrouter', 'orcarouter', 'vercel', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
-  shitpost: ['aihubmix', 'openrouter', 'vercel', 'orcarouter', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
+  shitpost: ['aihubmix', 'openrouter', 'gemini-standard', 'vercel', 'orcarouter', 'groq', 'ollama', 'huggingface-publicai'],
 } as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;
 
 // Task orders, best first. Review/judge: strong and recent (version claims need fresh
@@ -1945,6 +1945,9 @@ function providerAttempts(
       label: 'default',
       minimumMaxTokens: 2_048,
       maximumMaxTokens: 8_192,
+      // Creative candidates use medium thinking; other tasks retain defaults.
+      requestFields: { thinking_level: task === 'shitpost' ? 'medium'
+        : configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL) },
     }];
   }
   if (provider.id === 'gemini-flex') {

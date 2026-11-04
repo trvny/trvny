@@ -1,4 +1,4 @@
-import { chatWithFallback } from "./providers.ts";
+import { chatWithInlineFallback } from "./providers.ts";
 import { pickBankQuip, presetQuip, rememberBankQuip, reusableQuip } from "./quip-bank.ts";
 import type { Env } from "./types.ts";
 
@@ -43,7 +43,11 @@ function shouldGrowBank(count: number): boolean {
   return random[0] % 6 === 0;
 }
 
-export async function quickQuip(env: Env, allowAi = false): Promise<string> {
+export async function quickQuip(
+  env: Env,
+  allowAi = false,
+  shouldGenerate: (count: number) => boolean = shouldGrowBank,
+): Promise<string> {
   let pick: Awaited<ReturnType<typeof pickBankQuip>> | null = null;
   try {
     pick = await pickBankQuip(env);
@@ -51,9 +55,9 @@ export async function quickQuip(env: Env, allowAi = false): Promise<string> {
     console.warn("Botek quip bank read unavailable", error);
   }
 
-  if (allowAi && pick && shouldGrowBank(pick.count)) {
+  if (allowAi && pick && shouldGenerate(pick.count)) {
     try {
-      const generated = await chatWithFallback(env, [
+      const generated = await chatWithInlineFallback(env, [
         { role: "system", content: QUIP_PROMPT },
         { role: "user", content: "Write one standalone, reusable short joke." },
       ]);

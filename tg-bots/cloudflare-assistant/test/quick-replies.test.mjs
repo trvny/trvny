@@ -32,3 +32,27 @@ test("public quips need no provider or model when the bank is empty", async () =
   };
   assert.ok(QUIP_PRESETS.includes(await quickQuip(env, false)));
 });
+
+test("failed owner generation returns retained bank text, not an error", async () => {
+  const bank = new TelegramQuipBank({ storage: {
+    get: () => Promise.resolve({ entries: [{
+      text: "Na spotkaniu botów najwięcej mówił timeout, ale nikt nie znalazł sensownego tłumacza.",
+      provider: "free-router", createdAt: "2026-01-01T00:00:00Z",
+    }] }),
+    put: () => Promise.resolve(),
+    deleteAll: () => Promise.resolve(),
+    setAlarm: () => Promise.resolve(),
+  } });
+  const env = {
+    TELEGRAM_QUIP_BANK: {
+      idFromName: () => ({}),
+      get: () => ({ fetch: (input, init) =>
+        bank.fetch(input instanceof Request ? input : new Request(input, init)) }),
+    },
+    KANAREK_REVIEW_ROUTER_TOKEN: "test",
+    KANAREK_COMPANION: { fetch: () => Promise.reject(new Error("provider unavailable")) },
+    WORKERS_AI_ENABLED: "false",
+  };
+  const result = await quickQuip(env, true, () => true);
+  assert.match(result, /spotkaniu botów/u);
+});

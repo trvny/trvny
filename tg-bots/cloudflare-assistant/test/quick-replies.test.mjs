@@ -17,7 +17,7 @@ test("matches only exact safe phrases, never arbitrary user requests", () => {
 
 test("public quips need no provider or model when the bank is empty", async () => {
   const bank = new TelegramQuipBank({ storage: {
-    get: () => Promise.resolve(undefined),
+    get: () => Promise.resolve(),
     put: () => Promise.resolve(),
     deleteAll: () => Promise.resolve(),
     setAlarm: () => Promise.resolve(),

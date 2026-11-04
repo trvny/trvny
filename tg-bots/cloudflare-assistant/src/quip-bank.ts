@@ -27,7 +27,8 @@ export function reusableQuip(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const text = value.trim().replace(/\s+/gu, " ");
   if (text.length < MIN_CHARS || text.length > MAX_CHARS) return null;
-  if (/[\d@<>\[\]{}`]/u.test(text) ||
+  const forbidden = ["@", "<", ">", "[", "]", "{", "}", "`"];
+  if (/\d/u.test(text) || forbidden.some((char) => text.includes(char)) ||
       /(?:https?:\/\/|www\.|\b(?:dzi[sś]|dzisiaj|jutro|wczoraj|today|tomorrow|yesterday)\b)/iu.test(text) ||
       /(?:\b(?:chat_id|token|password|apikey|secret)\b|\/\w{2,})/iu.test(text)) return null;
   return text;

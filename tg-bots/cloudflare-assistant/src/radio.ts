@@ -59,7 +59,10 @@ export async function readRadioTrack(
         const { done, value } = await reader.read();
         if (done) break;
         size += value.byteLength;
-        if (size > METADATA_MAX_BYTES) return null;
+        if (size > METADATA_MAX_BYTES) {
+          console.warn("Radio metadata upstream rejected", { reason: "size_limit", size });
+          return null;
+        }
         chunks.push(value);
       }
     } finally {
@@ -74,7 +77,10 @@ export async function readRadioTrack(
     const data = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
     const title = compactText(data.title);
     const artist = compactText(data.artist);
-    if (!title || !artist) return null;
+    if (!title || !artist) {
+      console.warn("Radio metadata upstream rejected", { reason: "missing_track_fields" });
+      return null;
+    }
     return {
       title, artist,
       album: compactText(data.album),

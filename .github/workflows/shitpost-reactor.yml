@@ -44,6 +44,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -54,6 +55,23 @@ jobs:
 
       - name: Test generator and feed
         run: npm test
+
+      - name: Require deployed Reactor Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(git -C ../.. log -1 --format=%H -- gh-apps/shitpost-reactor gh-apps/core/worker-deploy.mjs gh-apps/core/deploy-lock.mjs)"
+          for attempt in {1..10}; do
+            deployed="$(curl --fail --silent --show-error --max-time 8 https://shitpost-reactor.travny.workers.dev/version || true)"
+            if [[ "$deployed" == "$expected" ]]; then
+              echo "Reactor Worker ready: $deployed"
+              exit 0
+            fi
+            echo "Reactor Worker not yet on $expected (attempt $attempt/10)"
+            sleep 15
+          done
+          echo "Reactor Worker deployment is stale; refusing incompatible publish" >&2
+          exit 1
 
       - name: Generate draft
         shell: bash

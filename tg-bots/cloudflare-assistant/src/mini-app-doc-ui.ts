@@ -63,6 +63,8 @@ export const DOC_STUDIO_HTML = String.raw`
       </label>
       <div class="doc-toolbar">
         <button id="doc-export" type="button" class="secondary">Download file</button>
+        <button id="doc-print" type="button" class="secondary">Print / Save as PDF</button>
+        <button id="doc-pdf-open" type="button" class="secondary">PDF tools</button>
         <button id="doc-send" type="button">Send to my private Telegram chat</button>
       </div>
       <p id="doc-status" class="doc-status muted" role="status">Private until you send. Maximum 64 KiB.</p>

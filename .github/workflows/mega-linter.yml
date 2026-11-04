@@ -28,7 +28,9 @@ on: # yamllint disable-line rule:truthy
       - ".github/workflows/mega-linter.yml"
   pull_request:
     paths: *lint-paths
-  status:
+  # Group external status updates into one periodic PR scan.
+  schedule:
+    - cron: "17,47 * * * *"
   workflow_dispatch:
     inputs:
       sha:
@@ -43,8 +45,9 @@ jobs:
   megalinter:
     name: MegaLinter
     if: >-
-      github.event_name != 'status' &&
-      (github.event_name != 'workflow_dispatch' || inputs.sha == '')
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.sha == '')
     concurrency:
       group: megalinter-${{ github.ref }}
       cancel-in-progress: true
@@ -101,17 +104,104 @@ jobs:
         if: always() && steps.instruction_rot.outcome == 'failure'
         run: exit 1
 
-  # DeepSource code-quality statuses share the MegaLinter workflow.
+  # A status trigger starts a workflow for every DeepSource analyzer transition,
+  # including pending statuses; inspect completed PR heads on a timer instead.
+  deepsource_targets:
+    name: DeepSource report targets
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.sha != '')
+    permissions:
+      pull-requests: read
+      statuses: read
+      issues: read
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    outputs:
+      shas: ${{ steps.targets.outputs.shas }}
+    steps:
+      - name: Find completed DeepSource PR heads
+        id: targets
+        uses: actions/github-script@v8
+        env:
+          MANUAL_SHA: ${{ inputs.sha || '' }}
+        with:
+          script: |
+            const manual = process.env.MANUAL_SHA.trim();
+            if (context.eventName === 'workflow_dispatch') {
+              if (!/^[0-9a-f]{40}$/i.test(manual)) {
+                core.setFailed('Expected a full 40-character commit SHA.');
+                core.setOutput('shas', '[]');
+                return;
+              }
+              core.setOutput('shas', JSON.stringify([manual.toLowerCase()]));
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const ready = [];
+            for (const pr of prs) {
+              if (pr.head.repo?.full_name !== `${owner}/${repo}`) continue;
+              const statuses = await github.paginate(
+                github.rest.repos.listCommitStatusesForRef,
+                { owner, repo, ref: pr.head.sha, per_page: 100 },
+              );
+              const latest = new Map();
+              for (const status of statuses) {
+                if (status.context.startsWith('DeepSource: ') &&
+                    !latest.has(status.context)) {
+                  latest.set(status.context, status);
+                }
+              }
+              // A single finished analyzer is not a completed DeepSource run.
+              const expected = [
+                'DeepSource: Java',
+                'DeepSource: JavaScript',
+                'DeepSource: Python',
+                'DeepSource: Secrets',
+                'DeepSource: Shell',
+              ];
+              if (!expected.every(name => latest.has(name)) ||
+                  [...latest.values()].some(status => status.state === 'pending')) {
+                continue;
+              }
+              // The existing PR report is the deduplication record.
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: pr.number, per_page: 100,
+              });
+              const prior = comments.find(comment =>
+                comment.user?.login === 'github-actions[bot]' &&
+                comment.body?.includes('<!-- deepsource-pr-findings:v1 -->')
+              );
+              const shortSha = pr.head.sha.slice(0, 7);
+              const matchesHead = prior && (
+                prior.body.includes(`DeepSource findings: ${shortSha}`) ||
+                prior.body.includes(`DeepSource clear on ${shortSha}`)
+              );
+              const latestStatusAt = Math.max(...[...latest.values()].map(
+                status => Date.parse(status.updated_at || status.created_at) || 0
+              ));
+              if (!matchesHead ||
+                  Date.parse(prior.updated_at) < latestStatusAt) {
+                ready.push(pr.head.sha);
+              }
+            }
+            core.setOutput('shas', JSON.stringify([...new Set(ready)]));
+
   deepsource_report:
     name: DeepSource PR findings
+    needs: deepsource_targets
+    if: needs.deepsource_targets.outputs.shas != '[]'
     permissions:
       pull-requests: read
       issues: write
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.sha != '') ||
-      (github.event_name == 'status' &&
-       startsWith(github.event.context, 'DeepSource: ') &&
-       github.event.state != 'pending')
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        sha: ${{ fromJSON(needs.deepsource_targets.outputs.shas) }}
     concurrency:
       group: deepsource-report-${{ github.repository }}
       queue: max
@@ -124,4 +214,4 @@ jobs:
         with:
           deepsource-token: ${{ secrets.DEEPSOURCE_PAT }}
           github-token: ${{ github.token }}
-          commit-sha: ${{ github.event.sha || inputs.sha }}
+          commit-sha: ${{ matrix.sha }}

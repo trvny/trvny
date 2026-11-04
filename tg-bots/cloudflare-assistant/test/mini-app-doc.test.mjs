@@ -96,7 +96,7 @@ test("Mini App provides native editor, export and private send without auto-uplo
   assert.equal(nodes.get("doc-studio").hidden, false);
   assert.equal(nodes.get("doc-open").attributes["aria-expanded"], "true");
   assert.equal(requests.filter((r) => r.url.includes("documents/send")).length, 0);
-  assert.match(nodes.get("doc-status").textContent, /Private|local/u);
+  assert.match(html, /Private until you send\. Maximum 64 KiB\./u);
 });
 
 test("preview builds text nodes, never interpreted HTML", async () => {

@@ -2453,7 +2453,8 @@ async function processQueuedTelegram(
     return;
   }
   if (claim.outcome === "busy") {
-    message.retry({ delaySeconds: 30 });
+    // Retry beyond the three-minute lease within the Queue's five-retry budget.
+    message.retry({ delaySeconds: 60 });
     return;
   }
   if (claim.outcome === "uncertain") {

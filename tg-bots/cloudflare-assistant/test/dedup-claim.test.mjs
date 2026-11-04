@@ -66,6 +66,18 @@ test("interrupted work before send can be reclaimed without replaying generation
   assert.equal((await post("sent", B)).data.status, "sent");
 });
 
+test("stale pre-send claim without a reply can be reclaimed", async () => {
+  const { values, post, claim } = fixture();
+  await claim(A);
+  values.get("record").claim.expiresAt = Date.now() - 1;
+  const next = await claim(B);
+  assert.equal(next.data.outcome, "claimed");
+  assert.equal(next.data.state.status, "preparing");
+  assert.equal(next.data.state.reply, undefined);
+  assert.equal((await post("sent", A)).status, 409);
+  assert.equal((await post("sent", B)).data.status, "sent");
+});
+
 test("stale send is marked ambiguous and never authorized again", async () => {
   const { values, post, claim } = fixture();
   await claim(A);

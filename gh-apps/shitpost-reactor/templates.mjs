@@ -79,8 +79,10 @@ export function chooseMemeTemplate(seed = '') {
 }
 
 function memegenSegment(value) {
-  const text = String(value || '').trim();
-  if (!text) return '_';
+  const raw = String(value || '').trim();
+  if (!raw) return '_';
+  // Dot-only URL segments are normalized away; use visual equivalents.
+  const text = raw === '.' || raw === '..' ? raw.replaceAll('.', '．') : raw;
   // memegen has no escape for a literal '~', so swap it for a lookalike before
   // the '~x' escape sequences below are introduced.
   const escaped = text

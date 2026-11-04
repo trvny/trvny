@@ -14,6 +14,7 @@ import { handleMiniAppAutomationCancelRequest, handleMiniAppAutomationListReques
 import { miniAppHtmlResponse } from "./mini-app-ui";
 import { radioNowResponse } from "./radio";
 import { handleDocStudioSendRequest } from "./doc-studio";
+import { handleDocStudioPdfSendRequest } from "./doc-studio-pdf.ts";
 import { handleTelegramSecretaryUpdate } from "./secretary-runtime";
 import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
 import type { Env, QueueBatch, TelegramUpdate } from "./types";
@@ -55,6 +56,9 @@ export default {
     }
     if (url.pathname === "/mini-app/api/radio-now") {
       return radioNowResponse(request);
+    }
+    if (url.pathname === "/mini-app/api/documents/send-pdf") {
+      return handleDocStudioPdfSendRequest(request, env);
     }
     if (url.pathname === "/mini-app/api/documents/send") {
       return handleDocStudioSendRequest(request, env);

@@ -16,14 +16,17 @@ export async function sendTelegramDocument(
   env: Env,
   chatId: string,
   filename: string,
-  text: string,
-  format: "md" | "txt",
+  content: string | Uint8Array,
+  format: "md" | "txt" | "pdf",
 ): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) throw new DocumentSendError(503, false);
   const form = new FormData();
   form.set("chat_id", chatId);
-  form.set("document", new Blob([text], {
-    type: format === "md" ? "text/markdown; charset=utf-8" : "text/plain; charset=utf-8",
+  form.set("document", new Blob([
+    typeof content === "string" ? content : new Uint8Array(content),
+  ], {
+    type: format === "pdf" ? "application/pdf"
+      : format === "md" ? "text/markdown; charset=utf-8" : "text/plain; charset=utf-8",
   }), filename);
 
   let response: Response;

@@ -13,9 +13,12 @@ test("matches only exact safe phrases, never arbitrary user requests", () => {
     assert.equal(quickIntent(input), null);
   }
   assert.match(staticQuickReply("hello"), /tools/u);
+  assert.match(staticQuickReply("hello", "Hello!"), /Hey!/u);
+  assert.match(staticQuickReply("thanks", "Thank you"), /welcome/u);
 });
 
 test("public quips need no provider or model when the bank is empty", async () => {
+  let providerCalls = 0;
   const bank = new TelegramQuipBank({ storage: {
     get: () => Promise.resolve(),
     put: () => Promise.resolve(),
@@ -28,9 +31,13 @@ test("public quips need no provider or model when the bank is empty", async () =
       get: () => ({ fetch: (input, init) =>
         bank.fetch(input instanceof Request ? input : new Request(input, init)) }),
     },
-    KANAREK_COMPANION: { fetch: () => { throw Error("unexpected provider call"); } },
+    KANAREK_COMPANION: { fetch: () => {
+      providerCalls += 1;
+      throw Error("unexpected provider call");
+    } },
   };
   assert.ok(QUIP_PRESETS.includes(await quickQuip(env, false)));
+  assert.equal(providerCalls, 0);
 });
 
 test("failed owner generation returns retained bank text, not an error", async () => {

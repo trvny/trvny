@@ -5,10 +5,10 @@ export class PayloadTooLargeError extends Error {
   }
 }
 
-export async function readJsonWithLimit<T>(
+export async function readBytesWithLimit(
   request: Request,
   maxBytes: number,
-): Promise<T> {
+): Promise<Uint8Array> {
   const contentLength = request.headers.get("Content-Length");
   if (contentLength) {
     const declaredBytes = Number(contentLength);
@@ -47,5 +47,9 @@ export async function readJsonWithLimit<T>(
     offset += chunk.byteLength;
   }
 
-  return JSON.parse(new TextDecoder().decode(bytes)) as T;
+  return bytes;
+}
+
+export async function readJsonWithLimit<T>(request: Request, maxBytes: number): Promise<T> {
+  return JSON.parse(new TextDecoder().decode(await readBytesWithLimit(request, maxBytes))) as T;
 }

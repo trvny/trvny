@@ -40,7 +40,7 @@ export function docStudioReply(
   };
 }
 
-export function docStudioFilename(title: string, format: "md" | "txt"): string {
+export function docStudioFilename(title: string, format: "md" | "txt" | "pdf"): string {
   const base = title.normalize("NFKC")
     .replace(/[^\p{L}\p{N}._ -]/gu, "")
     .replace(/[.\s]+/gu, "-")
@@ -97,11 +97,28 @@ export async function handleDocStudioSendRequest(
     return json({ error: "document_too_large" }, 413);
   }
 
+  return deliverDocToOwner(env, {
+    filename: docStudioFilename(input.title, input.format),
+    format: input.format,
+    content: input.text,
+    requestId: input.requestId,
+  });
+}
+
+export async function deliverDocToOwner(
+  env: Env,
+  delivery: {
+    filename: string;
+    format: "md" | "txt" | "pdf";
+    content: string | Uint8Array;
+    requestId: string;
+  },
+): Promise<Response> {
   // The authenticated owner's private chat is the only possible destination.
   const chatId = env.OWNER_TELEGRAM_USER_ID!;
-  const filename = docStudioFilename(input.title, input.format);
+  const { filename, format, content, requestId } = delivery;
   const stub = env.TELEGRAM_DEDUP.get(env.TELEGRAM_DEDUP.idFromName(
-    "doc-send:" + chatId + ":" + input.requestId,
+    "doc-send:" + chatId + ":" + requestId,
   ));
   const token = crypto.randomUUID();
   try {
@@ -136,7 +153,7 @@ export async function handleDocStudioSendRequest(
   }
 
   try {
-    await sendTelegramDocument(env, chatId, filename, input.text, input.format);
+    await sendTelegramDocument(env, chatId, filename, content, format);
   } catch (error) {
     const definitive = error instanceof DocumentSendError && !error.ambiguous && !error.retryable;
     try {

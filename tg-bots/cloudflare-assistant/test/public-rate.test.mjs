@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { TelegramPublicRateGate } from "../src/public-rate.ts";
 
-function fixture() {
+function memoryState() {
   const values = new Map();
-  const gate = new TelegramPublicRateGate({ storage: {
-    get: async (key) => values.get(key),
-    put: async (key, value) => { values.set(key, value); },
-    deleteAll: async () => { values.clear(); },
-    setAlarm: async () => {},
-  } });
+  return { storage: {
+    get: (key) => Promise.resolve(values.get(key)),
+    put: (key, value) => { values.set(key, value); return Promise.resolve(); },
+    deleteAll: () => { values.clear(); return Promise.resolve(); },
+    setAlarm: () => Promise.resolve(),
+  } };
+}
+
+function fixture() {
+  const gate = new TelegramPublicRateGate(memoryState());
   return async (updateId, now) => {
     const response = await gate.fetch(new Request("https://rate/allow", {
       method: "POST", body: JSON.stringify({ updateId, now }),
@@ -32,10 +36,7 @@ test("public rate gate serializes per actor, suppresses bursts and resets window
 });
 
 test("public gate rejects malformed update identifiers", async () => {
-  const gate = new TelegramPublicRateGate({ storage: {
-    get: async () => undefined, put: async () => {},
-    deleteAll: async () => {}, setAlarm: async () => {},
-  } });
+  const gate = new TelegramPublicRateGate(memoryState());
   const response = await gate.fetch(new Request("https://rate/allow", {
     method: "POST", body: JSON.stringify({ updateId: -1, now: 100 }),
   }));

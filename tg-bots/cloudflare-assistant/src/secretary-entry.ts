@@ -13,6 +13,7 @@ import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest } from "./mi
 import { handleMiniAppAutomationCancelRequest, handleMiniAppAutomationListRequest } from "./mini-app-automations";
 import { miniAppHtmlResponse } from "./mini-app-ui";
 import { radioNowResponse } from "./radio";
+import { handleDocStudioSendRequest } from "./doc-studio";
 import { handleTelegramSecretaryUpdate } from "./secretary-runtime";
 import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
 import type { Env, QueueBatch, TelegramUpdate } from "./types";
@@ -54,6 +55,9 @@ export default {
     }
     if (url.pathname === "/mini-app/api/radio-now") {
       return radioNowResponse(request);
+    }
+    if (url.pathname === "/mini-app/api/documents/send") {
+      return handleDocStudioSendRequest(request, env);
     }
     if (url.pathname === "/mini-app/api/status") {
       return handleMiniAppStatusRequest(request, env);

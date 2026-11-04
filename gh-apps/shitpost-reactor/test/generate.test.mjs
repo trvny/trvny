@@ -555,7 +555,7 @@ function feedseekFeed(items) {
 test('Polish scandal and municipal wording is treated as live public-affairs material', () => {
   const date = new Date(newsNow - 1000).toISOString();
   const items = parseFeedseekJson(feedseekFeed([
-    feedseekItem('Afera korupcyjna: burdel i łapówki w urzędzie', date),
+    feedseekItem('Afera korupcyjna: burdel i łapówki w polskim urzędzie', date),
     feedseekItem('Złodziejstwo i przekręt w gminie, radni odpowiadają', date),
   ]), { now: newsNow, politicsOnly: true });
   assert.equal(items.length, 2);

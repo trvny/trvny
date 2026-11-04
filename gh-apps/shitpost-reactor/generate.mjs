@@ -441,10 +441,11 @@ export async function main() {
     ? `${process.env.GITHUB_RUN_ID}.${process.env.GITHUB_RUN_ATTEMPT || '1'}`
     : new Date().toISOString().slice(0, 10);
   const topicLane = resolveTopicLane(topic, process.env.GITHUB_RUN_NUMBER || '');
+  const onDiagnostic = (event) => process.stderr.write('reactor_feed:' + JSON.stringify(event) + '\n');
   const newsReference = ['news', 'politics', 'local', 'culture'].includes(topicLane)
-    ? await loadNewsForLane(topicLane, { seed }) : null;
+    ? await loadNewsForLane(topicLane, { seed, onDiagnostic }) : null;
   const shitpostReference = topicLane === 'shitpost'
-    ? await loadNewsForLane('shitpost', { seed }) : null;
+    ? await loadNewsForLane('shitpost', { seed, onDiagnostic }) : null;
   const effectiveTopic = topic.trim() || (newsReference
     ? '根据下方最新标题写原创讽刺，不要复述标题'
     : shitpostReference ? '根据下方社区话题延伸原创荒诞笑点，不照抄'

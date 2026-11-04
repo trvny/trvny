@@ -25,6 +25,7 @@ import {
 import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { routeOwnerCommand, type OwnerCommand } from "./owner-command-router";
+import { radioReply } from "./radio";
 import {
   durableMemoryContext,
   durableMemoryStatus,
@@ -934,6 +935,9 @@ async function handleOwnerCommand(
         replyToMessageId: message.message_id,
         text: "Kontekst rozmowy wyczyszczony.",
       };
+
+    case "radio":
+      return radioReply(env, message.chat.id, message.message_id);
 
     case "draft-usage":
       return {

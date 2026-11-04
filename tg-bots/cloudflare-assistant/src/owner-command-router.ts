@@ -1,5 +1,6 @@
 import {
   parseContactCommand,
+  isRadioRequest,
   parseDiceCommand,
   parseLocationCommand,
   parsePollCommand,
@@ -40,6 +41,7 @@ export type OwnerCommand =
   | { kind: "tools"; id: string }
   | { kind: "reset" }
   | { kind: "draft-usage" }
+  | { kind: "radio" }
   | { kind: "status" }
   | { kind: "legion" }
   | { kind: "wake"; request: WakeRequest | null }
@@ -98,6 +100,7 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
     : undefined),
   textRoute("reset", (text) => text === "/reset" ? { kind: "reset" } : undefined),
   textRoute("draft-usage", (text) => text === "/draft" ? { kind: "draft-usage" } : undefined),
+  textRoute("radio", (text) => isRadioRequest(text) ? { kind: "radio" } : undefined),
   textRoute("status", (text) => text === "/status" ? { kind: "status" } : undefined),
   textRoute("legion", (text) => text === "/legion" ? { kind: "legion" } : undefined),
   textRoute("wake", (text) => /^\/wake(?:\s|$)/iu.test(text) ? { kind: "wake", request: parseWakeCommand(text) } : undefined),

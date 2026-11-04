@@ -30,6 +30,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "recall", usage: "/recall <pytanie>", description: "Przeszukaj pamięć długoterminową" },
   { command: "memory_status", usage: "/memory_status", description: "Sprawdź stan pamięci Engram" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
+  { command: "radio", usage: "/radio", description: "Play live radio in Mini App" },
   { command: "task", usage: "/task <repo> [--net <profil>] <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "task_status", usage: "/task_status <id>", description: "Odzyskaj stan i wynik zadania Legiona" },
   { command: "task_cancel", usage: "/task_cancel <id>", description: "Anuluj zadanie Legiona po ID" },
@@ -43,6 +44,14 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "contact", usage: "/contact telefon | imię | nazwisko", description: "Wyślij natywny kontakt" },
   { command: "reset", usage: "/reset", description: "Wyczyść krótki kontekst rozmowy" },
 ];
+
+export function isRadioRequest(text: string): boolean {
+  const normalized = text.trim().toLowerCase().replace(/\s+/gu, " ");
+  return [
+    "/radio", "/radio@trvny_bot", "dawaj muze", "dawaj muzę",
+    "dawaj muzyke", "dawaj muzykę", "puść radio", "pusc radio",
+  ].includes(normalized);
+}
 
 export function botCommandPayload() {
   return BOTEK_COMMANDS

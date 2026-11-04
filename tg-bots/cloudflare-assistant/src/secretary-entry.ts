@@ -12,6 +12,7 @@ import worker, {
 import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest } from "./mini-app";
 import { handleMiniAppAutomationCancelRequest, handleMiniAppAutomationListRequest } from "./mini-app-automations";
 import { miniAppHtmlResponse } from "./mini-app-ui";
+import { radioNowResponse } from "./radio";
 import { handleTelegramSecretaryUpdate } from "./secretary-runtime";
 import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
 import type { Env, QueueBatch, TelegramUpdate } from "./types";
@@ -50,6 +51,9 @@ export default {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/mini-app") {
       return miniAppHtmlResponse();
+    }
+    if (url.pathname === "/mini-app/api/radio-now") {
+      return radioNowResponse(request);
     }
     if (url.pathname === "/mini-app/api/status") {
       return handleMiniAppStatusRequest(request, env);

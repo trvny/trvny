@@ -2330,10 +2330,20 @@ function dedupStub(env: Env, updateId: number) {
   return env.TELEGRAM_DEDUP.get(env.TELEGRAM_DEDUP.idFromName(String(updateId)));
 }
 
-async function dedupState(env: Env, updateId: number): Promise<TelegramUpdateRecord | null> {
-  const response = await dedupStub(env, updateId).fetch("https://dedup/state");
-  if (!response.ok) throw new Error(`dedup state read failed: HTTP ${response.status}`);
-  return (await response.json()) as TelegramUpdateRecord | null;
+type DedupClaimOutcome = "claimed" | "busy" | "terminal" | "uncertain";
+
+async function dedupClaim(
+  env: Env,
+  updateId: number,
+  token: string,
+): Promise<{ outcome: DedupClaimOutcome; state: TelegramUpdateRecord }> {
+  const response = await dedupStub(env, updateId).fetch("https://dedup/claim", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!response.ok) throw new Error(`dedup claim failed: HTTP ${response.status}`);
+  return (await response.json()) as { outcome: DedupClaimOutcome; state: TelegramUpdateRecord };
 }
 
 async function generationStopRequested(env: Env, draftId: number): Promise<boolean> {
@@ -2369,14 +2379,18 @@ function ownerGenerationStop(env: Env, update: TelegramUpdate): number | null {
 async function dedupTransition(
   env: Env,
   updateId: number,
-  action: "prepare" | "sending" | "retry" | "sent" | "failed" | "ambiguous",
+  action: "prepare" | "sending" | "retry" | "release" | "sent" | "failed" | "ambiguous",
+  token: string,
   reply?: TelegramReply,
   detail?: string,
 ): Promise<TelegramUpdateRecord> {
   const response = await dedupStub(env, updateId).fetch(`https://dedup/${action}`, {
     method: "POST",
-    headers: detail ? { "x-detail": detail.slice(0, 240), "content-type": "application/json" }
-      : { "content-type": "application/json" },
+    headers: {
+      "x-claim-token": token,
+      "content-type": "application/json",
+      ...(detail ? { "x-detail": detail.slice(0, 240) } : {}),
+    },
     body: action === "prepare" ? JSON.stringify({ reply }) : "{}",
   });
   if (!response.ok) throw new Error(`dedup ${action} failed: HTTP ${response.status}`);
@@ -2398,9 +2412,7 @@ async function deadLetter(
   await env.TELEGRAM_DLQ.send(record);
 }
 
-function terminalDedup(state: TelegramUpdateRecord | null): boolean {
-  return Boolean(state && (state.status === "sent" || state.status === "failed" || state.status === "ambiguous"));
-}
+
 
 function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; messageId: number } | null {
   const message = update.message;
@@ -2434,46 +2446,61 @@ async function processQueuedTelegram(
   message: QueueBatch<TelegramUpdate>["messages"][number],
 ): Promise<void> {
   const update = message.body;
-  let state = await dedupState(env, update.update_id);
-
-  if (terminalDedup(state)) {
+  const claimToken = crypto.randomUUID();
+  const claim = await dedupClaim(env, update.update_id, claimToken);
+  if (claim.outcome === "terminal") {
     message.ack();
     return;
   }
-
-  if (state?.status === "sending") {
-    await dedupTransition(env, update.update_id, "ambiguous", undefined, "recovered from interrupted send window");
+  if (claim.outcome === "busy") {
+    message.retry({ delaySeconds: 30 });
+    return;
+  }
+  if (claim.outcome === "uncertain") {
     await deadLetter(env, update, "ambiguous_delivery", "previous attempt stopped while sending");
-    const reaction = reactionTarget(env, update);
-    if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "🤨");
+    const staleReaction = reactionTarget(env, update);
+    if (staleReaction) await setTelegramMessageReaction(env, staleReaction.chatId, staleReaction.messageId, "🤨");
     message.ack();
     return;
-  }
-
-  if (!state && update.callback_query?.id) {
-    await answerTelegramCallbackQuery(env, update.callback_query.id);
   }
 
   const reaction = reactionTarget(env, update);
-  if (reaction) {
-    await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👀");
-  }
-
-  let reply = state?.reply;
-  if (!reply) {
-    reply = await buildTelegramReply(env, update) ?? undefined;
+  let reply = claim.state.reply;
+  try {
+    if (!claim.state.reply && update.callback_query?.id) {
+      await answerTelegramCallbackQuery(env, update.callback_query.id);
+    }
+    if (reaction) {
+      await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👀");
+    }
     if (!reply) {
-      await dedupTransition(env, update.update_id, "sent", undefined, "ignored update");
-      message.ack();
-      return;
+      reply = await buildTelegramReply(env, update) ?? undefined;
+      if (!reply) {
+        await dedupTransition(env, update.update_id, "sent", claimToken, undefined, "ignored update");
+        message.ack();
+        return;
+      }
+      if (update.message) {
+        reply.messageThreadId ??= telegramMessageThreadId(update.message);
+      }
+      const prepared = await dedupTransition(env, update.update_id, "prepare", claimToken, reply);
+      reply = prepared.reply;
     }
-    if (update.message) {
-      reply.messageThreadId ??= telegramMessageThreadId(update.message);
+    await dedupTransition(env, update.update_id, "sending", claimToken);
+  } catch (error) {
+    // A worker that never began Telegram delivery can release its claim for the next retry.
+    // If the sending transition committed but its response failed, release is rejected.
+    try {
+      await dedupTransition(env, update.update_id, "release", claimToken);
+    } catch (releaseError) {
+      console.warn("Telegram pre-send claim release unavailable", releaseError);
     }
-    state = await dedupTransition(env, update.update_id, "prepare", reply);
+    console.warn("Telegram pre-send preparation failed", error);
+    message.retry({ delaySeconds: DEFAULT_RETRY_DELAY_SECONDS });
+    return;
   }
 
-  await dedupTransition(env, update.update_id, "sending");
+  if (!reply) throw new Error("Telegram send phase has no prepared reply");
   try {
     if (reply.editMessageId !== undefined) {
       if (reply.richHtml) {
@@ -2564,20 +2591,20 @@ async function processQueuedTelegram(
   } catch (error) {
     if (error instanceof TelegramSendError) {
       if (error.ambiguous) {
-        await dedupTransition(env, update.update_id, "ambiguous", undefined, error.message);
+        await dedupTransition(env, update.update_id, "ambiguous", claimToken, undefined, error.message);
         await deadLetter(env, update, "ambiguous_delivery", error.message);
         if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "🤨");
         message.ack();
         return;
       }
       if (error.retryable) {
-        await dedupTransition(env, update.update_id, "retry", undefined, error.message);
+        await dedupTransition(env, update.update_id, "retry", claimToken, undefined, error.message);
         message.retry({
           delaySeconds: error.retryAfterSeconds ?? DEFAULT_RETRY_DELAY_SECONDS,
         });
         return;
       }
-      await dedupTransition(env, update.update_id, "failed", undefined, error.message);
+      await dedupTransition(env, update.update_id, "failed", claimToken, undefined, error.message);
       await deadLetter(env, update, "telegram_rejected", error.message);
       if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👎");
       message.ack();
@@ -2585,24 +2612,27 @@ async function processQueuedTelegram(
     }
 
     if (error instanceof TelegramConfigurationError) {
-      await dedupTransition(env, update.update_id, "failed", undefined, error.message);
+      await dedupTransition(env, update.update_id, "failed", claimToken, undefined, error.message);
       await deadLetter(env, update, "configuration_error", error.message);
       if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👎");
       message.ack();
       return;
     }
 
-    await dedupTransition(env, update.update_id, "retry", undefined, String(error));
-    message.retry({ delaySeconds: DEFAULT_RETRY_DELAY_SECONDS });
+    // Unknown errors may happen after Telegram accepted a send; fail closed.
+    await dedupTransition(env, update.update_id, "ambiguous", claimToken, undefined, String(error));
+    await deadLetter(env, update, "ambiguous_delivery", String(error));
+    if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "🤨");
+    message.ack();
     return;
   }
 
   try {
-    await dedupTransition(env, update.update_id, "sent");
+    await dedupTransition(env, update.update_id, "sent", claimToken);
   } catch (error) {
     const detail = `Telegram accepted the reply but the sent-state commit failed: ${String(error)}`;
     try {
-      await dedupTransition(env, update.update_id, "ambiguous", undefined, detail);
+      await dedupTransition(env, update.update_id, "ambiguous", claimToken, undefined, detail);
       await deadLetter(env, update, "sent_state_commit_failed", detail);
       if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "🤨");
     } catch (recoveryError) {

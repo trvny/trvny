@@ -105,6 +105,7 @@ test('home page expands three latest mixed publications to ten without duplicati
     id: `https://shitpost.trfny.com/posts/gh-1-${index + 1}`,
     url: `https://shitpost-reactor.travny.workers.dev/posts/gh-1-${index + 1}`,
     summary: `Shit ${index + 1} <meme>`,
+    title: `Policy topic ${index + 1}`,
     date_published: new Date(Date.UTC(2026, 10, 2, 12, index + 1)).toISOString(),
   }));
   globalThis.fetch = () => Promise.resolve(Response.json({ items: reactor }));
@@ -139,6 +140,8 @@ test('home page expands three latest mixed publications to ten without duplicati
     assert.match(rest, /POKAŻ KOLEJNE 7/);
     assert.match(rest, /▲ ZWIŃ/);
     assert.ok(initial.includes('Shit 7 &lt;meme&gt;'));
+    assert.ok(initial.includes('Policy topic 7'));
+    assert.doesNotMatch(listing, /SHITPOST REACTOR|· SHITPOST|SHITPOST OF THE DAY/);
     assert.ok(initial.includes('CoCzyDziennik edition'));
     assert.ok(initial.includes('Article 7'));
     assert.ok(listing.indexOf('Shit 7 &lt;meme&gt;') < listing.indexOf('CoCzyDziennik edition'));

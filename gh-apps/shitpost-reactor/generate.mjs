@@ -146,8 +146,8 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
   ].join(' ');
 
   const outputRule = mode === 'meme'
-    ? `Zrób prosty klasyczny meme macro na gotowym template "${template?.name || template?.id || 'meme'}" (id: ${template?.id || 'unknown'}). Napisz tylko tekst nakładany na obraz. Zwróć wyłącznie JSON: {"kind":"meme","template":"${template?.id || 'unknown'}","top_text":"...","bottom_text":"..."}. Jedna z dwóch linii może być pusta, ale nie obie.`
-    : 'Zwróć wyłącznie JSON: {"kind":"text","text":"..."}. Pole text ma być całym gotowym shitpostem i niczym więcej.';
+    ? `Zrób prosty klasyczny meme macro na gotowym template "${template?.name || template?.id || 'meme'}" (id: ${template?.id || 'unknown'}). Napisz tylko tekst nakładany na obraz. Zwróć wyłącznie JSON: {"kind":"meme","title":"...","template":"${template?.id || 'unknown'}","top_text":"...","bottom_text":"..."}. Title: zwięzły nagłówek redakcyjny, związany z tematem i treścią, bez słów shitpost/mem/żart, bez sugerowania niepotwierdzonych faktów. Jedna z dwóch linii może być pusta, ale nie obie.`
+    : 'Zwróć wyłącznie JSON: {"kind":"text","title":"...","text":"..."}. Title: zwięzły nagłówek redakcyjny (maks. 90 znaków) zgodny z tematem i treścią, bez słów shitpost/mem/żart i bez udawania potwierdzonego newsa. Pole text ma być całym gotowym tekstem, bez tytułu powtórzonego w treści.';
 
   const openingRule = limerickLanguage
     ? [
@@ -270,9 +270,11 @@ export function validateContent(value, { mode, templateId } = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('content_not_object');
   }
+  const title = typeof value.title === 'string'
+    ? value.title.replace(/\s+/gu, ' ').trim().slice(0, 120) : '';
   if (value.kind === 'text') {
     if (mode && mode !== 'text') throw new Error('content_unexpected_kind');
-    return { kind: 'text', text: boundedString(value.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS) };
+    return { kind: 'text', ...(title ? { title } : {}), text: boundedString(value.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS) };
   }
   if (value.kind === 'meme') {
     if (mode && mode !== 'meme') throw new Error('content_unexpected_kind');
@@ -281,7 +283,7 @@ export function validateContent(value, { mode, templateId } = {}) {
     const topText = boundedString(value.top_text, 'top_text', SHITPOST_MEME_LINE_HARD_MAX_CHARS, { allowEmpty: true });
     const bottomText = boundedString(value.bottom_text, 'bottom_text', SHITPOST_MEME_LINE_HARD_MAX_CHARS, { allowEmpty: true });
     if (!topText && !bottomText) throw new Error('content_empty_meme_text');
-    return { kind: 'meme', template, top_text: topText, bottom_text: bottomText };
+    return { kind: 'meme', ...(title ? { title } : {}), template, top_text: topText, bottom_text: bottomText };
   }
   throw new Error('content_invalid_kind');
 }
@@ -510,7 +512,7 @@ export function renderMarkdown(record) {
     : `> ${content.text.replaceAll('\n', ' ')}`;
 
   return [
-    '# Shitpost Reactor',
+    `# ${content.title || 'Biuletyn TRAVNY'}`,
     '',
     body,
     '',

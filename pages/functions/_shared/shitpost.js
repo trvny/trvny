@@ -33,6 +33,11 @@ function normalizeShitpostItem(item) {
 
   const caption = String(item.summary || item.title || "").trim();
   if (!caption) return null;
+  const title = String(item.title || caption.split(/\r?\n/u)[0]).replace(/\s+/gu, " ").trim().slice(0, 120);
+  const lines = caption.split(/\r?\n/u);
+  const first = lines[0].replace(/\s+/gu, " ").trim();
+  const firstTitle = first.length <= 120 ? first : `${first.slice(0, 117)}...`;
+  const excerpt = firstTitle === title ? lines.slice(1).join("\n").trim() : caption;
 
   const published = parseTimestamp(item.date_published);
   const modified = parseTimestamp(item.date_modified);
@@ -41,7 +46,7 @@ function normalizeShitpostItem(item) {
 
   const tags = Array.isArray(item.tags)
     ? item.tags
-      .filter((tag) => typeof tag === "string" && tag.trim())
+      .filter((tag) => typeof tag === "string" && tag.trim() && !/^(?:shitpost|text|meme)$/iu.test(tag.trim()))
       .slice(0, 4)
       .map((tag) => tag.trim())
     : [];
@@ -50,6 +55,8 @@ function normalizeShitpostItem(item) {
     id,
     url: url.toString(),
     caption,
+    title,
+    excerpt,
     published,
     updated,
     date: (published || modified).slice(0, 10),

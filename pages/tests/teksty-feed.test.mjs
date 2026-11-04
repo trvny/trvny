@@ -7,16 +7,18 @@ import { onRequestGet, onRequestHead } from "../functions/teksty/feed.xml.js";
 const origin = "https://shitpost-reactor.travny.workers.dev";
 const legacy = "https://shitpost.trfny.com";
 const first = {
-  id: legacy + "/posts/gh-12-34",
-  url: origin + "/posts/gh-12-34",
+  id: `${legacy}/posts/gh-12-34`,
+  url: `${origin}/posts/gh-12-34`,
   summary: "First post & <payload>",
+  title: "Infrastructure <and> detail",
   date_published: "2026-10-07T08:00:00Z",
   tags: ["text"],
 };
 const second = {
-  id: legacy + "/posts/gh-56-78",
-  url: origin + "/posts/gh-56-78",
+  id: `${legacy}/posts/gh-56-78`,
+  url: `${origin}/posts/gh-56-78`,
   summary: "Newest post",
+  title: "A current observation",
   date_published: "2026-10-09T08:00:00Z",
   tags: ["meme"],
 };
@@ -46,6 +48,8 @@ test("shitpost items are validated, de-duplicated and chronologically sorted", a
   ]));
   assert.equal(posts.length, 2);
   assert.equal(posts[0].url, second.url);
+  assert.equal(posts[0].title, "A current observation");
+  assert.deepEqual(posts[0].tags, []);
   assert.equal(posts[1].url, first.url);
   assert.equal((await getLatestShitpost(fakeFetch([first, second]))).url, second.url);
 });
@@ -59,6 +63,10 @@ test("merged Atom feed escapes source content and keeps stable original links", 
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /application\/atom\+xml/);
     assert.match(xml, /<title>Alpaca &amp; crab<\/title>/);
+    assert.match(xml, /<title>Infrastructure &lt;and&gt; detail<\/title>/);
+    assert.match(xml, /<title>A current observation<\/title>/);
+    assert.match(xml, /<category term="Komentarz"\/>/);
+    assert.doesNotMatch(xml, /Shitpost Reactor|<category term="Shitpost"/u);
     assert.match(xml, /First post &amp; &lt;payload&gt;/);
     assert.match(xml, /Slang &lt;censored&gt;/);
     assert.match(xml, /<entry xml:lang="en">/);
@@ -195,4 +203,12 @@ test("undated Reactor entries use a stable Atom updated fallback, not a fake pub
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("multiline fallback headlines are omitted from previews", async () => {
+  const items = await getShitposts(fakeFetch([{
+    ...first, title: undefined, summary: "First line\nSecond line\nThird line",
+  }]));
+  assert.equal(items[0].title, "First line");
+  assert.equal(items[0].excerpt, "Second line\nThird line");
 });

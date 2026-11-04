@@ -59,12 +59,12 @@ function renderTextCard(post, index, firstPage = 501) {
 
 function renderShitpostTextCard(post, index) {
   const tags = post.tags.slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
-  const meta = post.date ? `${escapeHtml(post.date)} · SHITPOST` : "SHITPOST";
-  const caption = escapeHtml(post.caption).replaceAll("\n", "<br>");
+  const meta = post.date ? `${escapeHtml(post.date)} · KOMENTARZ` : "KOMENTARZ";
+  const caption = escapeHtml(post.excerpt).replaceAll("\n", "<br>");
   return `<a class="textitem" href="${escapeHtml(post.url)}">
     <div class="textmeta"><b>P${501 + index}</b>${meta}</div>
-    <h3>SHITPOST REACTOR</h3>
-    <p>${caption}</p>
+    <h3>${escapeHtml(post.title)}</h3>
+    ${post.excerpt ? `<p>${caption}</p>` : ""}
     <div class="texttags">${tags}</div>
   </a>`;
 }

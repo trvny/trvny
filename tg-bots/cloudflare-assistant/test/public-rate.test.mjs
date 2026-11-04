@@ -40,9 +40,13 @@ test("accepted retries survive newer commands without consuming quota", async ()
   assert.equal(await send(42, 0), true);
   assert.equal(await send(43, 1_500), true);
   assert.equal(await send(42, 1_600), true);
-  assert.equal(await send(44, 1_700), false);
+  for (let id = 44; id <= 53; id++) {
+    assert.equal(await send(id, (id - 42) * 1_500), true);
+  }
+  // Twelve unique grants fill the window; the replay did not use a thirteenth.
+  assert.equal(await send(54, 18_500), false);
   assert.equal(await send(42, 90_000), true);
-  assert.equal(await send(45, 90_000), true);
+  assert.equal(await send(55, 90_000), true);
 });
 
 test("public gate rejects malformed update identifiers", async () => {

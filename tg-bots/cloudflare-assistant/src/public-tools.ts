@@ -6,7 +6,8 @@ export type PublicAction =
   | { kind: "start" | "help" | "skill" }
   | { kind: "tools"; section: string }
   | { kind: "dice"; emoji: TelegramDiceEmoji | null }
-  | { kind: "ping"; nonce: string | null };
+  | { kind: "ping"; nonce: string | null }
+  | { kind: "quip" };
 
 const BOT_USERNAME = "trvny_bot";
 const PUBLIC_ACTIONS = new Set(BOTEK_COMMANDS.filter((command) =>
@@ -32,6 +33,7 @@ export function parsePublicAction(message: TelegramMessage): PublicAction | null
     case "start": return payload ? null : { kind: "start" };
     case "help": return payload ? null : { kind: "help" };
     case "skill": return payload ? null : { kind: "skill" };
+    case "quip": return payload ? null : { kind: "quip" };
     case "tools": return { kind: "tools", section: payload.toLowerCase().slice(0, 32) };
     case "ping": return {
       kind: "ping",
@@ -110,6 +112,9 @@ export function publicReply(message: TelegramMessage, action: PublicAction, skil
         ? "Użycie: /ping [nonce: 1-32 znaków A-Z a-z 0-9 _ -]"
         : `BOTEK/1 PONG${action.nonce ? ` ${action.nonce}` : ""}`,
     };
+  }
+  if (action.kind === "quip") {
+    return { ...base, text: "Użyj /quip, żeby wylosować przygaduszkę." };
   }
   if (action.kind === "dice") {
     return action.emoji

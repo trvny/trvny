@@ -7,6 +7,7 @@ import worker, {
   TelegramUpdateDedup,
   TelegramWatchStore,
   TelegramPublicRateGate,
+  TelegramQuipBank,
 } from "./index";
 import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest } from "./mini-app";
 import { handleMiniAppAutomationCancelRequest, handleMiniAppAutomationListRequest } from "./mini-app-automations";
@@ -24,6 +25,7 @@ export {
   TelegramUpdateDedup,
   TelegramWatchStore,
   TelegramPublicRateGate,
+  TelegramQuipBank,
 };
 
 type SecretaryUpdate = TelegramUpdate & {

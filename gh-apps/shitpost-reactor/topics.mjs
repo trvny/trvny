@@ -192,7 +192,7 @@ async function readBoundedText(response) {
   }
 }
 
-async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
+async function loadFeed(feed, { now, fetchImpl, politicsOnly, onDiagnostic }) {
   try {
     const isJson = feed.url.endsWith('.json');
     const response = await fetchImpl(feed.url, {
@@ -202,20 +202,31 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
       },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    if (!response.ok || Number(response.headers.get('content-length') || '0') > MAX_FEED_BYTES) return [];
+    if (!response.ok) {
+      onDiagnostic?.({ event: 'feed_http', source: feed.name, status: response.status });
+      return [];
+    }
+    if (Number(response.headers.get('content-length') || '0') > MAX_FEED_BYTES) {
+      onDiagnostic?.({ event: 'feed_oversize', source: feed.name });
+      return [];
+    }
     const body = await readBoundedText(response);
-    if (body === null) return [];
+    if (body === null) {
+      onDiagnostic?.({ event: 'feed_oversize', source: feed.name });
+      return [];
+    }
     const items = isJson
       ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag, tags: feed.tags, allowedHosts: feed.hosts })
       : parseNewsRss(body, { now, politicsOnly, allowedHosts: feed.hosts });
+    if (!items.length) onDiagnostic?.({ event: 'feed_no_fresh_items', source: feed.name });
     return items.slice(0, 30).map((item) => ({ ...item, source: feed.name }));
-  } catch {
-    // Optional news input; keep generation alive.
+  } catch (error) {
+    onDiagnostic?.({ event: 'feed_failed', source: feed.name, reason: error?.name || 'unknown' });
     return [];
   }
 }
 
-export async function loadNewsForLane(lane, { seed = '', now = Date.now(), fetchImpl = fetch } = {}) {
+export async function loadNewsForLane(lane, { seed = '', now = Date.now(), fetchImpl = fetch, onDiagnostic = null } = {}) {
   const feedPools = {
     news: [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news],
     politics: [...FEEDSEEK_FEEDS.politics, ...POLISH_RSS_FEEDS],
@@ -226,11 +237,14 @@ export async function loadNewsForLane(lane, { seed = '', now = Date.now(), fetch
   const feeds = feedPools[lane];
   if (!feeds) return null;
   const batches = await Promise.all(feeds.map((feed) => loadFeed(feed, {
-    now, fetchImpl, politicsOnly: lane === 'politics',
+    now, fetchImpl, politicsOnly: lane === 'politics', onDiagnostic,
   })));
   // Sample publisher first, then story: busy feeds cannot drown out small ones.
   const available = batches.filter((batch) => batch.length);
-  if (!available.length) return null;
+  if (!available.length) {
+    onDiagnostic?.({ event: 'lane_no_usable_sources', lane, sources: feeds.length });
+    return null;
+  }
   const batch = available[hashIndex(lane + ':source:' + seed, available.length)];
   return batch[hashIndex(lane + ':entry:' + seed, Math.min(15, batch.length))];
 }

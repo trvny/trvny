@@ -101,12 +101,26 @@ function memegenSegment(value) {
   return encodeURIComponent(escaped);
 }
 
+// Bound URL segments without dropping an otherwise useful post.
+export function fitMemeCaption(value, keepEnd = false) {
+  const text = String(value || '').trim();
+  if (memegenSegment(text).length <= 190) return text;
+  let fitted = '';
+  const chars = [...text];
+  if (keepEnd) chars.reverse();
+  for (const char of chars) {
+    const candidate = keepEnd ? char + fitted : fitted + char;
+    if (memegenSegment(keepEnd ? '…' + candidate : candidate + '…').length > 190) break;
+    fitted = candidate;
+  }
+  return keepEnd ? '…' + fitted.trimStart() : fitted.trimEnd() + '…';
+}
+
 export function memeImageUrl(templateId, topText = '', bottomText = '', look = {}) {
   const template = getMemeTemplate(templateId);
   if (!template) throw new Error('invalid_meme_template');
-  const top = memegenSegment(topText);
-  const bottom = memegenSegment(bottomText);
-  if (top.length > 190 || bottom.length > 190) throw new Error('meme_caption_url_too_long');
+  const top = memegenSegment(fitMemeCaption(topText));
+  const bottom = memegenSegment(fitMemeCaption(bottomText, true));
   const url = new URL(`https://api.memegen.link/images/${template.id}/${top}/${bottom}.webp`);
   const options = normalizeMemeLook(look);
   for (const [key, value] of Object.entries(options)) url.searchParams.set(key, value);

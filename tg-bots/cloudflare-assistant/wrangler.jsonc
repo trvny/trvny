@@ -85,6 +85,10 @@
       {
         "name": "TELEGRAM_PUBLIC_GATE",
         "class_name": "TelegramPublicRateGate"
+      },
+      {
+        "name": "TELEGRAM_QUIP_BANK",
+        "class_name": "TelegramQuipBank"
       }
     ]
   },
@@ -120,6 +124,10 @@
     {
       "tag": "v8",
       "new_sqlite_classes": ["TelegramPublicRateGate"]
+    },
+    {
+      "tag": "v9",
+      "new_sqlite_classes": ["TelegramQuipBank"]
     }
   ],
   "vars": {

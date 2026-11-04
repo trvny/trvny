@@ -32,7 +32,7 @@ test("renders Bench launch tiles through Telegram openLink", async () => {
   assert.match(html, /https:\/\/codebench\.trfny\.com/u);
   assert.match(html, /https:\/\/streambench\.travny\.workers\.dev/u);
   assert.match(html, /data-radio-open/u);
-  assert.match(html, /\/mini-app\/api\/radio-now/u);
+  assert.match(html, /https:\/\/travny\.pages\.dev\/api\/radio-now/u);
   assert.match(html, /https:\/\/stream\.radioparadise\.com\/aac-320/u);
   assert.match(html, /https:\/\/docbench\.travny\.workers\.dev/u);
   assert.match(html, /data-tool-url/u);

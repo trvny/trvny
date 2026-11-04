@@ -29,7 +29,7 @@ export function reusableQuip(value: unknown): string | null {
   if (text.length < MIN_CHARS || text.length > MAX_CHARS) return null;
   const forbidden = ["@", "<", ">", "[", "]", "{", "}", "`"];
   if (/\p{N}/u.test(text) ||
-      /(?<![.!?])\s\p{Lu}\p{Ll}{2,}/u.test(text) ||
+      /(?<![.!?:;\-–—])\s\p{Lu}\p{Ll}{2,}/u.test(text) ||
       forbidden.some((char) => text.includes(char)) ||
       /(?:https?:\/\/|www\.|\b(?:dzi[sś]|dzisiaj|jutro|wczoraj|obecnie|aktualnie|właśnie|najnowsz\w*|today|tomorrow|yesterday|currently|latest)\b)/iu.test(text) ||
       /(?:\b(?:chat_id|token|password|apikey|secret)\b|\/\w{2,})/iu.test(text)) return null;

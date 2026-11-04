@@ -2346,6 +2346,12 @@ async function dedupClaim(
   return (await response.json()) as { outcome: DedupClaimOutcome; state: TelegramUpdateRecord };
 }
 
+async function dedupState(env: Env, updateId: number): Promise<TelegramUpdateRecord | null> {
+  const response = await dedupStub(env, updateId).fetch("https://dedup/state");
+  if (!response.ok) throw new Error(`dedup state read failed: HTTP ${response.status}`);
+  return (await response.json()) as TelegramUpdateRecord | null;
+}
+
 async function generationStopRequested(env: Env, draftId: number): Promise<boolean> {
   try {
     const response = await dedupStub(env, draftId).fetch("https://dedup/stop-state");
@@ -2379,7 +2385,7 @@ function ownerGenerationStop(env: Env, update: TelegramUpdate): number | null {
 async function dedupTransition(
   env: Env,
   updateId: number,
-  action: "prepare" | "sending" | "retry" | "release" | "sent" | "failed" | "ambiguous",
+  action: "prepare" | "sending" | "renew" | "retry" | "release" | "sent" | "failed" | "ambiguous",
   token: string,
   reply?: TelegramReply,
   detail?: string,
@@ -2395,6 +2401,36 @@ async function dedupTransition(
   });
   if (!response.ok) throw new Error(`dedup ${action} failed: HTTP ${response.status}`);
   return (await response.json()) as TelegramUpdateRecord;
+}
+
+async function authorizeTelegramSend(env: Env, updateId: number, token: string): Promise<void> {
+  try {
+    await dedupTransition(env, updateId, "sending", token);
+  } catch (error) {
+    // A lost Durable Object response does not mean the write was lost.
+    const current = await dedupState(env, updateId);
+    if (current?.claim?.token !== token || current.claim.expiresAt <= Date.now()) throw error;
+    if (current.status === "sending") return;
+    if (current.status === "prepared") {
+      await dedupTransition(env, updateId, "sending", token);
+      return;
+    }
+    throw error;
+  }
+}
+
+function withDedupRenewal(
+  env: Env,
+  updateId: number,
+  token: string,
+  work: () => Promise<void>,
+): Promise<void> {
+  const timer = setInterval(() => {
+    void dedupTransition(env, updateId, "renew", token).catch((error) => {
+      console.warn("Telegram claim renewal failed", error);
+    });
+  }, 30_000);
+  return work().finally(() => clearInterval(timer));
 }
 
 async function deadLetter(
@@ -2465,10 +2501,21 @@ async function processQueuedTelegram(
     return;
   }
 
+  return withDedupRenewal(env, update.update_id, claimToken, () =>
+    processClaimedTelegram(env, message, claimToken, claim.state));
+}
+
+async function processClaimedTelegram(
+  env: Env,
+  message: QueueBatch<TelegramUpdate>["messages"][number],
+  claimToken: string,
+  state: TelegramUpdateRecord,
+): Promise<void> {
+  const update = message.body;
   const reaction = reactionTarget(env, update);
-  let reply = claim.state.reply;
+  let reply = state.reply;
   try {
-    if (!claim.state.reply && update.callback_query?.id) {
+    if (!state.reply && update.callback_query?.id) {
       await answerTelegramCallbackQuery(env, update.callback_query.id);
     }
     if (reaction) {
@@ -2487,7 +2534,7 @@ async function processQueuedTelegram(
       const prepared = await dedupTransition(env, update.update_id, "prepare", claimToken, reply);
       reply = prepared.reply;
     }
-    await dedupTransition(env, update.update_id, "sending", claimToken);
+    await authorizeTelegramSend(env, update.update_id, claimToken);
   } catch (error) {
     // A worker that never began Telegram delivery can release its claim for the next retry.
     // If the sending transition committed but its response failed, release is rejected.

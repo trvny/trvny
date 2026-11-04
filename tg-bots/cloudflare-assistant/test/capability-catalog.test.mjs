@@ -47,3 +47,11 @@ test("only whitelisted callback identities navigate the deck", () => {
   ]) assert.ok(toolDeckSelection(input) === undefined);
   assert.ok(botCommandPayload().some((entry) => entry.command === "tools"));
 });
+
+test("public catalogue hides private capabilities and commands", () => {
+  const deck = toolDeckView("", "public");
+  assert.doesNotMatch(deck.plain, /Legion|GitHub|Engram/i);
+  assert.equal(toolDeckSelection("tools:open:machine", "public"), undefined);
+  assert.match(toolDeckView("telegram", "public").plain, /\/dice/u);
+  assert.doesNotMatch(toolDeckView("telegram", "public").plain, /\/contact/u);
+});

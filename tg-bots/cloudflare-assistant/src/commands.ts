@@ -3,13 +3,15 @@ export type BotekCommand = {
   usage: string;
   description: string;
   private?: boolean;
+  public?: boolean;
   groupMode?: "visible" | "ephemeral";
 };
 
 export const BOTEK_COMMANDS: readonly BotekCommand[] = [
-  { command: "start", usage: "/start", description: "Uruchom Botka" },
-  { command: "help", usage: "/help", description: "Pokaż dostępne komendy" },
-  { command: "tools", usage: "/tools [obszar]", description: "Odkryj możliwości Botka" },
+  { command: "start", usage: "/start", description: "Uruchom Botka", public: true },
+  { command: "help", usage: "/help", description: "Pokaż dostępne komendy", public: true },
+  { command: "tools", usage: "/tools [obszar]", description: "Odkryj możliwości Botka", public: true },
+  { command: "skill", usage: "/skill", description: "Instrukcja narzędzi dla agentów", public: true },
   { command: "ask", usage: "/ask <pytanie>", description: "Zapytaj Botka jawnie, także w grupie", groupMode: "visible" },
   { command: "whisper", usage: "/whisper <pytanie>", description: "Zapytaj prywatnie w grupie", private: false, groupMode: "ephemeral" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
@@ -32,7 +34,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "poll", usage: "/poll pytanie | opcja 1 | opcja 2", description: "Wyślij natywną ankietę" },
   { command: "quiz", usage: "/quiz pytanie | +poprawna | błędna", description: "Wyślij natywny quiz" },
   { command: "topic", usage: "/topic <nazwa>", description: "Utwórz prywatny temat" },
-  { command: "dice", usage: "/dice [🎲|🎯|🏀|⚽|🎳|🎰]", description: "Rzuć natywną kostką Telegrama" },
+  { command: "dice", usage: "/dice [🎲|🎯|🏀|⚽|🎳|🎰]", description: "Rzuć natywną kostką Telegrama", public: true },
   { command: "sticker", usage: "/sticker", description: "Odeślij sticker z wiadomości, na którą odpowiadasz" },
   { command: "location", usage: "/location szerokość,długość", description: "Wyślij pinezkę na mapie" },
   { command: "venue", usage: "/venue lat,lon | nazwa | adres", description: "Wyślij natywne miejsce" },

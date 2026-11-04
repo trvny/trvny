@@ -121,7 +121,7 @@ Reference: [Telegram Bot-to-Bot Communication](https://core.telegram.org/bots/fe
 Botek should feel like a Telegram-native operating surface, not a folder of large links. Chat is the command line; messages, inline results and Mini App views are alternate front ends to the **same** underlying capabilities. A prompt may start in chat, continue in a Mini App, and finish as a Telegram message or file.
 
 - **Owner plane:** private work, documents, automations, Legion, GitHub, approved actions.
-- **Guest plane:** limited, rate-controlled bot conversations and public utilities; no owner data or capabilities.
+- **Guest plane:** useful public tools for people and peer bots, with scoped permissions and per-sender rate limits; never owner memory or machine access.
 - **Public TRAVNY plane:** anonymous contact and deliberately shared tools, without a Telegram account or phone number.
 - **Broadcast plane:** opt-in channel/news publishing, distinct from private messages and Business/Secretary.
 - **Hermes remains separate:** `@hermes_trv_bot` owns the Hermes/Termux gateway. `@trvny_bot` owns the wider Telegram experience. Pet Dispatcher stays the bridge for approved machine work.

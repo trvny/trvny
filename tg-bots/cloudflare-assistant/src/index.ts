@@ -6,6 +6,8 @@ import {
   parseAskMessageCommand,
 } from "./commands";
 import { toolDeckSelection, toolDeckView } from "./capability-catalog";
+import { parsePublicAction, publicReply, skillDocument, skillManifest, skillUrlFromEnv } from "./public-tools";
+import { allowPublicCommand, TelegramPublicRateGate } from "./public-rate";
 import { automaticTaskRequest, looksLikeAutomaticTaskCandidate } from "./auto-task";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { replyFeedbackKeyboard, replyFeedbackRequest } from "./feedback";
@@ -137,6 +139,7 @@ export {
   TelegramTaskWatch,
   TelegramUpdateDedup,
   TelegramWatchStore,
+  TelegramPublicRateGate,
 };
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
@@ -1528,14 +1531,22 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     }
 
     const callbackMessage = callback.message;
-    if (
-      !callbackMessage ||
-      !ownerConfigured(env) ||
-      callbackMessage.chat.type !== "private" ||
-      String(callback.from.id) !== env.OWNER_TELEGRAM_USER_ID
-    ) {
-      return null;
+    const ownerPrivateCallback = callbackMessage?.chat.type === "private" &&
+      ownerConfigured(env) && String(callback.from.id) === env.OWNER_TELEGRAM_USER_ID;
+    if (!ownerPrivateCallback && callbackMessage) {
+      const section = toolDeckSelection(callback.data, "public");
+      if (section === undefined) return null;
+      if (!await allowPublicCommand(env, callback.from.id, update.update_id)) return null;
+      const view = toolDeckView(section, "public");
+      return {
+        chatId: callbackMessage.chat.id,
+        editMessageId: callbackMessage.message_id,
+        text: view.plain,
+        richHtml: view.richHtml,
+        replyMarkup: view.keyboard,
+      };
     }
+    if (!ownerPrivateCallback || !callbackMessage) return null;
 
     const routed = await routeFirst(
       { env, update, callback, message: callbackMessage },
@@ -1545,9 +1556,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   const message = update.message;
-  if (!message?.from || !ownerConfigured(env) || String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID) {
-    return null;
+  if (!message?.from) return null;
+  const fromOwner = ownerConfigured(env) && String(message.from.id) === env.OWNER_TELEGRAM_USER_ID;
+  const publicAction = parsePublicAction(message);
+  if (publicAction && (!fromOwner || message.chat.type !== "private" || publicAction.kind === "skill")) {
+    if (!fromOwner && !await allowPublicCommand(env, message.from.id, update.update_id)) return null;
+    return publicReply(message, publicAction, skillUrlFromEnv(env.TELEGRAM_WEBHOOK_URL));
   }
+  if (!fromOwner) return null;
   const privateChat = message.chat.type === "private";
   const groupChat = message.chat.type === "group" || message.chat.type === "supergroup";
   if (!privateChat && !groupChat) return null;
@@ -2568,6 +2584,13 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    if (request.method === "GET" && url.pathname === "/botek/skill.md") {
+      return new Response(skillDocument(), { headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=300" } });
+    }
+    if (request.method === "GET" && url.pathname === "/.well-known/botek-tools.json") {
+      return new Response(JSON.stringify(skillManifest()), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=300" } });
+    }
+
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
       return json({
         ok: true,
@@ -2638,7 +2661,8 @@ export default {
       }
 
       const controlCommand = update.message?.text?.trim();
-      if (controlCommand === "/start" || controlCommand?.startsWith("/start ") || controlCommand === "/help") {
+      if (update.message?.from && String(update.message.from.id) === env.OWNER_TELEGRAM_USER_ID &&
+        (controlCommand === "/start" || controlCommand?.startsWith("/start ") || controlCommand === "/help")) {
         try {
           await syncTelegramWebhook(env, `${url.origin}/telegram/webhook`);
         } catch (error) {

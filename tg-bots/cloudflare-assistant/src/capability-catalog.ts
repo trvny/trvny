@@ -18,7 +18,7 @@ export const BOTEK_CAPABILITIES: readonly BotekCapability[] = [
   { id: "automations", title: "Przypomnienia i obserwatory", icon: "⏰", description: "Ustawiaj przypomnienia oraz obserwuj Legiona, GitHub i Feedseek.", executor: "botek", surfaces: ["chat", "mini-app"], commands: ["remind", "reminders", "remind_cancel", "watch", "watches", "watch_cancel"] },
   { id: "memory", title: "Pamięć długoterminowa", icon: "🧠", description: "Zapisuj i wyszukuj wspomnienia przez istniejącą usługę.", executor: "specialist", surfaces: ["chat"], commands: ["remember", "recall", "memory_status"] },
   { id: "machine", title: "Operacje na urządzeniach", icon: "🛠️", description: "Sprawdzaj urządzenia i deleguj zadania przez Pet Dispatcher.", executor: "dispatcher", surfaces: ["chat", "mini-app"], commands: ["legion", "wake", "tasks", "task", "task_status", "task_cancel"] },
-  { id: "control", title: "Sterowanie i diagnostyka", icon: "🩺", description: "Sprawdzaj status Botka oraz dostępne polecenia.", executor: "botek", surfaces: ["chat"], commands: ["start", "help", "tools", "status"] },
+  { id: "control", title: "Sterowanie i diagnostyka", icon: "🩺", description: "Sprawdzaj status Botka oraz dostępne polecenia.", executor: "botek", surfaces: ["chat"], commands: ["start", "help", "tools", "skill", "status"] },
 ];
 
 const commandIndex = new Map(BOTEK_COMMANDS.map((command) => [command.command, command]));
@@ -35,38 +35,47 @@ export function capabilityCommands(capability: BotekCapability): BotekCommand[] 
   });
 }
 
-export function toolDeckSelection(data: unknown): string | undefined {
+export function toolDeckSelection(data: unknown, audience: "owner" | "public" = "owner"): string | undefined {
   if (data === "tools:list") return "";
   if (typeof data !== "string" || !data.startsWith("tools:open:")) return undefined;
   const id = data.slice("tools:open:".length);
-  return capabilityById(id) ? id : undefined;
+  return capabilityById(id) && (audience === "owner" || publicCapabilityIds().includes(id)) ? id : undefined;
 }
 
 const escaped = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 export type ToolDeckView = { plain: string; richHtml: string; keyboard: TelegramInlineKeyboardMarkup };
 
-export function toolDeckView(id = ""): ToolDeckView {
+export function publicCapabilityIds(): string[] {
+  return BOTEK_CAPABILITIES.filter((capability) =>
+    capabilityCommands(capability).some((command) => command.public === true)
+  ).map((capability) => capability.id);
+}
+
+export function toolDeckView(id = "", audience: "owner" | "public" = "owner"): ToolDeckView {
+  const visible = BOTEK_CAPABILITIES.filter((capability) =>
+    audience === "owner" || publicCapabilityIds().includes(capability.id)
+  );
   if (!id) {
-    const buttons = BOTEK_CAPABILITIES.map((capability) => ({
+    const buttons = visible.map((capability) => ({
       text: `${capability.icon} ${capability.title}`,
       callback_data: `tools:open:${capability.id}`,
     }));
     const rows: typeof buttons[] = [];
     for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2));
     return {
-      plain: ["🧰 Narzędzia Botka", "", ...BOTEK_CAPABILITIES.map((c) => `${c.icon} ${c.title} · /tools ${c.id}`), "", "Pokazuję tylko istniejące funkcje. /help zawiera wszystkie komendy."].join("\n"),
-      richHtml: ["🧰 <b>Narzędzia Botka</b>", "", ...BOTEK_CAPABILITIES.map((c) => `${c.icon} <b>${escaped(c.title)}</b> · <code>/tools ${c.id}</code>`), "", "<i>Pokazuję tylko istniejące funkcje. /help zawiera wszystkie komendy.</i>"].join("\n"),
+      plain: ["🧰 Narzędzia Botka", "", ...visible.map((c) => `${c.icon} ${c.title} · /tools ${c.id}`), "", "Pokazuję tylko istniejące funkcje. /help zawiera wszystkie komendy."].join("\n"),
+      richHtml: ["🧰 <b>Narzędzia Botka</b>", "", ...visible.map((c) => `${c.icon} <b>${escaped(c.title)}</b> · <code>/tools ${c.id}</code>`), "", "<i>Pokazuję tylko istniejące funkcje. /help zawiera wszystkie komendy.</i>"].join("\n"),
       keyboard: { inline_keyboard: rows },
     };
   }
   const back: TelegramInlineKeyboardMarkup = { inline_keyboard: [[{ text: "⬅️ Wszystkie narzędzia", callback_data: "tools:list" }]] };
-  const capability = capabilityById(id);
+  const capability = visible.find((entry) => entry.id === id);
   if (!capability) {
     return { plain: "Nieznane narzędzie. Użyj /tools, aby zobaczyć możliwości.", richHtml: "Nieznane narzędzie. Użyj <code>/tools</code>, aby zobaczyć możliwości.", keyboard: back };
   }
   const executor = { botek: "Botek / Telegram", specialist: "Istniejąca usługa", dispatcher: "Pet Dispatcher" }[capability.executor];
-  const commands = capabilityCommands(capability);
+  const commands = capabilityCommands(capability).filter((command) => audience === "owner" || command.public === true);
   return {
     plain: [
       `${capability.icon} ${capability.title}`, capability.description, "",

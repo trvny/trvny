@@ -27,16 +27,7 @@ jobs:
             curl -fL --retry 2 --connect-timeout 10 --max-time 40 -A 'Mozilla/5.0' "${urls[$i]}" -o "out/${names[$i]}" || true
             file "out/${names[$i]}" || true
           done
-          python - <<'PY'
-from pathlib import Path
-from PIL import Image
-for p in Path('out').iterdir():
-    try:
-        im=Image.open(p)
-        print(p.name, im.size, im.mode, p.stat().st_size)
-    except Exception as e:
-        print(p.name, 'ERR', e)
-PY
+          python -c "from pathlib import Path; from PIL import Image; [(lambda p: print(p.name, Image.open(p).size, Image.open(p).mode, p.stat().st_size))(p) for p in Path('out').iterdir()]"
       - uses: actions/upload-artifact@v4
         with:
           name: monday-visual-sources

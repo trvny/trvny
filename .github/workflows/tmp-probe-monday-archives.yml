@@ -1,4 +1,4 @@
-name: Probe AIPRM Monday asset
+name: Recover Monday from official OpenAI video
 on:
   push:
     branches:
@@ -6,28 +6,23 @@ on:
 permissions:
   contents: read
 jobs:
-  probe:
+  recover:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: Probe AIPRM
+      - name: Download official OpenAI YouTube short
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           mkdir -p out
-          for id in             g-67ec3b78892481918c89067962526695             g-67ec3b4988f8819184c5454e18f5e84b             g-67edab4a24fc8191b975acaa8da2dcef
-          do
-            url="https://app.aiprm.com/gpts/$id/monday"
-            echo "=== $url"
-            curl -L --max-time 35 -sS -D "out/$id.headers" -A 'Mozilla/5.0' "$url" -o "out/$id.html" || true
-            head -8 "out/$id.headers" || true
-            grep -Eoi 'https?[^"<> ]+\.(png|jpe?g|webp)(\?[^"<> ]*)?' "out/$id.html" | head -30 || true
-            grep -Eoi '<meta[^>]+(og:image|twitter:image)[^>]+>' "out/$id.html" | head -10 || true
-          done
+          python -m pip install -q yt-dlp
+          yt-dlp --no-playlist -f 'bv*[height<=1080]+ba/b[height<=1080]'             --merge-output-format mp4             -o 'out/openai-monday.%(ext)s'             'https://www.youtube.com/watch?v=2uoF2w8-hKg'
+          ffprobe -v error -show_entries stream=width,height,duration -of default=nw=1 out/openai-monday.mp4 || true
+          ls -lh out/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: monday-aiprm-probe
+          name: monday-official-video
           path: out/
           if-no-files-found: error
           retention-days: 2

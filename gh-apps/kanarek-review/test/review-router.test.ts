@@ -1788,7 +1788,7 @@ test('OrcaRouter auto passes a fake PR-review payload without owning review sema
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
-  assert.equal(upstreamBody.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0]);
+  assert.equal(upstreamBody.model, 'deepseek/deepseek-v4.1-flash-free');
   assert.deepEqual(upstreamBody.messages, messages);
   assert.equal(upstreamBody.max_tokens, 16_384);
   assert.equal(upstreamBody.reasoning_effort, 'high');

@@ -55,9 +55,9 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
     'lfm-2.5-2.6b-free',
   ],
   KANAREK_REVIEW_ORCAROUTER_MODELS: [
+    'tencent/hy4-preview-free',
     'deepseek/deepseek-v4.1-flash-free',
     'z-ai/glm-5.3-flash-free',
-    'tencent/hy4-preview-free',
     'tencent/hy3-free',
   ],
   KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],

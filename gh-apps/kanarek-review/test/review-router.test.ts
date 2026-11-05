@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -30,10 +29,7 @@ function request(
   });
 }
 
-const wranglerVars = (JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')) as {
-  vars: Record<string, string>;
-}).vars;
-const auth = { ...wranglerVars, KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
+const auth = { KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
 
 
 function workersAiBinding(
@@ -3295,4 +3291,25 @@ test('OrcaRouter moves past a forbidden or empty pinned model', async () => {
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.deepEqual(models, ['locked/free', 'empty/free', 'live/free']);
+});
+
+test('per-task Wrangler overrides beat built-in provider and model preferences', async () => {
+  const models: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orcarouter-key',
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_REVIEW_PROVIDER_ORDER: 'orcarouter,openrouter',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'tencent/hy4-preview-free,deepseek/deepseek-v4.1-flash-free',
+    KANAREK_REVIEW_ORCAROUTER_REVIEW_MODELS: 'deepseek/deepseek-v4.1-flash-free,tencent/hy4-preview-free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    models.push((JSON.parse(String(init?.body)) as { model: string }).model);
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.equal(models[0], 'deepseek/deepseek-v4.1-flash-free');
 });

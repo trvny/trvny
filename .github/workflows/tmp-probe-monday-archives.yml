@@ -1,4 +1,4 @@
-name: Probe Monday icon archives
+name: Probe Monday icon archives fast
 on:
   push:
     branches:
@@ -8,27 +8,15 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 3
     steps:
-      - name: Probe archives
+      - name: Probe fast
         shell: bash
         run: |
           set -u
-          echo "=== WAYBACK: file-9Tr ==="
-          curl -L --max-time 40 -sS 'https://web.archive.org/cdx/search/cdx?url=files.oaiusercontent.com/file-9TrFWKq8W7mNBmLy1dP9QT*&output=json&filter=statuscode:200&collapse=digest' || true
-          echo
-          echo "=== WAYBACK: file-RFW ==="
-          curl -L --max-time 40 -sS 'https://web.archive.org/cdx/search/cdx?url=files.oaiusercontent.com/file-RFWBMhwa9SsnXoMCKdyBjH*&output=json&filter=statuscode:200&collapse=digest' || true
-          echo
-          echo "=== WAYBACK: backend file-9Tr ==="
-          curl -L --max-time 40 -sS 'https://web.archive.org/cdx/search/cdx?url=chatgpt.com/backend-api/*file-9TrFWKq8W7mNBmLy1dP9QT*&output=json&filter=statuscode:200&collapse=digest' || true
-          echo
-          echo "=== COMMON CRAWL recent indexes ==="
-          curl -L --max-time 30 -sS 'https://index.commoncrawl.org/collinfo.json' | python -c 'import sys,json; x=json.load(sys.stdin); print("\n".join(i["id"] for i in x[:8]))' || true
-          echo
-          echo "=== COMMON CRAWL GPT page ==="
-          for idx in $(curl -L --max-time 30 -sS 'https://index.commoncrawl.org/collinfo.json' | python -c 'import sys,json; print(" ".join(i["id"] for i in json.load(sys.stdin)[:8]))' 2>/dev/null); do
-            echo "-- $idx"
-            curl -L --max-time 30 -sS "https://index.commoncrawl.org/$idx-index?url=chatgpt.com/g/g-67ec3b78892481918c89067962526695-monday&output=json" | head -c 5000 || true
+          for u in             'https://web.archive.org/cdx/search/cdx?url=files.oaiusercontent.com/file-9TrFWKq8W7mNBmLy1dP9QT*&output=json&filter=statuscode:200&collapse=digest'             'https://web.archive.org/cdx/search/cdx?url=files.oaiusercontent.com/file-RFWBMhwa9SsnXoMCKdyBjH*&output=json&filter=statuscode:200&collapse=digest'             'https://index.commoncrawl.org/CC-MAIN-2025-18-index?url=chatgpt.com%2Fg%2Fg-67ec3b78892481918c89067962526695-monday&output=json'             'https://index.commoncrawl.org/CC-MAIN-2025-21-index?url=chatgpt.com%2Fg%2Fg-67ec3b78892481918c89067962526695-monday&output=json'
+          do
+            echo "=== $u"
+            timeout 12s curl -L -sS "$u" | head -c 12000 || true
             echo
           done

@@ -624,7 +624,9 @@ test('decision model overrides preserve configured order and deduplicate attempt
     {
       ...env,
       KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix',
-      KANAREK_REVIEW_DECISION_AIHUBMIX_MODELS: ' mammoth-1-free, mammoth-1-free , decision-model-preview ',
+      KANAREK_REVIEW_ROUTING: {
+        decisionModels: { aihubmix: [' mammoth-1-free ', 'mammoth-1-free', ' decision-model-preview '] },
+      },
     },
     ((_input: RequestInfo | URL, init?: RequestInit) => {
       const model = String((JSON.parse(String(init?.body)) as { model?: string }).model);

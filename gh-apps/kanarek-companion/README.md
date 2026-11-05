@@ -256,7 +256,7 @@ bindings and tests; changing production defaults requires no source edit.
 - Retry timing: `KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS` sets
   three backoff waits in milliseconds. Default:
   `120000,600000,1800000`. Invalid values use defensive defaults.
-  Three attempts maximum; do not change the list length.
+  Three retries maximum (four total attempts); do not change the list length.
 - Scope and CI: `KANAREK_REPOSITORIES`,
   `KANAREK_REVIEW_REPOSITORIES` and `KANAREK_REQUIRE_CI`.
 

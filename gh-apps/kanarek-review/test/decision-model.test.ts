@@ -616,3 +616,24 @@ test('decision success clears the provider strike record', async () => {
   assert.equal(response?.status, 200);
   assert.ok(paths.includes('aihubmix-decision POST /clear'), paths.join(', '));
 });
+
+test('decision model overrides preserve configured order and deduplicate attempts', async () => {
+  const models: string[] = [];
+  const response = await handleDecisionModelRequest(
+    request({ state: 'operator-test', questions: { keep: { type: 'noul' } } }),
+    {
+      ...env,
+      KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix',
+      KANAREK_REVIEW_DECISION_AIHUBMIX_MODELS: ' mammoth-1-free, mammoth-1-free , decision-model-preview ',
+    },
+    ((_input: RequestInfo | URL, init?: RequestInit) => {
+      const model = String((JSON.parse(String(init?.body)) as { model?: string }).model);
+      models.push(model);
+      return Promise.resolve(model === 'mammoth-1-free'
+        ? new Response('not available', { status: 503 })
+        : Response.json({ model, answers: { keep: { type: 'noul', noul: 0.9 } } }));
+    }) as typeof fetch,
+  );
+  assert.equal(response?.status, 200);
+  assert.deepEqual(models, ['mammoth-1-free', 'decision-model-preview']);
+});

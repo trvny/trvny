@@ -282,10 +282,12 @@ function taskModelPreference(
     VERCEL: VERCEL_TASK_MODEL_PREFERENCES,
   };
   const fallback = defaults[provider][task];
-  if (task === 'general') return [...fallback];
-  const key = `KANAREK_REVIEW_${provider}_${task.toUpperCase()}_MODELS`;
-  const raw = (env as unknown as Record<string, string | undefined>)[key];
-  return raw?.trim() ? configuredModelList(raw, fallback) : [...fallback];
+  if (task === 'general') return [];
+  const vars = env as unknown as Record<string, string | undefined>;
+  const raw = vars[`KANAREK_REVIEW_${provider}_${task.toUpperCase()}_MODELS`];
+  const global = vars[`KANAREK_REVIEW_${provider}_MODELS`] ||
+    (provider === 'OPENROUTER' ? env.KANAREK_OPENROUTER_MODELS : undefined);
+  return raw?.trim() ? configuredModelList(raw, []) : global?.trim() ? [] : [...fallback];
 }
 
 const DEFAULT_PAID_PROVIDER_ORDER = ['deepseek', 'gemini-flex'] as const;
@@ -592,8 +594,8 @@ function configuredTaskFreeProviderOrder(
     : (env as unknown as Record<string, string | undefined>)[taskKey];
   const ordered: FreeReviewProviderId[] = task === 'general'
     ? configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER)
-    : taskOrder?.trim()
-      ? configuredFreeProviderOrder(taskOrder)
+    : taskOrder?.trim() || env.KANAREK_REVIEW_PROVIDER_ORDER?.trim()
+      ? configuredFreeProviderOrder(taskOrder || env.KANAREK_REVIEW_PROVIDER_ORDER)
       : [...DEFAULT_FREE_TASK_PROVIDER_ORDER[task]];
   return geminiUsesFreeTier(env)
     ? ordered

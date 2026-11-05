@@ -1,5 +1,6 @@
 import { chatWithInlineFallback } from "./providers.ts";
 import { withDeadline } from "./deadline.ts";
+import { feedseekMemeReply } from "./feedseek-briefing.ts";
 import { pickBankQuip, presetQuip, rememberBankQuip, reusableQuip } from "./quip-bank.ts";
 import type { Env } from "./types.ts";
 
@@ -65,6 +66,7 @@ export async function quickQuip(
     console.warn("Botek quip bank read unavailable", error);
   }
 
+  let generationUnavailable = false;
   if (allowAi && pick && shouldGenerate(pick.count)) {
     try {
       const generated = await chatWithInlineFallback(env, [
@@ -86,7 +88,12 @@ export async function quickQuip(
       }
     } catch (error) {
       console.warn("Botek quip generation unavailable; using retained text", error);
+      generationUnavailable = true;
     }
+  }
+  if (allowAi && (!pick || (generationUnavailable && pick.source === "preset"))) {
+    const fallback = await feedseekMemeReply();
+    if (fallback) return fallback;
   }
   return pick?.text ?? presetQuip();
 }

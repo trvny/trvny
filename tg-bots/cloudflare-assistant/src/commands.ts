@@ -32,6 +32,8 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "radio", usage: "/radio", description: "Play live radio in Mini App" },
   { command: "doc", usage: "/doc", description: "Create a Markdown or text document" },
+  { command: "news", usage: "/news [world|pl|ai|tech|science|games|cars]", description: "Latest sourced Feedseek headlines" },
+  { command: "meme", usage: "/meme", description: "Random meme link from Feedseek" },
   { command: "task", usage: "/task <repo> [--net <profil>] <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "task_status", usage: "/task_status <id>", description: "Odzyskaj stan i wynik zadania Legiona" },
   { command: "task_cancel", usage: "/task_cancel <id>", description: "Anuluj zadanie Legiona po ID" },

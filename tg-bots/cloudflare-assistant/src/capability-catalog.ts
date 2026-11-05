@@ -14,7 +14,8 @@ export type BotekCapability = {
 // Descriptive map only. Command handlers and API boundaries still own authorization.
 export const BOTEK_CAPABILITIES: readonly BotekCapability[] = [
   { id: "conversation", title: "Rozmowa i szkice", icon: "💬", description: "Pytaj, twórz szkice i zarządzaj kontekstem rozmowy.", executor: "botek", surfaces: ["chat", "inline"], commands: ["ask", "whisper", "draft", "reset"] },
-  { id: "fun", title: "Żarty i przygaduszki", icon: "🎭", description: "Wylosuj gotowy żart bez kosztu generowania.", executor: "botek", surfaces: ["chat"], commands: ["quip"] },
+  { id: "fun", title: "Żarty i przygaduszki", icon: "🎭", description: "Wylosuj gotowy żart bez kosztu generowania.", executor: "botek", surfaces: ["chat"], commands: ["quip", "meme"] },
+  { id: "news", title: "Feedseek News", icon: "📡", description: "Recent headlines with dates and source links, without an AI guess.", executor: "botek", surfaces: ["chat"], commands: ["news"] },
   { id: "media", title: "Radio", icon: "📻", description: "Live radio and now-playing details in Telegram.", executor: "botek", surfaces: ["chat", "mini-app"], commands: ["radio"] },
   { id: "documents", title: "Draft Studio", icon: "📄", description: "Create, export and send Markdown or text documents privately.", executor: "botek", surfaces: ["chat", "mini-app"], commands: ["doc"] },
   { id: "telegram", title: "Narzędzia Telegrama", icon: "🎛️", description: "Ankiety, quizy, tematy, stickery, lokalizacje, miejsca, kontakty i kostki.", executor: "botek", surfaces: ["chat"], commands: ["poll", "quiz", "topic", "dice", "sticker", "location", "venue", "contact"] },

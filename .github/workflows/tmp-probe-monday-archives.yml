@@ -1,4 +1,4 @@
-name: Probe Monday icon archives fast
+name: Probe Monday GPT mirrors
 on:
   push:
     branches:
@@ -10,13 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Probe fast
+      - name: Probe GPT metadata mirrors
         shell: bash
         run: |
           set -u
-          for u in             'https://web.archive.org/cdx/search/cdx?url=files.oaiusercontent.com/file-9TrFWKq8W7mNBmLy1dP9QT*&output=json&filter=statuscode:200&collapse=digest'             'https://web.archive.org/cdx/search/cdx?url=files.oaiusercontent.com/file-RFWBMhwa9SsnXoMCKdyBjH*&output=json&filter=statuscode:200&collapse=digest'             'https://index.commoncrawl.org/CC-MAIN-2025-18-index?url=chatgpt.com%2Fg%2Fg-67ec3b78892481918c89067962526695-monday&output=json'             'https://index.commoncrawl.org/CC-MAIN-2025-21-index?url=chatgpt.com%2Fg%2Fg-67ec3b78892481918c89067962526695-monday&output=json'
+          ids='g-67edab030ac881918ce8fa5c75a8e1b3,g-67ec3b78892481918c89067962526695,g-67ec3ad40750819181ccffa6a6f050d5,g-67e595af0a408191b84ee532fca12cd1,g-67edab4a24fc8191b975acaa8da2dcef,g-67ec3b4988f8819184c5454e18f5e84b,g-67edaaa3d3a081918205d0c470f00a32,g-67edab2fc0f48191881a20ac98fedf6f'
+          for base in             'https://draw.openai-next.com/v1/gpts/batch/'             'https://api.openai-next.com/v1/gpts/batch/'
           do
-            echo "=== $u"
-            timeout 12s curl -L -sS "$u" | head -c 12000 || true
+            echo "=== $base"
+            timeout 20s curl -L -sS -D /tmp/h "$base$ids" -o /tmp/body || true
+            head -20 /tmp/h || true
+            head -c 24000 /tmp/body || true
             echo
           done

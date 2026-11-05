@@ -1,4 +1,4 @@
-name: Recover Monday static GPT screenshot
+name: Recover Monday static GPT image
 on:
   push:
     branches:
@@ -10,24 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Probe LinkedIn image sizes
+      - name: Fetch static screenshots
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p out
-          base='https://media.licdn.com/dms/image/v2/D4E22AQFxeDr128ScNg'
-          tail='B4EZYDCh1aGYAg-/0/1743807717336?e=2147483647&t=UjMoqV0umInyaT8Zxl69haQ-wEJ4cBw7TZWBxLvsaH4&v=beta'
-          for sz in 800 1280 1600 2048; do
-            u="$base/feedshare-shrink_$sz/$tail"
-            echo "=== $sz"
-            curl -fL --retry 2 --connect-timeout 10 --max-time 40 -A 'Mozilla/5.0' "$u" -o "out/linkedin-$sz.jpg" || rm -f "out/linkedin-$sz.jpg"
-            [ -f "out/linkedin-$sz.jpg" ] && file "out/linkedin-$sz.jpg" || true
+          urls=(
+            'https://assets.st-note.com/production/uploads/images/183949594/rectangle_large_type_2_a47b8e271bdb66aaef053842917e6abf.png?width=1200'
+            'https://assets.st-note.com/production/uploads/images/183949594/rectangle_large_type_2_a47b8e271bdb66aaef053842917e6abf.png'
+          )
+          names=(note-1200.png note-original.png)
+          for i in 0 1; do
+            curl -fL --retry 2 --connect-timeout 10 --max-time 40 -A 'Mozilla/5.0' "${urls[$i]}" -o "out/${names[$i]}" || rm -f "out/${names[$i]}"
+            [ -f "out/${names[$i]}" ] && file "out/${names[$i]}" || true
           done
           ls -lh out/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: monday-static-sources
+          name: monday-note-static
           path: out/
           if-no-files-found: error
           retention-days: 2

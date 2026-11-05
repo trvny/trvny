@@ -351,6 +351,14 @@ test('review retries are bounded and only cover transient failures', () => {
   assert.equal(reviewRetryDelayMs(transient, 1), 10 * 60_000);
   assert.equal(reviewRetryDelayMs(transient, 2), 30 * 60_000);
   assert.equal(reviewRetryDelayMs(transient, 3), null);
+  const custom = { KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS: '30000,90000,240000' };
+  assert.equal(reviewRetryDelayMs(transient, 0, custom), 30_000);
+  assert.equal(reviewRetryDelayMs(transient, 1, custom), 90_000);
+  assert.equal(reviewRetryDelayMs(transient, 2, custom), 240_000);
+  assert.equal(reviewRetryDelayMs(transient, 3, custom), null);
+  for (const invalid of ['abc', '0,90000,240000', '1000,90000', '1000,90000,999999999']) {
+    assert.equal(reviewRetryDelayMs(transient, 0, { KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS: invalid }), 2 * 60_000);
+  }
   assert.equal(
     reviewRetryDelayMs({ ...transient, skipped: 'job_failed' }, 0),
     2 * 60_000,

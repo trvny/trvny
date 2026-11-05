@@ -241,3 +241,28 @@ GitHub App metadata, companion/review repository scopes, quip provider controls,
 AI percentage ceiling, review debounce/context limits, the decision-L2 rollout
 switch, Durable Object bindings, service bindings, and KV bindings are defined
 in `wrangler.jsonc`.
+
+## Operator controls
+
+[`wrangler.jsonc`](wrangler.jsonc) is the single operator entry point for
+production settings. TypeScript constants are fallback values for missing
+bindings and tests; changing production defaults requires no source edit.
+
+- Quips: `KANAREK_AI_PERCENT`, `KANAREK_PROVIDER_ORDER`,
+  `KANAREK_*_MODEL`, `KANAREK_*_ENABLED`, reasoning, output limits
+  and `KANAREK_PROVIDER_TIMEOUT_MS`.
+- PR reviews: `KANAREK_WEBHOOK_REVIEW_*` configures scheduling,
+  context limits, output budgets, judge and decision flags.
+- Retry timing: `KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS` sets
+  three backoff waits in milliseconds. Default:
+  `120000,600000,1800000`. Invalid values use defensive defaults.
+  Three retries per phase (four attempts each). Paid escalation resets
+  the counter, allowing up to eight attempts across both phases.
+  Do not change the list length.
+- Scope and CI: `KANAREK_REPOSITORIES`,
+  `KANAREK_REVIEW_REPOSITORIES` and `KANAREK_REQUIRE_CI`.
+
+Keep credentials in Worker secrets, never in `vars`. Review provider
+and model priorities live in the [private review Worker config]
+(../kanarek-review/wrangler.jsonc). Feedseek watchdog was removed;
+do not reintroduce its obsolete scheduled handler.

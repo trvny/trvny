@@ -27,6 +27,7 @@ import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { routeOwnerCommand, type OwnerCommand } from "./owner-command-router";
 import { radioReply } from "./radio";
 import { docStudioReply } from "./doc-studio";
+import { feedseekNewsReply, feedseekMemeReply } from "./feedseek-briefing.ts";
 import {
   durableMemoryContext,
   durableMemoryStatus,
@@ -942,6 +943,21 @@ async function handleOwnerCommand(
 
     case "doc-studio":
       return docStudioReply(env, message.chat.id, message.message_id, message.chat.type);
+
+    case "news":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: await feedseekNewsReply(command.topic),
+      };
+
+    case "meme":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: await feedseekMemeReply() ??
+          "🎭 Feedseek nie ma teraz świeżego mema z przefiltrowanych źródeł. Spróbuj /quip.",
+      };
 
     case "draft-usage":
       return {

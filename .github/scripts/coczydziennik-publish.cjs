@@ -40,7 +40,7 @@ async function reviewGate(github, number) {
       }}
     }`, { owner: OWNER, repo: REPO, number, cursor: cursor || null });
     const threads = data.repository.pullRequest.reviewThreads;
-    unresolved.push(...threads.nodes.filter((item) => !item.isResolved));
+    unresolved.push(...threads.nodes.filter((item) => !item.isResolved && !item.isOutdated));
     cursor = threads.pageInfo.hasNextPage ? threads.pageInfo.endCursor : null;
   } while (cursor);
 
@@ -60,22 +60,6 @@ function resolveNumber(context) {
   const event = context.payload;
   if (event.pull_request) return event.pull_request.number;
   return null;
-}
-
-async function findPr(github, context) {
-  const number = resolveNumber(context);
-  if (number && Number.isInteger(number) && number > 0) return number;
-  const run = context.payload.workflow_run;
-  if (!run || !REQUIRED.includes(run.name)) return null;
-  if (run.event !== 'pull_request' || run.head_repository?.full_name !== `${OWNER}/${REPO}`) return null;
-  const candidate = run.pull_requests?.find((pr) => pr.base?.ref === 'main');
-  if (candidate?.number) return candidate.number;
-  const branch = run.head_branch || '';
-  if (!HEAD.test(branch)) return null;
-  const prs = await github.paginate(github.rest.pulls.list, {
-    owner: OWNER, repo: REPO, state: 'open', head: `${OWNER}:${branch}`, per_page: 100,
-  });
-  return prs.find((pr) => pr.head?.sha === run.head_sha)?.number || null;
 }
 
 async function checkSource(github, pr, target) {
@@ -113,39 +97,31 @@ async function commitGate(github, pr) {
 }
 
 async function waitForReady(github, pr, core) {
-  const checkCI = async () => {
+  // Workflow waits six minutes before invoking this gate.
+  const deadline = Date.now() + 2 * 60_000;
+  while (true) {
     const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
       owner: OWNER, repo: REPO, head_sha: pr.head.sha, event: 'pull_request', per_page: 100,
     });
-    return workflowGate(runs, pr.head.sha);
-  };
-  let ci = await checkCI();
-  if (ci.pending) {
-    // CI completion triggers workflow_run. No regular API polling.
-    core.info(`PR #${pr.number}: waiting for ${ci.reason}; completion event will retry.`);
-    return false;
-  }
-  if (!ci.ready) throw Error(`CI blocker: ${ci.reason}`);
-
-  const readyAt = Math.max(Date.parse(pr.created_at) + 5 * 60_000, Date.now() + 2 * 60_000);
-  const delay = Math.max(0, readyAt - Date.now());
-  if (delay) {
-    core.info(`PR #${pr.number}: allowing ${Math.ceil(delay / 1000)}s for reviewers.`);
-    await pause(delay);
+    const ci = workflowGate(runs, pr.head.sha);
+    if (ci.ready) break;
+    if (!ci.pending) throw Error('CI blocked: ' + ci.reason);
+    if (Date.now() >= deadline) throw Error('CI still pending: ' + ci.reason);
+    core.info('Waiting for CI: ' + ci.reason);
+    await pause(30_000);
   }
 
   const { data: fresh } = await github.rest.pulls.get({ owner: OWNER, repo: REPO, pull_number: pr.number });
-  if (fresh.state !== 'open' || fresh.draft) throw Error('PR closed or converted to draft');
-  if (fresh.head.sha !== pr.head.sha) throw Error('Head changed during publication; new CI required');
-  ci = await checkCI();
-  if (!ci.ready) throw Error(`Final CI state changed: ${ci.reason}`);
+  if (fresh.state !== 'open' || fresh.draft || fresh.base?.ref !== 'main' || fresh.head.sha !== pr.head.sha) {
+    throw Error('PR changed or closed; publication stopped');
+  }
   const reviews = await reviewGate(github, pr.number);
   if (reviews.unresolved.length || reviews.changesRequested.length) {
-    throw Error(`Review blocker: ${reviews.unresolved.length} unresolved thread(s), changes requested by: ${reviews.changesRequested.join(', ') || 'none'}`);
+    throw Error('Review blocked: ' + reviews.unresolved.length + ' current unresolved thread(s); changes requested by ' +
+      (reviews.changesRequested.join(', ') || 'none') + '. Fix feedback and retry with digest-publish-retry.');
   }
   return true;
 }
-
 async function confirmPublication(core, date, commit, updated, maxMs = 9 * 60_000) {
   const account = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_API_TOKEN;
@@ -196,7 +172,7 @@ async function confirmPublication(core, date, commit, updated, maxMs = 9 * 60_00
 }
 
 async function run({ github, context, core }) {
-  const number = await findPr(github, context);
+  const number = resolveNumber(context);
   if (!number) return core.info('Not a matching CoCzyDziennik PR event.');
   const { data: pr } = await github.rest.pulls.get({ owner: OWNER, repo: REPO, pull_number: number });
   if (pr.state !== 'open') {

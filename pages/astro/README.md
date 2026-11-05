@@ -57,15 +57,16 @@ Featured articles are selected with `featured: true` in `site/teksty/posts.json`
 For each new public digest, write only `src/content/digests/YYYY-MM-DD.md`
 on a matching `content/coczydziennik-YYYY-MM-DD` branch with GPTomek bot
 commits, then open a normal PR **as `trvny`** to retain external reviews.
-The existing `CoCzyDziennik publish` GitHub Actions gate handles the
-mechanical steps after that: wait for TRAVNY Pages and MegaLinter on the
-final head, allow reviewers time to respond, reject unresolved review threads
-or requested changes, rebase-merge a valid PR, and confirm the existing
-Cloudflare Pages deployment, permalink, `/teksty/` listing and shared Atom
-entry. The action reacts to PR changes and CI completion without a polling cron.
-After an editorial fix or review-thread resolution, apply the `digest-publish-retry`
-label to trigger another check; review events alone cannot safely execute this
-privileged workflow.
+The existing `CoCzyDziennik publish` GitHub Action waits six minutes
+(`sleep 360`) after a new issue PR or updated commit, then checks the final
+head's TRAVNY Pages and MegaLinter results (briefly waiting if CI is late).
+When both are green and current review threads and change requests do not
+block release, it rebase-merges and verifies the existing Cloudflare Pages
+deployment, permalink, `/teksty/` and shared Atom feed.
+
+The script does **not** interpret or fix review comments. The editor handles
+actionable feedback, then applies `digest-publish-retry` to rerun the gate
+without the six-minute wait. No separate reviewer or release scheduler.
 
 Do not run PR source code with write credentials. Semantic review fixes are
 editorial work: update the source with GPTomek and resolve the feedback, then

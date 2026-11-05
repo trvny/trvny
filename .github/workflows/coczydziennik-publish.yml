@@ -5,9 +5,6 @@ on: # yamllint disable-line rule:truthy
     types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths:
       - "pages/astro/src/content/digests/**"
-  workflow_run: # zizmor: ignore[dangerous-triggers] Only trusted CI completion; no artifacts or PR code executed.
-    workflows: [TRAVNY Pages, MegaLinter]
-    types: [completed]
 
 # Only trusted code from main executes. PR Markdown is read as data through API.
 permissions:
@@ -17,16 +14,14 @@ permissions:
   pull-requests: write
   issues: write
 
-concurrency:
-  group: coczydziennik-publish-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch || github.run_id }}
-  cancel-in-progress: false
-
 jobs:
   publish:
     if: >-
-      (startsWith(github.event.pull_request.head.ref, 'content/coczydziennik-') &&
-      (github.event.action != 'labeled' || github.event.label.name == 'digest-publish-retry')) ||
-      (github.event_name == 'workflow_run' && startsWith(github.event.workflow_run.head_branch, 'content/coczydziennik-'))
+      startsWith(github.event.pull_request.head.ref, 'content/coczydziennik-') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'digest-publish-retry')
+    concurrency:
+      group: coczydziennik-publish-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-slim
     timeout-minutes: 27
     steps:
@@ -39,6 +34,9 @@ jobs:
           node-version: 24
       - name: Test publication gate
         run: node --test .github/scripts/coczydziennik-publish.test.cjs
+      - name: Give CI and reviewers six minutes
+        if: ${{ github.event.action != 'labeled' }}
+        run: sleep 360
       - uses: actions/github-script@v9
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   definePredicateRoute,
+  hasCommandArguments,
   routeFirst,
 } from "../src/router.ts";
 
@@ -95,4 +96,13 @@ test("rejects unnamed routes", () => {
     () => definePredicateRoute("   ", () => true, () => "nope"),
     /route name must not be empty/u,
   );
+});
+
+test("detects command argument separators without matching longer command names", () => {
+  for (const text of ["/task work", "/task\twork", "/task\nwork", "/task\r\nwork"]) {
+    assert.equal(hasCommandArguments(text, "/task"), true, text);
+  }
+  for (const text of ["/task", "/tasks", "/taskforce work", "/task_work", "/tasker\twork"]) {
+    assert.equal(hasCommandArguments(text, "/task"), false, text);
+  }
 });

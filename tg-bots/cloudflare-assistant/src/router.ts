@@ -38,3 +38,8 @@ export async function routeFirst<Context, Result>(
   }
   return { matched: false };
 }
+
+// Keep known command arguments on the command path, including pasted tabs/newlines.
+export function hasCommandArguments(text: string, command: string): boolean {
+  return text.startsWith(command) && /\s/u.test(text.charAt(command.length));
+}

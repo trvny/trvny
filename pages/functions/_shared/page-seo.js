@@ -13,8 +13,7 @@ const trails = {
   "/teksty/token-worldcup/effort-matrix": [...tokenCup, { name: "Model × effort", path: "/teksty/token-worldcup/effort-matrix" }],
   "/teksty/githubowa-kraina/": githubWorld,
   "/teksty/githubowa-kraina/universe": [...githubWorld, { name: "Universe", path: "/teksty/githubowa-kraina/universe" }],
-  "/teksty/grass-mud-horse/": [...texts, { name: "The Alpaca, the Crab and the Censor", path: "/teksty/grass-mud-horse/" }],
-  "/teksty/grass-mud-horse-pl/": [...texts, { name: "Alpaka, krab i Wielki Harmonizator", path: "/teksty/grass-mud-horse-pl/" }],
+  "/teksty/grass-mud-horse/": [...texts, { name: "Alpaka, krab i Wielki Harmonizator", path: "/teksty/grass-mud-horse/" }],
 };
 
 function canonicalPath(pathname) {

@@ -65,7 +65,7 @@ test("merged Atom feed escapes source content and keeps stable original links", 
     assert.match(xml, /<title>Alpaca &amp; crab<\/title>/);
     assert.match(xml, /<title>Infrastructure &lt;and&gt; detail<\/title>/);
     assert.match(xml, /<title>A current observation<\/title>/);
-    assert.match(xml, /<category term="Komentarz"\/>/);
+    assert.doesNotMatch(xml, /<category term="Komentarz"\/>/);
     assert.doesNotMatch(xml, /Shitpost Reactor|<category term="Shitpost"/u);
     assert.match(xml, /First post &amp; &lt;payload&gt;/);
     assert.match(xml, /Slang &lt;censored&gt;/);

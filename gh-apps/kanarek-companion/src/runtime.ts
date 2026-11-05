@@ -13,7 +13,7 @@ import {
   handleFocusedCodeReviewAction,
 } from './investigation/focused-code-review.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
-import { githubGateway, gptomekClient, type GithubGateway } from './gptomek/github-gateway.ts';
+import { githubGateway, type GithubGateway } from './gptomek/github-gateway.ts';
 import {
   actionFetch,
   CommentProbeLock,
@@ -24,7 +24,6 @@ import {
   type GatewayEnv,
 } from './entry.ts';
 import gremlinRouter from './operator/gremlin-router.ts';
-import { checkFeedseekWatchdog, FEEDSEEK_REPOSITORY } from './specialists/feedseek-watchdog.ts';
 import companion from './index.ts';
 import { firstMatch, type Route } from './route.ts';
 import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './operator/release-entry-action.ts';
@@ -294,10 +293,6 @@ const runtimeRoutes: readonly Route<RuntimeContext>[] = [
 ];
 
 const runtime = {
-  async scheduled(_controller: ScheduledController, env: RuntimeEnv): Promise<void> {
-    const client = await gptomekClient(env, actionFetch, FEEDSEEK_REPOSITORY);
-    await checkFeedseekWatchdog(client);
-  },
   fetch(request: Request, env: RuntimeEnv, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
       const url = new URL(request.url);

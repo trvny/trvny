@@ -30,7 +30,7 @@ on: # yamllint disable-line rule:truthy
     paths: *lint-paths
   # Group external status updates into one periodic PR scan.
   schedule:
-    - cron: "17,47 * * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       sha:

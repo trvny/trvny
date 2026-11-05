@@ -1,4 +1,4 @@
-name: Probe Monday GPT mirrors
+name: Probe Monday GPT metadata cache
 on:
   push:
     branches:
@@ -10,16 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Probe GPT metadata mirrors
+      - name: Query legacy get-gpts
         shell: bash
         run: |
           set -u
-          ids='g-67edab030ac881918ce8fa5c75a8e1b3,g-67ec3b78892481918c89067962526695,g-67ec3ad40750819181ccffa6a6f050d5,g-67e595af0a408191b84ee532fca12cd1,g-67edab4a24fc8191b975acaa8da2dcef,g-67ec3b4988f8819184c5454e18f5e84b,g-67edaaa3d3a081918205d0c470f00a32,g-67edab2fc0f48191881a20ac98fedf6f'
-          for base in             'https://draw.openai-next.com/v1/gpts/batch/'             'https://api.openai-next.com/v1/gpts/batch/'
-          do
-            echo "=== $base"
-            timeout 20s curl -L -sS -D /tmp/h "$base$ids" -o /tmp/body || true
-            head -20 /tmp/h || true
-            head -c 24000 /tmp/body || true
-            echo
+          for host in draw.openai-next.com api.openai-next.com; do
+            for id in               g-67ec3b4988f8819184c5454e18f5e84b               g-67ec3b78892481918c89067962526695               g-67edaaa3d3a081918205d0c470f00a32
+            do
+              echo "=== $host $id"
+              body=$(printf '{"model":"get-gpts","messages":[{"role":"user","content":"%s"}],"stream":false}' "$id")
+              timeout 20s curl -L -sS -D /tmp/h "https://$host/v1/chat/completions"                 -H 'Content-Type: application/json' -d "$body" -o /tmp/body || true
+              head -8 /tmp/h || true
+              head -c 16000 /tmp/body || true
+              echo
+            done
           done

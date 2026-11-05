@@ -388,3 +388,16 @@ npm run deploy
 
 Workers Builds should use `gh-apps/kanarek-review` as the root directory and
 watch `gh-apps/kanarek-review/**` plus `gh-apps/core/**`.
+
+## Operator routing settings
+
+Edit [`wrangler.jsonc`](wrangler.jsonc) rather than source-code priority arrays.
+Worker Builds applies `vars` on deploy. Tokens, API keys and private credentials remain Cloudflare secrets.
+
+- `KANAREK_REVIEW_PROVIDER_ORDER` and `KANAREK_REVIEW_*_PROVIDER_ORDER`: general and task-specific provider priority (quip, review, judge, shitpost).
+- `KANAREK_REVIEW_*_MODELS`: global model allowlist and fallback order per provider.
+- `KANAREK_REVIEW_<PROVIDER>_<TASK>_MODELS`: task-specific model preference, constrained to the provider's global allowlist. Unlisted models follow in global order; remove a model from the global list to disable it.
+- `KANAREK_REVIEW_DECISION_*_MODELS`: decision-model endpoints' model priority, independent from ordinary chat completion models.
+- `KANAREK_REVIEW_*TIMEOUT_MS`, `*COOLDOWN_MS`, `*MAX_TOKENS`, `*REASONING*`: limits and reasoning controls. Keep within runtime validation ranges.
+
+Task profiles use their own provider order if present, otherwise the general list. Unavailable or unconfigured providers are skipped. Task-specific provider lists append omitted known providers as fallbacks; omitting a provider is not a kill switch. Fallback constants inside TypeScript are for missing env vars in local tests and recovery, not the production configuration contract.

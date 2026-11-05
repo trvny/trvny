@@ -351,7 +351,16 @@ export async function handleDecisionModelRequest(
   }
 
   const configuredCandidates = decisionProviderOrder(input, env)
-    .map((id) => DECISION_PROVIDERS[id])
+    .map((id) => {
+      const provider = DECISION_PROVIDERS[id];
+      const key = `KANAREK_REVIEW_DECISION_${id.toUpperCase()}_MODELS`;
+      const raw = (env as unknown as Record<string, string | undefined>)[key];
+      const configured = raw?.split(',').map((model) => model.trim()).filter(Boolean) ?? [];
+      return {
+        ...provider,
+        models: configured.length ? [...new Set(configured)] : provider.models,
+      };
+    })
     .filter((provider) => Boolean(provider.apiKey(env)?.trim()));
   if (!configuredCandidates.length) {
     return jsonError('Decision providers unavailable', 'provider_unavailable', 503);

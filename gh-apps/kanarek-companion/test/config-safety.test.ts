@@ -33,7 +33,9 @@ test('operator-owned models and review retries are declared in Wrangler', () => 
     'KANAREK_PROVIDER_ORDER', 'KANAREK_PROVIDER_TIMEOUT_MS',
     'KANAREK_AI_PERCENT', 'KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS',
   ]) assert.ok(wranglerVars[name]?.trim(), name);
-  const delays = wranglerVars.KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS.split(',').map(Number);
+  const raw = wranglerVars.KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS;
+  assert.match(raw, /^[0-9]+,[0-9]+,[0-9]+$/);
+  const delays = raw.split(',').map(Number);
   assert.equal(delays.length, 3);
   assert.ok(delays.every((value) => Number.isSafeInteger(value) && value >= 1_000 && value <= 21_600_000));
 });

@@ -1,6 +1,6 @@
 [
   {
-    "slug": "grass-mud-horse-pl",
+    "slug": "grass-mud-horse",
     "title": "Alpaka, krab i Wielki Harmonizator",
     "date": "2026-10",
     "kind": "KULTURA",
@@ -11,20 +11,6 @@
       "chiński",
       "memy",
       "cenzura"
-    ]
-  },
-  {
-    "slug": "grass-mud-horse",
-    "title": "The Alpaca, the Crab and the Censor",
-    "date": "2026-10",
-    "kind": "CULTURE",
-    "updated": "2026-10-08T12:52:00Z",
-    "lang": "en",
-    "summary": "How Mandarin swearing, mythical internet animals and censorship became one of the weirdest boss battles in language history.",
-    "tags": [
-      "Chinese",
-      "internet culture",
-      "censorship"
     ]
   },
   {

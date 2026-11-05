@@ -38,18 +38,19 @@ test("Astro Lab canonical URLs and discovery routes agree", async () => {
 });
 
 test("breadcrumb trails reflect the public page hierarchy", () => {
-  const schema = crumbs("/teksty/grass-mud-horse-pl/");
+  const schema = crumbs("/teksty/grass-mud-horse/");
   assert.equal(schema["@type"], "BreadcrumbList");
   assert.deepEqual(schema.itemListElement.map(({ position, name, item }) => [position, name, item]), [
     [1, "TRAVNY", "https://travny.pages.dev/"],
     [2, "Teksty", "https://travny.pages.dev/teksty/"],
-    [3, "Alpaka, krab i Wielki Harmonizator", "https://travny.pages.dev/teksty/grass-mud-horse-pl/"],
+    [3, "Alpaka, krab i Wielki Harmonizator", "https://travny.pages.dev/teksty/grass-mud-horse/"],
   ]);
 });
 
 test("canonicalized route aliases share one trail", () => {
   assert.deepEqual(crumbs("/teksty/token-worldcup/"), crumbs("/teksty/token-worldcup/token-worldcup.html"));
   assert.deepEqual(crumbs("/teksty/grass-mud-horse/index.html"), crumbs("/teksty/grass-mud-horse"));
+  assert.equal(pageSeoHead("/teksty/grass-mud-horse-pl/"), "");
   assert.equal(pageSeoHead("/"), "");
   assert.equal(pageSeoHead("/does-not-exist"), "");
 });

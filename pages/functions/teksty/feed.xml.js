@@ -41,7 +41,7 @@ ${categories}
 function renderShitpostEntry(post) {
   const title = post.title;
   const publishedLine = post.published ? `    <published>${escapeXml(post.published)}</published>\n` : "";
-  const categories = ["Komentarz", ...post.tags]
+  const categories = post.tags
     .map((tag) => `    <category term="${escapeXml(tag)}"/>`)
     .join("\n");
   return `  <entry xml:lang="pl">
@@ -72,8 +72,8 @@ async function feedResponse(context, headOnly = false) {
     ].sort((a, b) => Date.parse(b.updated) - Date.parse(a.updated)).slice(0, 100);
     const xml = `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>TRAVNY · Teksty i komentarze</title>
-  <subtitle>Essays, experiments, daily editions and editorial commentary.</subtitle>
+  <title>TRAVNY · Teksty i Reactor</title>
+  <subtitle>Essays, experiments, daily editions and Reactor entries.</subtitle>
   <id>https://trfny.com/teksty/</id>
   <link rel="alternate" href="https://travny.pages.dev/teksty/"/>
   <link rel="self" type="application/atom+xml" href="https://travny.pages.dev/teksty/feed.xml"/>

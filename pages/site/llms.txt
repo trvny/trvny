@@ -17,8 +17,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [CoCzyDziennik archive](https://travny.pages.dev/przeglad/): dated issue permalinks; publication feed remains under Teksty
 - [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): token-count comparison for equivalent text in 27 languages using `o200k_base`
 - [GitHubowa Kraina](https://travny.pages.dev/teksty/githubowa-kraina/) · [Markdown](https://travny.pages.dev/teksty/githubowa-kraina/index.md): interactive atlas of the public `trvny` and `travnie` project landscape
-- [The Alpaca, the Crab and the Censor (English)](https://travny.pages.dev/teksty/grass-mud-horse/): essay about Chinese internet slang and censorship
-- [Alpaka, krab i Wielki Harmonizator (Polish)](https://travny.pages.dev/teksty/grass-mud-horse-pl/): Polish adaptation of the essay
+- [Grass Mud Horse (English / Polish)](https://travny.pages.dev/teksty/grass-mud-horse/): one bilingual article about Chinese internet slang and censorship; switch PL / EN in-page
 
 - [Main Atom feed](https://travny.pages.dev/teksty/feed.xml): articles, CoCzyDziennik issues and Reactor entries, live-aggregated
 

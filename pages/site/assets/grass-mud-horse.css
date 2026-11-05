@@ -385,17 +385,29 @@ a:hover {
   padding:3px;
   background:#0f171e
 }
-.language-picker a {
+.language-input {
+  position:absolute;
+  opacity:0;
+  width:1px;
+  height:1px
+}
+#lang-en:checked ~ .language-versions [data-version="pl"],
+#lang-pl:checked ~ .language-versions [data-version="en"] {
+  display:none
+}
+.language-picker label {
   color:var(--muted);
   padding:5px 8px;
-  text-decoration:none;
-  border-radius:4px
+  border-radius:4px;
+  cursor:pointer
 }
-.language-picker a[aria-current="page"] {
+#lang-en:checked ~ .crumbs .language-picker label[for="lang-en"],
+#lang-pl:checked ~ .crumbs .language-picker label[for="lang-pl"] {
   background:#27373b;
   color:var(--gold)
 }
-.language-picker a:focus-visible {
+#lang-en:focus-visible ~ .crumbs .language-picker label[for="lang-en"],
+#lang-pl:focus-visible ~ .crumbs .language-picker label[for="lang-pl"] {
   outline:2px solid var(--jade);
   outline-offset:2px
 }

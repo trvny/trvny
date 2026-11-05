@@ -33,7 +33,7 @@ const WEATHER_STATE = "https://weather.travny.workers.dev/state.json";
 const REDIRECT_HOSTS = new Set(["tvpi.pages.dev"]);
 const PREVIEW_SUFFIX = ".travny.pages.dev";
 const CANONICAL_HOST = "travny.pages.dev";
-const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Shitposts">';
+const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor">';
 const NAV_BODY = `
 <button id="trvny-nav-toggle" type="button" aria-controls="trvny-nav-drawer" aria-expanded="false" aria-label="Otwórz menu">☰</button>
 <div id="trvny-nav-backdrop" hidden></div>
@@ -270,6 +270,13 @@ export async function onRequest(context) {
     return Response.redirect(url.toString(), 301);
   }
 
+  if ((context.request.method === "GET" || context.request.method === "HEAD")
+    && ["/teksty/grass-mud-horse-pl", "/teksty/grass-mud-horse-pl/", "/teksty/grass-mud-horse-pl/index.html"].includes(url.pathname)) {
+    url.pathname = "/teksty/grass-mud-horse/";
+    url.searchParams.set("lang", "pl");
+    return Response.redirect(url.toString(), 301);
+  }
+
   if (context.request.method !== "GET") {
     return withPreviewNoindex(await context.next(), url.hostname);
   }
@@ -277,7 +284,8 @@ export async function onRequest(context) {
   const page = identifyPage(url.pathname);
   const isEnglishPage = page === "grass-mud-horse" || page === "papagenerator"
     || url.pathname === "/lab" || url.pathname.startsWith("/lab/");
-  const pageLanguage = isEnglishPage ? "en" : "pl";
+  const pageLanguage = page === "grass-mud-horse" && url.searchParams.get("lang") === "pl"
+    ? "pl" : (isEnglishPage ? "en" : "pl");
   const needsChannels = page === "home" || page === "tv";
   const needsWeather = page === "home";
   const [assetResponse, channels, weatherState] = await Promise.all([

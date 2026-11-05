@@ -59,7 +59,7 @@ function renderTextCard(post, index, firstPage = 501) {
 
 function renderShitpostTextCard(post, index) {
   const tags = post.tags.slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
-  const meta = post.date ? `${escapeHtml(post.date)} · KOMENTARZ` : "KOMENTARZ";
+  const meta = post.date ? escapeHtml(post.date) : "";
   const caption = escapeHtml(post.excerpt).replaceAll("\n", "<br>");
   return `<a class="textitem" href="${escapeHtml(post.url)}">
     <div class="textmeta"><b>P${501 + index}</b>${meta}</div>

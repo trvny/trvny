@@ -1,4 +1,4 @@
-name: Probe Monday GPT metadata cache
+name: Recover Monday visual sources
 on:
   push:
     branches:
@@ -6,22 +6,40 @@ on:
 permissions:
   contents: read
 jobs:
-  probe:
+  recover:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Query legacy get-gpts
+      - name: Fetch authentic sources
         shell: bash
         run: |
-          set -u
-          for host in draw.openai-next.com api.openai-next.com; do
-            for id in               g-67ec3b4988f8819184c5454e18f5e84b               g-67ec3b78892481918c89067962526695               g-67edaaa3d3a081918205d0c470f00a32
-            do
-              echo "=== $host $id"
-              body=$(printf '{"model":"get-gpts","messages":[{"role":"user","content":"%s"}],"stream":false}' "$id")
-              timeout 20s curl -L -sS -D /tmp/h "https://$host/v1/chat/completions"                 -H 'Content-Type: application/json' -d "$body" -o /tmp/body || true
-              head -8 /tmp/h || true
-              head -c 16000 /tmp/body || true
-              echo
-            done
+          set -euo pipefail
+          mkdir -p out
+          urls=(
+            'https://pbs.twimg.com/ext_tw_video_thumb/1907123874862596097/pu/img/lFYN43EKlH6VXj-v.jpg'
+            'https://pbs.twimg.com/amplify_video_thumb/1907121140595884032/img/FIQlE32FW6W09OsW.jpg'
+            'https://images.bhaskarassets.com/web2images/1884/2025/04/08/chatgpt-voice-monday_1744095479.png'
+            'https://media.licdn.com/dms/image/v2/D4E22AQFxeDr128ScNg/feedshare-shrink_800/B4EZYDCh1aGYAg-/0/1743807717336?e=2147483647&t=UjMoqV0umInyaT8Zxl69haQ-wEJ4cBw7TZWBxLvsaH4&v=beta'
+          )
+          names=(openai-tweet.jpg shade-tweet.jpg bhaskar.png linkedin.jpg)
+          for i in 0 1 2 3; do
+            echo "=== ${names[$i]}"
+            curl -fL --retry 2 --connect-timeout 10 --max-time 40 -A 'Mozilla/5.0' "${urls[$i]}" -o "out/${names[$i]}" || true
+            file "out/${names[$i]}" || true
           done
+          python - <<'PY'
+from pathlib import Path
+from PIL import Image
+for p in Path('out').iterdir():
+    try:
+        im=Image.open(p)
+        print(p.name, im.size, im.mode, p.stat().st_size)
+    except Exception as e:
+        print(p.name, 'ERR', e)
+PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monday-visual-sources
+          path: out/
+          if-no-files-found: error
+          retention-days: 2

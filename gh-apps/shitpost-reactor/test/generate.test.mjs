@@ -118,12 +118,44 @@ test('MySaaS probe is always eligible for dev topics and soft-fetched', async ()
   assert.equal(references[0].title, 'Deploy face');
 });
 
-test('buildMessages pins a meme template and asks only for overlay text', () => {
-  const template = chooseMemeTemplate('123.1');
-  const messages = buildMessages('# skill', 'deploy', '123.1', 'meme', template);
-  assert.match(messages[0].content, new RegExp(`"template":"${template.id}"`));
+test('meme contract lists allowed templates without pinning the joke to one', () => {
+  const suggested = chooseMemeTemplate('123.1');
+  const messages = buildMessages('# skill', 'deploy', '123.1', 'meme', suggested);
+  assert.match(messages[0].content, /"kind":"meme"/);
   assert.match(messages[0].content, /top_text/);
-  assert.doesNotMatch(messages[0].content, /visual brief/i);
+  assert.match(messages[0].content, /先想笑点再选图/u);
+  assert.match(messages[1].content, /bad=You Should Feel Bad/);
+  assert.match(messages[1].content, /rollsafe=Roll Safe/);
+  assert.match(messages[1].content, /非强制模板参考/u);
+  assert.doesNotMatch(messages[0].content, /图片模板固定为/u);
+});
+
+test('auto mode lets the joke choose text or an allowlisted meme', () => {
+  const messages = buildMessages('# skill', 'public institutions', 'seed', 'auto');
+  assert.match(messages[0].content, /"kind":"text"/);
+  assert.match(messages[0].content, /"kind":"meme"/);
+  assert.match(messages[0].content, /没有合适的视觉反差就用文字/u);
+  assert.match(messages[1].content, /bad=You Should Feel Bad/);
+  assert.deepEqual(
+    parseContent('{"kind":"text","text":"administracja działa"}', { mode: 'auto' }),
+    { kind: 'text', text: 'administracja działa' },
+  );
+  assert.deepEqual(
+    parseContent('{"kind":"meme","template":"rollsafe","top_text":"premia","bottom_text":"za ciszę"}', { mode: 'auto' }),
+    { kind: 'meme', template: 'rollsafe', top_text: 'premia', bottom_text: 'za ciszę' },
+  );
+  assert.throws(
+    () => parseContent('{"kind":"meme","template":"not-a-real-template","top_text":"a","bottom_text":"b"}', { mode: 'auto' }),
+    /invalid_meme_template/,
+  );
+  assert.throws(
+    () => parseContent('{"kind":"text","text":"wrong mode"}', { mode: 'meme' }),
+    /content_unexpected_kind/,
+  );
+  assert.throws(
+    () => parseContent('{"kind":"meme","template":"bad","top_text":"a","bottom_text":"b"}', { mode: 'text' }),
+    /content_unexpected_kind/,
+  );
 });
 
 test('parseContent accepts a text shitpost', () => {
@@ -179,8 +211,10 @@ test('mode and meme look are reproducible without forced poetry', () => {
   assert.ok(looks.some((look) => look.layout === 'top'));
   assert.ok(looks.some((look) => look.color));
   assert.equal(resolveGenerationPlan('meme', 'same-seed', '2').mode, 'meme');
+  assert.equal(resolveGenerationPlan('text', 'same-seed', '2').mode, 'text');
   assert.ok(Array.from({ length: 16 }, (_, i) => resolveGenerationPlan('auto', 'seed', String(i + 1)))
-    .every((plan) => plan.limerickLanguage === null));
+    .every((plan) => plan.mode === 'auto' && plan.limerickLanguage === null));
+  assert.throws(() => resolveGenerationPlan('strange-mode'), /invalid_shitpost_mode/);
   const image = memeImageUrl('bad', 'top', 'bottom', { font: 'kalam', color: 'yellow,black', layout: 'top' });
   assert.match(image, /font=kalam/);
   assert.match(image, /layout=top/);

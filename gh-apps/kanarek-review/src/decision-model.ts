@@ -2,6 +2,7 @@ import { bearerAuthorized } from '../../core/auth.ts';
 import { REVIEW_DECISION_PATH } from '../../core/review-service-protocol.ts';
 import {
   activeProviderCooldown,
+  configuredRoutingList,
   clearProviderCooldown,
   rememberProviderCooldown,
   REVIEW_ROUTER_TUNING_DEFAULTS,
@@ -353,9 +354,7 @@ export async function handleDecisionModelRequest(
   const configuredCandidates = decisionProviderOrder(input, env)
     .map((id) => {
       const provider = DECISION_PROVIDERS[id];
-      const key = `KANAREK_REVIEW_DECISION_${id.toUpperCase()}_MODELS`;
-      const raw = (env as unknown as Record<string, string | undefined>)[key];
-      const configured = raw?.split(',').map((model) => model.trim()).filter(Boolean) ?? [];
+      const configured = configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'decisionModels', id) ?? [];
       return {
         ...provider,
         models: configured.length ? [...new Set(configured)] : provider.models,

@@ -391,23 +391,26 @@ watch `gh-apps/kanarek-review/**` plus `gh-apps/core/**`.
 
 ## Operator routing settings
 
-Edit [`wrangler.jsonc`](wrangler.jsonc) to tune production routing.
-Worker Builds applies `vars` on deploy. Keep credentials in Worker secrets.
+Edit [`wrangler.jsonc`](wrangler.jsonc) for production routing. The
+`KANAREK_REVIEW_ROUTING` JSON binding groups the frequently tuned lists:
 
-- `KANAREK_REVIEW_PROVIDER_ORDER`: global free-provider priority.
-- `KANAREK_REVIEW_<TASK>_PROVIDER_ORDER`: per-task priority, with
-  `QUIP`, `REVIEW`, `JUDGE` and `SHITPOST` as supported tasks.
-- `KANAREK_REVIEW_<PROVIDER>_MODELS`: provider-wide model list.
-- `KANAREK_REVIEW_<PROVIDER>_<TASK>_MODELS`: preferred task models,
-  constrained to that provider's global list. Remaining models follow
-  in provider-wide order.
-- `KANAREK_REVIEW_DECISION_<PROVIDER>_MODELS`: independent decision-model
-  chain, separate from chat completion models.
-- `KANAREK_REVIEW_*TIMEOUT_MS`, `*COOLDOWN_MS`, `*MAX_TOKENS` and
-  `*REASONING*`: budgets and reasoning settings, with runtime bounds.
+- `providerOrders`: free-provider priority for `quip`, `review`, `judge`
+  and `shitpost`.
+- `taskModels`: per-provider model priorities for those tasks. The
+  provider's global `KANAREK_REVIEW_<PROVIDER>_MODELS` list remains the
+  allowlist. Models not explicitly preferred run afterward in global order.
+- `decisionModels`: independent decision-model priority per provider.
 
-Task settings take precedence over global settings. If the task
-value is missing, global priorities apply; if both are absent, emergency
-defaults apply. Provider orders append omitted known providers as fallbacks,
-so an order is not an allow/deny list. No code change is required to
-reorder configured models.
+Lists are ordinary JSON arrays, one model/provider per item. Task priority
+wins over global priority; missing task entries inherit the global order.
+An order appends omitted known providers as fallbacks and does not disable
+providers. API credentials remain Worker secrets, never `vars`.
+
+The grouped JSON object counts as **one binding**, rather than 24 separate
+text variables. Workers Free permits 64 text/JSON variables and secrets in
+total, so keep room for secrets when adding settings. Tests check headroom.
+
+Other frequently tuned values, including timeouts, cooldowns, reasoning,
+provider-wide model lists and paid fallback order, remain top-level `vars`.
+TypeScript defaults protect calls made without Wrangler bindings; production
+model order is maintained in Wrangler only.

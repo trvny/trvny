@@ -3301,9 +3301,13 @@ test('per-task Wrangler overrides beat built-in provider and model preferences',
     ...auth,
     ORCAROUTER_API_KEY: 'orcarouter-key',
     OPENROUTER_API_KEY: 'openrouter-key',
-    KANAREK_REVIEW_REVIEW_PROVIDER_ORDER: 'orcarouter,openrouter',
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['orcarouter', 'openrouter'] },
+      taskModels: { orcarouter: { review: [
+        'deepseek/deepseek-v4.1-flash-free', 'tencent/hy4-preview-free',
+      ] } },
+    },
     KANAREK_REVIEW_ORCAROUTER_MODELS: 'tencent/hy4-preview-free,deepseek/deepseek-v4.1-flash-free',
-    KANAREK_REVIEW_ORCAROUTER_REVIEW_MODELS: 'deepseek/deepseek-v4.1-flash-free,tencent/hy4-preview-free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     models.push((JSON.parse(String(init?.body)) as { model: string }).model);
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));

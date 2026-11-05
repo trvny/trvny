@@ -35,8 +35,7 @@ const WORKERS_AI_INPUT_NEURONS_PER_MILLION = 5_500;
 const WORKERS_AI_OUTPUT_NEURONS_PER_MILLION = 36_400;
 const WORKERS_AI_HIDDEN_OUTPUT_TOKEN_FACTOR = 2;
 const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
-// Fallbacks for a missing var. wrangler.jsonc is the source of truth; a test
-// keeps these equal to it.
+// Fallbacks for missing variables. Production priorities live in Wrangler.
 export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_AIHUBMIX_MODELS: [
     'coding-kimi-k3-free',
@@ -269,6 +268,28 @@ const VERCEL_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]
   shitpost: ['alibaba/qwen3.8-omni-flash', 'inclusionai/ling-3.1-flash-free', 'tencent/hy3', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3-coder-30b-a3b'],
 };
 
+// JSON routing counts as one binding against the Workers Free variable quota.
+export function configuredRoutingList(
+  routing: unknown,
+  section: 'providerOrders' | 'taskModels' | 'decisionModels',
+  key: string,
+  task?: string,
+): string[] | undefined {
+  if (!routing || typeof routing !== 'object' || Array.isArray(routing)) return undefined;
+  const group = (routing as Record<string, unknown>)[section];
+  if (!group || typeof group !== 'object' || Array.isArray(group)) return undefined;
+  let list: unknown = (group as Record<string, unknown>)[key];
+  if (task !== undefined) {
+    if (!list || typeof list !== 'object' || Array.isArray(list)) return undefined;
+    list = (list as Record<string, unknown>)[task];
+  }
+  if (!Array.isArray(list)) return undefined;
+  return [...new Set(list
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean))];
+}
+
 // Wrangler task preferences override these emergency defaults.
 function taskModelPreference(
   env: ReviewRouterEnv,
@@ -283,11 +304,14 @@ function taskModelPreference(
   };
   const fallback = defaults[provider][task];
   if (task === 'general') return [];
+  const preferred = configuredRoutingList(
+    env.KANAREK_REVIEW_ROUTING, 'taskModels', provider.toLowerCase(), task,
+  );
+  if (preferred !== undefined) return preferred;
   const vars = env as unknown as Record<string, string | undefined>;
-  const raw = vars[`KANAREK_REVIEW_${provider}_${task.toUpperCase()}_MODELS`];
   const global = vars[`KANAREK_REVIEW_${provider}_MODELS`] ||
     (provider === 'OPENROUTER' ? env.KANAREK_OPENROUTER_MODELS : undefined);
-  return raw?.trim() ? configuredModelList(raw, []) : global?.trim() ? [] : [...fallback];
+  return global?.trim() ? [] : [...fallback];
 }
 
 const DEFAULT_PAID_PROVIDER_ORDER = ['deepseek', 'gemini-flex'] as const;
@@ -331,6 +355,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_WORK_TIMEOUT_MS?: string;
   KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS?: string;
   KANAREK_REVIEW_PROVIDER_ORDER?: string;
+  KANAREK_REVIEW_ROUTING?: unknown;
   KANAREK_REVIEW_DECISION_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_DECISION_TIMEOUT_MS?: string;
   KANAREK_REVIEW_PAID_PROVIDER_ORDER?: string;
@@ -589,9 +614,8 @@ function configuredTaskFreeProviderOrder(
   env: ReviewRouterEnv,
   task: FreeTaskProfileId,
 ): FreeReviewProviderId[] {
-  const taskKey = `KANAREK_REVIEW_${task.toUpperCase()}_PROVIDER_ORDER`;
   const taskOrder = task === 'general' ? undefined
-    : (env as unknown as Record<string, string | undefined>)[taskKey];
+    : configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'providerOrders', task)?.join(',');
   const ordered: FreeReviewProviderId[] = task === 'general'
     ? configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER)
     : taskOrder?.trim() || env.KANAREK_REVIEW_PROVIDER_ORDER?.trim()

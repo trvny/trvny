@@ -132,13 +132,13 @@ Codebench remains link-only; Streambench radio and Docbench Draft Studio are now
 
 #### Docbench: Draft Studio
 
-**V1 delivered:** Owner-only `/doc` and `/draft new` open the existing Mini App editor. Markdown/text templates, safe preview, import/export, opt-in unencrypted device-only saving and explicit private-chat `sendDocument` are implemented. Existing `/draft <text>` is preserved. Rich rendering, PDF/DOCX conversion, chat/message import, encrypted persistence and broader share targets remain future scope.
+**V1/V2 delivered:** Owner-only `/doc` and `/draft new` open the existing Mini App editor. Markdown/text templates, safe preview, import/export, opt-in unencrypted device-only saving and explicit private-chat `sendDocument` are implemented. Existing `/draft <text>` is preserved. Rich rendering, PDF/DOCX conversion, chat/message import, encrypted persistence and broader share targets remain future scope.
 
 
 **Implemented V1:** `/doc`, `/draft new` and the Docbench tile open the editor inside Telegram **in the owner private chat**. Existing `/draft <text>` and bare `/draft` behavior is preserved. Editable Markdown/text, templates, local `.md`/`.txt` import, structural preview, explicit private-chat send and opt-in local save/export are available. Attaching a Telegram reply and sending to other chats/threads remain future work.
 
 - V1 delivered: text/Markdown editor, templates, safe preview, local import, opt-in unencrypted device saving, private-owner-chat `sendDocument`, export `.txt` and `.md`. Telegram-client E2E is still unverified.
-- V2: existing Docbench rendering/conversion where its interface supports reuse; `.html`, `.pdf`, possibly `.docx`, plus document import and formatting presets. Verify actual worker/client conversion interfaces before promising formats.
+- V2 delivered: local merge/extract/reorder/remove/rotate/split-to-ZIP quick tools using the maintained Docbench PDF library assets, print/save-to-PDF from draft preview, and explicit bounded private PDF upload. Advanced PDF metadata, attachments, compression/optimization, PDF→DOCX, DOCX→PDF and import into chat remain in the standalone Docbench or future scope. Page rebuilding is not guaranteed to preserve signatures/forms/outlines/attachments.
 - Import Telegram content only from explicitly replied-to/forwarded messages, user-uploaded files, or a voluntarily supplied chat export. Bot API does **not** grant arbitrary historical access to someone's chats.
 - Export a selected message/thread as Markdown/JSON/JSONL with timestamps, author labels, provenance, attachments or safe links when available; offer redaction before sharing or publishing. Manual Telegram Desktop export import is a separate, consent-based path.
 - Keep the composer useful offline where feasible; draft contents remain client-side until explicit send. Local saving is opt-in and **unencrypted**, with an explicit warning. Encrypted storage and broader attachments remain future scope. Large documents use a scoped API, not `WebApp.sendData` as bulk transport.

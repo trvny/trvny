@@ -51,3 +51,23 @@ Required frontmatter: `title`, `description`, `date`. `draft` is optional, defau
 After a reviewed PR is merged to `main` and Cloudflare Pages deploys, verify the issue permalink and listing in `/teksty/`; verify the `/teksty/feed.xml` entry only when the issue falls within the feed's 100 newest items by update time. Verify its home-page card only if it remains among the ten newest entries, expanding the list if needed. The Pages build copies `dist/przeglad/` additively; old article URLs and Atom IDs remain unchanged.
 
 Featured articles are selected with `featured: true` in `site/teksty/posts.json`. That JSON is the legacy-article catalog, **not** the complete list of publications. Do not maintain duplicate indexes of digest issues by hand.
+
+### Automated PR release gate
+
+For each new public digest, write only `src/content/digests/YYYY-MM-DD.md`
+on a matching `content/coczydziennik-YYYY-MM-DD` branch with GPTomek bot
+commits, then open a normal PR **as `trvny`** to retain external reviews.
+The existing `CoCzyDziennik publish` GitHub Actions gate handles the
+mechanical steps after that: wait for TRAVNY Pages and MegaLinter on the
+final head, allow reviewers time to respond, reject unresolved review threads
+or requested changes, rebase-merge a valid PR, and confirm the existing
+Cloudflare Pages deployment, permalink, `/teksty/` listing and shared Atom
+entry. The action reacts to PR changes and CI completion without a polling cron.
+After an editorial fix or review-thread resolution, apply the `digest-publish-retry`
+label to trigger another check; review events alone cannot safely execute this
+privileged workflow.
+
+Do not run PR source code with write credentials. Semantic review fixes are
+editorial work: update the source with GPTomek and resolve the feedback, then
+the gate resumes on the new CI/review events. No extra content index,
+syndication feed, deployment project or site publishing pipeline is created.

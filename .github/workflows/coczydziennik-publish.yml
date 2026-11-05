@@ -1,0 +1,50 @@
+name: CoCzyDziennik publish
+
+on: # yamllint disable-line rule:truthy
+  pull_request_target: # zizmor: ignore[dangerous-triggers] Main-only checkout; strict trusted PR data gates.
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    paths:
+      - "pages/astro/src/content/digests/**"
+  workflow_run: # zizmor: ignore[dangerous-triggers] Only trusted CI completion; no artifacts or PR code executed.
+    workflows: [TRAVNY Pages, MegaLinter]
+    types: [completed]
+
+# Only trusted code from main executes. PR Markdown is read as data through API.
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: coczydziennik-publish-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      (startsWith(github.event.pull_request.head.ref, 'content/coczydziennik-') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'digest-publish-retry')) ||
+      (github.event_name == 'workflow_run' && startsWith(github.event.workflow_run.head_branch, 'content/coczydziennik-'))
+    runs-on: ubuntu-slim
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Test publication gate
+        run: node --test .github/scripts/coczydziennik-publish.test.cjs
+      - uses: actions/github-script@v9
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { run } = require('./.github/scripts/coczydziennik-publish.cjs');
+            await run({ github, context, core });

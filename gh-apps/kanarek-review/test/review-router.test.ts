@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -29,7 +30,10 @@ function request(
   });
 }
 
-const auth = { KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
+const wranglerVars = (JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')) as {
+  vars: Record<string, string>;
+}).vars;
+const auth = { ...wranglerVars, KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
 
 
 function workersAiBinding(

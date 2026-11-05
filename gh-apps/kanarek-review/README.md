@@ -391,13 +391,23 @@ watch `gh-apps/kanarek-review/**` plus `gh-apps/core/**`.
 
 ## Operator routing settings
 
-Edit [`wrangler.jsonc`](wrangler.jsonc) rather than source-code priority arrays.
-Worker Builds applies `vars` on deploy. Tokens, API keys and private credentials remain Cloudflare secrets.
+Edit [`wrangler.jsonc`](wrangler.jsonc) to tune production routing.
+Worker Builds applies `vars` on deploy. Keep credentials in Worker secrets.
 
-- `KANAREK_REVIEW_PROVIDER_ORDER` and `KANAREK_REVIEW_*_PROVIDER_ORDER`: general and task-specific provider priority (quip, review, judge, shitpost).
-- `KANAREK_REVIEW_*_MODELS`: global model allowlist and fallback order per provider.
-- `KANAREK_REVIEW_<PROVIDER>_<TASK>_MODELS`: task-specific model preference, constrained to the provider's global allowlist. Unlisted models follow in global order; remove a model from the global list to disable it.
-- `KANAREK_REVIEW_DECISION_*_MODELS`: decision-model endpoints' model priority, independent from ordinary chat completion models.
-- `KANAREK_REVIEW_*TIMEOUT_MS`, `*COOLDOWN_MS`, `*MAX_TOKENS`, `*REASONING*`: limits and reasoning controls. Keep within runtime validation ranges.
+- `KANAREK_REVIEW_PROVIDER_ORDER`: global free-provider priority.
+- `KANAREK_REVIEW_<TASK>_PROVIDER_ORDER`: per-task priority, with
+  `QUIP`, `REVIEW`, `JUDGE` and `SHITPOST` as supported tasks.
+- `KANAREK_REVIEW_<PROVIDER>_MODELS`: provider-wide model list.
+- `KANAREK_REVIEW_<PROVIDER>_<TASK>_MODELS`: preferred task models,
+  constrained to that provider's global list. Remaining models follow
+  in provider-wide order.
+- `KANAREK_REVIEW_DECISION_<PROVIDER>_MODELS`: independent decision-model
+  chain, separate from chat completion models.
+- `KANAREK_REVIEW_*TIMEOUT_MS`, `*COOLDOWN_MS`, `*MAX_TOKENS` and
+  `*REASONING*`: budgets and reasoning settings, with runtime bounds.
 
-Task profiles use their own provider order if present, otherwise the general list. Unavailable or unconfigured providers are skipped. Task-specific provider lists append omitted known providers as fallbacks; omitting a provider is not a kill switch. Fallback constants inside TypeScript are for missing env vars in local tests and recovery, not the production configuration contract.
+Task settings take precedence over global settings. If the task
+value is missing, global priorities apply; if both are absent, emergency
+defaults apply. Provider orders append omitted known providers as fallbacks,
+so an order is not an allow/deny list. No code change is required to
+reorder configured models.

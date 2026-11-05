@@ -17,18 +17,21 @@ jobs:
           mkdir -p out
           urls=(
             'https://pbs.twimg.com/ext_tw_video_thumb/1907123874862596097/pu/img/lFYN43EKlH6VXj-v.jpg'
+            'https://pbs.twimg.com/ext_tw_video_thumb/1907123874862596097/pu/img/lFYN43EKlH6VXj-v.jpg?format=jpg&name=orig'
             'https://pbs.twimg.com/amplify_video_thumb/1907121140595884032/img/FIQlE32FW6W09OsW.jpg'
+            'https://pbs.twimg.com/amplify_video_thumb/1907121140595884032/img/FIQlE32FW6W09OsW.jpg?format=jpg&name=orig'
             'https://images.bhaskarassets.com/web2images/1884/2025/04/08/chatgpt-voice-monday_1744095479.png'
             'https://media.licdn.com/dms/image/v2/D4E22AQFxeDr128ScNg/feedshare-shrink_800/B4EZYDCh1aGYAg-/0/1743807717336?e=2147483647&t=UjMoqV0umInyaT8Zxl69haQ-wEJ4cBw7TZWBxLvsaH4&v=beta'
           )
-          names=(openai-tweet.jpg shade-tweet.jpg bhaskar.png linkedin.jpg)
-          for i in 0 1 2 3; do
+          names=(openai-tweet.jpg openai-tweet-orig.jpg shade-tweet.jpg shade-tweet-orig.jpg bhaskar.png linkedin.jpg)
+          for i in 0 1 2 3 4 5; do
             echo "=== ${names[$i]}"
             curl -fL --retry 2 --connect-timeout 10 --max-time 40 -A 'Mozilla/5.0' "${urls[$i]}" -o "out/${names[$i]}" || true
             file "out/${names[$i]}" || true
           done
-          python -c "from pathlib import Path; from PIL import Image; [(lambda p: print(p.name, Image.open(p).size, Image.open(p).mode, p.stat().st_size))(p) for p in Path('out').iterdir()]"
+          ls -lh out/
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: monday-visual-sources
           path: out/

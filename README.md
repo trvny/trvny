@@ -1,9 +1,8 @@
 <div align="center">
 
 <img src="assets/banner.svg" alt="trvny" width="100%">
-
 <p align="center">
-  <img src="assets/132311.gif" width="75%">
+  <img src="assets/132311.gif" width="100%">
 </p>
 <br>
 

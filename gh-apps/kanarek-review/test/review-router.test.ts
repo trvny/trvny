@@ -3313,3 +3313,23 @@ test('per-task Wrangler overrides beat built-in provider and model preferences',
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(models[0], 'deepseek/deepseek-v4.1-flash-free');
 });
+
+test('configured general priorities apply when task overrides are missing', async () => {
+  let chosenModel = '';
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_PROVIDER_ORDER: 'orcarouter,openrouter',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'tencent/hy4-preview-free,deepseek/deepseek-v4.1-flash-free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    chosenModel = String((JSON.parse(String(init?.body)) as { model?: string }).model);
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.equal(chosenModel, 'tencent/hy4-preview-free');
+});

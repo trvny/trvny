@@ -6,6 +6,7 @@ import type { GitHubInstallationClient } from '../../core/github-app.ts';
 import {
   assessFeedseekRuns,
   checkFeedseekWatchdog,
+  feedseekStaleAfterMs,
 } from '../src/specialists/feedseek-watchdog.ts';
 
 const NOW = Date.parse('2026-11-04T21:15:00Z');
@@ -32,6 +33,9 @@ test('watchdog skips recent, future and active generator runs', () => {
   assert.equal(assessFeedseekRuns(feedRuns(600, 'waiting'), NOW), 'active');
   assert.equal(assessFeedseekRuns(feedRuns(600), NOW), 'dispatch');
   assert.equal(assessFeedseekRuns(feedRuns(150), NOW), 'dispatch');
+  assert.equal(assessFeedseekRuns(feedRuns(100), NOW, feedseekStaleAfterMs('3600000')), 'dispatch');
+  assert.equal(assessFeedseekRuns(feedRuns(100), NOW, feedseekStaleAfterMs('10800000')), 'recent');
+  for (const invalid of ['bad', '100', '9999999999']) assert.equal(feedseekStaleAfterMs(invalid), 9_000_000);
   const longRunning = {
     workflow_runs: [{
       ...feedRuns(220).workflow_runs[0],
@@ -98,6 +102,8 @@ test('recent runs and missing permissions never dispatch', async () => {
   } as unknown as GitHubInstallationClient;
   assert.equal(await checkFeedseekWatchdog(client, NOW), 'recent');
   assert.equal(dispatched, 0);
+  assert.equal(await checkFeedseekWatchdog(client, NOW, '3600000'), 'dispatch');
+  assert.equal(dispatched, 1);
 
   const missingPermission = {
     permissions: { actions: 'read' },
@@ -105,7 +111,7 @@ test('recent runs and missing permissions never dispatch', async () => {
     void() { dispatched += 1; return Promise.resolve(); },
   } as unknown as GitHubInstallationClient;
   await assert.rejects(() => checkFeedseekWatchdog(missingPermission, NOW), /actions_write_required/);
-  assert.equal(dispatched, 0);
+  assert.equal(dispatched, 1);
 });
 
 test('production cron is only configured in Wrangler', () => {

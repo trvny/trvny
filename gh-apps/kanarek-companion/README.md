@@ -261,3 +261,14 @@ GitHub App metadata, companion/review repository scopes, quip provider controls,
 AI percentage ceiling, review debounce/context limits, the decision-L2 rollout
 switch, Durable Object bindings, service bindings, and KV bindings are defined
 in `wrangler.jsonc`.
+
+## Operator controls
+
+[`wrangler.jsonc`](wrangler.jsonc) is the maintained entry point for frequently tuned Worker settings. Edit only the relevant value, then deploy normally. The TypeScript constants are defensive defaults for missing bindings, not another list that must be synchronized.
+
+- Quips: `KANAREK_AI_PERCENT`, `KANAREK_PROVIDER_ORDER`, `KANAREK_*_MODEL`, `KANAREK_*_ENABLED`, reasoning effort, token ceilings and per-provider timeout.
+- PR reviews: `KANAREK_WEBHOOK_REVIEW_*` controls scheduling, diff/context/output budgets, judge and decision flags. `KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS` sets the three transient retry waits, in milliseconds, e.g. `120000,600000,1800000`. Invalid values fall back to defaults. Do not increase retry count by changing the list length.
+- Feedseek recovery: `KANAREK_FEEDSEEK_WATCHDOG_STALE_MS` controls the freshness threshold (1–24 hours). The separate Cron Trigger in `triggers.crons` controls how often the watchdog checks. The native Feedseek schedule remains primary.
+- Repository scope and CI: `KANAREK_REPOSITORIES`, `KANAREK_REVIEW_REPOSITORIES` and `KANAREK_REQUIRE_CI`.
+
+Keep API keys, private keys and tokens in Worker secrets, never `vars`. Do not change Durable Object namespaces, migration tags or the paid quip bank to tweak behavior. Review provider/model ordering belongs to the [private review Worker configuration](../kanarek-review/wrangler.jsonc), not the shared `automation` Worker.

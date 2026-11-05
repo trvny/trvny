@@ -63,6 +63,7 @@ export type RuntimeEnv = GatewayEnv &
   WebhookReviewEnv & {
     CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
     KANAREK_REVIEW_REPOSITORIES?: string;
+    KANAREK_FEEDSEEK_WATCHDOG_STALE_MS?: string;
   };
 
 export function gremlinMcpManifest(origin: string): JsonObject {
@@ -296,7 +297,7 @@ const runtimeRoutes: readonly Route<RuntimeContext>[] = [
 const runtime = {
   async scheduled(_controller: ScheduledController, env: RuntimeEnv): Promise<void> {
     const client = await gptomekClient(env, actionFetch, FEEDSEEK_REPOSITORY);
-    await checkFeedseekWatchdog(client);
+    await checkFeedseekWatchdog(client, Date.now(), env.KANAREK_FEEDSEEK_WATCHDOG_STALE_MS);
   },
   fetch(request: Request, env: RuntimeEnv, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {

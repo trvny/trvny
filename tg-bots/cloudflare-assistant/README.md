@@ -10,11 +10,39 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Capability deck:** `/tools` catalogs existing command families; owner sees private operations, while public visitors and peer bots see only explicitly public utilities. Rich Telegram navigation uses the same command registry and enforces permissions per request.
 - **Quick replies and quip bank:** trivial chat intents use deterministic matching; /quip samples short, screened quips from one bounded Durable Object bank, with built-in presets as an outage fallback. Owner-only AI generations may add generic quips after basic length and lexical validation. The generation prompt receives no user text or private state, and replay safety remains a best-effort goal. Bank entries are jokes, not verified facts; lexical filters reject some dated claims and name-like text but cannot prove timelessness.
 - **Public skill surface:** `/start`, `/help`, `/tools`, `/skill` native `/dice` and `/ping [nonce]` work for explicit non-owner Telegram requests behind a per-sender Durable Object rate gate. The ping response echoes a validated nonce as `BOTEK/1 PONG <nonce>` for bounded bot-to-bot reachability checks. Agent-readable discovery at `/botek/skill.md` and `/.well-known/botek-tools.json`; no public HTTP execution endpoint. Telegram BotFather configuration is required for private bot-to-bot delivery.
+- **Feedseek on demand:** owner-only `/news` (plus topic selectors) and `/meme`. Natural prompts such as "co tam w szerokim świecie" route to a sourced, dated Feedseek briefing rather than unsupported model claims. Meme links are text-only with previews disabled. The existing watcher still uses `BOTEK_SPECIALISTS.feedseekRecent`.
 - **Memory and proactive work:** Engram-backed `/remember` / `/recall`, one-shot reminders, Legion/GitHub/Feedseek watches and terminal task notifications.
 - **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
 - **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
 - **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata from the canonical TRAVNY Pages API with an exact-origin CORS allowlist, plus native Docbench Draft Studio/PDF quick tools, Codebench link and Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. iOS uses hardware volume controls where programmatic media volume is unavailable. Watchtower keeps Secretary idle watches private.
+
+
+### Feedseek news and meme replies
+
+`/news` returns up to six distinct-source headlines for the last 72 hours,
+with source attribution, local Warsaw publication times and canonical article
+links. Topic filters: `world`, `pl`, `ai`, `tech`, `science`, `games`,
+`cars`. Owner-only natural phrases including `co tam w szerokim świecie`
+take the same deterministic path before AI generation. A future-dated,
+undated or stale entry cannot become a "latest" story; failed sources are
+isolated, and the bot explicitly reports when the window is empty.
+
+Source content comes from the canonical Feedseek Model Feed v1 files in
+`trvny/feedseek`, fetched through a fixed allowlist of source keys. The bot
+does not clone Feedseek's generators, execute feed content or supply untrusted
+articles as AI instructions. Each fetch has a 4-second deadline, a 2 MiB
+response cap and validation of the feed envelope and article URLs.
+For `/meme` (or a quip-generation outage with no retained bank joke), the
+bot offers a recent filtered **link** from JBZD, Memedroid or 9GAG. It does
+not forward unreviewed image bytes to Telegram; existing plain messages
+disable link previews. This tag-based filtering cannot guarantee that the
+linked image is appropriate, and is deliberately limited to the owner.
+
+This does **not** add direct X/Twitter account scraping. X has no native RSS
+account feeds, and ephemeral public scrapers are not a supported dependency.
+Any future paid/authenticated X adapter belongs in the canonical Feedseek
+pipeline, not in Botek.
 
 ### Docbench Draft Studio and PDF quick tools (V2)
 

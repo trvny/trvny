@@ -31,7 +31,7 @@ tg-assistant
 Good fit:
 
 - chat and quick questions;
-- filtering RSS/news/changelogs;
+- filtering RSS/news/changelogs, including direct on-demand Feedseek briefings with source/date attribution;
 - scheduled summaries and reminders;
 - summarising URLs supplied by trusted integrations;
 - drafting replies;
@@ -77,6 +77,18 @@ The existing Pet Dispatcher control plane already provides a signed durable task
 The same Telegram bot identity/token can be moved from Android to a Hermes installation on Legion. With the current polling setup, run only one Hermes Telegram gateway for that bot at a time; two concurrent `getUpdates` pollers will fight over the same bot. Stop the Termux gateway before starting the Legion gateway, or later put a single dispatcher in front of both workers.
 
 Keep the Cloudflare assistant on a separate BotFather bot so its webhook never conflicts with the Hermes poller.
+
+## Feedseek consumer boundary
+
+Botek consumes existing Feedseek `feed_<key>.json` Model Feed v1 output
+through a fixed source allowlist. `/news` and specific private-chat prompts
+return recent source-diverse headlines with links and dates; `/meme` and
+owner-only quip fallback return a filtered link only, never an automatically
+reposted image. Entries with missing, stale or future publication times are
+excluded. No untrusted feed text becomes an AI system message.
+
+Keep account-specific Twitter/X collection upstream in Feedseek. Do not
+duplicate a headless scraper or fragile Nitter endpoint inside this Worker.
 
 ## Handoff design
 

@@ -1,6 +1,8 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { digestTarget, workflowGate, resolveNumber } = require('./coczydziennik-publish.cjs');
 const pr = {
   state: 'open', draft: false, base: { ref: 'main' }, user: { login: 'trvny' },
@@ -33,4 +35,11 @@ test('choose PR number from review; ignore untrusted dispatch input', () => {
   assert.equal(resolveNumber({ payload: { pull_request: { number: 18 } } }), 18);
   assert.equal(resolveNumber({ payload: { inputs: { pr: '19' } } }), null);
   assert.equal(resolveNumber({ payload: { workflow_run: {} } }), null);
+});
+
+test('one six-minute publication window, no follow-up workflow trigger', () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../workflows/coczydziennik-publish.yml'), 'utf8');
+  assert.match(workflow, /run: sleep 360/);
+  assert.doesNotMatch(workflow, /^\s+workflow_run:/m);
+  assert.match(workflow, /cancel-in-progress: true/);
 });

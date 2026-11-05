@@ -144,8 +144,8 @@ test("PDF tools are embedded, local-first, and never start an upload at launch",
   const { html, nodes, requests } = await harness();
   assert.match(html, /id="pdf-tools"/u);
   assert.match(html, /id="doc-print"/u);
-  assert.match(html, /vendor\/pdf-lib\.min\.js/u);
-  assert.match(html, /vendor\/fflate\.min\.js/u);
+  assert.match(html, /pdfVendorBase \+ "pdf-lib\.min\.js"/u);
+  assert.match(html, /pdfVendorBase \+ "fflate\.min\.js"/u);
   assert.match(html, /\/mini-app\/api\/documents\/send-pdf/u);
   assert.match(html, /Rebuilding PDFs can drop signatures/u);
   assert.equal(nodes.get("pdf-tools").hidden, true);
@@ -164,7 +164,7 @@ test("merge outputs one PDF in selected file order without server requests", asy
   assert.equal(nodes.get("pdf-result-name").textContent, "merged.pdf");
   assert.match(nodes.get("pdf-result-size").textContent, /^3 pages/u);
   nodes.get("pdf-download").dispatch("click");
-  assert.equal(downloads[1].download, "merged.pdf");
+  assert.equal(downloads[0].download, "merged.pdf");
   assert.equal(objectUrls.length, 1);
   assert.match(await objectUrls[0].text(), /1:0,2:0,1:0/u);
   assert.equal(requests.filter((r) => String(r.url).includes("send-pdf")).length, 0);
@@ -266,7 +266,7 @@ test("print to PDF uses the local text preview, not a remote conversion service"
   nodes.get("doc-print").dispatch("click");
   const printable = nodes.get("doc-print-view");
   assert.equal(printable.children[0].textContent, "Polish document");
-  assert.equal(printable.children[1].children[0].textContent, "Zażółć gęślą jaźń");
+  assert.equal(printable.children[1].textContent, "Zażółć gęślą jaźń");
   assert.equal(prints(), 1);
   assert.match(html, /\.app > \*:not\(\.doc-print-view\)/u);
   assert.equal(requests.filter((r) => String(r.url).includes("send")).length, 0);

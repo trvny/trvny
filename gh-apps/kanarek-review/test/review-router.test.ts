@@ -1489,16 +1489,15 @@ test('AIHubMix applies per-model context, output and reasoning profiles', async 
 
   assert.notEqual(response?.status, 200);
   // lfm never called: payload over its window.
-  assert.deepEqual(bodies.map((body) => body.model), ['coding-kimi-k3-free', 'gemma-4-31b-it-free']);
+  assert.deepEqual(bodies.map((body) => body.model), ['gemma-4-31b-it-free', 'coding-kimi-k3-free']);
+  // Explicit global model order wins; each model retains its own safety profile.
+  assert.equal(bodies[0]?.reasoning_effort, 'minimal');
+  assert.equal(bodies[0]?.thinking_budget, undefined);
+  assert.equal(bodies[0]?.max_tokens, 256);
   // K3 always thinks at max: floor raised, caller effort dropped.
-  assert.equal(bodies[0]?.reasoning_effort, undefined);
-  assert.equal(bodies[0]?.max_tokens, 16_384);
-  // gemma: low task -> minimal effort, no thinking floor.
-  assert.equal(bodies[1]?.reasoning_effort, 'minimal');
-  // Caller budget dropped only where effort is injected.
-  assert.equal(bodies[0]?.thinking_budget, 512);
-  assert.equal(bodies[1]?.thinking_budget, undefined);
-  assert.equal(bodies[1]?.max_tokens, 256);
+  assert.equal(bodies[1]?.reasoning_effort, undefined);
+  assert.equal(bodies[1]?.max_tokens, 16_384);
+  assert.equal(bodies[1]?.thinking_budget, 512);
 });
 
 test('AIHubMix Nemotron Super VL gets thinking headroom without unsupported effort', async () => {

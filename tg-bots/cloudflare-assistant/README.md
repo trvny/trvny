@@ -14,9 +14,9 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
 - **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
-- **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata from the canonical TRAVNY Pages API with an exact-origin CORS allowlist, plus a native Docbench Draft Studio, Codebench link and Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. iOS uses hardware volume controls where programmatic media volume is unavailable. Watchtower keeps Secretary idle watches private.
+- **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata from the canonical TRAVNY Pages API with an exact-origin CORS allowlist, plus native Docbench Draft Studio/PDF quick tools, Codebench link and Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. iOS uses hardware volume controls where programmatic media volume is unavailable. Watchtower keeps Secretary idle watches private.
 
-### Docbench Draft Studio (V1)
+### Docbench Draft Studio and PDF quick tools (V2)
 
 In the **owner private chat**, `/doc` or `/draft new` launches the existing Mini App
 at `?tab=doc`. Existing `/draft <text>` reply drafting is unchanged.
@@ -33,7 +33,30 @@ origins and oversized requests, bounds uploads to 64 KiB, and reuses the
 existing Telegram update dedup Durable Object as a per-request send gate.
 Ambiguous sends are never automatically replayed; check chat before retrying.
 Telegram client download/preview behavior still needs a device smoke test.
-PDF/DOCX/HTML conversion and Telegram message attachment import remain V2.
+The same in-Telegram workspace now offers **local PDF quick tools**: merge (2–6
+files), extract selected pages, reorder, remove, rotate, and split pages to a
+ZIP. The Mini App lazily loads the same pinned browser PDF library distributed
+by the existing Docbench Worker; it does not host a second PDF backend.
+Inputs are bounded (12 MiB per source, 36 MiB total, 400 pages; ZIP splitting
+up to 40 pages). It can print the local text editor preview using the device's
+**Print / Save as PDF** flow, preserving Unicode through the browser's print
+engine where supported.
+
+Output files remain local until an explicit upload confirmation. A signed
+owner-only `POST /mini-app/api/documents/send-pdf` accepts a bounded raw
+`application/pdf` payload (max 8 MiB), validates filename and PDF markers
+and routes it through the same Durable Object idempotency gate to the owner's
+private Telegram chat. Larger results can be downloaded locally; ZIP results
+are not uploaded through the PDF-only endpoint.
+
+**Fidelity warning:** page rebuilding through a PDF library may discard
+signatures, AcroForms, bookmarks or embedded attachments. Do not treat the
+quick tools as a lossless archival path. The canonical standalone Docbench
+remains the home for verified metadata/attachment preservation, lossy/lossless
+optimization, DOCX↔PDF, structural PDF→DOCX and advanced file operations.
+The browser print dialog may not be available inside every Telegram client.
+Telegram Android/desktop device smoke tests remain necessary; no OCR, password
+unlocking or arbitrary chat-history import is promised.
 
 ### Automation cancellation boundary
 

@@ -31,6 +31,7 @@ import {
 import { parseWakeCommand, type WakeRequest } from "./wake.ts";
 import {
   definePredicateRoute,
+  hasCommandArguments,
   routeFirst,
   type PredicateRoute,
   type RouteDecision,
@@ -110,65 +111,65 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
   textRoute("tasks", (text) => text === "/tasks" ? { kind: "tasks" } : undefined),
 
   textRoute("reminder-usage", (text) => text === "/remind" ? { kind: "reminder-usage" } : undefined),
-  textRoute("reminder-create", (text) => text.startsWith("/remind ")
+  textRoute("reminder-create", (text) => hasCommandArguments(text, "/remind")
     ? { kind: "reminder-create", request: parseReminderCommand(text) }
     : undefined),
   textRoute("reminder-list", (text) => text === "/reminders" ? { kind: "reminder-list" } : undefined),
   textRoute("reminder-cancel-usage", (text) => text === "/remind_cancel"
     ? { kind: "reminder-cancel-usage" }
     : undefined),
-  textRoute("reminder-cancel", (text) => text.startsWith("/remind_cancel ")
+  textRoute("reminder-cancel", (text) => hasCommandArguments(text, "/remind_cancel")
     ? { kind: "reminder-cancel", id: parseReminderCancelCommand(text) }
     : undefined),
 
   textRoute("watch-usage", (text) => text === "/watch" ? { kind: "watch-usage" } : undefined),
-  textRoute("watch-create", (text) => text.startsWith("/watch ")
+  textRoute("watch-create", (text) => hasCommandArguments(text, "/watch")
     ? { kind: "watch-create", request: parseWatchCommand(text) }
     : undefined),
   textRoute("watch-list", (text) => text === "/watches" ? { kind: "watch-list" } : undefined),
   textRoute("watch-cancel-usage", (text) => text === "/watch_cancel"
     ? { kind: "watch-cancel-usage" }
     : undefined),
-  textRoute("watch-cancel", (text) => text.startsWith("/watch_cancel ")
+  textRoute("watch-cancel", (text) => hasCommandArguments(text, "/watch_cancel")
     ? { kind: "watch-cancel", id: parseWatchCancelCommand(text) }
     : undefined),
 
   textRoute("remember-usage", (text) => text === "/remember" ? { kind: "remember-usage" } : undefined),
-  textRoute("remember", (text) => text.startsWith("/remember ")
+  textRoute("remember", (text) => hasCommandArguments(text, "/remember")
     ? { kind: "remember", memory: parseRememberCommand(text) }
     : undefined),
   textRoute("recall-usage", (text) => text === "/recall" ? { kind: "recall-usage" } : undefined),
-  textRoute("recall", (text) => text.startsWith("/recall ")
+  textRoute("recall", (text) => hasCommandArguments(text, "/recall")
     ? { kind: "recall", query: parseRecallCommand(text) }
     : undefined),
   textRoute("memory-status", (text) => text === "/memory_status" ? { kind: "memory-status" } : undefined),
 
   textRoute("location-usage", (text) => text === "/location" ? { kind: "location-usage" } : undefined),
-  textRoute("location", (text) => text.startsWith("/location ")
+  textRoute("location", (text) => hasCommandArguments(text, "/location")
     ? { kind: "location", location: parseLocationCommand(text) }
     : undefined),
   textRoute("venue-usage", (text) => text === "/venue" ? { kind: "venue-usage" } : undefined),
-  textRoute("venue", (text) => text.startsWith("/venue ")
+  textRoute("venue", (text) => hasCommandArguments(text, "/venue")
     ? { kind: "venue", venue: parseVenueCommand(text) }
     : undefined),
   textRoute("contact-usage", (text) => text === "/contact" ? { kind: "contact-usage" } : undefined),
-  textRoute("contact", (text) => text.startsWith("/contact ")
+  textRoute("contact", (text) => hasCommandArguments(text, "/contact")
     ? { kind: "contact", contact: parseContactCommand(text) }
     : undefined),
   textRoute("sticker", (text) => text === "/sticker" ? { kind: "sticker" } : undefined),
-  textRoute("dice", (text) => text === "/dice" || text.startsWith("/dice ")
+  textRoute("dice", (text) => text === "/dice" || hasCommandArguments(text, "/dice")
     ? { kind: "dice", emoji: parseDiceCommand(text) }
     : undefined),
   textRoute("poll-usage", (text) => text === "/poll" ? { kind: "poll-usage" } : undefined),
-  textRoute("poll", (text) => text.startsWith("/poll ")
+  textRoute("poll", (text) => hasCommandArguments(text, "/poll")
     ? { kind: "poll", poll: parsePollCommand(text) }
     : undefined),
   textRoute("quiz-usage", (text) => text === "/quiz" ? { kind: "quiz-usage" } : undefined),
-  textRoute("quiz", (text) => text.startsWith("/quiz ")
+  textRoute("quiz", (text) => hasCommandArguments(text, "/quiz")
     ? { kind: "quiz", quiz: parseQuizCommand(text) }
     : undefined),
   textRoute("topic-usage", (text) => text === "/topic" ? { kind: "topic-usage" } : undefined),
-  textRoute("topic", (text) => text.startsWith("/topic ")
+  textRoute("topic", (text) => hasCommandArguments(text, "/topic")
     ? { kind: "topic", name: parseTopicCommand(text) }
     : undefined),
 
@@ -179,11 +180,11 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
         ? { kind: "task-control-usage", action: "cancel" }
         : undefined
   )),
-  textRoute("task-control", (text) => text.startsWith("/task_status ") || text.startsWith("/task_cancel ")
+  textRoute("task-control", (text) => hasCommandArguments(text, "/task_status") || hasCommandArguments(text, "/task_cancel")
     ? { kind: "task-control", request: parseTaskControlCommand(text) }
     : undefined),
   textRoute("task-usage", (text) => text === "/task" ? { kind: "task-usage" } : undefined),
-  textRoute("task", (text) => text.startsWith("/task ")
+  textRoute("task", (text) => hasCommandArguments(text, "/task")
     ? { kind: "task", request: parseTaskCommand(text) }
     : undefined),
 ];

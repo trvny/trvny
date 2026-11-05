@@ -96,3 +96,22 @@ test("routes tool discovery without invoking AI or other services", async () => 
     matched: true, route: "tools", value: { kind: "tools", id: "unknown" },
   });
 });
+
+test("keeps whitespace-separated owner commands in the guarded command path", async () => {
+  for (const [text, kind] of [
+    ["/task\ttrvny/trvny test", "task"],
+    ["/task_status\nnot-a-task", "task-control"],
+    ["/remind\tinvalid", "reminder-create"],
+    ["/watch\ninvalid", "watch-create"],
+    ["/remember\ttext", "remember"],
+    ["/recall\nquery", "recall"],
+    ["/location\tbad", "location"],
+    ["/poll\ninvalid", "poll"],
+  ]) {
+    const result = await routeOwnerCommand(text);
+    assert.equal(result.matched, true, text);
+    if (result.matched) assert.equal(result.value.kind, kind, text);
+  }
+  assert.deepEqual(await routeOwnerCommand("/taskforce nope"), { matched: false });
+  assert.deepEqual(await routeOwnerCommand("/watched nope"), { matched: false });
+});

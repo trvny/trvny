@@ -1,4 +1,4 @@
-name: Recover Monday static GPT image
+name: Probe AIPRM Monday asset
 on:
   push:
     branches:
@@ -6,29 +6,28 @@ on:
 permissions:
   contents: read
 jobs:
-  recover:
+  probe:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Fetch static screenshots
+      - name: Probe AIPRM
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           mkdir -p out
-          urls=(
-            'https://assets.st-note.com/production/uploads/images/183949594/rectangle_large_type_2_a47b8e271bdb66aaef053842917e6abf.png?width=1200'
-            'https://assets.st-note.com/production/uploads/images/183949594/rectangle_large_type_2_a47b8e271bdb66aaef053842917e6abf.png'
-          )
-          names=(note-1200.png note-original.png)
-          for i in 0 1; do
-            curl -fL --retry 2 --connect-timeout 10 --max-time 40 -A 'Mozilla/5.0' "${urls[$i]}" -o "out/${names[$i]}" || rm -f "out/${names[$i]}"
-            [ -f "out/${names[$i]}" ] && file "out/${names[$i]}" || true
+          for id in             g-67ec3b78892481918c89067962526695             g-67ec3b4988f8819184c5454e18f5e84b             g-67edab4a24fc8191b975acaa8da2dcef
+          do
+            url="https://app.aiprm.com/gpts/$id/monday"
+            echo "=== $url"
+            curl -L --max-time 35 -sS -D "out/$id.headers" -A 'Mozilla/5.0' "$url" -o "out/$id.html" || true
+            head -8 "out/$id.headers" || true
+            grep -Eoi 'https?[^"<> ]+\.(png|jpe?g|webp)(\?[^"<> ]*)?' "out/$id.html" | head -30 || true
+            grep -Eoi '<meta[^>]+(og:image|twitter:image)[^>]+>' "out/$id.html" | head -10 || true
           done
-          ls -lh out/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: monday-note-static
+          name: monday-aiprm-probe
           path: out/
           if-no-files-found: error
           retention-days: 2

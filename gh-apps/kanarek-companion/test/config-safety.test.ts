@@ -5,7 +5,6 @@ import test from 'node:test';
 import {
   aiPercent,
   openAiReasoningEffort,
-  QUIP_MODEL_DEFAULTS,
 } from '../src/companion/quip.ts';
 
 const wranglerVars = (
@@ -27,10 +26,16 @@ test('accepts only decimal integer AI percentages', () => {
   }
 });
 
-test('quip model fallbacks match wrangler.jsonc', () => {
-  for (const [name, fallback] of Object.entries(QUIP_MODEL_DEFAULTS)) {
-    assert.equal(fallback, wranglerVars[name], name);
-  }
+test('operator-owned models and review retries are declared in Wrangler', () => {
+  for (const name of [
+    'KANAREK_OPENAI_MODEL', 'KANAREK_OPENAI_FALLBACK_MODEL',
+    'KANAREK_ANTHROPIC_MODEL', 'KANAREK_GEMINI_MODEL', 'KANAREK_XAI_MODEL',
+    'KANAREK_PROVIDER_ORDER', 'KANAREK_PROVIDER_TIMEOUT_MS',
+    'KANAREK_AI_PERCENT', 'KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS',
+  ]) assert.ok(wranglerVars[name]?.trim(), name);
+  const delays = wranglerVars.KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS.split(',').map(Number);
+  assert.equal(delays.length, 3);
+  assert.ok(delays.every((value) => Number.isSafeInteger(value) && value >= 1_000 && value <= 21_600_000));
 });
 
 test('configured OpenAI quip models always send an explicit reasoning effort', () => {

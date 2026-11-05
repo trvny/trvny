@@ -148,9 +148,22 @@ export function nextReviewPhase(
     : null;
 }
 
+function configuredReviewRetryDelays(raw: string | undefined): readonly number[] {
+  if (!raw?.trim()) return REVIEW_RETRY_DELAYS_MS;
+  const parts = raw.split(',').map((value) => value.trim());
+  if (parts.length !== REVIEW_RETRY_DELAYS_MS.length || parts.some((part) => !/^[0-9]+$/.test(part))) {
+    return REVIEW_RETRY_DELAYS_MS;
+  }
+  const delays = parts.map(Number);
+  return delays.every((delay) => Number.isSafeInteger(delay) && delay >= 1_000 && delay <= 21_600_000)
+    ? delays
+    : REVIEW_RETRY_DELAYS_MS;
+}
+
 export function reviewRetryDelayMs(
   result: WebhookReviewResult,
   attempt: number,
+  env?: Pick<WebhookReviewEnv, 'KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS'>,
 ): number | null {
   // invalid_findings is not retried: in the free phase it escalates to paid,
   // and in the paid phase a billed completion that failed verification would
@@ -161,7 +174,7 @@ export function reviewRetryDelayMs(
   ) {
     return null;
   }
-  return REVIEW_RETRY_DELAYS_MS[attempt] ?? null;
+  return configuredReviewRetryDelays(env?.KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS)[attempt] ?? null;
 }
 
 
@@ -1499,7 +1512,7 @@ export class WebhookReviewJob {
       return;
     }
 
-    const retryDelayMs = reviewRetryDelayMs(result, attempt);
+    const retryDelayMs = reviewRetryDelayMs(result, attempt, this.env);
     if (retryDelayMs !== null) {
       await this.state.storage.put({
         [JOB_KEY]: { ...continuation, attempt: attempt + 1 },

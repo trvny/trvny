@@ -4,7 +4,7 @@ import { PayloadTooLargeError, readBytesWithLimit } from "./http.ts";
 import type { Env } from "./types.ts";
 
 export const DOC_PDF_MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
-const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
 function json(value: unknown, status = 200): Response {
   return Response.json(value, { status, headers: { "cache-control": "no-store" } });

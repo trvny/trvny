@@ -264,11 +264,26 @@ in `wrangler.jsonc`.
 
 ## Operator controls
 
-[`wrangler.jsonc`](wrangler.jsonc) is the maintained entry point for frequently tuned Worker settings. Edit only the relevant value, then deploy normally. The TypeScript constants are defensive defaults for missing bindings, not another list that must be synchronized.
+[`wrangler.jsonc`](wrangler.jsonc) is the operator entry point. Edit
+the relevant `vars` and deploy normally. TypeScript constants are
+emergency fallbacks, not additional production configuration.
 
-- Quips: `KANAREK_AI_PERCENT`, `KANAREK_PROVIDER_ORDER`, `KANAREK_*_MODEL`, `KANAREK_*_ENABLED`, reasoning effort, token ceilings and per-provider timeout.
-- PR reviews: `KANAREK_WEBHOOK_REVIEW_*` controls scheduling, diff/context/output budgets, judge and decision flags. `KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS` sets the three transient retry waits, in milliseconds, e.g. `120000,600000,1800000`. Invalid values fall back to defaults. Do not increase retry count by changing the list length.
-- Feedseek recovery: `KANAREK_FEEDSEEK_WATCHDOG_STALE_MS` controls the freshness threshold (1–24 hours). The separate Cron Trigger in `triggers.crons` controls how often the watchdog checks. The native Feedseek schedule remains primary.
-- Repository scope and CI: `KANAREK_REPOSITORIES`, `KANAREK_REVIEW_REPOSITORIES` and `KANAREK_REQUIRE_CI`.
+- Quips: `KANAREK_AI_PERCENT`, `KANAREK_PROVIDER_ORDER`,
+  `KANAREK_*_MODEL`, `KANAREK_*_ENABLED`, reasoning, output limits
+  and `KANAREK_PROVIDER_TIMEOUT_MS`.
+- PR reviews: `KANAREK_WEBHOOK_REVIEW_*` sets scheduling, context,
+  output budgets, judge and decision flags.
+- Retry timing: `KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS` sets
+  three backoff intervals, in milliseconds. Default:
+  `120000,600000,1800000`. Invalid values use safe defaults.
+  Do not change the number of retry slots.
+- Feedseek recovery: `KANAREK_FEEDSEEK_WATCHDOG_STALE_MS` sets
+  the stale-run threshold (1–24 hours). `triggers.crons` controls
+  when checks run; Feedseek's native schedule remains primary.
+- Repository scope and CI: `KANAREK_REPOSITORIES`,
+  `KANAREK_REVIEW_REPOSITORIES` and `KANAREK_REQUIRE_CI`.
 
-Keep API keys, private keys and tokens in Worker secrets, never `vars`. Do not change Durable Object namespaces, migration tags or the paid quip bank to tweak behavior. Review provider/model ordering belongs to the [private review Worker configuration](../kanarek-review/wrangler.jsonc), not the shared `automation` Worker.
+Keep API tokens and private keys in Worker secrets, never in `vars`.
+Do not modify Durable Object migrations or the paid quip bank to
+tune behavior. Review provider ordering lives in the
+[private review Worker config](../kanarek-review/wrangler.jsonc).

@@ -22,6 +22,7 @@ import {
   type BotekWatchRequest,
   type TelegramDiceEmoji,
 } from "./commands.ts";
+import { parseFeedseekRequest, type FeedseekTopic } from "./feedseek-briefing.ts";
 import {
   parseTaskCommand,
   parseTaskControlCommand,
@@ -44,6 +45,8 @@ export type OwnerCommand =
   | { kind: "draft-usage" }
   | { kind: "radio" }
   | { kind: "doc-studio" }
+  | { kind: "news"; topic: FeedseekTopic | null }
+  | { kind: "meme" }
   | { kind: "status" }
   | { kind: "legion" }
   | { kind: "wake"; request: WakeRequest | null }
@@ -105,6 +108,7 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
   textRoute("radio", (text) => isRadioRequest(text) ? { kind: "radio" } : undefined),
   textRoute("doc-studio", (text) => /^\/(?:doc(?:@trvny_bot)?|draft\s+new)$/iu.test(text.trim())
     ? { kind: "doc-studio" } : undefined),
+  textRoute("feedseek", (text) => parseFeedseekRequest(text)),
   textRoute("status", (text) => text === "/status" ? { kind: "status" } : undefined),
   textRoute("legion", (text) => text === "/legion" ? { kind: "legion" } : undefined),
   textRoute("wake", (text) => /^\/wake(?:\s|$)/iu.test(text) ? { kind: "wake", request: parseWakeCommand(text) } : undefined),

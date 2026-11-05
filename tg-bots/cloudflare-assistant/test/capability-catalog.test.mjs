@@ -19,7 +19,7 @@ test("catalog maps each registered command to exactly one implemented capability
   });
   assert.equal(ids.length, new Set(ids).size);
   assert.deepEqual(new Set(ids), new Set(BOTEK_COMMANDS.map((command) => command.command)));
-  assert.equal(BOTEK_CAPABILITIES.length, 9);
+  assert.equal(BOTEK_CAPABILITIES.length, 10);
 });
 
 test("tool deck shows existing commands with safe rich markup and bounded callbacks", () => {

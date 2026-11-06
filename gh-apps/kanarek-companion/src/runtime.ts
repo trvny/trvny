@@ -25,6 +25,7 @@ import {
 } from './entry.ts';
 import gremlinRouter from './operator/gremlin-router.ts';
 import companion from './index.ts';
+import { handleGrokTokenExchange } from './companion/grok-review-oidc.ts';
 import { firstMatch, type Route } from './route.ts';
 import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './operator/release-entry-action.ts';
 import {
@@ -250,6 +251,10 @@ function pathIs(request: Request, path: string): boolean {
 
 // Order matters: first match wins; unmatched requests fall through to `below`.
 const runtimeRoutes: readonly Route<RuntimeContext>[] = [
+  ({ request, env }) =>
+    pathIs(request, '/grok-review/token')
+      ? handleGrokTokenExchange(request, env)
+      : null,
   ({ request }) =>
     pathIs(request, OPENAPI_PATH) && request.method === 'GET'
       ? json(runtimeOpenApi(new URL(request.url).origin))

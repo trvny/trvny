@@ -348,7 +348,7 @@ export interface ReviewRouterEnv {
   HUGGINGFACE_API_KEY?: string;
   DEEPSEEK_API_KEY?: string;
   GEMINI_API_KEY?: string;
-  XAI_REVIEW_RPC?: { completeReview(input: Record<string, unknown>): Promise<{
+  XAI_REVIEW_RPC?: { completeReview(input: Record<string, unknown>, deadlineAt: number): Promise<{
     status: number;
     payload: Record<string, unknown>;
     retryAfter?: string;
@@ -764,7 +764,7 @@ export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObje
   if (!env.XAI_REVIEW_RPC) {
     return Response.json({ error: { message: 'xai_rpc_unavailable' } }, { status: 503 });
   }
-  const result = await env.XAI_REVIEW_RPC.completeReview(input);
+  const result = await env.XAI_REVIEW_RPC.completeReview(input, Date.now() + 285_000);
   const status = Number.isInteger(result?.status) && result.status >= 200 && result.status <= 599
     ? result.status : 502;
   const headers = new Headers({ 'cache-control': 'no-store', 'content-type': 'application/json' });

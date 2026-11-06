@@ -50,11 +50,14 @@ export async function requestGrokReview(
   input: unknown,
   apiKey: string | undefined,
   fetcher: typeof fetch = fetch,
+  deadlineAt = Date.now() + 240_000,
 ): Promise<XaiReviewRpcResult> {
   const request = grokReviewRequest(input);
   if (!request) return error(400, 'invalid_review_request');
   if (!apiKey) return error(503, 'xai_not_configured');
 
+  const timeLeft = deadlineAt - Date.now() - 5_000;
+  if (!Number.isFinite(timeLeft) || timeLeft <= 0) return error(504, 'xai_deadline_expired');
   let upstream: Response;
   try {
     upstream = await fetcher('https://api.x.ai/v1/responses', {
@@ -64,7 +67,7 @@ export async function requestGrokReview(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(300_000),
+      signal: AbortSignal.timeout(Math.min(240_000, timeLeft)),
     });
   } catch {
     return error(502, 'xai_network_or_timeout');

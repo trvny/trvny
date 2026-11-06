@@ -60,8 +60,8 @@ export class GptomekSignerEntrypoint extends WorkerEntrypoint<RuntimeEnv> {
 }
 
 export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
-  async completeReview(input: unknown) {
-    return requestGrokReview(input, this.env.XAI_API_KEY);
+  async completeReview(input: unknown, deadlineAt: number) {
+    return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt);
   }
 }
 

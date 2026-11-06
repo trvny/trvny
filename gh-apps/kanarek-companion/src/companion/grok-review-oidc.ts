@@ -101,7 +101,7 @@ export async function verifyGrokOidc(
       ['verify'],
     );
     const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
-    return crypto.subtle.verify(
+    return await crypto.subtle.verify(
       'RSASSA-PKCS1-v1_5',
       key,
       fromBase64Url(parts[2]),

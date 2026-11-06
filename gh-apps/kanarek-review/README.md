@@ -407,6 +407,15 @@ wins over global priority; missing task entries inherit the global order.
 An order appends omitted known providers as fallbacks and does not disable
 providers. API credentials remain Worker secrets, never `vars`.
 
+Model lifecycle: the temporary Qwen3.8 Max/Flash free IDs retired on
+2026-10-27. Keep them off the free allowlist even in stale overrides.
+`crouton-alpha-free` is enabled as a later coding fallback. AIHubMix's
+coding GLM 5.3 requests in the operator's export completed successfully but
+often exceeded 120 seconds, so only AIHubMix reviews get a longer deadline.
+A local timeout is not an upstream outage; account-wide 429 differs from
+an upstream-busy 429. Other gateways have distinct provider-wide cooldowns
+and retain model-level fallback on model errors.
+
 The grouped JSON object counts as **one binding**, rather than 24 separate
 text variables. Workers Free permits 64 text/JSON variables and secrets in
 total, so keep room for secrets when adding settings. Tests check headroom.

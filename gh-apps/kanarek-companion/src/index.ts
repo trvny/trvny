@@ -562,14 +562,23 @@ function scheduleGrokReview(
       },
     );
     if (!response.ok) {
+      const reply = (await response.json().catch(() => null)) as
+        | { failure?: { operation?: string; status?: number; reason?: string } }
+        | null;
       console.error(JSON.stringify({
         grokReviewDispatch: 'failed',
         repository: target.repository,
         pullRequestNumber: target.number,
         status: response.status,
+        githubOperation: reply?.failure?.operation ?? null,
+        githubStatus: reply?.failure?.status ?? null,
+        reason: typeof reply?.failure?.reason === 'string'
+          ? reply.failure.reason.slice(0, 120)
+          : null,
       }));
+    } else {
+      await response.body?.cancel();
     }
-    await response.body?.cancel();
   })().catch((error) => {
     console.error(JSON.stringify({
       grokReviewDispatch: 'failed',

@@ -15,6 +15,7 @@ import {
   dispatchRepositorySettingsBootstrap,
   repositoryCreated,
 } from './companion/repository-bootstrap.ts';
+import { dispatchGrokReview, grokDispatchTarget } from './companion/grok-review-dispatch.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
   handleGptomekCommentControl,
@@ -29,6 +30,8 @@ import { HEALTH_PATH, WEBHOOK_PATH } from './paths.ts';
 interface Env extends CompanionEnv {
   COMPANION_LOCK: DurableObjectNamespace;
   GITHUB_WEBHOOK_SECRET: string;
+  GROK_REVIEW_DISPATCH_ENABLED?: string;
+  GROK_REVIEW_REPOSITORIES?: string;
 }
 
 interface WebhookMetadata {
@@ -534,6 +537,32 @@ function scheduleRepositorySettingsBootstrap(
   return true;
 }
 
+function scheduleGrokReview(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown>,
+  env: Env,
+  ctx?: ExecutionContext,
+): boolean {
+  if (env.GROK_REVIEW_DISPATCH_ENABLED !== 'true') return false;
+  const target = grokDispatchTarget(metadata.event, payload);
+  if (!target || !repositoryListAllows(
+    env.GROK_REVIEW_REPOSITORIES ?? env.KANAREK_REPOSITORIES,
+    target.repository,
+  )) return false;
+
+  const task = dispatchGrokReview(target, env).catch((error) => {
+    console.error(JSON.stringify({
+      grokReviewDispatch: 'failed',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      failure: operationFailure(error),
+    }));
+  });
+  if (ctx) ctx.waitUntil(task);
+  else void task;
+  return true;
+}
+
 async function handleWebhook(
   request: Request,
   env: Env,
@@ -603,6 +632,7 @@ async function handleWebhook(
     ctx,
   );
   const companionScheduled = scheduleCompanion(metadata, payload, env, ctx);
+  const grokReviewScheduled = scheduleGrokReview(metadata, payload, env, ctx);
   console.log(
     JSON.stringify({
       ...metadata,
@@ -616,6 +646,7 @@ async function handleWebhook(
         : null,
       companion: companionScheduled ? { scheduled: true } : null,
       repositoryBootstrap: repositoryBootstrapScheduled ? { scheduled: true } : null,
+      grokReview: grokReviewScheduled ? { scheduled: true } : null,
     }),
   );
 
@@ -634,6 +665,7 @@ async function handleWebhook(
         : null,
       companion: companionScheduled ? { scheduled: true } : null,
       repositoryBootstrap: repositoryBootstrapScheduled ? { scheduled: true } : null,
+      grokReview: grokReviewScheduled ? { scheduled: true } : null,
     },
     202,
   );

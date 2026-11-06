@@ -67,7 +67,7 @@ function claimsAllowed(claims: OidcClaims, nowSeconds: number): boolean {
 
 export async function verifyGrokOidc(
   rawToken: string,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
   nowSeconds = Math.floor(Date.now() / 1000),
 ): Promise<boolean> {
   if (rawToken.length > 12_000) return false;
@@ -122,7 +122,7 @@ export function grokTokenTarget(value: unknown): string | null {
 export async function handleGrokTokenExchange(
   request: Request,
   env: GrokTokenEnv,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
 ): Promise<Response> {
   const noStore = { 'cache-control': 'no-store' };
   if (request.method !== 'POST') {
@@ -163,6 +163,7 @@ export async function handleGrokTokenExchange(
           Accept: 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
           'Content-Type': 'application/json',
+          'User-Agent': 'gptomek-grok-review-oidc',
         },
         body: JSON.stringify({
           repositories: [repo],

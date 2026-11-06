@@ -25,8 +25,8 @@ type OidcClaims = {
 };
 
 interface GrokTokenEnv {
-  GPTOMEK_APP_ID?: string;
-  GPTOMEK_PRIVATE_KEY?: string;
+  GITHUB_APP_ID: string;
+  GITHUB_PRIVATE_KEY: string;
 }
 
 function objectValue(value: unknown): JsonObject {
@@ -144,14 +144,14 @@ export async function handleGrokTokenExchange(
     return Response.json({ error: 'invalid_repository' }, { status: 400, headers: noStore });
   }
 
-  if (!env.GPTOMEK_APP_ID || !env.GPTOMEK_PRIVATE_KEY) {
+  if (!env.GITHUB_APP_ID || !env.GITHUB_PRIVATE_KEY) {
     return Response.json({ error: 'app_unconfigured' }, { status: 503, headers: noStore });
   }
 
   try {
-    const appJwt = await createAppJwt(env.GPTOMEK_APP_ID, env.GPTOMEK_PRIVATE_KEY);
+    const appJwt = await createAppJwt(env.GITHUB_APP_ID, env.GITHUB_PRIVATE_KEY);
     const installationId = await repositoryInstallationId(
-      env.GPTOMEK_APP_ID, env.GPTOMEK_PRIVATE_KEY, repository, fetcher,
+      env.GITHUB_APP_ID, env.GITHUB_PRIVATE_KEY, repository, fetcher,
     );
     const [, repo] = repository.split('/');
     const response = await fetcher(
@@ -163,7 +163,7 @@ export async function handleGrokTokenExchange(
           Accept: 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
           'Content-Type': 'application/json',
-          'User-Agent': 'gptomek-grok-review-oidc',
+          'User-Agent': 'kanarek-grok-review-oidc',
         },
         body: JSON.stringify({
           repositories: [repo],

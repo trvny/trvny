@@ -1,4 +1,4 @@
-[![ChatGPT](https://custom-icon-badges.demolab.com/badge/ChatGPT-74aa9c?logo=openai&logoColor=white)](#) ![GitHub](https://img.shields.io/badge/-181717?logo=github&logoColor=fff&style=plastic) ![Actions](https://img.shields.io/badge/-2088FF?logo=githubactions&logoColor=fff&style=plastic) [![JSON](https://img.shields.io/badge/JSON-000?logo=json&logoColor=fff)](#)
+[![ChatGPT](https://custom-icon-badges.demolab.com/badge/ChatGPT-74aa9c?logo=openai&logoColor=white)](#) ![GitHub](https://img.shields.io/badge/-181717?logo=github&logoColor=fff&style=plastic) ![Actions](https://img.shields.io/badge/-2088FF?logo=githubactions&logoColor=fff&style=plastic) [![JSON](https://img.shields.io/badge/JSON-000?logo=json&logoColor=fff)](#)  
 ☀️ Solar-powered coding bot 😎
 
 # GPTomek

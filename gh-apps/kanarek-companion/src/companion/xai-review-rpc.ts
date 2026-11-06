@@ -1,3 +1,5 @@
+import { GROK_CACHE_ID, GROK_PAID_MODEL, GROK_REVIEW_SCHEMA } from '../../../core/xai-review.ts';
+
 type JsonObject = Record<string, unknown>;
 
 export interface XaiReviewRpcResult {
@@ -5,32 +7,6 @@ export interface XaiReviewRpcResult {
   payload: JsonObject;
   retryAfter?: string;
 }
-
-const REVIEW_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['summary', 'findings'],
-  properties: {
-    summary: { type: 'string' },
-    findings: {
-      type: 'array',
-      maxItems: 8,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['severity', 'path', 'line', 'existing_code', 'title', 'body'],
-        properties: {
-          severity: { type: 'string', enum: ['high', 'medium', 'low'] },
-          path: { type: 'string' },
-          line: { type: 'integer' },
-          existing_code: { type: 'string' },
-          title: { type: 'string' },
-          body: { type: 'string' },
-        },
-      },
-    },
-  },
-};
 
 function objectValue(value: unknown): JsonObject {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -44,7 +20,7 @@ function error(status: number, code: string, retryAfter?: string): XaiReviewRpcR
 
 export function grokReviewRequest(input: unknown): JsonObject | null {
   const value = objectValue(input);
-  if (value.model !== 'grok-4.7' || !Array.isArray(value.messages) ||
+  if (value.model !== GROK_PAID_MODEL || !Array.isArray(value.messages) ||
     value.messages.length < 1 || value.messages.length > 12 || value.stream === true ||
     JSON.stringify(value.messages).length > 1_800_000) return null;
   const messages: JsonObject[] = [];
@@ -57,15 +33,15 @@ export function grokReviewRequest(input: unknown): JsonObject | null {
   const wanted = typeof value.max_tokens === 'number' &&
     Number.isFinite(value.max_tokens) ? Math.floor(value.max_tokens) : 36_864;
   return {
-    model: 'grok-4.7',
+    model: GROK_PAID_MODEL,
     store: false,
-    prompt_cache_key: 'kanarek-paid-code-review-v1',
+    prompt_cache_key: GROK_CACHE_ID,
     reasoning: { effort: 'high' },
     max_output_tokens: Math.max(8_192, Math.min(131_072, wanted)),
     input: messages,
     text: { format: {
       type: 'json_schema', name: 'kanarek_code_review',
-      strict: true, schema: REVIEW_SCHEMA,
+      strict: true, schema: GROK_REVIEW_SCHEMA,
     } },
   };
 }
@@ -118,7 +94,7 @@ export async function requestGrokReview(
     status: 200,
     payload: {
       object: 'chat.completion',
-      model: typeof data.model === 'string' ? data.model : 'grok-4.7',
+      model: typeof data.model === 'string' ? data.model : GROK_PAID_MODEL,
       choices: [{ index: 0, message: { role: 'assistant', content: text },
         finish_reason: 'stop' }],
       usage: {

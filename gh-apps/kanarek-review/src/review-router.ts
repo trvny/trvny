@@ -1,4 +1,5 @@
 import { bearerAuthorized } from '../../core/auth.ts';
+import { GROK_PAID_MODEL } from '../../core/xai-review.ts';
 import { prepareGroqFreeReview } from './groq-review.ts';
 import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
@@ -304,7 +305,7 @@ function taskModelPreference(
   return global?.trim() ? [] : [...fallback];
 }
 
-const DEFAULT_PAID_PROVIDER_ORDER = ['deepseek', 'gemini-flex'] as const;
+const DEFAULT_PAID_PROVIDER_ORDER = ['xai', 'deepseek', 'gemini-flex'] as const;
 type PaidReviewProviderId = (typeof DEFAULT_PAID_PROVIDER_ORDER)[number];
 export type ReviewProviderBudgetClass = 'free-quota' | 'monthly-free-credit' | 'daily-neurons' | 'paid-reserve';
 const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudgetClass> = {
@@ -318,6 +319,7 @@ const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudge
   'gemini-standard': 'free-quota',
   deepseek: 'paid-reserve',
   'gemini-flex': 'paid-reserve',
+  xai: 'paid-reserve',
   'workers-ai': 'daily-neurons',
 };
 const GROQ_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
@@ -346,6 +348,11 @@ export interface ReviewRouterEnv {
   HUGGINGFACE_API_KEY?: string;
   DEEPSEEK_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  XAI_REVIEW_RPC?: { completeReview(input: Record<string, unknown>): Promise<{
+    status: number;
+    payload: Record<string, unknown>;
+    retryAfter?: string;
+  }> };
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_WORK_TIMEOUT_MS?: string;
   KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS?: string;
@@ -386,7 +393,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'gemini-standard' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'gemini-standard' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'xai' | 'workers-ai';
 export type ProviderCooldownId =
   | ReviewProviderId
   | 'aihubmix-decision'
@@ -407,6 +414,7 @@ const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
   'gemini-standard',
   'deepseek',
   'gemini-flex',
+  'xai',
   'workers-ai',
 ]);
 
@@ -752,6 +760,20 @@ function providers(
   return [...freeProviders, ...paidProviders(env)];
 }
 
+export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObject): Promise<Response> {
+  if (!env.XAI_REVIEW_RPC) {
+    return Response.json({ error: { message: 'xai_rpc_unavailable' } }, { status: 503 });
+  }
+  const result = await env.XAI_REVIEW_RPC.completeReview(input);
+  const status = Number.isInteger(result?.status) && result.status >= 200 && result.status <= 599
+    ? result.status : 502;
+  const headers = new Headers({ 'cache-control': 'no-store', 'content-type': 'application/json' });
+  if (typeof result?.retryAfter === 'string' && /^[0-9]{1,6}$/.test(result.retryAfter)) {
+    headers.set('retry-after', result.retryAfter);
+  }
+  return Response.json(result?.payload || { error: { message: 'xai_rpc_invalid' } }, { status, headers });
+}
+
 function deepSeekPaidProvider(
   env: ReviewRouterEnv,
   mode: 'review' | 'work',
@@ -803,6 +825,16 @@ function geminiProvider(
   };
 }
 
+function xaiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
+  return {
+    id: 'xai',
+    url: 'https://api.x.ai/v1/responses',
+    model: GROK_PAID_MODEL,
+    apiKey: (providerEnv) => providerEnv.XAI_REVIEW_RPC ? 'rpc' : undefined,
+    timeoutMs: 300_000,
+  };
+}
+
 function paidProvidersForMode(
   env: ReviewRouterEnv,
   mode: 'review' | 'work',
@@ -810,8 +842,10 @@ function paidProvidersForMode(
   const providersById: Record<PaidReviewProviderId, ReviewProvider> = {
     deepseek: deepSeekPaidProvider(env, mode),
     'gemini-flex': geminiProvider(env, 'gemini-flex'),
+    xai: xaiPaidProvider(env),
   };
   return configuredPaidProviderOrder(env.KANAREK_REVIEW_PAID_PROVIDER_ORDER)
+    .filter((id) => mode === 'review' || id !== 'xai')
     .filter((id) => id !== 'gemini-flex' || !geminiUsesFreeTier(env))
     .map((id) => providersById[id]);
 }
@@ -2431,7 +2465,9 @@ export async function handleReviewRouterRequest(
           }));
           break;
         }
-        const response = await fetcher(provider.url, {
+        const response = provider.id === 'xai'
+          ? await xaiReviewRpcResponse(env, outboundInput)
+          : await fetcher(provider.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

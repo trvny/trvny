@@ -1,4 +1,3 @@
-import { WorkerEntrypoint } from 'cloudflare:workers';
 import { runWithActionRequestContext } from './action-context.ts';
 import type { ActionInvoke } from './action-auth.ts';
 import { AnchorMutationReplayStore } from './specialists/anchor-replay.ts';
@@ -27,7 +26,6 @@ import {
 import gremlinRouter from './operator/gremlin-router.ts';
 import companion from './index.ts';
 import { handleGrokTokenExchange } from './companion/grok-review-oidc.ts';
-import { requestGrokReview } from './companion/xai-review-rpc.ts';
 import { firstMatch, type Route } from './route.ts';
 import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './operator/release-entry-action.ts';
 import {
@@ -334,11 +332,5 @@ const runtime = {
     });
   },
 };
-
-export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
-  async completeReview(input: unknown) {
-    return requestGrokReview(input, this.env.XAI_API_KEY);
-  }
-}
 
 export default runtime;

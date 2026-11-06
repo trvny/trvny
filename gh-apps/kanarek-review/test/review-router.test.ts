@@ -1186,6 +1186,8 @@ test('task timeout policy is patient only where latency is acceptable', () => {
   assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 120_000);
   assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'shitpost', 'aihubmix'), 1_500_000);
+  assert.equal(taskProviderTimeoutMs(180_000, 'shitpost', 'openrouter'), 180_000);
   assert.equal(taskProviderTimeoutMs(180_000, 'shitpost'), 180_000);
 });
 
@@ -1673,8 +1675,8 @@ test('provider health exposes budget classes and task queues', async () => {
   assert.equal(health.taskOrders.review[0], 'openrouter');
   assert.equal(health.taskOrders.quip[0], 'aihubmix');
   assert.equal(health.taskOrders.shitpost[1], 'openrouter');
-  // Old gpt-oss lanes sit behind fresher providers for review.
-  assert.ok(health.taskOrders.review.indexOf('groq') > health.taskOrders.review.indexOf('vercel'));
+  // Fast, proven fallback precedes slow providers when no override exists.
+  assert.ok(health.taskOrders.review.indexOf('groq') < health.taskOrders.review.indexOf('aihubmix'));
 });
 
 test('review router tries pinned OrcaRouter free models first', async () => {
@@ -2511,7 +2513,7 @@ test('review router tries Ollama models before Groq', async () => {
   ]);
 });
 
-test('review lane tries fresh Vercel Hy3 before old gpt-oss on Groq', async () => {
+test('explicit review order tries Vercel Hy3 before Groq', async () => {
   const calls: Array<{
     url: string;
     model: unknown;
@@ -2530,6 +2532,7 @@ test('review lane tries fresh Vercel Hy3 before old gpt-oss on Groq', async () =
     GROQ_API_KEY: 'groq-key',
     AI_GATEWAY_API_KEY: 'vercel-key',
     KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy3',
+    KANAREK_REVIEW_ROUTING: { providerOrders: { review: ['vercel', 'groq'] } },
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     calls.push({

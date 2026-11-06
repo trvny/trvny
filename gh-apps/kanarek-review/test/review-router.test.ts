@@ -3,7 +3,10 @@ import test from 'node:test';
 
 import {
   fitProviderAttemptTokenBudget,
+  classifyAIHubMixError,
   handleReviewRouterRequest,
+  providerCooldownDurationMs,
+  retryAfterCooldownMs,
   modelAttemptTimeoutMs,
   nearestReasoningEffort,
   REVIEW_ROUTER_MODEL_DEFAULTS,
@@ -1179,6 +1182,8 @@ test('task timeout policy is patient only where latency is acceptable', () => {
   assert.equal(taskProviderTimeoutMs(10_000, 'general'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'quip'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'review'), 120_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 360_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 120_000);
   assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);
   assert.equal(taskProviderTimeoutMs(180_000, 'shitpost'), 180_000);
@@ -1432,6 +1437,117 @@ test('shitpost profile gives supported Groq models high reasoning with enough he
   assert.equal(response?.status, 200);
   assert.equal(effort, 'high');
   assert.equal(maxTokens, 16_384);
+});
+
+test('provider cooldown scope reflects each gateway semantics', () => {
+  const env = { ...auth };
+  assert.equal(providerCooldownDurationMs('aihubmix', 'timeout', env), null);
+  assert.equal(providerCooldownDurationMs('aihubmix', 'http_403', env), null);
+  assert.equal(providerCooldownDurationMs('aihubmix', 'http_429_model_busy', env), null);
+  assert.equal(providerCooldownDurationMs('aihubmix', 'http_429', env), 60_000);
+  assert.equal(providerCooldownDurationMs('aihubmix', 'http_429_daily_quota', env), 1_800_000);
+  assert.equal(providerCooldownDurationMs('orcarouter', 'http_403', env), null);
+  assert.equal(providerCooldownDurationMs('orcarouter', 'http_429', env), 60_000);
+  assert.equal(providerCooldownDurationMs('openrouter', 'http_404', env), null);
+  assert.equal(providerCooldownDurationMs('openrouter', 'http_429', env), 60_000);
+  assert.equal(providerCooldownDurationMs('ollama', 'http_429', env), 60_000);
+  assert.equal(providerCooldownDurationMs('vercel', 'timeout', env), null);
+  assert.equal(providerCooldownDurationMs('vercel', 'http_402', env), 1_800_000);
+  assert.equal(providerCooldownDurationMs('groq', 'http_429', env), 60_000);
+  assert.equal(providerCooldownDurationMs('gemini-standard', 'http_503', env), 30_000);
+  assert.equal(providerCooldownDurationMs('huggingface-publicai', 'http_402', env), 1_800_000);
+});
+
+test('AIHubMix differentiates upstream capacity, account quota and retirement', () => {
+  assert.equal(classifyAIHubMixError(429, '{"error":{"message":"Rate limited by provider"}}'), 'http_429_model_busy');
+  assert.equal(classifyAIHubMixError(429, '{"error":{"message":"Reached the limit of the free model quota"}}'), 'http_429');
+  assert.equal(classifyAIHubMixError(429, '{"error":{"message":"Daily quota exhausted"}}'), 'http_429_daily_quota');
+  assert.equal(classifyAIHubMixError(403, '{"error":{"message":"Insufficient balance. Please recharge your account"}}'), 'http_403_billing_cap');
+  assert.equal(classifyAIHubMixError(403, '{"error":{"message":"model not enabled for key"}}'), 'http_403');
+  assert.equal(classifyAIHubMixError(404, '{"error":{"code":"model_retired"}}'), 'http_404_model_retired');
+});
+
+test('Retry-After uses seconds or HTTP date, bounded by cooldown limits', () => {
+  assert.equal(retryAfterCooldownMs('45', 0), 45_000);
+  assert.equal(retryAfterCooldownMs('0', 0), 1_000);
+  assert.equal(retryAfterCooldownMs('7200', 0), 1_800_000);
+  assert.equal(retryAfterCooldownMs('Thu, 01 Jan 1970 00:00:20 GMT', 0), 20_000);
+  assert.equal(retryAfterCooldownMs('nonsense', 0), null);
+  assert.equal(retryAfterCooldownMs(null, 0), null);
+});
+
+test('AIHubMix shared quota honors Retry-After for provider cooldown', async () => {
+  const namespace = cooldownNamespace();
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free', messages: [{ role: 'user', content: 'review' }],
+  }), { ...auth, AIHUBMIX_API_KEY: 'test-key', KANAREK_REVIEW_COOLDOWNS: namespace,
+    KANAREK_REVIEW_AIHUBMIX_MODELS: 'limited-model,other-model' },
+  (() => Promise.resolve(Response.json(
+    { error: { message: 'free model quota exhausted' } },
+    { status: 429, headers: { 'retry-after': '2' } },
+  ))) as typeof fetch);
+  assert.equal(response?.status, 429);
+  const cooldown = await namespace.get(namespace.idFromName('aihubmix'))
+    .fetch('https://review-cooldown.internal/active');
+  const state = (await cooldown.json()) as { active: boolean; until: number };
+  assert.equal(state.active, true);
+  assert.ok(state.until - Date.now() > 500);
+  assert.ok(state.until - Date.now() <= 2_000);
+});
+
+test('AIHubMix retired Qwen free IDs are excluded even from stale configs', async () => {
+  const models: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    messages: [{ role: 'user', content: 'review' }],
+  }), { ...auth, AIHUBMIX_API_KEY: 'test-key',
+    KANAREK_REVIEW_AIHUBMIX_MODELS: 'qwen3.8-max-free,crouton-alpha-free,qwen3.8-flash-free' },
+  ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model: string };
+    models.push(body.model);
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.deepEqual(models, ['crouton-alpha-free']);
+});
+
+test('AIHubMix busy-model 429 uses another ID without cooling whole gateway', async () => {
+  const namespace = cooldownNamespace();
+  const models: string[] = [];
+  const env = { ...auth, AIHUBMIX_API_KEY: 'test-key',
+    KANAREK_REVIEW_AIHUBMIX_MODELS: 'busy-model,ready-model',
+    KANAREK_REVIEW_COOLDOWNS: namespace };
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    messages: [{ role: 'user', content: 'review' }],
+  }), env, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model: string };
+    models.push(body.model);
+    return Promise.resolve(body.model === 'busy-model'
+      ? Response.json({ error: { message: 'rate limited by provider' } }, { status: 429 })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.deepEqual(models, ['busy-model', 'ready-model']);
+  const providerCooldown = await namespace.get(namespace.idFromName('aihubmix'))
+    .fetch('https://review-cooldown.internal/active');
+  assert.equal(((await providerCooldown.json()) as { active: boolean }).active, false);
+});
+
+test('AIHubMix shared quota 429 does not hammer remaining free models', async () => {
+  const models: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    messages: [{ role: 'user', content: 'review' }],
+  }), { ...auth, AIHUBMIX_API_KEY: 'test-key',
+    KANAREK_REVIEW_AIHUBMIX_MODELS: 'limited-model,other-model' },
+  ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model: string };
+    models.push(body.model);
+    return Promise.resolve(Response.json({ error: { message: 'free model quota exhausted' } }, { status: 429 }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 429);
+  assert.deepEqual(models, ['limited-model']);
 });
 
 test('AIHubMix shares one model pool but orders it by task', async () => {

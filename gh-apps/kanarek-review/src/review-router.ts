@@ -23,6 +23,8 @@ const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
 // Give slow free models time to complete without starving the other providers.
 const OPENROUTER_REVIEW_TIMEOUT_MS = 300_000;
 const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 70_000;
+const AIHUBMIX_REVIEW_TIMEOUT_MS = 6 * 60_000;
+const AIHUBMIX_REVIEW_ATTEMPT_CAP_MS = 5 * 60_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
@@ -40,12 +42,11 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_AIHUBMIX_MODELS: [
     'coding-kimi-k3-free',
     'coding-glm-5.3-free',
-    'qwen3.8-max-free',
     'xiaomi-mimo-v2.6-pro-free',
+    'crouton-alpha-free',
     'coding-minimax-m3-free',
     'nemotron-3.5-super-vl-free',
     'nemotron-3.5-lightning-free',
-    'qwen3.8-flash-free',
     'xiaomi-mimo-v2.6-flash-free',
     'gemma-4-31b-it-free',
     'laguna-s-2.1-free',
@@ -174,22 +175,11 @@ const AIHUBMIX_MODEL_PROFILES = new Map<string, ModelProfile>([
     thinks: true,
     efforts: ['low', 'high', 'max'],
   }],
-  ['qwen3.8-max-free', {
-    contextTokens: 1_000_000,
-    maxOutputTokens: 131_072,
-    thinks: true,
-    efforts: ['low', 'medium', 'xhigh'],
-  }],
   ['xiaomi-mimo-v2.6-pro-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],
   ['coding-minimax-m3-free', { contextTokens: 1_000_000, maxOutputTokens: 524_288, thinks: true }],
+  ['crouton-alpha-free', { contextTokens: 1_048_576 }],
   ['nemotron-3.5-super-vl-free', { contextTokens: 1_000_000, thinks: true }],
   ['nemotron-3.5-lightning-free', { contextTokens: 1_048_576, thinks: true }],
-  ['qwen3.8-flash-free', {
-    contextTokens: 1_000_000,
-    maxOutputTokens: 131_072,
-    thinks: true,
-    efforts: ['low', 'medium', 'xhigh'],
-  }],
   ['xiaomi-mimo-v2.6-flash-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],
   ['gemma-4-31b-it-free', { contextTokens: 262_144, efforts: ['minimal', 'high'] }],
   ['laguna-s-2.1-free', { contextTokens: 1_048_576, maxOutputTokens: 262_144, thinks: true }],
@@ -238,10 +228,10 @@ const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
 // knowledge). Quip: fast. Shitpost: biggest/most creative; age matters less.
 const AIHUBMIX_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
   general: DEFAULT_REVIEW_AIHUBMIX_MODELS,
-  quip: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'lfm-2.5-2.6b-free'],
-  review: ['coding-glm-5.3-free', 'coding-kimi-k3-free', 'qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'laguna-s-2.1-free', 'coding-minimax-m3-free', 'nemotron-3.5-super-vl-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free', 'agents-a1-free', 'gemma-4-31b-it-free'],
-  judge: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-glm-5.3-free', 'coding-kimi-k3-free', 'nemotron-3.5-super-vl-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'dots-3-note-preview-free', 'xiaomi-mimo-v2.6-flash-free', 'gemma-4-31b-it-free'],
-  shitpost: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-kimi-k3-free', 'coding-minimax-m3-free', 'nemotron-3.5-super-vl-free', 'xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free'],
+  quip: ['xiaomi-mimo-v2.6-flash-free', 'nemotron-3.5-lightning-free', 'crouton-alpha-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'lfm-2.5-2.6b-free'],
+  review: ['coding-glm-5.3-free', 'coding-kimi-k3-free', 'xiaomi-mimo-v2.6-pro-free', 'crouton-alpha-free', 'coding-minimax-m3-free', 'laguna-s-2.1-free', 'nemotron-3.5-super-vl-free', 'nemotron-3.5-lightning-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free', 'agents-a1-free', 'gemma-4-31b-it-free'],
+  judge: ['xiaomi-mimo-v2.6-pro-free', 'coding-glm-5.3-free', 'coding-kimi-k3-free', 'crouton-alpha-free', 'nemotron-3.5-super-vl-free', 'nemotron-3.5-lightning-free', 'dots-3-note-preview-free', 'xiaomi-mimo-v2.6-flash-free', 'gemma-4-31b-it-free'],
+  shitpost: ['coding-minimax-m3-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-kimi-k3-free', 'crouton-alpha-free', 'nemotron-3.5-super-vl-free', 'xiaomi-mimo-v2.6-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free'],
 };
 
 const ORCAROUTER_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
@@ -332,6 +322,11 @@ const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudge
 };
 const GROQ_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 const GEMINI_THINKING_LEVELS = new Set(['minimal', 'low', 'medium', 'high']);
+// Retired promotional IDs return model_retired even if a stale config lists them.
+const AIHUBMIX_RETIRED_FREE_MODELS = new Set([
+  'qwen3.8-max-free',
+  'qwen3.8-flash-free',
+]);
 const AIHUBMIX_RETRYABLE_MESSAGES = [
   'to prevent abuse of free resources',
   'accounts that have not been recharged can only try',
@@ -563,9 +558,12 @@ function configuredFloat(
 export function taskProviderTimeoutMs(
   baseMs: number,
   task: 'general' | 'quip' | 'review' | 'judge' | 'shitpost',
+  provider?: ReviewProviderId,
 ): number {
   if (task === 'shitpost') return Math.max(baseMs, SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS);
-  if (task === 'review') return Math.max(baseMs, 120_000);
+  if (task === 'review') return Math.max(
+    baseMs, provider === 'aihubmix' ? AIHUBMIX_REVIEW_TIMEOUT_MS : 120_000,
+  );
   if (task === 'judge') return Math.max(baseMs, REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS);
   return baseMs;
 }
@@ -665,7 +663,7 @@ function providers(
   const aihubMixConfigured = configuredModelList(
     env.KANAREK_REVIEW_AIHUBMIX_MODELS?.trim() || env.KANAREK_REVIEW_AIHUBMIX_MODEL?.trim(),
     DEFAULT_REVIEW_AIHUBMIX_MODELS,
-  );
+  ).filter((model) => !AIHUBMIX_RETIRED_FREE_MODELS.has(model));
   const aihubMixModels = orderedTaskModels(
     aihubMixConfigured,
     taskModelPreference(env, 'AIHUBMIX', task),
@@ -1341,6 +1339,51 @@ function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | nu
   return null;
 }
 
+// Retry-After accepts seconds or an HTTP date; never trust unbounded upstream values.
+export function retryAfterCooldownMs(value: string | null, now = Date.now()): number | null {
+  if (!value?.trim()) return null;
+  const seconds = Number(value.trim());
+  const duration = Number.isFinite(seconds) && seconds >= 0
+    ? seconds * 1_000
+    : Date.parse(value) - now;
+  if (!Number.isFinite(duration) || duration < 0) return null;
+  return Math.min(MAX_COOLDOWN_MS, Math.max(MIN_COOLDOWN_MS, Math.ceil(duration)));
+}
+
+// Provider-wide faults differ from individual model faults and local deadlines.
+export function providerCooldownDurationMs(
+  provider: ReviewProviderId,
+  category: string,
+  env: ReviewRouterEnv,
+): number | null {
+  const modelScoped = new Set([
+    'http_404', 'http_404_model_retired', 'http_410', 'invalid_response',
+    'model_cooldown', 'context_budget',
+  ]);
+  if (modelScoped.has(category) && ['aihubmix', 'orcarouter', 'openrouter', 'ollama', 'vercel'].includes(provider)) {
+    return null;
+  }
+  if (provider === 'aihubmix') {
+    if (['timeout', 'preview_timeout', 'network', 'http_403', 'http_429_model_busy'].includes(category)) return null;
+    if (category === 'http_429') return 60_000;
+    if (category === 'http_429_daily_quota') return MAX_COOLDOWN_MS;
+    return cooldownDurationMs(env, category);
+  }
+  if (provider === 'orcarouter') {
+    if (['timeout', 'network', 'http_403'].includes(category)) return null;
+    if (category === 'http_429') return 60_000;
+  }
+  if (provider === 'openrouter') {
+    if (['timeout', 'network', 'http_403'].includes(category)) return null;
+    if (category === 'http_429') return 60_000;
+  }
+  if (provider === 'ollama' && category === 'http_429') return 60_000;
+  if (provider === 'vercel' && ['timeout', 'network'].includes(category)) return null;
+  if (provider === 'groq' && category === 'http_429') return 60_000;
+  if (provider === 'gemini-standard' && category === 'http_503') return 30_000;
+  return cooldownDurationMs(env, category);
+}
+
 function providerCooldownStub(
   env: ReviewRouterEnv,
   provider: ProviderCooldownId,
@@ -1651,7 +1694,11 @@ export async function rememberProviderCooldown(
 // Base cooldown for one model that failed while its provider moved on to the
 // next model. Gone/forbidden models start long, flaky ones short; the store
 // escalates repeats, and a success clears them.
-function modelCooldownDurationMs(env: ReviewRouterEnv, category: string): number | null {
+function modelCooldownDurationMs(
+  env: ReviewRouterEnv, category: string, provider: ReviewProviderId,
+): number | null {
+  if (provider === 'aihubmix' && category === 'http_429_model_busy') return 30_000;
+  if (provider === 'aihubmix' && category === 'http_404_model_retired') return MAX_COOLDOWN_MS;
   // Request-shape 400s (context length, parameters, messages) blame this request, not the model.
   if (isClientBadRequestCategory(category)) return null;
   if (
@@ -2022,6 +2069,24 @@ function providerAttempts(
   return [{ model: provider.model, label: 'default' }];
 }
 
+// AIHubMix uses 429 both for shared account quota and busy upstream models.
+export function classifyAIHubMixError(status: number, preview: string | null): string {
+  const message = preview ? badRequestText(preview).toLowerCase() : '';
+  if (status === 429 && /rate limited by provider|model (?:is )?busy|upstream (?:is )?busy/.test(message)) {
+    return 'http_429_model_busy';
+  }
+  if (status === 429 && /daily (?:quota|limit|token)|per.day.*limit/.test(message)) {
+    return 'http_429_daily_quota';
+  }
+  if ((status === 404 || status === 410) && /model_retired/.test(message)) {
+    return 'http_404_model_retired';
+  }
+  if (status === 403 && /insufficient balance|recharge.*account|billing cap/.test(message)) {
+    return 'http_403_billing_cap';
+  }
+  return `http_${status}`;
+}
+
 function shouldTryNextAttempt(
   provider: ReviewProvider,
   status: number,
@@ -2041,9 +2106,12 @@ function shouldTryNextAttempt(
       return category === 'http_400_invalid_model' ||
         category === 'http_400_unsupported_parameter';
     }
-    // 403 on one free model = that model is not open to this key, not a dead key.
-    return status === 402 || status === 403 || status === 404 || status === 408 || status === 409 ||
-      status === 425 || status === 429 || status >= 500;
+    // Shared quota/balance will not recover by hammering all free model IDs.
+    if (category === 'http_429' || category === 'http_429_daily_quota' ||
+        category === 'http_403_billing_cap') return false;
+    // A model-specific 403, 404/retirement or busy upstream can use another ID.
+    return status === 402 || status === 403 || status === 404 || status === 410 ||
+      status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
   }
   if (provider.id === 'orcarouter') {
     // Pinned free models: one forbidden model must not stop the rest.
@@ -2225,7 +2293,10 @@ export async function handleReviewRouterRequest(
     if (!apiKey) continue;
     configured += 1;
     const cooldown = await activeProviderCooldown(env, provider.id);
-    if (cooldown) {
+    if (cooldown && providerCooldownDurationMs(provider.id, cooldown.category, env) === null) {
+      // Old provider-wide timeout/model cooldowns should not hide healthy models.
+      await clearProviderCooldown(provider.id, env);
+    } else if (cooldown) {
       const category = `cooldown_${cooldown.category}`;
       failures.push(diagnostic(provider, category));
       console.info(JSON.stringify({
@@ -2236,6 +2307,7 @@ export async function handleReviewRouterRequest(
     const providerTimeoutMs = taskProviderTimeoutMs(
       provider.timeoutMs ?? timeoutMs(env),
       task,
+      provider.id,
     );
     const providerDeadlineAt = Date.now() + (provider.id === 'openrouter' && task === 'review'
       ? Math.max(providerTimeoutMs, OPENROUTER_REVIEW_TIMEOUT_MS)
@@ -2246,6 +2318,7 @@ export async function handleReviewRouterRequest(
     const multiModel = attempts.length > 1;
     let providerFailureCategory = 'unknown';
     let providerInvalidRequest = true;
+    let providerRetryAfterMs: number | null = null;
 
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
@@ -2286,7 +2359,9 @@ export async function handleReviewRouterRequest(
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
       // Reserve time for every configured OpenRouter model instead of letting one
       // stalled free model exhaust the whole provider-level deadline.
-      const attemptTimeoutMs = provider.id === 'openrouter' && task === 'review'
+      const attemptTimeoutMs = provider.id === 'aihubmix' && task === 'review'
+        ? Math.min(remainingProviderMs, AIHUBMIX_REVIEW_ATTEMPT_CAP_MS)
+        : provider.id === 'openrouter' && task === 'review'
         ? Math.min(remainingProviderMs, Math.max(
             12_000,
             Math.min(
@@ -2442,7 +2517,12 @@ export async function handleReviewRouterRequest(
         }
 
         const status = response.status;
+        providerRetryAfterMs = status === 429 || status === 503
+          ? retryAfterCooldownMs(response.headers.get('retry-after'))
+          : null;
         const preview = status === 400 || (
+          provider.id === 'aihubmix' && [403, 404, 410, 429].includes(status)
+        ) || (
           provider.protocol === 'gemini-interactions' && (status === 401 || status === 403 || status === 429)
         )
           ? await responsePreview(response, deadlineAt)
@@ -2451,7 +2531,9 @@ export async function handleReviewRouterRequest(
           ? classifyGeminiError(status, preview)
           : status === 400
             ? classifyBadRequest(preview)
-            : `http_${status}`;
+            : provider.id === 'aihubmix'
+              ? classifyAIHubMixError(status, preview)
+              : `http_${status}`;
         if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
         await discard(response);
         console.warn(JSON.stringify({
@@ -2502,11 +2584,15 @@ export async function handleReviewRouterRequest(
       } finally {
         clearTimeout(timeout);
         if (modelFault && singleModel) {
-          await rememberProviderCooldown(modelKey, modelFault, env, modelCooldownDurationMs(env, modelFault));
+          await rememberProviderCooldown(modelKey, modelFault, env, modelCooldownDurationMs(env, modelFault, provider.id));
         }
       }
     }
-    await rememberProviderCooldown(provider.id, providerFailureCategory, env);
+    const defaultCooldownMs = providerCooldownDurationMs(provider.id, providerFailureCategory, env);
+    await rememberProviderCooldown(
+      provider.id, providerFailureCategory, env,
+      defaultCooldownMs === null ? null : (providerRetryAfterMs ?? defaultCooldownMs),
+    );
     failures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;
   }

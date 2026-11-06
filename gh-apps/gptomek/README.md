@@ -1,155 +1,112 @@
 # GPTomek
 
-GPTomek is the GitHub App identity for bot-authored commits, comments and
-reactions in `trvny/*` and `travnie/*`. Pull requests are opened as
-`trvny` to trigger external reviews. The runtime runs in the shared
-Kanarek Companion Worker.
+GPTomek is the GitHub App identity for bot-authored commits, patches, comments,
+review replies and reactions in `trvny/*` and `travnie/*`. **Open PRs as
+`trvny`** so external review bots run. The App operates through the shared
+Kanarek Companion Worker; it is not a shell.
 
 ## Quick operator guide
 
-Use a new comment on [Issue #203](https://github.com/trvny/trvny/issues/203) as the normal operator transport. The whole comment
-must be one fenced `gptomek` block, for example:
+1. **Read:** inspect the target repo's instructions, default branch, live
+   branch/PR state, recent changes and existing PRs. Use GitHub read tools for
+   inspection.
+2. **Choose:** use the [operation
+   examples](docs/REFERENCE.md#operation-examples). Prefer `commit_files` for
+   full text replacements. For a new branch without a validated patch, create it
+   from the live base ref with GitHub tooling, then commit via GPTomek. Use
+   patches only when built and checked against the exact base.
+3. **Send:** create a **new comment** on
+   [trvny/trvny#203](https://github.com/trvny/trvny/issues/203) as `trvny`. Its
+   entire body must be **one** fenced `gptomek` JSON object:
 
-````markdown
-```gptomek
-{
-  "id": "example-20261008-1",
-  "op": "comment",
-  "repository": "trvny/trvny",
-  "pullRequestNumber": 123,
-  "body": "Hello from GPTomek."
-}
-```
-````
+   ````text
+   ```gptomek
+   {
+     "id": "docs-unique-1",
+     "op": "commit_files",
+     "repository": "trvny/trvny",
+     "branch": "docs/example",
+     "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+     "message": "docs: update example",
+     "files": [
+       {
+         "path": "README.md",
+         "content": "Complete new contents\n"
+       }
+     ]
+   }
+   ```
+   ````
 
-The workflow sends only the numeric comment ID to the Worker's authenticated
-`/gptomek/wake` endpoint. The Worker then fetches that comment using the
-GPTomek App installation, verifies that it belongs to Issue #203 and was
-authored by `trvny`, parses the fenced JSON, and feeds it into the same command
-parser and checkpointed executor as the legacy transport. Concurrent comment
-commands are serialized by the existing Durable Object lock, so GitHub Actions
-concurrency is not used as a lossy queue.
+   Replace the example values, especially the SHA, with **live** values. For
+   another operation, change the payload using the reference. Do not edit an old
+   command comment.
+4. **Verify:** posting is **not** execution. Check the Actions run, command
+   result and live GitHub state before proceeding. Successful commands normally
+   remove their source comment; failures may leave it with 👎. Do not treat
+   comment cleanup warnings as failed commits.
+5. **Finish:** open/update the PR as `trvny`, address actionable reviews,
+   recheck CI on the **final head** and merge only when ready.
 
-| Goal | Operation |
+## Pick the operation
+
+| Task | `op` |
 | --- | --- |
-| Commit one or more files on an existing branch | `commit_files` |
-| Apply a strict unified diff and commit the result | `apply_patch` |
-| Create a new branch from a base commit plus a strict patch | `branch_from_patch` |
-| Apply a review fix, reply, react and optionally resolve the thread | `review_fix` |
-| Revert the current HEAD commit without local git | `revert_commit` |
-| Reapply one strict single-parent commit onto a guarded branch | `cherry_pick` |
-| Commit existing Git object SHAs as a guarded tree mutation | `commit_tree` |
-| Move or swap files without copying their contents | `move_files` |
-| Collapse a prepared branch into one GPTomek-authored commit | `adopt_branch` |
-| Remove a known branch safely | `delete_branch` |
-| Add a PR/issue conversation comment | `comment` |
-| Reply to an inline review comment | `reply_review` |
-| React to an issue/PR comment or review comment | `react_issue_comment` / `react_review_comment` |
-| Generic allowed GitHub metadata/status/deployment write | `operator_action` |
-| Run several same-repository operations in order | `batch` |
+| Replace text | [`commit_files`](docs/REFERENCE.md#commit-files) |
+| Strict text diff | [`apply_patch`](docs/REFERENCE.md#apply-a-unified-patch) |
+| New branch + diff | [`branch_from_patch`](docs/REFERENCE.md#create-a-branch-from-a-patch) |
+| Fix review | [`review_fix`](docs/REFERENCE.md#apply-a-review-fix) |
+| One final bot commit | [`adopt_branch`](docs/REFERENCE.md#adopt-a-prepared-branch) |
+| Reply/comment/react | [Comments](docs/REFERENCE.md#comments-and-reactions) |
+| Ordered steps | [`batch`](docs/REFERENCE.md#ordered-batch) |
+| Git operations | [Advanced Git](docs/REFERENCE.md#advanced-git-operations) |
+| Allowed metadata | [`operator_action`](docs/REFERENCE.md#generic-allowed-write) |
 
-Five rules prevent most foot-guns:
+## Non-negotiable guards
 
-1. Give each new command a fresh `id`. For a retryable outcome, replay the
-   identical input with that `id`. If the outcome is `command_outcome_uncertain`,
-   inspect live state and resolve it first; do not blindly retry.
-2. For changes to an existing branch, fetch the live head and supply
-   `expectedHeadSha`. `branch_from_patch` instead creates a new branch from
-   the immutable `baseSha` and has no `expectedHeadSha`.
-3. Before a later branch mutation, read the live head again. Do not chain a new
-   command from stale PR metadata, a cached branch SHA or a guessed previous
-   result.
-4. A `batch` uses a **`steps` array**, not `commands`. Each step must omit
-   `id` and `repository`; GPTomek derives both from the outer command. The
-   limit is **10 steps**; split longer batches.
-5. For `apply_patch`, `branch_from_patch` and `review_fix`, generate a real
-   `git diff` from the exact guarded commit and run `git apply --check` on
-   that same tree before posting. Never guess hunk counts or append a fake
-   blank context line at EOF. Without local validation, prefer `commit_files`
-   for complete text-file replacement.
+- **One fresh `id` per new command.** Retry the **identical** payload with the
+  same ID only while its checkpoint is retained (7 days). Later retries can
+  repeat writes: inspect live state. On `command_outcome_uncertain`, never
+  blindly replay.
+- **Existing branch:** fetch its live head immediately before a write; pass
+  `expectedHeadSha`. Fetch it **again** before the next mutation. **New branch
+  from patch:** pass immutable `baseSha` instead.
+- **Patch:** generate a real `git diff`; run `git apply --check` against that
+  exact base. Respect hunk counts, newline/EOF markers and file modes. No
+  validated local diff? Use `commit_files` for complete text replacements.
+- **Batch:** `steps` (not `commands`), 1–10 steps; omit `id` and `repository`
+  inside steps. Sequential, **no rollback** on failure. Before resubmitting with
+  a new ID, omit steps already applied.
+- **Scope:** `operator_action` cannot bypass guarded Git writes or create PRs.
+  Never delete or repurpose [PR #176](https://github.com/trvny/trvny/pull/176)
+  or `gptomek/control`.
 
 ## Preferred PR merge flow
 
-When bot-authored work should land on `main` as one GPTomek-authored commit
-while the pull request itself stays authored by `trvny`, use this flow:
+1. Prepare a feature branch and open its PR as **`trvny`**. Apply review/CI
+   fixes via GPTomek.
+2. If the final branch contains temporary/non-bot commits, read its live head
+   and run `adopt_branch` using the **merge base** of the PR base branch and
+   feature head as `baseSha` (an ancestor, not head); use live
+   `expectedHeadSha`. Stop other branch writers during adoption: the guard is
+   not atomic. Skip if already one correct GPTomek commit.
+3. After adoption, **recheck** CI and review threads on the rewritten head. Once
+   green and resolved, use **rebase merge**, not GitHub squash merge, to
+   preserve the GPTomek commit author.
 
-1. Prepare the feature branch and open the pull request as `trvny` so the
-   normal external review automation triggers.
-2. Apply review findings and CI fixes on that branch until the intended tree is
-   final.
-3. After reading the current branch head, run `adopt_branch` with the PR base
-   as `baseSha` and the live branch head as `expectedHeadSha`. This rewrites
-   the branch to one commit authored by `gptomek[bot]`.
-4. Treat the rewritten commit as the final head: re-check relevant CI and review
-   state because changing the commit SHA can trigger a fresh validation cycle.
-5. Once the final GPTomek-authored head is green and actionable review threads
-   are resolved, merge the PR with **rebase merge**, not GitHub's squash merge.
-   The branch is already a single commit, so rebase merge places that commit on
-   `main` while preserving GPTomek as its author.
-6. If the branch already consists of the desired single GPTomek-authored commit,
-   skip `adopt_branch` and use the same final-head checks plus rebase merge.
+GPTomek writes commits as `gptomek[bot]` and adds the
+`chatgpt-codex-connector[bot]` co-author trailer automatically (without
+duplicating existing trailers).
 
-## Commit attribution
+## Reference and recovery
 
-GPTomek creates commits as `gptomek[bot]` (author and committer) and automatically
-adds `chatgpt-codex-connector[bot]` as a GitHub-recognized co-author through
-its numeric-ID noreply address. Existing co-author trailers are preserved;
-the connector trailer is never duplicated.
-
-The PR itself remains authored by `trvny` to trigger external reviews.
-The attribution applies to newly created GPTomek commits, not old commits
-or PR description text. Preserve the rebase merge flow above.
-## Which mailbox to use
-
-| Situation | Transport | What happens |
-| --- | --- | --- |
-| Normal bot-authored write | JSON comment on Issue #203 | Preferred path. Actions forwards the comment ID; the Worker fetches, validates and executes the JSON directly through the shared Durable Object lock. |
-| Existing encoded Issue-body marker | Issue #203 | Legacy compatibility path. Its existing Actions relay and automatic PR #176 failover remain intact. |
-| Legacy Issue wake fails | PR #176 automatically | The legacy mailbox workflow forwards its still-live encoded command through the closed PR and synchronizes the result back to #203. |
-| Direct comment/Worker path is unavailable | PR #176 manually | Emergency path. Put exactly one legacy marker in the closed PR body and reuse the same command ID when replaying the same operation. |
-
-Issue #203 is the maintained default. PR #176 is an independent fallback
-transport, not a second queue.
-
-## Codespaces remote control
-
-The Devbox power/status/diagnostics bridge uses the existing `operator_action`
-with a scoped `repository_dispatch` into GitHub Actions. It does **not**
-make GPTomek a remote shell. The maintained command example, required
-personal Codespaces token, security controls and first-run steps are in
-[Devbox remote control](../../.devcontainer/README.md#gptomek-remote-power-and-diagnostics).
-
-## Status and troubleshooting
-
-- Successful commands normally have their Issue #203 comment deleted in a
-  second, acknowledged cleanup pass. Edited comments or cleanup errors may
-  leave a completed command visible with a warning, not a failed-command
-  reaction. Check the actual result before retrying; failed commands remain
-  with 👎 for seven days, then the daily Actions cleanup removes them without
-  replay. Keep the same ID and input for safe retries, but investigate
-  `command_outcome_uncertain` rather than replaying it.
-- `gptomek_create_blob:500` and `gptomek_create_tree:500` are GitHub Git-object
-  API failures, not JSON parse errors. Verify branch state before retrying.
-  Small text changes use inline tree content to avoid the blob call.
-- For a failed command, check the comment workflow, the Worker's
-  `/gptomek/wake` response and logs, then the repository's live state.
-- `invalid_patch_hunk_line` means an invalid hunk line prefix;
-  `patch_hunk_count_mismatch` means old/new line counts do not match the hunk.
-  `patch_context_mismatch` means context differs at the indicated file/line.
-  `review_fix_head_changed` requires refreshing the live head SHA; oversized
-  batches fail with `invalid_batch_steps`. Do not retry an unchanged bad patch.
-- Strict `apply_patch` and `review_fix` hunks must match the actual base,
-  including EOF newline markers. Prefer `git diff` and `git apply --check`;
-  `commit_files` is simpler for full text-file replacement.
-- The legacy closed [PR #176](https://github.com/trvny/trvny/pull/176)
-  and `gptomek/control` ref are an active fallback. **Never delete or reuse them.**
-
-## Detailed reference
-
-- [Command model: replay, checkpoints and recovery](docs/REFERENCE.md#command-model)
-- [JSON operation examples and limits](docs/REFERENCE.md#operation-examples)
-- [Transport internals, fallback and diagnostics](docs/REFERENCE.md#transport-internals-and-recovery)
+- [Payloads, constraints and errors](docs/REFERENCE.md#operation-examples)
+- [Command IDs, replay and uncertain outcomes](docs/REFERENCE.md#command-model)
+- [Transport internals](docs/REFERENCE.md#transport-internals-and-recovery)
 - [Runtime and components](docs/REFERENCE.md#runtime-and-components)
+- [Devbox](../../.devcontainer/README.md#gptomek-remote-power-and-diagnostics)
+  uses scoped `operator_action`, **not** remote shell access.
 
-The [reference](docs/REFERENCE.md) owns the detailed protocol and implementation
-semantics. This README is the day-to-day operator guide.
+**First failure check:** #203 comment → `Run GPTomek JSON comment` Actions →
+Worker `/gptomek/wake` logs → live repo/ref. Never infer success solely from a
+posted command or a missing comment.

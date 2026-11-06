@@ -25,8 +25,8 @@ type OidcClaims = {
 };
 
 interface GrokTokenEnv {
-  GPTOMEK_APP_ID: string;
-  GPTOMEK_PRIVATE_KEY: string;
+  GPTOMEK_APP_ID?: string;
+  GPTOMEK_PRIVATE_KEY?: string;
 }
 
 function objectValue(value: unknown): JsonObject {

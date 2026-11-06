@@ -161,9 +161,9 @@
             "xingchen-agi/xing4.0-29b-a4b:free"
           ],
           "review": [
+            "nvidia/nemotron-3.5-super-vl:free",            
             "thinkingmachines/inkling:free",
             "minimax/minimax-m3.1-flash:free",
-            "nvidia/nemotron-3.5-super-vl:free",
             "cohere/north-mini-code:free",
             "poolside/laguna-s-2.1:free",
             "nvidia/nemotron-3-ultra-550b-a55b:free",

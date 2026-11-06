@@ -119,6 +119,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/apps/codacy-production"><img src="https://avatars.githubusercontent.com/in/56611?v=4?s=100" width="100px;" alt="codacy-production[bot]"/><br /><sub><b>codacy-production[bot]</b></sub></a><br /><a href="https://github.com/trvny/trvny/commits?author=codacy-production[bot]" title="Code">💻</a> <a href="https://github.com/trvny/trvny/pulls?q=is%3Apr+reviewed-by%3Acodacy-production[bot]" title="Reviewed Pull Requests">👀</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://www.coderabbit.ai/?utm_source=cr_org&utm_medium=github"><img src="https://avatars.githubusercontent.com/u/132028505?v=4?s=100" width="100px;" alt="CodeRabbit"/><br /><sub><b>CodeRabbit</b></sub></a><br /><a href="https://github.com/trvny/trvny/pulls?q=is%3Apr+reviewed-by%3Acoderabbitai" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/trvny/trvny/commits?author=coderabbitai" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://allcontributors.org"><img src="https://avatars.githubusercontent.com/u/46410174?v=4?s=100" width="100px;" alt="All Contributors"/><br /><sub><b>All Contributors</b></sub></a><br /><a href="https://github.com/trvny/trvny/commits?author=all-contributors" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>

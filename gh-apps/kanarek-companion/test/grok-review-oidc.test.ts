@@ -73,7 +73,7 @@ test('token exchange requires valid Authorization before reading target', async 
     new Request('https://automation.travny.workers.dev/grok-review/token', {
       method: 'POST', body: '{"repository":"travnie/aistee"}',
     }),
-    { GPTOMEK_APP_ID: '', GPTOMEK_PRIVATE_KEY: '' },
+    { GITHUB_APP_ID: '', GITHUB_PRIVATE_KEY: '' },
   );
   assert.equal(res.status, 401);
 });

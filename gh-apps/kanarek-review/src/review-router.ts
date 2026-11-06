@@ -1265,6 +1265,18 @@ function timeoutMs(env: ReviewRouterEnv): number {
   return parsed;
 }
 
+// One slow candidate must not consume the whole task deadline.
+export function modelAttemptTimeoutMs(
+  remainingProviderMs: number,
+  task: FreeTaskProfileId,
+  hasNextModel: boolean,
+  provider: ReviewProviderId,
+): number {
+  if (remainingProviderMs <= 0 || !hasNextModel || task === 'general' ||
+      provider === 'openrouter') return remainingProviderMs;
+  return remainingProviderMs - Math.min(15_000, Math.floor(remainingProviderMs / 4));
+}
+
 export function reviewFreeProbeTimeoutMs(
   raw: string | undefined,
   routerTimeoutMs = DEFAULT_TIMEOUT_MS,
@@ -2282,7 +2294,10 @@ export async function handleReviewRouterRequest(
               Math.floor(remainingProviderMs / (attempts.length - attemptIndex)),
             ),
           ))
-        : remainingProviderMs;
+        : modelAttemptTimeoutMs(
+            remainingProviderMs, task, multiModel && attemptIndex + 1 < attempts.length,
+            provider.id,
+          );
       if (attemptTimeoutMs <= 0) {
         providerFailureCategory = 'timeout';
         providerInvalidRequest = false;
@@ -2469,14 +2484,18 @@ export async function handleReviewRouterRequest(
           kanarekReviewRouter: 'provider_failed', provider: provider.id, category,
           attempt: attempt.label, model: attempt.model,
         }));
+        const localBudgetCutoff = category === 'timeout' && controller.signal.aborted &&
+          attemptTimeoutMs < remainingProviderMs;
         if (
-          (provider.id === 'aihubmix' && category !== 'timeout' ||
-            provider.id === 'vercel' && category !== 'timeout' ||
-            provider.id === 'openrouter' && task === 'review')
+          (provider.id === 'aihubmix' || provider.id === 'orcarouter' ||
+            provider.id === 'ollama' || provider.id === 'vercel' ||
+            (provider.id === 'openrouter' && task === 'review'))
+          && (category !== 'timeout' || task !== 'general')
           && attemptIndex + 1 < attempts.length
           && Date.now() < providerDeadlineAt
         ) {
-          modelFault = category;
+          // A deliberate time slice is not evidence that this model is unhealthy.
+          modelFault = localBudgetCutoff ? null : category;
           continue;
         }
         break;

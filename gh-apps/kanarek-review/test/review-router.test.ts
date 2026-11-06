@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   fitProviderAttemptTokenBudget,
   handleReviewRouterRequest,
+  modelAttemptTimeoutMs,
   nearestReasoningEffort,
   REVIEW_ROUTER_MODEL_DEFAULTS,
   reviewFreeProbeTimeoutMs,
@@ -3162,6 +3163,67 @@ test('a model that failed is skipped next time while its provider keeps serving'
   assert.deepEqual(models, ['empty/free', 'live/free', 'live/free']);
   const provider = await cooldowns.get(cooldowns.idFromName('openrouter')).fetch('https://review-cooldown.internal/active');
   assert.equal(((await provider.json()) as { active: boolean }).active, false, 'provider itself never cooled down');
+});
+
+test('task model deadline reserves one more attempt', () => {
+  assert.equal(modelAttemptTimeoutMs(60_000, 'review', true, 'aihubmix'), 45_000);
+  assert.equal(modelAttemptTimeoutMs(120_000, 'shitpost', true, 'aihubmix'), 105_000);
+  assert.equal(modelAttemptTimeoutMs(10_000, 'quip', true, 'aihubmix'), 7_500);
+  assert.equal(modelAttemptTimeoutMs(60_000, 'general', true, 'aihubmix'), 60_000);
+  assert.equal(modelAttemptTimeoutMs(60_000, 'review', false, 'aihubmix'), 60_000);
+  assert.equal(modelAttemptTimeoutMs(1_000, 'quip', true, 'openrouter'), 1_000);
+  assert.equal(modelAttemptTimeoutMs(60_000, 'judge', true, 'openrouter'), 60_000);
+});
+
+test('OrcaRouter tries another model after a transport error', async () => {
+  const models: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false, messages: [{ role: 'user', content: 'review' }],
+  }), { ...auth, ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'broken-free,working-free' },
+  ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const { model } = JSON.parse(String(init?.body)) as { model: string };
+    models.push(model);
+    return model === 'broken-free'
+      ? Promise.reject(new Error('transport reset'))
+      : Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(models, ['broken-free', 'working-free']);
+});
+
+test('local timeout reservation does not cool down a responsive model', async () => {
+  const cooldowns = cooldownNamespace();
+  const calls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-quip-free',
+    stream: false, messages: [{ role: 'user', content: 'one short quip' }],
+  }), {
+    ...auth, ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'slow-free,fast-free',
+    KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS: '1000',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const { model } = JSON.parse(String(init?.body)) as { model: string };
+    calls.push(model);
+    if (model === 'slow-free') {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('local budget elapsed', 'AbortError'));
+        }, { once: true });
+      });
+    }
+    return Promise.resolve(Response.json({
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.deepEqual(calls, ['slow-free', 'fast-free']);
+  const cooldown = await cooldowns.get(cooldowns.idFromName('orcarouter#slow-free'))
+    .fetch('https://review-cooldown.internal/active');
+  assert.equal(((await cooldown.json()) as { active: boolean }).active, false);
 });
 
 test('AIHubMix moves past a model forbidden for its key', async () => {

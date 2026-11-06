@@ -26,6 +26,7 @@ const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 70_000;
 const AIHUBMIX_REVIEW_TIMEOUT_MS = 6 * 60_000;
 const AIHUBMIX_REVIEW_ATTEMPT_CAP_MS = 5 * 60_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
+const SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS = 25 * 60_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
 const MIN_COOLDOWN_MS = 1_000;
@@ -219,8 +220,8 @@ const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
   quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai', 'gemini-standard'],
   // Review/judge: fresh models first; gpt-oss (Groq, Ollama) and Bielik predate recent releases.
   // Gemini stays late for latency-sensitive tasks; Reactor samples it early.
-  review: ['openrouter', 'aihubmix', 'orcarouter', 'vercel', 'ollama', 'groq', 'huggingface-publicai', 'gemini-standard'],
-  judge: ['aihubmix', 'openrouter', 'orcarouter', 'vercel', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
+  review: ['openrouter', 'groq', 'orcarouter', 'vercel', 'ollama', 'aihubmix', 'huggingface-publicai', 'gemini-standard'],
+  judge: ['orcarouter', 'openrouter', 'vercel', 'groq', 'aihubmix', 'ollama', 'huggingface-publicai', 'gemini-standard'],
   shitpost: ['aihubmix', 'openrouter', 'gemini-standard', 'vercel', 'orcarouter', 'groq', 'ollama', 'huggingface-publicai'],
 } as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;
 
@@ -560,7 +561,10 @@ export function taskProviderTimeoutMs(
   task: 'general' | 'quip' | 'review' | 'judge' | 'shitpost',
   provider?: ReviewProviderId,
 ): number {
-  if (task === 'shitpost') return Math.max(baseMs, SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS);
+  if (task === 'shitpost') return Math.max(
+    baseMs,
+    provider === 'aihubmix' ? SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS : SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS,
+  );
   if (task === 'review') return Math.max(
     baseMs, provider === 'aihubmix' ? AIHUBMIX_REVIEW_TIMEOUT_MS : 120_000,
   );

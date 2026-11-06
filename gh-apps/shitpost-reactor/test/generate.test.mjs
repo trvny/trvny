@@ -389,7 +389,7 @@ test('requestCompletion does not retry quota exhaustion before provider cooldown
   assert.equal(attempts, 1);
 });
 
-test('requestCompletion shares one total 20-minute deadline across attempts', async () => {
+test('requestCompletion shares one total 60-minute deadline across attempts', async () => {
   let now = 1_000;
   let attempts = 0;
   await assert.rejects(requestCompletion({
@@ -397,7 +397,7 @@ test('requestCompletion shares one total 20-minute deadline across attempts', as
     nowImpl: () => now,
     fetchImpl: async () => {
       attempts += 1;
-      now += 20 * 60_000 - 1_000;
+      now += 60 * 60_000 - 1_000;
       throw new TypeError('fetch failed');
     },
     sleepImpl: async () => { throw Error('unexpected retry'); },

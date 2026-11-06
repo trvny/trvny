@@ -825,7 +825,7 @@ function geminiProvider(
   };
 }
 
-function xaiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
+function xaiPaidProvider(): ReviewProvider {
   return {
     id: 'xai',
     url: 'https://api.x.ai/v1/responses',
@@ -842,7 +842,7 @@ function paidProvidersForMode(
   const providersById: Record<PaidReviewProviderId, ReviewProvider> = {
     deepseek: deepSeekPaidProvider(env, mode),
     'gemini-flex': geminiProvider(env, 'gemini-flex'),
-    xai: xaiPaidProvider(env),
+    xai: xaiPaidProvider(),
   };
   return configuredPaidProviderOrder(env.KANAREK_REVIEW_PAID_PROVIDER_ORDER)
     .filter((id) => mode === 'review' || id !== 'xai')

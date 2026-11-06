@@ -398,7 +398,8 @@ Edit [`wrangler.jsonc`](wrangler.jsonc) for production routing. The
   and `shitpost`.
 - `taskModels`: per-provider model priorities for those tasks. The
   provider's global `KANAREK_REVIEW_<PROVIDER>_MODELS` list remains the
-  allowlist. Models not explicitly preferred run afterward in global order.
+  allowlist. Keep only task-specific favorites here; all other allowed models
+  run afterward in global order.
 - `decisionModels`: independent decision-model priority per provider.
 
 Lists are ordinary JSON arrays, one model/provider per item. Task priority

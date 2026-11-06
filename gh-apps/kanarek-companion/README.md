@@ -60,6 +60,32 @@ For the full routing/source map, see [`docs/architecture.md`](docs/architecture.
 For state, replay, and mutation invariants, see
 [`docs/state-and-safety.md`](docs/state-and-safety.md).
 
+## Grok review bridge
+
+The existing verified GitHub App webhook can dispatch eligible, same-repository PR
+heads to the [central Grok Actions workflow](https://github.com/travnie/.github/actions/workflows/grok-review.yml).
+It uses `GROK_REVIEW_DISPATCH_ENABLED` (default `false`) and
+`GROK_REVIEW_REPOSITORIES` for an independent rollout gate. No workflow is
+needed in each reviewed repository.
+
+Actions runs Grok 4.7 with the organization `XAI_API_KEY`. A GitHub OIDC
+token, verified by `/grok-review/token` against the central workflow on
+`main`, obtains a short-lived **Kanarek Companion GitHub App** installation
+token limited to the target repository and PR-writing permission. GitHub does
+not allow the central workflow's `GITHUB_TOKEN` to write to other repositories.
+Grok's reviews therefore appear under `kanarek-companion[bot]`, **never**
+`gptomek[bot]` or the human PR author. Each review includes a Grok badge
+linking to its originating Actions run.
+
+The existing per-PR Durable Object deduplicates dispatch by head SHA;
+the central runner also rejects already reviewed heads, stale PRs, drafts,
+forks and `no-goblin` labels. If dispatch fails before GitHub accepts it,
+the Worker logs the failure but does **not** blindly retry an uncertain
+remote mutation. For manual recovery use
+[Run workflow](https://github.com/travnie/.github/actions/workflows/grok-review.yml)
+with the target repository and PR number. Model calls can be billed; the
+workflow bounds diff size and generation output.
+
 ## Companion state and quips
 
 The active phrase bank uses Workers KV under

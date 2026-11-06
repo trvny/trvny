@@ -8,6 +8,7 @@ import {
   type BotekEngramStoreInput,
 } from './specialists/botek-specialists.ts';
 import { createAppJwt } from '../../core/github-app.ts';
+import { requestGrokReview } from './companion/xai-review-rpc.ts';
 import runtime, { actionFetch, type RuntimeEnv } from './runtime.ts';
 import type { JsonObject } from './tools/common.ts';
 
@@ -55,6 +56,12 @@ export class GptomekSignerEntrypoint extends WorkerEntrypoint<RuntimeEnv> {
     const privateKey = this.env.GPTOMEK_PRIVATE_KEY?.trim();
     if (!appId || !privateKey) throw new Error('gptomek_not_configured');
     return createAppJwt(appId, privateKey);
+  }
+}
+
+export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
+  async completeReview(input: unknown, deadlineAt: number) {
+    return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt);
   }
 }
 

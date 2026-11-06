@@ -606,6 +606,7 @@ const REVIEW_PROVIDER_DISPLAY: Record<string, { domain: string; label: string }>
   'huggingface-publicai': { domain: 'huggingface.co', label: 'Hugging Face PublicAI' },
   deepseek: { domain: 'deepseek.com', label: 'DeepSeek' },
   'gemini-flex': { domain: 'gemini.google.com', label: 'Gemini Flex' },
+  xai: { domain: 'x.ai', label: 'Grok' },
   'workers-ai': { domain: 'cloudflare.com', label: 'Workers AI' },
 };
 
@@ -626,6 +627,13 @@ export function reviewSourceLabel(provider: string, model: string | null): strin
 }
 
 export function reviewSourceBadge(provider: string, model: string | null): string {
+  if (provider === 'xai') {
+    const name = model?.replace(/[\r\n`]/g, '').trim();
+    const badge = '<a href="https://docs.x.ai/developers/models/grok-4.7"><img src="' +
+      'https://raw.githubusercontent.com/travnie/.github/main/assets/badges/grok.svg' +
+      '" width="89" height="28" alt="Grok"></a>';
+    return name ? badge + ' `' + name + '`' : badge;
+  }
   const label = reviewSourceLabel(provider, model);
   const iconUrl = providerIconUrl(provider);
   return iconUrl

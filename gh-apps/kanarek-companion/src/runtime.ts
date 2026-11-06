@@ -63,6 +63,7 @@ export type RuntimeEnv = GatewayEnv &
   WebhookReviewEnv & {
     CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
     KANAREK_REVIEW_REPOSITORIES?: string;
+    XAI_API_KEY?: string;
   };
 
 export function gremlinMcpManifest(origin: string): JsonObject {

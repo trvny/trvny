@@ -37,6 +37,7 @@ test('never dispatch untrusted or unreviewable heads', () => {
   const invalid = [
     { draft: true },
     { user: { login: 'dependabot[bot]' } },
+    { user: { login: 'Copilot', type: 'Bot' } },
     { head: { sha, repo: { full_name: 'another/fork' } } },
     { head: { sha: 'bad', repo: { full_name: 'travnie/aistee' } } },
     { labels: [{ name: 'no-goblin' }] },

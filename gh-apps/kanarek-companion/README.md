@@ -64,8 +64,9 @@ For state, replay, and mutation invariants, see
 
 The existing verified GitHub App webhook can dispatch eligible, same-repository PR
 heads to the [central Grok Actions workflow](https://github.com/travnie/.github/actions/workflows/grok-review.yml).
-It uses `GROK_REVIEW_DISPATCH_ENABLED` (default `false`) and
-`GROK_REVIEW_REPOSITORIES` for an independent rollout gate. No workflow is
+The deployment enables `GROK_REVIEW_DISPATCH_ENABLED=true` for
+`trvny/*,travnie/*` via `GROK_REVIEW_REPOSITORIES`. Set the dispatch flag to
+`false` to stop new Grok runs without disabling Kanarek itself. No workflow is
 needed in each reviewed repository.
 
 Actions runs Grok 4.7 with the organization `XAI_API_KEY`. A GitHub OIDC

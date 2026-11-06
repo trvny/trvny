@@ -60,7 +60,7 @@ export function grokDispatchTarget(
 export async function dispatchGrokReview(
   target: GrokDispatchTarget,
   env: GrokDispatchEnv,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
 ): Promise<void> {
   const installationId = await repositoryInstallationId(
     env.GITHUB_APP_ID,

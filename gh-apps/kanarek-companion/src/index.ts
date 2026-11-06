@@ -15,6 +15,7 @@ import {
   dispatchRepositorySettingsBootstrap,
   repositoryCreated,
 } from './companion/repository-bootstrap.ts';
+import { dispatchGrokReview, grokDispatchTarget } from './companion/grok-review-dispatch.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
   handleGptomekCommentControl,
@@ -29,6 +30,8 @@ import { HEALTH_PATH, WEBHOOK_PATH } from './paths.ts';
 interface Env extends CompanionEnv {
   COMPANION_LOCK: DurableObjectNamespace;
   GITHUB_WEBHOOK_SECRET: string;
+  GROK_REVIEW_DISPATCH_ENABLED?: string;
+  GROK_REVIEW_REPOSITORIES?: string;
 }
 
 interface WebhookMetadata {
@@ -53,6 +56,7 @@ const COMMENT_WINDOW_MS = 10 * 60 * 1_000;
 const PENDING_TARGET_KEY = 'pending-target';
 const PENDING_DELIVERIES_KEY = 'pending-deliveries';
 const PROCESSED_DELIVERIES_KEY = 'processed-deliveries';
+const GROK_DISPATCH_HEAD_KEY = 'grok-dispatched-head';
 const SUPPORTED_EVENTS = new Set([
   'check_run',
   'check_suite',
@@ -534,6 +538,51 @@ function scheduleRepositorySettingsBootstrap(
   return true;
 }
 
+function scheduleGrokReview(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown>,
+  env: Env,
+  ctx?: ExecutionContext,
+): boolean {
+  if (env.GROK_REVIEW_DISPATCH_ENABLED !== 'true') return false;
+  const target = grokDispatchTarget(metadata.event, payload);
+  if (!target || !repositoryListAllows(
+    env.GROK_REVIEW_REPOSITORIES ?? env.KANAREK_REPOSITORIES,
+    target.repository,
+  )) return false;
+
+  const task = (async () => {
+    const id = env.COMPANION_LOCK.idFromName(`${target.repository}#${target.number}`);
+    const response = await env.COMPANION_LOCK.get(id).fetch(
+      'https://kanarek-companion.internal/grok-dispatch',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ target, delivery: metadata.delivery }),
+      },
+    );
+    if (!response.ok) {
+      console.error(JSON.stringify({
+        grokReviewDispatch: 'failed',
+        repository: target.repository,
+        pullRequestNumber: target.number,
+        status: response.status,
+      }));
+    }
+    await response.body?.cancel();
+  })().catch((error) => {
+    console.error(JSON.stringify({
+      grokReviewDispatch: 'failed',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      failure: operationFailure(error),
+    }));
+  });
+  if (ctx) ctx.waitUntil(task);
+  else void task;
+  return true;
+}
+
 async function handleWebhook(
   request: Request,
   env: Env,
@@ -603,6 +652,7 @@ async function handleWebhook(
     ctx,
   );
   const companionScheduled = scheduleCompanion(metadata, payload, env, ctx);
+  const grokReviewScheduled = scheduleGrokReview(metadata, payload, env, ctx);
   console.log(
     JSON.stringify({
       ...metadata,
@@ -616,6 +666,7 @@ async function handleWebhook(
         : null,
       companion: companionScheduled ? { scheduled: true } : null,
       repositoryBootstrap: repositoryBootstrapScheduled ? { scheduled: true } : null,
+      grokReview: grokReviewScheduled ? { scheduled: true } : null,
     }),
   );
 
@@ -634,6 +685,7 @@ async function handleWebhook(
         : null,
       companion: companionScheduled ? { scheduled: true } : null,
       repositoryBootstrap: repositoryBootstrapScheduled ? { scheduled: true } : null,
+      grokReview: grokReviewScheduled ? { scheduled: true } : null,
     },
     202,
   );
@@ -774,6 +826,53 @@ export class CommentProbeLock {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== 'POST') {
       return json({ error: 'method_not_allowed' }, 405);
+    }
+    if (new URL(request.url).pathname === '/grok-dispatch') {
+      return this.enqueue(async () => {
+        let input: unknown;
+        try {
+          input = await request.json();
+        } catch {
+          return json({ error: 'invalid_json' }, 400);
+        }
+        const message = input && typeof input === 'object' && !Array.isArray(input)
+          ? input as Record<string, unknown>
+          : {};
+        const value = message.target && typeof message.target === 'object' && !Array.isArray(message.target)
+          ? message.target as Record<string, unknown>
+          : {};
+        const repository = value.repository;
+        const number = value.number;
+        const headSha = value.head_sha;
+        if (typeof repository !== 'string' ||
+            !Number.isSafeInteger(number) || (number as number) < 1 ||
+            typeof headSha !== 'string' || !/^[0-9a-f]{40}$/i.test(headSha) ||
+            !repositoryListAllows(
+              this.env.GROK_REVIEW_REPOSITORIES ?? this.env.KANAREK_REPOSITORIES,
+              repository,
+            )) {
+          return json({ error: 'invalid_grok_target' }, 400);
+        }
+        const previous = await this.state.storage.get<{ headSha: string; delivery: string | null }>(
+          GROK_DISPATCH_HEAD_KEY,
+        );
+        if (previous?.headSha === headSha) {
+          return json({ ok: true, duplicate: true });
+        }
+        try {
+          await dispatchGrokReview(
+            { repository, number: number as number, head_sha: headSha },
+            this.env,
+          );
+          await this.state.storage.put(GROK_DISPATCH_HEAD_KEY, {
+            headSha,
+            delivery: typeof message.delivery === 'string' ? message.delivery : null,
+          });
+          return json({ ok: true, duplicate: false });
+        } catch (error) {
+          return json({ ok: false, failure: operationFailure(error) }, 502);
+        }
+      });
     }
 
     let target: unknown;

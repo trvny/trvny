@@ -50,31 +50,45 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["CommentProbeLock"]
+      "new_sqlite_classes": [
+        "CommentProbeLock"
+      ]
     },
     {
       "tag": "v2",
-      "new_sqlite_classes": ["OperatorCheckpointStore"]
+      "new_sqlite_classes": [
+        "OperatorCheckpointStore"
+      ]
     },
     {
       "tag": "v3",
-      "new_sqlite_classes": ["FreeReviewJob"]
+      "new_sqlite_classes": [
+        "FreeReviewJob"
+      ]
     },
     {
       "tag": "v4",
-      "deleted_classes": ["FreeReviewJob"]
+      "deleted_classes": [
+        "FreeReviewJob"
+      ]
     },
     {
       "tag": "v5",
-      "new_sqlite_classes": ["ReviewProviderCooldownStore"]
+      "new_sqlite_classes": [
+        "ReviewProviderCooldownStore"
+      ]
     },
     {
       "tag": "v6",
-      "new_sqlite_classes": ["WebhookReviewJob"]
+      "new_sqlite_classes": [
+        "WebhookReviewJob"
+      ]
     },
     {
       "tag": "v7",
-      "new_sqlite_classes": ["AnchorMutationReplayStore"]
+      "new_sqlite_classes": [
+        "AnchorMutationReplayStore"
+      ]
     }
   ],
   "observability": {
@@ -105,7 +119,7 @@
     "KANAREK_PROVIDER_ORDER": "gemini,openai,xai,openai-fallback,anthropic,free-router",
     "KANAREK_PROVIDER_TIMEOUT_MS": "10000",
     "KANAREK_REVIEW_REPOSITORIES": "trvny/*,travnie/*",
-    "GROK_REVIEW_DISPATCH_ENABLED": "true",
+    "GROK_REVIEW_DISPATCH_ENABLED": "false",
     "GROK_REVIEW_REPOSITORIES": "trvny/*,travnie/*",
     "KANAREK_WEBHOOK_REVIEW_ENABLED": "true",
     "KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS": "60000",

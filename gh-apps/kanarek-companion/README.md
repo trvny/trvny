@@ -69,6 +69,13 @@ The deployment enables `GROK_REVIEW_DISPATCH_ENABLED=true` for
 `false` to stop new Grok runs without disabling Kanarek itself. No workflow is
 needed in each reviewed repository.
 
+Dispatch prefers the Kanarek App, but its installation in the central repo
+currently lacks `Contents: write`. The already-connected GPTomek App is a
+**dispatch-only fallback**. It may appear as the triggering actor in Actions;
+it does not generate, sign, or publish Grok reviews. Granting Kanarek
+`Contents: write` on `travnie/.github` would remove the need for this
+fallback automatically.
+
 Actions runs Grok 4.7 with the organization `XAI_API_KEY`. A GitHub OIDC
 token, verified by `/grok-review/token` against the central workflow on
 `main`, obtains a short-lived **Kanarek Companion GitHub App** installation

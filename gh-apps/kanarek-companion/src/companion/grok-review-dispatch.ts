@@ -11,6 +11,8 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 interface GrokDispatchEnv {
   GITHUB_APP_ID: string;
   GITHUB_PRIVATE_KEY: string;
+  GPTOMEK_APP_ID?: string;
+  GPTOMEK_PRIVATE_KEY?: string;
 }
 
 export interface GrokDispatchTarget {
@@ -57,26 +59,25 @@ export function grokDispatchTarget(
   return { repository: fullName, number: number as number, head_sha: headSha.toLowerCase() };
 }
 
-export async function dispatchGrokReview(
+async function dispatchThroughApp(
   target: GrokDispatchTarget,
-  env: GrokDispatchEnv,
-  fetcher: typeof fetch = (input, init) => fetch(input, init),
-): Promise<void> {
+  appId: string,
+  privateKey: string,
+  fetcher: typeof fetch,
+): Promise<boolean> {
   const installationId = await repositoryInstallationId(
-    env.GITHUB_APP_ID,
-    env.GITHUB_PRIVATE_KEY,
+    appId,
+    privateKey,
     GROK_WORKFLOW_REPOSITORY,
     fetcher,
   );
   const client = await createInstallationClient(
-    env.GITHUB_APP_ID,
-    env.GITHUB_PRIVATE_KEY,
+    appId,
+    privateKey,
     installationId,
     fetcher,
   );
-  if (client.permissions.contents !== 'write') {
-    throw new Error('grok_dispatch_contents_write_required');
-  }
+  if (client.permissions.contents !== 'write') return false;
   await client.void(
     '/repos/travnie/.github/dispatches',
     'dispatch_grok_pr_review',
@@ -88,4 +89,32 @@ export async function dispatchGrokReview(
       }),
     },
   );
+  return true;
+}
+
+export async function dispatchGrokReview(
+  target: GrokDispatchTarget,
+  env: GrokDispatchEnv,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
+): Promise<void> {
+  if (await dispatchThroughApp(
+    target,
+    env.GITHUB_APP_ID,
+    env.GITHUB_PRIVATE_KEY,
+    fetcher,
+  )) return;
+
+  // Dispatch transport only. Reviews still publish as Kanarek, not GPTomek.
+  if (env.GPTOMEK_APP_ID && env.GPTOMEK_PRIVATE_KEY &&
+      await dispatchThroughApp(
+        target,
+        env.GPTOMEK_APP_ID,
+        env.GPTOMEK_PRIVATE_KEY,
+        fetcher,
+      )) {
+    console.info(JSON.stringify({ grokReviewDispatch: 'fallback_transport' }));
+    return;
+  }
+
+  throw new Error('grok_dispatch_contents_write_required');
 }

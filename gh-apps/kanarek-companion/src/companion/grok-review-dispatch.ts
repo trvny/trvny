@@ -49,7 +49,7 @@ export function grokDispatchTarget(
     typeof headSha !== 'string' || !SHA_RE.test(headSha) ||
     pr.draft === true ||
     headRepo.full_name !== fullName ||
-    (typeof author.login === 'string' && /\[bot\]$/i.test(author.login)) ||
+    (author.type === 'Bot' || (typeof author.login === 'string' && /\[bot\]$/i.test(author.login))) ||
     labels.some((label) => String(objectValue(label).name || '').toLowerCase() === 'no-goblin')) {
     return null;
   }

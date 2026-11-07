@@ -1,5 +1,5 @@
 import { getDigestPosts, latestFirst, publicationPath } from "./_shared/digests.js";
-import { getShitposts } from "./_shared/shitpost.js";
+import { getShitposts, REACTOR_HOME_URL } from "./_shared/shitpost.js";
 
 const TEXTS_HEAD = `
 <style>
@@ -61,7 +61,7 @@ function renderShitpostTextCard(post, index) {
   const tags = post.tags.slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
   const meta = post.date ? escapeHtml(post.date) : "";
   const caption = escapeHtml(post.excerpt).replaceAll("\n", "<br>");
-  return `<a class="textitem" href="${escapeHtml(post.url)}">
+  return `<a class="textitem" href="${REACTOR_HOME_URL}">
     <div class="textmeta"><b>P${501 + index}</b>${meta}</div>
     <h3>${escapeHtml(post.title)}</h3>
     ${post.excerpt ? `<p>${caption}</p>` : ""}

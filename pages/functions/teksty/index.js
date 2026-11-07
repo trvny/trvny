@@ -1,5 +1,5 @@
 import { getDigestPosts, latestFirst, publicationPath } from "../_shared/digests.js";
-import { getLatestShitpost } from "../_shared/shitpost.js";
+import { getLatestShitpost, REACTOR_HOME_URL } from "../_shared/shitpost.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -28,8 +28,8 @@ function renderShitpostCard(post) {
   const tags = post.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   const meta = post.date ? `<div class="meta">${escapeHtml(post.date)}</div>` : "";
   const caption = escapeHtml(post.excerpt).replaceAll("\n", "<br>");
-  return `<a class="card" href="${escapeHtml(post.url)}">
-<span class="go">ŹRÓDŁO ↗</span>
+  return `<a class="card" href="${REACTOR_HOME_URL}">
+<span class="go">REACTOR ↗</span>
 ${meta}
 <h2>${escapeHtml(post.title)}</h2>
 ${post.excerpt ? `<p>${caption}</p>` : ""}

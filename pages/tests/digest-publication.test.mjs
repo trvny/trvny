@@ -149,7 +149,15 @@ test('home page expands three latest mixed publications to ten without duplicati
     assert.equal(listing.split('href="/przeglad/2026-11-02/"').length - 1, 1);
     assert.doesNotMatch(listing, /Article 1/);
     assert.doesNotMatch(listing, /Shit 1 /);
-    assert.ok(listing.includes('href="https://shitpost-reactor.travny.workers.dev/posts/gh-1-7"'));
+    const reactorHome = 'href="https://shitpost-reactor.travny.workers.dev/"';
+    assert.ok(listing.includes(reactorHome));
+    assert.ok(!listing.includes('href="https://shitpost-reactor.travny.workers.dev/posts/gh-1-7"'));
+    const textsHtml = await (await texts(context('/teksty/'))).text();
+    assert.ok(textsHtml.includes(reactorHome));
+    assert.ok(textsHtml.includes('REACTOR ↗'));
+    assert.ok(!textsHtml.includes('href="https://shitpost-reactor.travny.workers.dev/posts/gh-1-7"'));
+    const atom = await (await feed(context('/teksty/feed.xml'))).text();
+    assert.ok(atom.includes('<link rel="alternate" href="https://shitpost-reactor.travny.workers.dev/posts/gh-1-7"/>'));
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.HTMLRewriter = originalRewriter;

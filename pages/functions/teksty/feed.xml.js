@@ -44,7 +44,7 @@ function renderShitpostEntry(post) {
   const categories = post.tags
     .map((tag) => `    <category term="${escapeXml(tag)}"/>`)
     .join("\n");
-  return `  <entry xml:lang="pl">
+  return `  <entry xml:lang="${escapeXml(post.lang || "pl")}">
     <title>${escapeXml(title)}</title>
     <id>${escapeXml(post.id)}</id>
     <link rel="alternate" href="${escapeXml(post.url)}"/>

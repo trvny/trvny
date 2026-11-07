@@ -13,6 +13,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [TRAVNY Lab](https://travny.pages.dev/lab/): experiments and live widgets
 - [Lab field notes](https://travny.pages.dev/lab/field-notes/): roadmap and experiments
 - [Papagenerator](https://travny.pages.dev/papagenerator/): browser-only meme and sticker editor; images stay on the device
+- [Badges](https://travny.pages.dev/badges/): ecosystem, bot, AI and live status/counter SVG badges with copyable Markdown/HTML; catalogue JSON at `/badge/index.json`
 - [Teksty](https://travny.pages.dev/teksty/) · [Markdown guide](https://travny.pages.dev/teksty/index.md): unified publication directory including CoCzyDziennik and Reactor
 - [CoCzyDziennik archive](https://travny.pages.dev/przeglad/): dated issue permalinks; publication feed remains under Teksty
 - [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): token-count comparison for equivalent text in 27 languages using `o200k_base`

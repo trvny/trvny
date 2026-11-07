@@ -99,12 +99,13 @@ export function escapeXml(value) {
     .replaceAll("'", "&apos;");
 }
 
-// Lobe icon file -> nested <svg> body; ids namespaced per badge. Null when unusable.
-export function iconMarkup(source, id, ink) {
+// Icon file (lobe / octicon) -> { attrs, body } with ids namespaced; null when unusable.
+// fill: force a fill on the root (octicons ship without one).
+export function iconParts(source, id, ink, { fill = false } = {}) {
   const m = /^\s*<svg([^>]*)>([\s\S]*)<\/svg>\s*$/.exec(source ?? "");
   if (!m) return null;
   const [, attrs, raw] = m;
-  if (/<script|<foreignObject|\son\w+\s*=|href\s*=\s*"(?!#)/i.test(raw)) return null;
+  if (/<script|<foreignObject|<style|\son\w+\s*=|href\s*=\s*"(?!#)/i.test(raw)) return null;
   const body = raw
     .replace(/<title>[\s\S]*?<\/title>/g, "")
     .replace(/id="([^"]+)"/g, `id="${id}-$1"`)
@@ -113,33 +114,72 @@ export function iconMarkup(source, id, ink) {
     .replaceAll("></path>", "/>")
     .replaceAll("currentColor", ink);
   let keep = "";
-  if (attrs.includes('fill="currentColor"')) keep += ` fill="${ink}"`;
+  if (fill || attrs.includes('fill="currentColor"')) keep += ` fill="${ink}"`;
   if (attrs.includes('fill-rule="evenodd"')) keep += ' fill-rule="evenodd"';
-  return `<svg x="8" y="5" width="18" height="18" viewBox="0 0 24 24"${keep}>${body}</svg>`;
+  const viewBox = /viewBox="(0 0 \d{1,3} \d{1,3})"/.exec(attrs)?.[1] ?? "0 0 24 24";
+  return { keep, body, viewBox };
 }
 
-export function renderBadge({ label, c1, c2, tile = "#f8fafc", text = "#fff", icon = null, id = "b" }) {
+export function placeIcon(parts) {
+  return parts ? `<svg x="8" y="5" width="18" height="18" viewBox="${parts.viewBox ?? "0 0 24 24"}"${parts.keep}>${parts.body}</svg>` : null;
+}
+
+// Back-compat wrapper used by tests and model badges.
+export function iconMarkup(source, id, ink, opts) {
+  return placeIcon(iconParts(source, id, ink, opts));
+}
+
+// Standalone square mark (no pill), for logos in READMEs/sites.
+export function renderMark(parts, size, label) {
   const safe = escapeXml(label);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${parts.viewBox ?? "0 0 24 24"}" role="img" aria-label="${safe}"${parts.keep}><title>${safe}</title>${parts.body}</svg>
+`;
+}
+
+// [icon tile] [label on gradient] [optional value on light segment]
+export function renderBadge({
+  label,
+  c1,
+  c2,
+  tile = "#f8fafc",
+  text = "#fff",
+  icon = null,
+  id = "b",
+  value = null,
+  valueBg = "#f6f8fa",
+  valueText = null,
+}) {
+  const safe = escapeXml(label);
+  const val = value == null ? "" : cleanLabel(value);
+  const safeVal = escapeXml(val);
   const tileW = icon ? TILE : 0;
   const labelW = Math.round(labelWidth(cleanLabel(label)) + 2 * PAD);
-  const w = tileW + labelW;
+  const valueW = val ? Math.round(labelWidth(val) + 2 * (PAD - 2)) : 0;
+  const w = tileW + labelW + valueW;
+  const title = val ? `${safe}: ${safeVal}` : safe;
   const tileRects = icon
     ? `<rect width="${TILE}" height="${H}" fill="${tile}"/>`
     : "";
   const divider = icon ? `<rect x="${TILE}" width="1" height="${H}" fill="${c2}" fill-opacity=".5"/>` : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${H}" viewBox="0 0 ${w} ${H}" role="img" aria-label="${safe}">
-  <title>${safe}</title>
+  const valueRects = val
+    ? `<rect x="${tileW + labelW}" width="${valueW}" height="${H}" fill="${valueBg}"/><rect x="${tileW + labelW}" width="1" height="${H}" fill="${c2}" fill-opacity=".5"/>`
+    : "";
+  const valueTextEl = val
+    ? `\n  <text x="${tileW + labelW + valueW / 2}" y="18.5" text-anchor="middle" fill="${valueText ?? c2}" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" font-weight="700" text-rendering="geometricPrecision">${safeVal}</text>`
+    : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${H}" viewBox="0 0 ${w} ${H}" role="img" aria-label="${title}">
+  <title>${title}</title>
   <defs>
     <linearGradient id="${id}-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
     <linearGradient id="${id}-shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".14"/><stop offset=".55" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
     <clipPath id="${id}-clip"><rect width="${w}" height="${H}" rx="6"/></clipPath>
   </defs>
   <g clip-path="url(#${id}-clip)">
-    ${tileRects}<rect x="${tileW}" width="${labelW}" height="${H}" fill="url(#${id}-g)"/><rect x="${tileW}" width="${labelW}" height="14" fill="url(#${id}-shine)"/>${divider}
+    ${tileRects}<rect x="${tileW}" width="${labelW}" height="${H}" fill="url(#${id}-g)"/><rect x="${tileW}" width="${labelW}" height="14" fill="url(#${id}-shine)"/>${divider}${valueRects}
   </g>
   <rect x=".5" y=".5" width="${w - 1}" height="${H - 1}" rx="5.5" fill="none" stroke="${c2}" stroke-opacity=".55"/>
   ${icon ?? ""}
-  <text x="${tileW + labelW / 2}" y="18.5" text-anchor="middle" fill="${text}" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" font-weight="700" text-rendering="geometricPrecision">${safe}</text>
+  <text x="${tileW + labelW / 2}" y="18.5" text-anchor="middle" fill="${text}" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" font-weight="700" text-rendering="geometricPrecision">${safe}</text>${valueTextEl}
 </svg>
 `;
 }

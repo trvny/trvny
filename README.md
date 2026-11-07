@@ -109,7 +109,8 @@ No open pull requests. 🎉
 
 ## Contributors ✨
 
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+([emoji key](https://allcontributors.org/docs/en/emoji-key)):
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
@@ -117,10 +118,10 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.29%"><a href="https://github.com/apps/codacy-production"><img src="https://avatars.githubusercontent.com/in/56611?v=4&amp;s=100" width="100px;" alt="codacy-production[bot]"/><br /><sub><b>codacy-production[bot]</b></sub></a><br /><a href="https://github.com/trvny/trvny/commits?author=codacy-production%5Bbot%5D" title="Code">💻</a> <a href="https://github.com/trvny/trvny/pulls?q=is%3Apr+reviewed-by%3Acodacy-production%5Bbot%5D" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.29%"><a href="https://www.coderabbit.ai/?utm_source=cr_org&amp;utm_medium=github"><img src="https://avatars.githubusercontent.com/u/132028505?v=4&amp;s=100" width="100px;" alt="CodeRabbit"/><br /><sub><b>CodeRabbit</b></sub></a><br /><a href="https://github.com/trvny/trvny/pulls?q=is%3Apr+reviewed-by%3Acoderabbitai" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/trvny/trvny/commits?author=coderabbitai" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.29%"><a href="https://allcontributors.org"><img src="https://avatars.githubusercontent.com/u/46410174?v=4&amp;s=100" width="100px;" alt="All Contributors"/><br /><sub><b>All Contributors</b></sub></a><br /><a href="https://github.com/trvny/trvny/commits?author=all-contributors" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.29%"><a href="https://github.com/trvny"><img src="https://avatars.githubusercontent.com/u/120686325?u=f421c62e9d101e4f7ddac87061f82ccca98b2fe1&amp;v=4&amp;s=100" width="100px;" alt="trvny"/><br /><sub><b>trvny</b></sub></a><br /><a href="https://github.com/trvny/trvny/commits?author=trvny" title="Code">💻</a> <a href="https://github.com/trvny/trvny/commits?author=trvny" title="Documentation">📖</a> <a href="https://github.com/trvny" title="Maintenance">🚧</a></td>
+      <td align="center" valign="top" width="14.29%"><a href="https://github.com/apps/codacy-production"><img src="https://avatars.githubusercontent.com/in/56611?v=4&amp;s=100" width="100px;" alt="codacy-production[bot]"/><br /><sub><b>codacy-production[bot]</b></sub></a><br /><a href="https://github.com/trvny/trvny/commits?author=codacy-production%5Bbot%5D" title="Code">💻</a> <a href="https://github.com/trvny/trvny/pulls?q=is%3Apr+reviewed-by%3Acodacy-production%5Bbot%5D" title="Reviewed Pull Requests">👀</a></td>
+      <td align="center" valign="top" width="14.29%"><a href="https://www.coderabbit.ai/?utm_source=cr_org&amp;utm_medium=github"><img src="https://avatars.githubusercontent.com/u/132028505?v=4&amp;s=100" width="100px;" alt="CodeRabbit"/><br /><sub><b>CodeRabbit</b></sub></a><br /><a href="https://github.com/trvny/trvny/pulls?q=is%3Apr+reviewed-by%3Acoderabbitai" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/trvny/trvny/commits?author=coderabbitai" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.29%"><a href="https://github.com/apps/github-actions"><img src="https://avatars.githubusercontent.com/in/15368?v=4&amp;s=100" width="100px;" alt="github-actions[bot]"/><br /><sub><b>github-actions[bot]</b></sub></a><br /><a href="https://github.com/apps/github-actions" title="Infrastructure">🚇</a></td>
       <td align="center" valign="top" width="14.29%"><a href="https://github.com/apps/dependabot"><img src="https://avatars.githubusercontent.com/in/29110?v=4&amp;s=100" width="100px;" alt="dependabot[bot]"/><br /><sub><b>dependabot[bot]</b></sub></a><br /><a href="https://github.com/apps/dependabot" title="Maintenance">🚧</a></td>
       <td align="center" valign="top" width="14.29%"><a href="https://github.com/apps/mergify"><img src="https://avatars.githubusercontent.com/in/10562?v=4&amp;s=100" width="100px;" alt="mergify[bot]"/><br /><sub><b>mergify[bot]</b></sub></a><br /><a href="https://github.com/apps/mergify" title="Maintenance">🚧</a></td>
@@ -155,5 +156,3 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!

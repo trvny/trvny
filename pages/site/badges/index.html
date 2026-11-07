@@ -73,7 +73,7 @@ const links = {
 };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const mdAlt = (s) => String(s).replace(/[\\[\]]/g, "\\$&");
-const mdUrl = (s) => String(s).replace(/[()\s]/g, (c) => encodeURIComponent(c));
+const mdUrl = (s) => String(s).replace(/[()\s]/g, (c) => ({ "(": "%28", ")": "%29" })[c] ?? encodeURIComponent(c));
 const snippet = (kind, src, alt, href) => kind === "md"
   ? (href ? `[![${mdAlt(alt)}](${mdUrl(src)})](${mdUrl(href)})` : `![${mdAlt(alt)}](${mdUrl(src)})`)
   : (href ? `<a href="${esc(href)}"><img src="${esc(src)}" alt="${esc(alt)}" height="28"></a>` : `<img src="${esc(src)}" alt="${esc(alt)}" height="28">`);

@@ -122,7 +122,7 @@ export const OCTICON_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 // Live values. Each probe returns a short string or throws.
 const FEEDSEEK = "https://trvny.github.io/feedseek/";
-const TVPI = "https://tvpi.travny.workers.dev/";
+const TVPI = "https://tvpi.travny.workers.dev/playlist.m3u"; // documented combined playlist (status-mcp uses the same)
 
 export const COUNTERS = {
   "feedseek/feeds": {

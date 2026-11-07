@@ -616,6 +616,16 @@ function feedseekFeed(items) {
   return { version: 'https://jsonfeed.org/version/1.1', items };
 }
 
+test('Feedseek Model Feed v1 with string authors is accepted', () => {
+  const items = parseFeedseekJson({
+    format: 'feedseek-model-feed', version: 1,
+    items: [{ ...feedseekItem('Officials announce ceasefire as city waits for aid',
+      new Date(newsNow - 1_000).toISOString()), authors: ['Reuters'] }],
+  }, { now: newsNow });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].publisher, 'Reuters');
+});
+
 test('Polish scandal and municipal wording is treated as live public-affairs material', () => {
   const date = new Date(newsNow - 1000).toISOString();
   const items = parseFeedseekJson(feedseekFeed([

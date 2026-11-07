@@ -141,7 +141,9 @@ export function parseNewsRss(xml, {
 }
 
 export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = false, tag = null, tags = null, allowedHosts = null } = {}) {
-  if (payload?.version !== 'https://jsonfeed.org/version/1.1' || !Array.isArray(payload.items)) return [];
+  // Feedseek publishes Model Feed v1; JSON Feed 1.1 kept for older fixtures/sources.
+  const modelFeed = payload?.format === 'feedseek-model-feed' && payload.version === 1;
+  if ((!modelFeed && payload?.version !== 'https://jsonfeed.org/version/1.1') || !Array.isArray(payload.items)) return [];
   return payload.items.slice(0, 75).flatMap((item) => {
     if (typeof item?.title !== 'string' || typeof item?.url !== 'string'
       || typeof item?.date_published !== 'string') return [];
@@ -161,8 +163,10 @@ export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = fa
       || title.length < 12 || !Number.isFinite(date) || date > now
       || now - date > NEWS_MAX_AGE_MS || unsuitableNewsHeadline(title)
       || (politicsOnly && (!POLITICAL_TOPIC.test(title) || !POLISH_CONTEXT.test(title)))) return [];
-    const publisher = typeof item.authors?.[0]?.name === 'string'
-      ? item.authors[0].name.replace(/[<>]/gu, '').trim().slice(0, 80) : '';
+    const author = item.authors?.[0];
+    const authorName = typeof author === 'string' ? author : author?.name;
+    const publisher = typeof authorName === 'string'
+      ? authorName.replace(/[<>]/gu, '').trim().slice(0, 80) : '';
     return [{
       title, url: url.toString(), published_at: new Date(date).toISOString(),
       ...(publisher ? { publisher } : {}),

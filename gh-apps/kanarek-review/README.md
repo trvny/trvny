@@ -46,12 +46,13 @@ a fake or incompatible stream.
 (default `grok-4.7`) and `KANAREK_REVIEW_XAI_REASONING_EFFORT`
 (`low`, `medium`, `high`, or `xhigh`; default `high`).
 
-Paid-review **output tokens** belong to the review request, not to one provider:
-`../kanarek-companion/wrangler.jsonc` controls
+Paid review requests get their initial output budget from
+`../kanarek-companion/wrangler.jsonc` via
 `KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS` (currently `36864`,
-accepted 512–65536). This applies to any selected paid provider.
-The xAI Responses adapter enforces an 8192-token floor and 131072-token ceiling;
-the effective output limit is the requested shared paid budget today.
+accepted 512–65536). Grok uses that requested budget directly, bounded by
+its adapter's 8192-token floor and 131072-token ceiling.
+Other paid providers may override the request: DeepSeek uses
+`KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS` (currently `131072`).
 
 The independent Grok Actions reviewer was retired. The existing
 `KANAREK_XAI_MAX_OUTPUT_TOKENS` on the companion config is for **quip**

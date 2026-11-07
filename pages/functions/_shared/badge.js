@@ -105,7 +105,8 @@ export function iconParts(source, id, ink, { fill = false } = {}) {
   const m = /^\s*<svg([^>]*)>([\s\S]*)<\/svg>\s*$/.exec(source ?? "");
   if (!m) return null;
   const [, attrs, raw] = m;
-  if (/<script|<foreignObject|<style|\son\w+\s*=|href\s*=\s*"(?!#)/i.test(raw)) return null;
+  // Any quote style (or none) for href; only same-document #refs allowed, also in url().
+  if (/<script|<foreignObject|<style|\son\w+\s*=|(?:href\s*=|url\()\s*(?:["'](?!#)|(?!["'#]))/i.test(raw)) return null;
   const body = raw
     .replace(/<title>[\s\S]*?<\/title>/g, "")
     .replace(/id="([^"]+)"/g, `id="${id}-$1"`)

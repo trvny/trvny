@@ -92,6 +92,10 @@ test("icon markup namespaces ids and rejects active content", () => {
   assert.equal(iconMarkup('<svg><path onload="x()"/></svg>', "b", "#111"), null);
   assert.equal(iconMarkup('<svg><image href="https://evil/x.png"/></svg>', "b", "#111"), null);
   assert.equal(iconMarkup("<svg><style>*{}</style></svg>", "b", "#111"), null);
+  assert.equal(iconMarkup("<svg><image href='https://evil/x.png'/></svg>", "b", "#111"), null);
+  assert.equal(iconMarkup("<svg><image xlink:href=https://evil/x.png /></svg>", "b", "#111"), null);
+  assert.equal(iconMarkup('<svg><path fill="url(https://evil/#g)" d="M0 0"/></svg>', "b", "#111"), null);
+  assert.ok(iconMarkup("<svg><use href='#a'/></svg>", "b", "#111"));
   assert.ok(iconMarkup(ICON, "b", "#0a7559").includes('fill="#0a7559"'));
   assert.ok(iconMarkup(OCTICON, "b", "#e8590c", { fill: true }).includes('fill="#e8590c"'));
 });

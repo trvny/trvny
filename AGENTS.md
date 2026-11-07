@@ -11,6 +11,7 @@
 - `pages/token-worldcup/` - Quarto token reports and tokenizer recount scripts. Maintain `.qmd`; adjacent `.html`/`.md` renders are generated and CI-gated; the Pages build copies them to `/teksty/token-worldcup/`. Dynamic README files stay outside that conversion path.
 - `pages/` - TRAVNY hub (travny.pages.dev). Pages project `travny`, root `pages`, output `site/`, Functions in `functions/`; `travny-pages.yml` asserts its Git source.
   `trfny.com` brand-only routes `/`, `/robots.txt`, `/sitemap.xml`: `functions/_shared/brand-page.js`; exempt from hub redirects. Other custom-domain deep links redirect to the stable hub. `tvpi.pages.dev` is a redirect-only project in trvny/tvpi. Pages repo is fixed at creation: changing it means recreating the project. TV data stays in the tvpi Worker.
+  `trfny.com/f/*` → 301 `trvny.github.io/feedseek/*`: zone Single Redirect rule (runs before Pages). Vanity only; canonical feed URLs stay on github.io.
 - `stuff/` - small configs, feeds, playlists and miscellaneous assets.
 - `yt-migrate/` - account migration home: YouTube at `migrate.py` and Contacts/Tasks/Calendar at `google/` (own `README.md`, `migrate.py`, tests). Separate `.github/workflows/yt-migrate.yml` and `google-migrate.yml`; distinct OAuth secrets `YT_*` / `GM_*` and quota/checkpoint state. Never log personal data (public Actions logs). YouTube Takeout extras are AES-encrypted at `yt-migrate/takeout.json.gz.enc` with `YT_EXTRA_KEY`.
 

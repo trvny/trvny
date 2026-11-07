@@ -86,7 +86,7 @@ test("owner quip outage can fall back to a recent, source-linked Feedseek meme",
   let feedRequests = 0;
   t.mock.method(globalThis, "fetch", async (url) => {
     feedRequests += 1;
-    assert.match(String(url), /^https:\/\/raw\.githubusercontent\.com\/trvny\/feedseek\/main\/feeds\/feed_jbzd\.json$/u);
+    assert.match(String(url), /^https:\/\/trvny\.github\.io\/feedseek\/jbzd\.json$/u);
     return Response.json({
       format: "feedseek-model-feed", version: 1, source_key: "jbzd", title: "Jbzd.com.pl",
       items: [{

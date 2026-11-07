@@ -362,6 +362,8 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_DECISION_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_DECISION_TIMEOUT_MS?: string;
   KANAREK_REVIEW_PAID_PROVIDER_ORDER?: string;
+  KANAREK_REVIEW_XAI_MODEL?: string;
+  KANAREK_REVIEW_XAI_REASONING_EFFORT?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
   KANAREK_REVIEW_WORKERS_AI_MODEL?: string;
@@ -829,13 +831,20 @@ function geminiProvider(
   };
 }
 
-function xaiPaidProvider(): ReviewProvider {
+function xaiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
+  const selectedModel = env.KANAREK_REVIEW_XAI_MODEL?.trim() || GROK_PAID_MODEL;
+  const model = /^grok-[a-z0-9][a-z0-9.-]{0,63}$/i.test(selectedModel)
+    ? selectedModel : GROK_PAID_MODEL;
+  const configuredEffort = env.KANAREK_REVIEW_XAI_REASONING_EFFORT?.trim().toLowerCase();
+  const effort = configuredEffort && ['low', 'medium', 'high', 'xhigh'].includes(configuredEffort)
+    ? configuredEffort : 'high';
   return {
     id: 'xai',
     url: 'https://api.x.ai/v1/responses',
-    model: GROK_PAID_MODEL,
+    model,
     apiKey: (providerEnv) => providerEnv.XAI_REVIEW_RPC ? 'rpc' : undefined,
     timeoutMs: 300_000,
+    requestFields: { reasoning: { effort } },
   };
 }
 
@@ -846,7 +855,7 @@ function paidProvidersForMode(
   const providersById: Record<PaidReviewProviderId, ReviewProvider> = {
     deepseek: deepSeekPaidProvider(env, mode),
     'gemini-flex': geminiProvider(env, 'gemini-flex'),
-    xai: xaiPaidProvider(),
+    xai: xaiPaidProvider(env),
   };
   return configuredPaidProviderOrder(env.KANAREK_REVIEW_PAID_PROVIDER_ORDER)
     .filter((id) => mode === 'review' || id !== 'xai')

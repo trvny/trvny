@@ -24,6 +24,21 @@ test('Grok RPC request uses bounded, structured, stateless Responses', () => {
   assert.equal(grokReviewRequest({ ...review, stream: true }), null);
 });
 
+test('Grok RPC carries configured model, effort and paid output budget', () => {
+  const configured = grokReviewRequest({
+    ...review,
+    model: 'grok-4.6',
+    reasoning: { effort: 'xhigh' },
+    max_tokens: 65_536,
+  })!;
+  assert.equal(configured.model, 'grok-4.6');
+  assert.deepEqual(configured.reasoning, { effort: 'xhigh' });
+  assert.equal(configured.max_output_tokens, 65_536);
+  assert.equal(grokReviewRequest({ ...review, model: 'unknown' }), null);
+  assert.deepEqual(grokReviewRequest({ ...review, reasoning: { effort: 'off' } })?.reasoning,
+    { effort: 'high' });
+});
+
 test('Grok RPC maps completed Responses into Kanarek review', async () => {
   const fetcher = (async (url: RequestInfo | URL, init?: RequestInit) => {
     assert.equal(String(url), 'https://api.x.ai/v1/responses');

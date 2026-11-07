@@ -18,6 +18,18 @@ Functions in `functions/`, build step `build.sh`.
 
 - Papagenerator: https://travny.pages.dev/papagenerator/ is assembled by `build.sh` from a pinned commit of `travnie/twojstar/papagenerator` (the only maintained editor source). To update, bump `papagenerator_revision`. No new Cloudflare Pages project, Worker or cron is needed. Fetch failure fails the build deliberately: Cloudflare keeps the previous working deployment live rather than publishing an incomplete site.
 
-- Badges: `functions/badge/[[path]].js` serves `/badge/<brand>.svg` and `/badge/model/<model-id>.svg` (`?label=` overrides text), same style as the static set in `travnie/.github/assets/badges`. Model id → icon follows lobe-icons ModelIcon rules in generated `functions/_shared/model-icons.js` (refresh: `scripts/sync_model_icons.py`); icons load from a pinned `@lobehub/icons-static-svg` on jsDelivr.
+- Badges: `functions/badge/[[path]].js`; catalogue + builder at `/badges/`
+  (reads `/badge/index.json`). Same style as the static set in
+  `travnie/.github/assets/badges`.
+  - `/badge/<slug>.svg`: AI brands (`_shared/badge.js`), ecosystem (`_shared/eco.js`).
+  - `/badge/model/<model-id>.svg`: lobe-icons ModelIcon rules in generated
+    `_shared/model-icons.js` (refresh: `scripts/sync_model_icons.py`).
+  - `/badge/o/<octicon>.svg`: any Primer Octicon.
+  - Live: `/badge/feedseek/feeds.svg`, `/badge/tvpi/channels.svg`, `/badge/status/<slug>.svg`.
+  - `/badge/mark/<slug>.svg?size=`: bare logo.
+  - Common query: `?label=`, `?value=`, `?color=` (palette name or hex).
+  - Icons: own inline marks (twojstar, Kanarek, Autka, tvpi, papiesz), pinned
+    `@primer/octicons` and `@lobehub/icons-static-svg` on jsDelivr. Probe or icon
+    failures render a short-cached fallback, never an error page.
 
 - Astro: `astro/` builds `/lab/` and CoCzyDziennik issue pages under `/przeglad/` without replacing the existing site. Published issues automatically join `/teksty/` and its **one shared Atom feed** (`/teksty/feed.xml`) alongside legacy articles and Shitpost Reactor entries. The `/przeglad/` route remains an archive/permalink space, not a second feed or publication catalog. See [canonical Astro publishing instructions](astro/README.md).

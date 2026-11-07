@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Badges · TRAVNY</title>
+<meta name="description" content="Gotowe badge ekosystemu TRAVNY / twojstar: marki, boty, AI, liczniki i statusy na żywo. Markdown i HTML do skopiowania.">
+<meta name="theme-color" content="#04060a">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root{--bg:#04060a;--panel:#0b0f16;--line:#1c2433;--w:#e6e8ea;--dim:#8a93a3;--c:#46e0e0;--y:#f5e94e;--g:#5be37a;--r:#ff5f56}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--w);font:16px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  main{max-width:68rem;margin:0 auto;padding:20px 16px 48px}
+  header{border-top:6px solid var(--c);background:var(--panel);padding:16px 18px;margin-bottom:18px}
+  h1{margin:0;color:var(--y);font-size:1.6rem;letter-spacing:.04em}
+  header p{margin:.4rem 0 0;color:var(--dim)}
+  h2{color:var(--c);font-size:1rem;letter-spacing:.12em;text-transform:uppercase;margin:28px 0 10px}
+  a{color:var(--c)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,21rem),1fr));gap:8px}
+  .card{background:var(--panel);border:1px solid var(--line);padding:10px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+  .card img{display:block;max-width:100%;height:28px;margin-right:auto}
+  .card code{flex-basis:100%;order:3;color:var(--dim);font-size:12px;overflow-wrap:anywhere}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  button{font:inherit;font-size:12px;background:#121826;color:var(--w);border:1px solid var(--line);padding:5px 10px;cursor:pointer}
+  button:hover{border-color:var(--c)}
+  button.ok{border-color:var(--g);color:var(--g)}
+  .builder{display:grid;gap:10px;background:var(--panel);border:1px solid var(--line);padding:14px}
+  .builder label{display:grid;gap:4px;color:var(--dim);font-size:13px}
+  .builder input,.builder select{font:inherit;background:#05080d;color:var(--w);border:1px solid var(--line);padding:7px 8px;width:100%}
+  .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,12rem),1fr));gap:10px}
+  .preview{min-height:34px}
+  .note{color:var(--dim);font-size:13px}
+  .err{color:var(--r)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>BADGES</h1>
+    <p>Marki, boty, AI i liczniki na żywo dla ekosystemu TRAVNY / twojstar. Klik = kopiuj Markdown albo HTML.</p>
+  </header>
+
+  <h2>Własny badge (Octicons)</h2>
+  <div class="builder">
+    <div class="fields">
+      <label><span>Ikona (<a href="https://primer.style/octicons/" target="_blank" rel="noopener">nazwa Octicon</a>)</span><input id="b-icon" value="rss" autocomplete="off"></label>
+      <label>Tekst<input id="b-label" value="feeds" maxlength="40"></label>
+      <label>Wartość (opcjonalnie)<input id="b-value" value="" maxlength="40"></label>
+      <label>Kolor (nazwa albo hex)<input id="b-color" value="orange" list="palette"><datalist id="palette"></datalist></label>
+      <label>Link<input id="b-href" value="https://trvny.github.io/feedseek/"></label>
+    </div>
+    <div class="preview" id="b-preview"></div>
+    <div class="row"><button type="button" data-copy="md" id="b-md">Markdown</button><button type="button" data-copy="html" id="b-html">HTML</button></div>
+  </div>
+
+  <div id="groups"><p class="note">Ładowanie…</p></div>
+
+  <h2>Parametry</h2>
+  <p class="note">
+    <code>?label=</code> zmienia tekst · <code>?value=</code> dokłada prawy segment · <code>?color=</code> przemalowuje (nazwa z palety albo hex) ·
+    <code>/badge/model/&lt;id&gt;.svg</code> ikona z ID modelu · <code>/badge/mark/&lt;slug&gt;.svg?size=128</code> sam znak (logo).
+    Liczniki odświeżają się co godzinę, statusy co 2 min. Ikony: <a href="https://github.com/primer/octicons">Primer Octicons</a> (MIT), <a href="https://github.com/lobehub/lobe-icons">lobe-icons</a> (MIT), znaki własne.
+  </p>
+</main>
+<script>
+const CANON = "https://travny.pages.dev";
+const links = {
+  twojstar: "https://github.com/travnie", papiesz: "https://travny.pages.dev/papagenerator/", feedseek: "https://trvny.github.io/feedseek/",
+  kanarek: "https://github.com/travnie/kanarek", autka: "https://github.com/travnie/Autka", tvpi: "https://travny.pages.dev/tv/",
+  aistee: "https://github.com/travnie/aistee", benches: "https://github.com/travnie/twojstar", papagenerator: "https://travny.pages.dev/papagenerator/",
+  codebench: "https://codebench.travny.workers.dev/", streambench: "https://streambench.travny.workers.dev/", docbench: "https://docbench.travny.workers.dev/",
+};
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const mdAlt = (s) => String(s).replace(/[\\[\]]/g, "\\$&");
+const mdUrl = (s) => String(s).replace(/[()\s]/g, (c) => ({ "(": "%28", ")": "%29" })[c] ?? encodeURIComponent(c));
+const snippet = (kind, src, alt, href) => kind === "md"
+  ? (href ? `[![${mdAlt(alt)}](${mdUrl(src)})](${mdUrl(href)})` : `![${mdAlt(alt)}](${mdUrl(src)})`)
+  : (href ? `<a href="${esc(href)}"><img src="${esc(src)}" alt="${esc(alt)}" height="28"></a>` : `<img src="${esc(src)}" alt="${esc(alt)}" height="28">`);
+
+async function copy(btn, textValue) {
+  try { await navigator.clipboard.writeText(textValue); btn.classList.add("ok"); btn.textContent = "Skopiowane"; }
+  catch { prompt("Skopiuj:", textValue); }
+  setTimeout(() => { btn.classList.remove("ok"); btn.textContent = btn.dataset.copy === "md" ? (btn.closest(".builder") ? "Markdown" : "MD") : "HTML"; }, 1400);
+}
+
+function card(row) {
+  const el = document.createElement("div");
+  el.className = "card";
+  const href = links[row.slug] ?? "";
+  el.innerHTML = `<img loading="lazy" src="${esc(row.path)}" alt="${esc(row.label)}"><code>${esc(row.path)}</code>
+    <div class="row"><button type="button" data-copy="md">MD</button><button type="button" data-copy="html">HTML</button></div>`;
+  el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => copy(b, snippet(b.dataset.copy, CANON + row.path, row.label, href))));
+  return el;
+}
+
+function builderPath() {
+  const v = (id) => document.getElementById(id).value.trim();
+  const p = new URLSearchParams();
+  if (v("b-label")) p.set("label", v("b-label"));
+  if (v("b-value")) p.set("value", v("b-value"));
+  if (v("b-color")) p.set("color", v("b-color"));
+  return `/badge/o/${encodeURIComponent(v("b-icon").toLowerCase() || "star")}.svg?${p}`;
+}
+function refreshBuilder() {
+  document.getElementById("b-preview").innerHTML = `<img src="${esc(builderPath())}" alt="preview" height="28">`;
+}
+["b-icon", "b-label", "b-value", "b-color", "b-href"].forEach((id) => document.getElementById(id).addEventListener("input", refreshBuilder));
+document.querySelectorAll(".builder button").forEach((b) => b.addEventListener("click", () =>
+  copy(b, snippet(b.dataset.copy, CANON + builderPath(), document.getElementById("b-label").value || "badge", document.getElementById("b-href").value.trim()))));
+
+fetch("/badge/index.json").then((r) => r.json()).then((data) => {
+  document.getElementById("palette").innerHTML = data.palette.map((c) => `<option value="${c}">`).join("");
+  const groups = document.getElementById("groups");
+  groups.innerHTML = "";
+  const order = ["Brand", "Apps", "Workshop", "Bots", "Reviewers", "Live", "AI & infra"];
+  const byGroup = {};
+  for (const row of data.badges) (byGroup[row.group] ??= []).push(row);
+  for (const name of order.filter((g) => byGroup[g])) {
+    const h = document.createElement("h2"); h.textContent = name; groups.append(h);
+    const grid = document.createElement("div"); grid.className = "grid";
+    byGroup[name].forEach((row) => grid.append(card(row)));
+    groups.append(grid);
+  }
+}).catch(() => { document.getElementById("groups").innerHTML = '<p class="err">Nie udało się wczytać katalogu.</p>'; });
+refreshBuilder();
+</script>
+</body>
+</html>

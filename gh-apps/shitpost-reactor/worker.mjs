@@ -59,9 +59,18 @@ function shortTitle(caption) {
   return oneLine.length <= 120 ? oneLine : `${oneLine.slice(0, 117)}...`;
 }
 
+function postLanguage(post) {
+  const code = post?.language;
+  return typeof code === 'string' && /^[a-z]{2,3}(?:-(?:[A-Z][a-z]{3}|[A-Z]{2}))?$/u.test(code)
+    ? code : null;
+}
+
 // Stored topic may be an internal lane instruction or a sourced headline.
 // Prefer the subject, not the provider prefix, URL, or generation instructions.
 function postTitle(post) {
+  const modelTitle = typeof post.content?.title === 'string' ? post.content.title.trim() : '';
+  // Multilingual entries use their generated title, not the original headline's language.
+  if (postLanguage(post) && modelTitle && !/\b(?:shitpost|meme)\b|żart/iu.test(modelTitle)) return shortTitle(modelTitle);
   const raw = typeof post.topic === 'string' ? post.topic.replace(/\s+/gu, ' ').trim() : '';
   const internal = /^(?:Bacon Ipsum emergency|A recent world headline|An original absurd internet joke|Evergreen Polish political satire|Polish political satire inspired by)/iu;
   if (raw && !internal.test(raw)) {
@@ -71,7 +80,6 @@ function postTitle(post) {
     if (sourced) candidate = candidate.replace(/^[^:]{2,50}:\s*/u, '');
     if (candidate.trim() && !/https?:\/\//iu.test(candidate)) return shortTitle(candidate);
   }
-  const modelTitle = typeof post.content?.title === 'string' ? post.content.title.trim() : '';
   if (modelTitle && !/\b(?:shitpost|meme)\b|żart/iu.test(modelTitle)) return shortTitle(modelTitle);
   return shortTitle(postSummary(post).split(/\r?\n/u).find((line) => line.trim()) || FEED_TITLE);
 }
@@ -103,8 +111,10 @@ export function validateRecord(input) {
     topic = nonEmptyString(input.topic, 'topic', 2_000);
   }
 
+  if (input.language != null && !postLanguage(input)) throw new Error('invalid_language');
   const common = {
     schema_version: input.schema_version,
+    ...(postLanguage(input) ? { language: postLanguage(input) } : {}),
     generated_at: new Date(generatedAt).toISOString(),
     provider: nonEmptyString(input.provider, 'provider', 200),
     model: nonEmptyString(input.model, 'model', 200),
@@ -417,7 +427,7 @@ export function renderAtom(posts) {
   const entries = posts.map((post) => {
     const summary = postSummary(post);
     const html = feedContentHtml(post);
-    return `  <entry>
+    return `  <entry${postLanguage(post) ? ` xml:lang="${postLanguage(post)}"` : ''}>
     <title>${escapeXml(postTitle(post))}</title>
     <id>${escapeXml(post.url)}</id>
     <link href="${escapeXml(publicPostUrl(post))}" rel="alternate" type="text/html" />
@@ -452,7 +462,7 @@ export function renderJsonFeed(posts) {
     home_page_url: `${SITE_URL}/`,
     feed_url: `${SITE_URL}/feed.json`,
     description: FEED_DESCRIPTION,
-    language: 'pl-PL',
+    language: 'mul',
     icon: `${SITE_URL}/icon-512.png`,
     favicon: `${SITE_URL}/favicon-32x32.png`,
     items: posts.map((post) => {
@@ -462,6 +472,7 @@ export function renderJsonFeed(posts) {
         id: post.url,
         url: publicPostUrl(post),
         title: postTitle(post),
+        ...(postLanguage(post) ? { language: postLanguage(post) } : {}),
         content_html: feedContentHtml(post),
         summary,
         date_published: post.published_at,
@@ -593,8 +604,9 @@ function postStructuredData(post) {
   return `<script type="application/ld+json">${JSON.stringify(schema).replaceAll('<', '\\u003c')}</script>`;
 }
 
-function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`, structuredData = '', description = FEED_DESCRIPTION) {
-  return `<!doctype html><html lang="pl"><head>
+function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`, structuredData = '', description = FEED_DESCRIPTION, language = 'pl') {
+  const locale = { pl: 'pl_PL', en: 'en_US', de: 'de_DE', fr: 'fr_FR', es: 'es_ES', it: 'it_IT', ru: 'ru_RU', ja: 'ja_JP', 'zh-Hans': 'zh_CN' }[language] || 'en_US';
+  return `<!doctype html><html lang="${escapeHtml(language)}"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
@@ -605,7 +617,7 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${S
 <meta name="theme-color" content="#111111">
 <meta name="msapplication-TileColor" content="#111111">
 <meta name="msapplication-TileImage" content="/mstile-150x150.png">
-<meta property="og:locale" content="pl_PL">
+<meta property="og:locale" content="${locale}">
 <meta property="og:site_name" content="${escapeHtml(FEED_TITLE)}">
 <meta property="og:title" content="${escapeHtml(title)}">
 <meta property="og:description" content="${escapeHtml(description)}">
@@ -807,7 +819,7 @@ async function handleGet(url, env) {
     const post = await readPost(env, match[1]);
     if (!post) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
     const summary = postSummary(post);
-    return response(htmlPage(postTitle(post), postHtml(post), publicPostUrl(post), postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post), shortTitle(summary)), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
+    return response(htmlPage(postTitle(post), postHtml(post), publicPostUrl(post), postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post), shortTitle(summary), postLanguage(post) || 'pl'), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
   }
 
   const aggregatePaths = new Set(['/', '/rss.xml', '/feed.xml', '/atom.xml', '/feed.json', '/sitemap.xml']);

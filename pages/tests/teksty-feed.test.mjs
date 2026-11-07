@@ -56,7 +56,7 @@ test("shitpost items are validated, de-duplicated and chronologically sorted", a
 
 test("merged Atom feed escapes source content and keeps stable original links", async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = fakeFetch([first, second]);
+  globalThis.fetch = fakeFetch([{ ...first, language: 'ja' }, second]);
   try {
     const response = await onRequestGet(context());
     const xml = await response.text();
@@ -70,6 +70,7 @@ test("merged Atom feed escapes source content and keeps stable original links", 
     assert.match(xml, /First post &amp; &lt;payload&gt;/);
     assert.match(xml, /Slang &lt;censored&gt;/);
     assert.match(xml, /<entry xml:lang="en">/);
+    assert.match(xml, /<entry xml:lang="ja">/);
     // Atom IDs immutable across hostname migration; links move.
     assert.ok(xml.includes("<id>https://trfny.com/teksty/</id>"));
     assert.ok(xml.includes('<link rel="self" type="application/atom+xml" href="https://travny.pages.dev/teksty/feed.xml"/>'));
@@ -87,6 +88,15 @@ test("merged Atom feed escapes source content and keeps stable original links", 
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("Reactor language metadata is validated and retained in the shared feed adapter", async () => {
+  const items = await getShitposts(fakeFetch([
+    { ...first, language: "de" },
+    { ...second, language: "javascript:alert(1)" },
+  ]));
+  assert.equal(items[1].lang, "de");
+  assert.equal(items[0].lang, undefined);
 });
 
 test("Reactor rollout accepts both origins without changing old entry IDs", async () => {

@@ -54,6 +54,30 @@ test('JSON Feed exposes a rendered image only for meme entries', () => {
   assert.deepEqual(feed.items[1].tags, ['meme']);
 });
 
+test('multilingual entries retain language and generated headlines without changing permalinks', async () => {
+  const localized = validateRecord({
+    ...textPost,
+    topic: 'Feedseek / news: Polski tytuł źródłowy (https://example.test/story)',
+    language: 'ja',
+    content: { kind: 'text', title: '日本語の見出し', text: '日本語の本文' },
+  });
+  assert.equal(localized.language, 'ja');
+  assert.throws(() => validateRecord({ ...textPost, language: 'javascript:alert(1)' }), /invalid_language/);
+  const post = { ...localized, id: textPost.id, url: textPost.url, published_at: textPost.published_at };
+  const feed = JSON.parse(renderJsonFeed([post]));
+  assert.equal(feed.language, 'mul');
+  assert.equal(feed.items[0].language, 'ja');
+  assert.equal(feed.items[0].title, '日本語の見出し');
+  assert.equal(feed.items[0].id, textPost.url);
+  assert.match(renderAtom([post]), /<entry xml:lang="ja">/);
+  const html = await (await worker.fetch(
+    new Request('https://shitpost-reactor.travny.workers.dev/posts/gh-123-1'),
+    { FEED: { get: () => ({ json: () => post }) } },
+  )).text();
+  assert.match(html, /<html lang="ja">/);
+  assert.match(html, /<meta property="og:locale" content="ja_JP">/);
+});
+
 test('validateRecord accepts schema v2 text and meme shapes', () => {
   const text = validateRecord(textPost);
   const meme = validateRecord(memePost);

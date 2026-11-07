@@ -12,7 +12,7 @@ test('Bacon Ipsum URL has a valid, short English-source query', () => {
   assert.equal(url.searchParams.get('sentences'), '2');
 });
 
-test('language roulette stays stable for a run and covers eight languages', () => {
+test('language roulette stays stable for a run and covers nine languages', () => {
   const source = 'Bacon andouille pastrami brisket pork belly.';
   const first = createBaconPost({ seed: '101.1', source });
   assert.deepEqual(createBaconPost({ seed: '101.1', source }), first);
@@ -20,14 +20,14 @@ test('language roulette stays stable for a run and covers eight languages', () =
   assert.equal(first.provider, 'baconipsum');
   assert.equal(first.content.kind, 'text');
   assert.ok(first.content.text.length > 45 && first.content.text.length < 2_400);
-  assert.match(first.model, /^bacon-fallback\/[a-z]{2}$/);
+  assert.match(first.model, /^bacon-fallback\/(?:[a-z]{2}|zh-Hans)$/);
   const codes = new Set(Array.from({ length: 200 }, (_, n) =>
     createBaconPost({ seed: String(n), source }).language));
-  assert.equal(codes.size, 8);
+  assert.equal(codes.size, 9);
   const languageStarts = {
     pl: /^Wyczerpano/, en: /^The thought/, de: /^Das Gedankenbudget/,
     fr: /^Le budget/, es: /^Se agotó/, it: /^Il bilancio/,
-    ru: /^Бюджет/, ja: /^本日の/,
+    ru: /^Бюджет/, ja: /^本日の/, 'zh-Hans': /^今日创意/,
   };
   for (let n = 0; n < 200; n++) {
     const post = createBaconPost({ seed: String(n), source });
@@ -35,12 +35,25 @@ test('language roulette stays stable for a run and covers eight languages', () =
   }
 });
 
+test('emergency fallback respects the planned output language', async () => {
+  const post = await generateWithBaconFallback({
+    seed: '101.1',
+    languageCode: 'zh-Hans',
+    generate: async () => { throw new Error('router_failed:429:quota'); },
+    fetchImpl: async () => Response.json(['Bacon.']),
+  });
+  assert.equal(post.language, 'zh-Hans');
+  assert.match(post.content.text, /^今日创意/);
+  const direct = createBaconPost({ seed: '101.1', source: 'Chicken.', languageCode: 'en' });
+  assert.equal(direct.language, 'en');
+});
+
 test('API source determines the ingredient, without copying its English filler', () => {
   const text = createBaconPost({ seed: 'known', source: 'Bacon bacon bacon.' }).content.text;
-  assert.match(text, /boczek|bacon|Speck|pancetta|бекон|ベーコン/i);
+  assert.match(text, /boczek|bacon|Speck|pancetta|бекон|ベーコン|培根/i);
   assert.doesNotMatch(text, /lorem ipsum|dolor sit amet/i);
   const chicken = createBaconPost({ seed: 'known', source: 'Chicken chicken chicken.' });
-  assert.match(chicken.content.text, /kurczak|chicken|Hähnchen|poulet|pollo|курица|鶏肉/i);
+  assert.match(chicken.content.text, /kurczak|chicken|Hähnchen|poulet|pollo|курица|鶏肉|鸡肉/i);
   assert.doesNotMatch(chicken.content.text, /boczek|pastrami|pancetta/i);
 });
 

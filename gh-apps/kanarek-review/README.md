@@ -57,6 +57,9 @@ The independent Grok Actions reviewer was retired. The existing
 `KANAREK_XAI_MAX_OUTPUT_TOKENS` on the companion config is for **quip**
 generation, not review. The API key stays bound to the automation Worker;
 the router invokes its private `XAI_REVIEW_RPC` service binding.
+The model is selected by the private router. The automation RPC is not
+an HTTP endpoint; it accepts the validated Grok model name from that trusted
+binding, without mirroring another provider-model allowlist.
 
 ## How it is called
 

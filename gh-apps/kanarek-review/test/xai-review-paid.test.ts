@@ -59,6 +59,34 @@ test('paid Grok model and reasoning are configurable via Wrangler bindings', asy
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'xai');
 });
 
+test('paid Grok uses the shared defaults for missing or invalid bindings', async () => {
+  const configurations = [
+    {},
+    {
+      KANAREK_REVIEW_XAI_MODEL: 'unrelated-model',
+      KANAREK_REVIEW_XAI_REASONING_EFFORT: 'unsupported',
+    },
+  ];
+  for (const settings of configurations) {
+    const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
+      ...settings,
+      KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+      XAI_REVIEW_RPC: {
+        async completeReview(input) {
+          assert.equal(input.model, 'grok-4.7');
+          assert.deepEqual(input.reasoning, { effort: 'high' });
+          return { status: 200, payload: {
+            model: 'grok-4.7',
+            choices: [{ message: { role: 'assistant',
+              content: '{"summary":"No bug","findings":[]}' } }],
+          } };
+        },
+      },
+    }, (() => { throw new Error('Unexpected public fetch'); }) as typeof fetch);
+    assert.equal(response?.status, 200);
+  }
+});
+
 test('Grok is never called by the free or paid-work aliases', async () => {
   let calls = 0;
   const env = {

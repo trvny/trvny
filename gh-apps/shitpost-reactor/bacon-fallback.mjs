@@ -7,16 +7,16 @@ const MAX_BACON_BYTES = 16_384;
 // Bacon Ipsum itself is English-only. Select an ingredient from its response
 // and produce a genuine local-language post without spending any model tokens.
 const MEATS = Object.freeze([
-  { pattern: /\bbacon\b/i, names: ['boczek', 'bacon', 'Speck', 'bacon', 'pancetta', 'bacon', 'бекон', 'ベーコン'] },
-  { pattern: /\bpastrami\b/i, names: ['pastrami', 'pastrami', 'Pastrami', 'pastrami', 'pastrami', 'pastrami', 'пастрами', 'パストラミ'] },
-  { pattern: /\bbrisket\b/i, names: ['mostek wołowy', 'brisket', 'Rinderbrust', 'poitrine de bœuf', 'pecho de res', 'punta di petto', 'грудинка', '牛バラ肉'] },
-  { pattern: /\b(sausage|andouille|kielbasa)\b/i, names: ['kiełbasa', 'sausage', 'Wurst', 'saucisse', 'salchicha', 'salsiccia', 'колбаса', 'ソーセージ'] },
-  { pattern: /\b(ribs|ribeye)\b/i, names: ['żeberka', 'ribs', 'Rippchen', 'côtes', 'costillas', 'costine', 'рёбрышки', 'スペアリブ'] },
-  { pattern: /\b(pork|ham|pig)\b/i, names: ['szynka', 'ham', 'Schinken', 'jambon', 'jamón', 'prosciutto', 'ветчина', 'ハム'] },
-  { pattern: /\b(beef|steak|t-bone|sirloin)\b/i, names: ['wołowina', 'beef', 'Rindfleisch', 'bœuf', 'ternera', 'manzo', 'говядина', '牛肉'] },
-  { pattern: /\b(chicken|poultry)\b/i, names: ['kurczak', 'chicken', 'Hähnchen', 'poulet', 'pollo', 'pollo', 'курица', '鶏肉'] },
-  { pattern: /\b(turkey|turducken)\b/i, names: ['indyk', 'turkey', 'Truthahn', 'dinde', 'pavo', 'tacchino', 'индейка', '七面鳥'] },
-  { pattern: /\b(meatball|burger|ground round)\b/i, names: ['kotlet', 'meatball', 'Frikadelle', 'boulette', 'albóndiga', 'polpetta', 'котлета', 'ミートボール'] },
+  { pattern: /\bbacon\b/i, names: ['boczek', 'bacon', 'Speck', 'bacon', 'pancetta', 'bacon', 'бекон', 'ベーコン', '培根'] },
+  { pattern: /\bpastrami\b/i, names: ['pastrami', 'pastrami', 'Pastrami', 'pastrami', 'pastrami', 'pastrami', 'пастрами', 'パストラミ', '熏牛肉'] },
+  { pattern: /\bbrisket\b/i, names: ['mostek wołowy', 'brisket', 'Rinderbrust', 'poitrine de bœuf', 'pecho de res', 'punta di petto', 'грудинка', '牛バラ肉', '牛腩'] },
+  { pattern: /\b(sausage|andouille|kielbasa)\b/i, names: ['kiełbasa', 'sausage', 'Wurst', 'saucisse', 'salchicha', 'salsiccia', 'колбаса', 'ソーセージ', '香肠'] },
+  { pattern: /\b(ribs|ribeye)\b/i, names: ['żeberka', 'ribs', 'Rippchen', 'côtes', 'costillas', 'costine', 'рёбрышки', 'スペアリブ', '排骨'] },
+  { pattern: /\b(pork|ham|pig)\b/i, names: ['szynka', 'ham', 'Schinken', 'jambon', 'jamón', 'prosciutto', 'ветчина', 'ハム', '火腿'] },
+  { pattern: /\b(beef|steak|t-bone|sirloin)\b/i, names: ['wołowina', 'beef', 'Rindfleisch', 'bœuf', 'ternera', 'manzo', 'говядина', '牛肉', '牛肉'] },
+  { pattern: /\b(chicken|poultry)\b/i, names: ['kurczak', 'chicken', 'Hähnchen', 'poulet', 'pollo', 'pollo', 'курица', '鶏肉', '鸡肉'] },
+  { pattern: /\b(turkey|turducken)\b/i, names: ['indyk', 'turkey', 'Truthahn', 'dinde', 'pavo', 'tacchino', 'индейка', '七面鳥', '火鸡'] },
+  { pattern: /\b(meatball|burger|ground round)\b/i, names: ['kotlet', 'meatball', 'Frikadelle', 'boulette', 'albóndiga', 'polpetta', 'котлета', 'ミートボール', '肉丸'] },
 ]);
 
 const LANGUAGES = Object.freeze([
@@ -28,6 +28,7 @@ const LANGUAGES = Object.freeze([
   { code: 'it', render: (meat) => 'Il bilancio delle idee è finito. ' + meat + ' è stato nominato direttore creativo ad interim. Ogni reclamo va presentato alla padella.' },
   { code: 'ru', render: (meat) => 'Бюджет мыслей закончился. ' + meat + ' назначили временным директором по креативу. Все жалобы теперь принимаются на сковороде.' },
   { code: 'ja', render: (meat) => '本日のアイデア予算は尽きました。代わりに' + meat + 'が臨時クリエイティブ部長に就任。苦情はフライパンまでお願いします。' },
+  { code: 'zh-Hans', render: (meat) => '今日创意配额耗尽。委员会任命了' + meat + '为临时创意总监，所有投诉一律交给平底锅。' },
 ]);
 
 export function baconFallbackEligible(error) {
@@ -42,8 +43,9 @@ function seededByte(seed, salt) {
   return createHash('sha256').update(salt + ':' + seed).digest()[0];
 }
 
-export function createBaconPost({ seed = '', source = '', offline = false } = {}) {
-  const languageIndex = seededByte(seed, 'bacon-language') % LANGUAGES.length;
+export function createBaconPost({ seed = '', source = '', offline = false, languageCode = '' } = {}) {
+  const requested = LANGUAGES.findIndex((item) => item.code === languageCode);
+  const languageIndex = requested >= 0 ? requested : seededByte(seed, 'bacon-language') % LANGUAGES.length;
   const language = LANGUAGES[languageIndex];
   const found = MEATS.filter((meat) => meat.pattern.test(source));
   const choices = found.length ? found : MEATS;
@@ -79,7 +81,7 @@ async function readBoundedBaconJson(response) {
   return JSON.parse(Buffer.concat(chunks, bytes).toString('utf8'));
 }
 
-export async function loadBaconFallback({ seed = '', fetchImpl = fetch, signalFactory = AbortSignal.timeout } = {}) {
+export async function loadBaconFallback({ seed = '', languageCode = '', fetchImpl = fetch, signalFactory = AbortSignal.timeout } = {}) {
   try {
     const response = await fetchImpl(BACON_IPSUM_URL, {
       headers: { accept: 'application/json', 'user-agent': 'trvny-shitpost-reactor/1' },
@@ -94,22 +96,22 @@ export async function loadBaconFallback({ seed = '', fetchImpl = fetch, signalFa
     if (!MEATS.some((meat) => meat.pattern.test(data[0]))) {
       throw new Error('bacon_no_recognized_meat');
     }
-    return createBaconPost({ seed, source: data[0] });
+    return createBaconPost({ seed, source: data[0], languageCode });
   } catch (error) {
     // This is a fallback for a fallback, not another external dependency.
     const reason = error instanceof Error ? error.name : 'unknown';
     process.stderr.write('bacon_api_unavailable:' + reason + '; using local ingredients\n');
-    return createBaconPost({ seed, offline: true });
+    return createBaconPost({ seed, offline: true, languageCode });
   }
 }
 
-export async function generateWithBaconFallback({ generate, seed = '', fetchImpl = fetch } = {}) {
+export async function generateWithBaconFallback({ generate, seed = '', languageCode = '', fetchImpl = fetch } = {}) {
   try {
     return { ...(await generate()), fallback: false };
   } catch (error) {
     if (!baconFallbackEligible(error)) throw error;
     const reason = error instanceof Error ? error.message.split(':').slice(0, 2).join(':') : 'unknown';
     process.stderr.write('bacon_fallback_triggered:' + reason + '\n');
-    return loadBaconFallback({ seed, fetchImpl });
+    return loadBaconFallback({ seed, languageCode, fetchImpl });
   }
 }

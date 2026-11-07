@@ -44,6 +44,7 @@ test('emergency fallback respects the planned output language', async () => {
   });
   assert.equal(post.language, 'zh-Hans');
   assert.match(post.content.text, /^今日创意/);
+  assert.ok(post.content.text.length > 45);
   const direct = createBaconPost({ seed: '101.1', source: 'Chicken.', languageCode: 'en' });
   assert.equal(direct.language, 'en');
 });

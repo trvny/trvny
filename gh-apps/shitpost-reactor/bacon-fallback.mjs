@@ -28,7 +28,7 @@ const LANGUAGES = Object.freeze([
   { code: 'it', render: (meat) => 'Il bilancio delle idee è finito. ' + meat + ' è stato nominato direttore creativo ad interim. Ogni reclamo va presentato alla padella.' },
   { code: 'ru', render: (meat) => 'Бюджет мыслей закончился. ' + meat + ' назначили временным директором по креативу. Все жалобы теперь принимаются на сковороде.' },
   { code: 'ja', render: (meat) => '本日のアイデア予算は尽きました。代わりに' + meat + 'が臨時クリエイティブ部長に就任。苦情はフライパンまでお願いします。' },
-  { code: 'zh-Hans', render: (meat) => '今日创意配额耗尽。委员会任命了' + meat + '为临时创意总监，所有投诉一律交给平底锅。' },
+  { code: 'zh-Hans', render: (meat) => '今日创意配额耗尽。委员会任命了' + meat + '为临时创意总监，所有投诉一律交给平底锅。对外公告称此举将极大提升生产效率，然而唯一持续增长的绩效指标是油温。' },
 ]);
 
 export function baconFallbackEligible(error) {

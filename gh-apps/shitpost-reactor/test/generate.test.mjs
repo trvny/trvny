@@ -52,7 +52,7 @@ test('model contract uses compact Chinese instructions and preserves output sche
 test('shuffled language bags prevent repeated languages on scheduled runs', () => {
   const codes = OUTPUT_LANGUAGES.map((language) => language.code);
   assert.equal(new Set(codes).size, 9);
-  const chosen = Array.from({ length: 180 }, (_, index) =>
+  const chosen = Array.from({ length: 1_800 }, (_, index) =>
     chooseOutputLanguage('arbitrary-seed', String(index + 1)).code);
   for (let index = 0; index < chosen.length; index += codes.length) {
     assert.deepEqual(new Set(chosen.slice(index, index + codes.length)), new Set(codes));

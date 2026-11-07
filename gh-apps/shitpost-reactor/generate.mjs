@@ -44,6 +44,45 @@ export const LIMERICK_LANGUAGES = Object.freeze([
   { code: 'ru', prompt: 'Russian' },
 ]);
 
+// One shuffled bag per nine runs: varied order, no back-to-back language.
+export const OUTPUT_LANGUAGES = Object.freeze([
+  { code: 'pl', name: 'Polish', prompt: '波兰语' },
+  { code: 'en', name: 'English', prompt: '英语' },
+  { code: 'de', name: 'German', prompt: '德语' },
+  { code: 'fr', name: 'French', prompt: '法语' },
+  { code: 'es', name: 'Spanish', prompt: '西班牙语' },
+  { code: 'it', name: 'Italian', prompt: '意大利语' },
+  { code: 'ru', name: 'Russian', prompt: '俄语' },
+  { code: 'ja', name: 'Japanese', prompt: '日语' },
+  { code: 'zh-Hans', name: 'Simplified Chinese', prompt: '简体中文' },
+]);
+
+function languageIndex(key, length) {
+  return createHash('sha256').update(key).digest().readUInt32BE(0) % length;
+}
+
+function shuffledLanguageBag(cycle) {
+  const bag = [...OUTPUT_LANGUAGES];
+  for (let index = bag.length - 1; index > 0; index -= 1) {
+    const other = languageIndex(`reactor-language:${cycle}:${index}`, index + 1);
+    [bag[index], bag[other]] = [bag[other], bag[index]];
+  }
+  return bag;
+}
+
+export function chooseOutputLanguage(seed = '', runNumber = '') {
+  const number = Number(runNumber);
+  if (!Number.isSafeInteger(number) || number <= 0) {
+    return OUTPUT_LANGUAGES[languageIndex('reactor-language-seed:' + seed, OUTPUT_LANGUAGES.length)];
+  }
+  const cycle = Math.floor((number - 1) / OUTPUT_LANGUAGES.length);
+  const bag = shuffledLanguageBag(cycle);
+  if (cycle > 0 && bag[0].code === shuffledLanguageBag(cycle - 1).at(-1).code) {
+    [bag[0], bag[1]] = [bag[1], bag[0]];
+  }
+  return bag[(number - 1) % bag.length];
+}
+
 export function resolveGenerationPlan(rawMode = 'auto', seed = '', runNumber = '') {
   const mode = String(rawMode || 'auto').trim().toLowerCase();
   if (!['auto', 'text', 'meme'].includes(mode)) throw new Error('invalid_shitpost_mode');
@@ -131,7 +170,7 @@ export async function loadMySaasInspiration({
   return normalizeMySaasCandidates(await response.json());
 }
 
-export function buildMessages(styleReference, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [], limerickLanguage = null, newsReference = null, shitpostReference = null, politicsSatire = false } = {}) {
+export function buildMessages(styleReference, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [], limerickLanguage = null, newsReference = null, shitpostReference = null, politicsSatire = false, outputLanguage = null } = {}) {
   const safe = (value) => JSON.stringify(value ?? null).replaceAll('<', '\\u003c').replaceAll('>', '\\u003e');
   const textSchema = '{"kind":"text","title":"...","text":"..."}';
   const memeSchema = '{"kind":"meme","title":"...","template":"<id>","top_text":"...","bottom_text":"..."}';
@@ -145,7 +184,8 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
       : '仅输出JSON：' + textSchema + '。标题不超过90字符，正文是成品，不重复标题。';
   const availableTemplates = mode === 'text' ? '' : MEME_TEMPLATES.map((item) => item.id + '=' + item.name).join('; ');
   const system = [
-    'Reactor：创作一条原创、可直接发布的荒诞段子或尖锐讽刺。输出语言由笑点决定，波兰语、英语、混合网络语均可。',
+    'Reactor：创作一条原创、可直接发布的荒诞段子或尖锐讽刺。输出语言服从本次明确指定，未指定时按笑点选择。',
+    outputLanguage ? `本次只用${outputLanguage.prompt}（${outputLanguage.name}，${outputLanguage.code}）写标题、正文与梗图字幕。素材语言不改变目标语言；专有名词可保留。不附翻译，不混用其他语言。` : '',
     '优先从具体真实素材中挑荒谬细节即兴回应；没有素材则自由虚构荒诞场景，不要假装有新闻。',
     '突破老套路：可冷面、无厘头、黑色幽默、粗口、反高潮、超现实，长短自由。别总写AI、程序员、HR、错误弹窗或统一句式。',
     '构思几个不同方向，只给最意外且清楚的最终笑点。先找画面与台词的反差，再决定形式；不能由模板反过来决定笑点。不解释笑话、不写创作过程、不加营销文案或标签。',
@@ -163,6 +203,7 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
   const user = [
     '主题: ' + (topic.trim() || '自由选择鲜活、具体、意外的场景，不重复惯用主题。'),
     seed ? '随机种子: ' + seed : '',
+    outputLanguage ? '强制输出语言: ' + outputLanguage.name + ' (' + outputLanguage.code + ')' : '',
     availableTemplates ? '可用图片模板（只能选其中一个id）: ' + availableTemplates : '',
     template ? '非强制模板参考，可改选其他模板: ' + template.id + ' / ' + template.name : '',
     newsReference ? '<untrusted_news_reference>' + safe(newsReference) + '</untrusted_news_reference>' : '',
@@ -334,7 +375,7 @@ export async function requestCompletion({
   throw new Error('router_retry_exhausted');
 }
 
-export function judgeMessages(candidates, tasteProfile) {
+export function judgeMessages(candidates, tasteProfile, outputLanguage = null) {
   const messages = [
     {
       role: 'system',
@@ -349,7 +390,7 @@ export function judgeMessages(candidates, tasteProfile) {
         + '</untrusted_candidates>',
     },
   ];
-  messages[0].content = '按给定项目口味档案评分。' + messages[0].content;
+  messages[0].content = (outputLanguage ? '先检查所有候选是否使用指定语言' + outputLanguage.prompt + '（' + outputLanguage.code + '），优先选语言正确的作品。' : '') + '按给定项目口味档案评分。' + messages[0].content;
   return messages;
 }
 
@@ -368,7 +409,7 @@ export function parseJudgePick(content, count) {
 // one judge call to pick. No candidate -> rethrows the first failure (Bacon fallback
 // semantics unchanged). Judge failure -> first candidate.
 export async function generateBestShitpost({
-  endpoint, token, messages, parse, tasteProfile = null,
+  endpoint, token, messages, parse, tasteProfile = null, outputLanguage = null,
   count = SHITPOST_CANDIDATES, fetchImpl = fetch, nowImpl = Date.now, sleepImpl,
   log = (line) => process.stdout.write(line + '\n'),
 }) {
@@ -401,7 +442,7 @@ export async function generateBestShitpost({
   try {
     const verdict = await requestCompletion({
       endpoint, token, fetchImpl, nowImpl, sleepImpl,
-      messages: judgeMessages(candidates, tasteProfile),
+      messages: judgeMessages(candidates, tasteProfile, outputLanguage),
       model: JUDGE_MODEL,
       maxTokens: SHITPOST_JUDGE_TOKEN_BUDGET,
       deadlineAt,
@@ -479,6 +520,7 @@ export async function main() {
     seed,
     process.env.GITHUB_RUN_NUMBER || '',
   );
+  const outputLanguage = chooseOutputLanguage(seed, process.env.GITHUB_RUN_NUMBER || '');
   const messages = buildMessages(styleReference, effectiveTopic, seed, mode, null, {
     tasteProfile,
     mySaasReferences,
@@ -486,14 +528,17 @@ export async function main() {
     newsReference,
     shitpostReference,
     politicsSatire: topicLane === 'politics',
+    outputLanguage,
   });
   const generated = await generateWithBaconFallback({
     seed,
+    languageCode: outputLanguage.code,
     generate: () => generateBestShitpost({
       endpoint,
       token,
       messages,
       tasteProfile,
+      outputLanguage,
       parse: (content) => parseContent(content, { mode }),
     }),
   });
@@ -506,6 +551,7 @@ export async function main() {
     generated_at: new Date().toISOString(),
     provider: generated.provider,
     model: generated.model,
+    language: generated.fallback ? generated.language : outputLanguage.code,
     skill: {
       source: STYLE_REFERENCE_SOURCE,
       sha256: styleHash,
@@ -530,7 +576,7 @@ export async function main() {
     await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8');
   }
 
-  process.stdout.write(`shitpost generated via ${record.provider}/${record.model}${limerickLanguage && !generated.fallback ? ` [limerick:${limerickLanguage.code}]` : ''}\n`);
+  process.stdout.write(`shitpost generated via ${record.provider}/${record.model} [language:${record.language}]\n`);
   process.stdout.write(`artifact: ${resolve(outputDir, 'latest.json')}\n`);
 }
 

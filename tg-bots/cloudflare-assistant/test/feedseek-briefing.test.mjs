@@ -33,7 +33,7 @@ function feed(key, entries, fields = {}) {
 function fixtureFetcher(sources, calls = []) {
   return async (url, init) => {
     calls.push({ url, init });
-    const match = /\/feed_([a-z0-9_-]+)\.json$/u.exec(url);
+    const match = /\/([a-z0-9_-]+)\.json$/u.exec(url);
     assert.ok(match, "must only read a fixed Feedseek Model Feed URL");
     const contents = sources[match[1]];
     if (!contents) return new Response("not found", { status: 404 });
@@ -93,7 +93,7 @@ test("fresh broad-world response cites distinct sources with dates and HTTPS lin
   assert.doesNotMatch(text, /unpublished future/u);
   assert.equal(calls.length, keys.length);
   assert.ok(calls.every(({ url }) =>
-    url.startsWith("https://raw.githubusercontent.com/trvny/feedseek/main/feeds/feed_")));
+    url.startsWith("https://trvny.github.io/feedseek/")));
   assert.ok(calls.every(({ init }) => init.signal instanceof AbortSignal));
   assert.match(text, /05\.11/u);
   assert.match(text, /https:\/\/news\.example\.com\//u);

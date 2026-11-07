@@ -27,7 +27,7 @@ type Feed = {
 };
 
 type DigestItem = { title: string; url: string; source: string; publishedAt: number };
-const MODEL_BASE = "https://raw.githubusercontent.com/trvny/feedseek/main/feeds/feed_";
+const MODEL_BASE = "https://trvny.github.io/feedseek/";
 const SOURCE_MAX_BYTES = 2 * 1024 * 1024;
 const SOURCE_TIMEOUT_MS = 4_000;
 const NEWS_MAX_AGE_MS = 72 * 60 * 60_000;

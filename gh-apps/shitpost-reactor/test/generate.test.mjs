@@ -670,7 +670,7 @@ test('World news uses Feedseek Reuters when BBC is unavailable', async () => {
   const date = new Date(newsNow - 1_000).toISOString();
   const result = await loadWorldNews({
     now: newsNow,
-    fetchImpl: async (url) => url.endsWith('feed_reuters.json')
+    fetchImpl: async (url) => url.endsWith('/reuters.json')
       ? new Response(JSON.stringify(feedseekFeed([
           feedseekItem('Researchers publish intriguing lunar discovery', date, {
             url: 'https://www.reuters.com/science/lunar-discovery',
@@ -685,7 +685,7 @@ test('Polish politics uses TVP Info Feedseek source and degrades gracefully', as
   const date = new Date(newsNow - 1_000).toISOString();
   const result = await loadNewsForLane('politics', {
     now: newsNow,
-    fetchImpl: async (url) => url.endsWith('feed_tvp.json')
+    fetchImpl: async (url) => url.endsWith('/tvp.json')
       ? new Response(JSON.stringify(feedseekFeed([
           feedseekItem('Posłowie debatują nad nową ustawą w Sejmie', date),
         ])), { status: 200 })
@@ -786,7 +786,7 @@ test('Feedseek shitpost lane accepts fresh known-host titles without reading med
   const date = new Date(newsNow - 1_000).toISOString();
   const result = await loadNewsForLane('shitpost', {
     seed: 'feedseek-demo', now: newsNow,
-    fetchImpl: async (url) => url.endsWith('feed_4chan.json')
+    fetchImpl: async (url) => url.endsWith('/4chan.json')
       ? new Response(JSON.stringify(feedseekFeed([
           feedseekItem('[NSFW] /b/ Random: Office coffee machine elects itself CEO', date, {
             url: 'https://boards.4chan.org/b/thread/1234',
@@ -818,8 +818,8 @@ test('Feedseek shitpost pool balances independently among sources and degrades g
     const result = await loadNewsForLane('shitpost', {
       now: newsNow, seed: 'balanced-' + i,
       fetchImpl: async (url) => {
-        const src = url.endsWith('feed_4chan.json') ? ['4chan', 'https://boards.4chan.org/g/thread/1234']
-          : url.endsWith('feed_jbzd.json') ? ['JBZD', 'https://jbzd.com.pl/obr/123/coffee']
+        const src = url.endsWith('/4chan.json') ? ['4chan', 'https://boards.4chan.org/g/thread/1234']
+          : url.endsWith('/jbzd.json') ? ['JBZD', 'https://jbzd.com.pl/obr/123/coffee']
             : null;
         return src
           ? new Response(JSON.stringify(feedseekFeed([
@@ -870,7 +870,7 @@ test('news pool can draw from Feedseek Wikipedia', async () => {
   const selected = await loadNewsForLane('news', {
     now: newsNow,
     seed: 'wiki',
-    fetchImpl: async (url) => url.endsWith('feed_wikipedia_pl.json')
+    fetchImpl: async (url) => url.endsWith('/wikipedia_pl.json')
       ? new Response(JSON.stringify(feedseekFeed([
         feedseekItem('Wikipedia updates its record on an unusual historical event', date, {
           url: 'https://pl.wikipedia.org/wiki/Przyk%C5%82ad',

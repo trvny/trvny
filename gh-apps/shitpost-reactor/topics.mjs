@@ -21,31 +21,31 @@ export const LOCAL_RSS_FEEDS = Object.freeze([
   { name: 'NaszeMiasto Chrzanów / Google News', url: googleNews('site:chrzanow.naszemiasto.pl'), hosts: ['news.google.com'] },
 ]);
 
-const FEEDSEEK_ROOT = 'https://raw.githubusercontent.com/trvny/feedseek/main/feeds/'; // shared Feedseek assets
+const FEEDSEEK_ROOT = 'https://trvny.github.io/feedseek/'; // shared Feedseek assets
 const FEEDSEEK_FEEDS = Object.freeze({
   news: [
-    { name: 'Feedseek / Reuters', url: FEEDSEEK_ROOT + 'feed_reuters.json' },
-    { name: 'Feedseek / Euronews', url: FEEDSEEK_ROOT + 'feed_euronews.json', tags: ['News', 'My Europe', 'Next'] },
-    { name: 'Feedseek / Wikipedia PL', url: FEEDSEEK_ROOT + 'feed_wikipedia_pl.json' },
+    { name: 'Feedseek / Reuters', url: FEEDSEEK_ROOT + 'reuters.json' },
+    { name: 'Feedseek / Euronews', url: FEEDSEEK_ROOT + 'euronews.json', tags: ['News', 'My Europe', 'Next'] },
+    { name: 'Feedseek / Wikipedia PL', url: FEEDSEEK_ROOT + 'wikipedia_pl.json' },
   ],
   politics: [
-    { name: 'Feedseek / TVP Info', url: FEEDSEEK_ROOT + 'feed_tvp.json', tag: 'TVP Info' },
-    { name: 'Feedseek / PAP', url: FEEDSEEK_ROOT + 'feed_pap.json' },
-    { name: 'Feedseek / Gov.pl', url: FEEDSEEK_ROOT + 'feed_govpl_news.json' },
-    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'feed_wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
+    { name: 'Feedseek / TVP Info', url: FEEDSEEK_ROOT + 'tvp.json', tag: 'TVP Info' },
+    { name: 'Feedseek / PAP', url: FEEDSEEK_ROOT + 'pap.json' },
+    { name: 'Feedseek / Gov.pl', url: FEEDSEEK_ROOT + 'govpl_news.json' },
+    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
   ],
   culture: [
-    { name: 'Feedseek / Wikipedia PL', url: FEEDSEEK_ROOT + 'feed_wikipedia_pl.json' },
-    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'feed_wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
+    { name: 'Feedseek / Wikipedia PL', url: FEEDSEEK_ROOT + 'wikipedia_pl.json' },
+    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
   ],
   shitpost: [
-    { name: 'Feedseek / 4chan', url: FEEDSEEK_ROOT + 'feed_4chan.json', hosts: ['boards.4chan.org', 'boards.4channel.org', 'blog.4chan.org'] },
-    { name: 'Feedseek / 9GAG', url: FEEDSEEK_ROOT + 'feed_9gag.json', hosts: ['9gag.com', 'www.9gag.com'] },
-    { name: 'Feedseek / JBZD', url: FEEDSEEK_ROOT + 'feed_jbzd.json', hosts: ['jbzd.com.pl', 'www.jbzd.com.pl'] },
-    { name: 'Feedseek / Memedroid', url: FEEDSEEK_ROOT + 'feed_memedroid.json', hosts: ['www.memedroid.com', 'memedroid.com'] },
-    { name: 'Feedseek / Cheezburger', url: FEEDSEEK_ROOT + 'feed_cheezburger.json', hosts: ['cheezburger.com', 'www.cheezburger.com', 'memebase.cheezburger.com', 'failblog.cheezburger.com'] },
-    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'feed_wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
-    { name: 'Feedseek / Lemmy', url: FEEDSEEK_ROOT + 'feed_lemmy.json', hosts: ['lemmy.world', 'lemmy.ml', 'lemmy.org', 'szmer.info', 'sh.itjust.works'] },
+    { name: 'Feedseek / 4chan', url: FEEDSEEK_ROOT + '4chan.json', hosts: ['boards.4chan.org', 'boards.4channel.org', 'blog.4chan.org'] },
+    { name: 'Feedseek / 9GAG', url: FEEDSEEK_ROOT + '9gag.json', hosts: ['9gag.com', 'www.9gag.com'] },
+    { name: 'Feedseek / JBZD', url: FEEDSEEK_ROOT + 'jbzd.json', hosts: ['jbzd.com.pl', 'www.jbzd.com.pl'] },
+    { name: 'Feedseek / Memedroid', url: FEEDSEEK_ROOT + 'memedroid.json', hosts: ['www.memedroid.com', 'memedroid.com'] },
+    { name: 'Feedseek / Cheezburger', url: FEEDSEEK_ROOT + 'cheezburger.json', hosts: ['cheezburger.com', 'www.cheezburger.com', 'memebase.cheezburger.com', 'failblog.cheezburger.com'] },
+    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
+    { name: 'Feedseek / Lemmy', url: FEEDSEEK_ROOT + 'lemmy.json', hosts: ['lemmy.world', 'lemmy.ml', 'lemmy.org', 'szmer.info', 'sh.itjust.works'] },
   ],
 });
 const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari|afer|korupcj|łapówk|przekręt|nadużyci|defraudac|prokuratur|cba|najwyższ|izb.kontrol|złodziej|złodziejstw|kradzież|burdel|skandal|ustawk/iu;

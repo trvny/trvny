@@ -1,4 +1,4 @@
-import { GROK_CACHE_ID, GROK_PAID_MODEL, GROK_REVIEW_SCHEMA } from '../../../core/xai-review.ts';
+import { GROK_CACHE_ID, GROK_REVIEW_SCHEMA } from '../../../core/xai-review.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -20,7 +20,9 @@ function error(status: number, code: string, retryAfter?: string): XaiReviewRpcR
 
 export function grokReviewRequest(input: unknown): JsonObject | null {
   const value = objectValue(input);
-  if (value.model !== GROK_PAID_MODEL || !Array.isArray(value.messages) ||
+  if (typeof value.model !== 'string' ||
+    !/^grok-[a-z0-9][a-z0-9.-]{0,63}$/i.test(value.model) ||
+    !Array.isArray(value.messages) ||
     value.messages.length < 1 || value.messages.length > 12 || value.stream === true ||
     JSON.stringify(value.messages).length > 1_800_000) return null;
   const messages: JsonObject[] = [];
@@ -30,13 +32,17 @@ export function grokReviewRequest(input: unknown): JsonObject | null {
       typeof item.content !== 'string') return null;
     messages.push({ role: item.role, content: item.content });
   }
+  const reasoning = objectValue(value.reasoning);
+  const effort = typeof reasoning.effort === 'string' &&
+    ['low', 'medium', 'high', 'xhigh'].includes(reasoning.effort)
+    ? reasoning.effort : 'high';
   const wanted = typeof value.max_tokens === 'number' &&
     Number.isFinite(value.max_tokens) ? Math.floor(value.max_tokens) : 36_864;
   return {
-    model: GROK_PAID_MODEL,
+    model: value.model,
     store: false,
     prompt_cache_key: GROK_CACHE_ID,
-    reasoning: { effort: 'high' },
+    reasoning: { effort },
     max_output_tokens: Math.max(8_192, Math.min(131_072, wanted)),
     input: messages,
     text: { format: {
@@ -97,7 +103,7 @@ export async function requestGrokReview(
     status: 200,
     payload: {
       object: 'chat.completion',
-      model: typeof data.model === 'string' ? data.model : GROK_PAID_MODEL,
+      model: typeof data.model === 'string' ? data.model : request.model,
       choices: [{ index: 0, message: { role: 'assistant', content: text },
         finish_reason: 'stop' }],
       usage: {

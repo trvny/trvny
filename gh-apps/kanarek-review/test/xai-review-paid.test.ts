@@ -39,6 +39,26 @@ test('paid review selects Grok through the private RPC', async () => {
   assert.equal(calls, 1);
 });
 
+test('paid Grok model and reasoning are configurable via Wrangler bindings', async () => {
+  const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
+    KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    KANAREK_REVIEW_XAI_MODEL: 'grok-4.6',
+    KANAREK_REVIEW_XAI_REASONING_EFFORT: 'xhigh',
+    XAI_REVIEW_RPC: {
+      async completeReview(input) {
+        assert.equal(input.model, 'grok-4.6');
+        assert.deepEqual(input.reasoning, { effort: 'xhigh' });
+        assert.equal(input.max_tokens, 36_864);
+        return { status: 200, payload: { model: 'grok-4.6',
+          choices: [{ message: { role: 'assistant',
+            content: '{"summary":"No bug","findings":[]}' } }] } };
+      },
+    },
+  }, (() => { throw new Error('Unexpected public fetch'); }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'xai');
+});
+
 test('Grok is never called by the free or paid-work aliases', async () => {
   let calls = 0;
   const env = {

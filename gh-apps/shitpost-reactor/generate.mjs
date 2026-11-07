@@ -77,8 +77,12 @@ export function chooseOutputLanguage(seed = '', runNumber = '') {
   }
   const cycle = Math.floor((number - 1) / OUTPUT_LANGUAGES.length);
   const bag = shuffledLanguageBag(cycle);
-  if (cycle > 0 && bag[0].code === shuffledLanguageBag(cycle - 1).at(-1).code) {
-    [bag[0], bag[1]] = [bag[1], bag[0]];
+  if (cycle > 0) {
+    const previous = shuffledLanguageBag(cycle - 1).at(-1).code;
+    if (bag[0].code === previous) {
+      const replacement = bag.findIndex((language) => language.code !== previous);
+      [bag[0], bag[replacement]] = [bag[replacement], bag[0]];
+    }
   }
   return bag[(number - 1) % bag.length];
 }

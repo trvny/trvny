@@ -9,7 +9,7 @@
 // Icons: inline marks, pinned @primer/octicons and @lobehub/icons-static-svg on jsDelivr.
 // Icon or probe failure still renders a badge, with a short cache.
 import { BRANDS, cleanLabel, iconParts, iconUrl, modelStyle, placeIcon, renderBadge, renderMark } from "../_shared/badge.js";
-import { COUNTERS, ECO, MARKS, OCTICONS_VERSION, OCTICON_NAME, PALETTE, STATUS, fetchText, octiconUrl, paletteColour } from "../_shared/eco.js";
+import { COUNTERS, ECO, MARKS, OCTICONS_VERSION, OCTICON_NAME, PALETTE, STATUS, fetchText, octiconUrl, paletteColour, textFor } from "../_shared/eco.js";
 import { LOBE_VERSION } from "../_shared/model-icons.js";
 
 const MAX_LABEL = 40;
@@ -41,13 +41,16 @@ async function loadParts(fetchImpl, spec, id) {
   const ink = spec.ink ?? "#111111";
   if (spec.src === "inline") return { keep: "", body: MARKS[spec.icon], viewBox: "0 0 24 24" };
   const urls = spec.src === "oct" ? [octiconUrl(spec.icon, 24), octiconUrl(spec.icon, 16)] : [iconUrl(spec.icon, spec.color)];
+  // One 4s budget for all attempts, body read included.
+  const signal = AbortSignal.timeout(4000);
   for (const url of urls) {
     try {
-      const res = await fetchImpl(url, { cf: { cacheTtl: 2592000, cacheEverything: true } });
+      const res = await fetchImpl(url, { signal, cf: { cacheTtl: 2592000, cacheEverything: true } });
       if (!res.ok) continue;
-      return iconParts(await res.text(), id, ink, { fill: spec.src === "oct" });
+      const parts = iconParts(await res.text(), id, ink, { fill: spec.src === "oct" });
+      if (parts) return parts;
     } catch {
-      // try next size
+      if (signal.aborted) return null;
     }
   }
   return null;
@@ -59,7 +62,10 @@ function text(params, key) {
 
 function recolour(spec, params) {
   const pair = paletteColour(params.get("color"));
-  return pair ? { ...spec, c1: pair[0], c2: pair[1], ink: spec.src === "oct" ? pair[0] : spec.ink, text: "#fff" } : spec;
+  if (!pair) return spec;
+  // Light colours as ink vanish on the light tile; fall back to the dark stop.
+  const ink = textFor(pair[0]) === "#fff" ? pair[0] : pair[1];
+  return { ...spec, c1: pair[0], c2: pair[1], ink: spec.src === "oct" ? ink : spec.ink, text: textFor(pair[0]) };
 }
 
 // Static part of a request -> { kind, spec } or null.
@@ -76,8 +82,8 @@ export function resolve(segments, params) {
     return { kind: "badge", spec: recolour({ ...modelStyle(model), src: "lobe", label: label ?? model.split("/").pop(), value }, params) };
   }
   if (head === "o" && rest.length === 1 && OCTICON_NAME.test(rest[0]) && rest[0].length <= 40) {
-    const [c1, c2] = paletteColour(params.get("color")) ?? PALETTE.navy;
-    return { kind: "badge", spec: { src: "oct", icon: rest[0], c1, c2, ink: c1, label: label ?? rest[0], value } };
+    const base = { src: "oct", icon: rest[0], c1: PALETTE.navy[0], c2: PALETTE.navy[1], ink: PALETTE.navy[0], label: label ?? rest[0], value };
+    return { kind: "badge", spec: recolour(base, params) };
   }
   if (head === "mark" && rest.length === 1) {
     const spec = lookup(rest[0]);
@@ -87,7 +93,7 @@ export function resolve(segments, params) {
   }
   if (head === "status" && rest.length === 1 && Object.hasOwn(STATUS, rest[0])) {
     const spec = lookup(rest[0]) ?? { label: rest[0], src: "oct", icon: "pulse", c1: "#3a3f47", c2: "#161b22" };
-    return { kind: "status", check: STATUS[rest[0]], spec: { ...spec, label: label ?? spec.label } };
+    return { kind: "status", check: STATUS[rest[0]], spec: recolour({ ...spec, label: label ?? spec.label }, params) };
   }
   if (rest.length === 1 && Object.hasOwn(COUNTERS, `${head}/${rest[0]}`)) {
     const counter = COUNTERS[`${head}/${rest[0]}`];
@@ -147,7 +153,7 @@ export async function onRequestGet(context, fetchImpl = fetch) {
   } else if (hit.kind === "status") {
     let up = false;
     try {
-      up = Boolean(hit.check.ok(await fetchText(fetchImpl, hit.check.url)));
+      up = Boolean(hit.check.ok(await fetchText(fetchImpl, hit.check.url, { cacheTtl: 0 })));
     } catch {
       up = false;
     }

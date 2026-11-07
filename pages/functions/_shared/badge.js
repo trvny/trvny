@@ -109,9 +109,9 @@ export function iconParts(source, id, ink, { fill = false } = {}) {
   if (/<script|<foreignObject|<style|\son\w+\s*=|(?:href\s*=|url\()\s*(?:["'](?!#)|(?!["'#]))/i.test(raw)) return null;
   const body = raw
     .replace(/<title>[\s\S]*?<\/title>/g, "")
-    .replace(/id="([^"]+)"/g, `id="${id}-$1"`)
-    .replace(/url\(#([^)]+)\)/g, `url(#${id}-$1)`)
-    .replace(/href="#([^"]+)"/g, `href="#${id}-$1"`)
+    .replace(/\bid=(["'])([^"']+)\1/g, `id=$1${id}-$2$1`)
+    .replace(/url\((["']?)#([^)"']+)\1\)/g, `url($1#${id}-$2$1)`)
+    .replace(/href=(["'])#([^"']+)\1/g, `href=$1#${id}-$2$1`)
     .replaceAll("></path>", "/>")
     .replaceAll("currentColor", ink);
   let keep = "";

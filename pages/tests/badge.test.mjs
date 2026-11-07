@@ -95,7 +95,8 @@ test("icon markup namespaces ids and rejects active content", () => {
   assert.equal(iconMarkup("<svg><image href='https://evil/x.png'/></svg>", "b", "#111"), null);
   assert.equal(iconMarkup("<svg><image xlink:href=https://evil/x.png /></svg>", "b", "#111"), null);
   assert.equal(iconMarkup('<svg><path fill="url(https://evil/#g)" d="M0 0"/></svg>', "b", "#111"), null);
-  assert.ok(iconMarkup("<svg><use href='#a'/></svg>", "b", "#111"));
+  const single = iconMarkup("<svg><defs><path id='a' d='M0 0'/></defs><use href='#a'/><rect fill='url(#a)'/></svg>", "b", "#111");
+  assert.ok(single.includes("id='b-a'") && single.includes("href='#b-a'") && single.includes("url(#b-a)"));
   assert.ok(iconMarkup(ICON, "b", "#0a7559").includes('fill="#0a7559"'));
   assert.ok(iconMarkup(OCTICON, "b", "#e8590c", { fill: true }).includes('fill="#e8590c"'));
 });
@@ -135,6 +136,20 @@ test("16px-only octicons fall back and keep their viewBox", async () => {
   assert.ok(svg.includes('viewBox="0 0 16 16"') && svg.includes("M1 1h14v14H1z"));
 });
 
+test("unusable 24px octicon still falls back to 16px", async () => {
+  const small = '<svg viewBox="0 0 16 16"><path d="M2 2h12v12H2z"></path></svg>';
+  const { impl } = router([["rocket-24", "<svg><script>x</script></svg>"], ["rocket-16", small]]);
+  assert.ok((await (await onRequestGet(context("o/rocket.svg"), impl)).text()).includes("M2 2h12v12H2z"));
+});
+
+test("light colours get dark text and a visible icon ink", async () => {
+  const { impl } = router([["@primer/octicons", OCTICON]]);
+  const svg = await (await onRequestGet(context("o/star.svg", "?color=ffffff&label=hi"), impl)).text();
+  assert.ok(svg.includes('fill="#1f2328" font-family') && !svg.includes('fill="#ffffff" fill-rule'));
+  const dark = await (await onRequestGet(context("o/star.svg", "?color=navy&label=hi"), impl)).text();
+  assert.ok(dark.includes('fill="#fff" font-family'));
+});
+
 test("inline mark needs no fetch; /mark renders bare square svg", async () => {
   const { impl, calls } = router([]);
   const badge = await (await onRequestGet(context("twojstar.svg"), impl)).text();
@@ -156,6 +171,9 @@ test("counters read live sources and degrade to n/a", async () => {
   const tv = router([["tvpi", "#EXTM3U\n#EXTINF:-1,A\nu\n#EXTINF:-1,B\nu\n"]]);
   assert.ok((await (await onRequestGet(context("tvpi/channels.svg"), tv.impl)).text()).includes(">2 channels</text>"));
 
+  const zero = router([["feedseek", "<b>0</b> / 0 feeds"]]);
+  assert.ok((await (await onRequestGet(context("feedseek/feeds.svg"), zero.impl)).text()).includes(">0 feeds</text>"));
+
   const down = router([["tvpi", new Error("boom")]]);
   const bad = await onRequestGet(context("tvpi/channels.svg"), down.impl);
   assert.ok((await bad.text()).includes(">n/a</text>"));
@@ -169,6 +187,16 @@ test("status badge shows up/down", async () => {
   assert.ok(down.includes(">down</text>"));
   const broken = await (await onRequestGet(context("status/kanarek.svg"), router([["kanarek", "<html>"]]).impl)).text();
   assert.ok(broken.includes(">down</text>"));
+
+  // Probe bypasses the 300s subrequest cache; ?color= applies to the label part.
+  const seen = [];
+  const spy = async (url, init) => {
+    seen.push(init?.cf);
+    return new Response('{"ok":true}');
+  };
+  const blue = await (await onRequestGet(context("status/kanarek.svg", "?color=blue"), spy)).text();
+  assert.ok(seen.some((cf) => cf?.cacheTtl === 0));
+  assert.ok(blue.includes('stop-color="#2f81f7"') && blue.includes(">up</text>"));
 });
 
 test("index.json lists every group; unknown is 404", async () => {

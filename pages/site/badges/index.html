@@ -72,9 +72,11 @@ const links = {
   codebench: "https://codebench.travny.workers.dev/", streambench: "https://streambench.travny.workers.dev/", docbench: "https://docbench.travny.workers.dev/",
 };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const mdAlt = (s) => String(s).replace(/[\\[\]]/g, "\\$&");
+const mdUrl = (s) => String(s).replace(/[()\s]/g, (c) => encodeURIComponent(c));
 const snippet = (kind, src, alt, href) => kind === "md"
-  ? (href ? `[![${alt}](${src})](${href})` : `![${alt}](${src})`)
-  : (href ? `<a href="${href}"><img src="${src}" alt="${esc(alt)}" height="28"></a>` : `<img src="${src}" alt="${esc(alt)}" height="28">`);
+  ? (href ? `[![${mdAlt(alt)}](${mdUrl(src)})](${mdUrl(href)})` : `![${mdAlt(alt)}](${mdUrl(src)})`)
+  : (href ? `<a href="${esc(href)}"><img src="${esc(src)}" alt="${esc(alt)}" height="28"></a>` : `<img src="${esc(src)}" alt="${esc(alt)}" height="28">`);
 
 async function copy(btn, textValue) {
   try { await navigator.clipboard.writeText(textValue); btn.classList.add("ok"); btn.textContent = "Skopiowane"; }
@@ -112,7 +114,8 @@ fetch("/badge/index.json").then((r) => r.json()).then((data) => {
   const groups = document.getElementById("groups");
   groups.innerHTML = "";
   const order = ["Brand", "Apps", "Workshop", "Bots", "Reviewers", "Live", "AI & infra"];
-  const byGroup = Object.groupBy(data.badges, (row) => row.group);
+  const byGroup = {};
+  for (const row of data.badges) (byGroup[row.group] ??= []).push(row);
   for (const name of order.filter((g) => byGroup[g])) {
     const h = document.createElement("h2"); h.textContent = name; groups.append(h);
     const grid = document.createElement("div"); grid.className = "grid";

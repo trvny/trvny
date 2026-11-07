@@ -103,6 +103,17 @@ export function paletteColour(name) {
 }
 
 // Some octicons ship 16px only (e.g. git-pull-request-agent): try 24, then 16.
+// Dark text on light gradients (WCAG relative luminance of the start colour).
+export function textFor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const lin = [n >> 16, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  return lum > 0.45 ? "#1f2328" : "#fff";
+}
+
 export function octiconUrl(name, size = 24) {
   return `https://cdn.jsdelivr.net/npm/@primer/octicons@${OCTICONS_VERSION}/build/svg/${name}-${size}.svg`;
 }
@@ -118,8 +129,10 @@ export const COUNTERS = {
     slug: "feedseek",
     async probe(fetchImpl) {
       const html = await fetchText(fetchImpl, FEEDSEEK);
-      const n = html.match(/data-search="/g)?.length || Number(/\/\s*(\d+)\s*feeds/.exec(html)?.[1]);
-      if (!n) throw new Error("no feed count");
+      const listed = html.match(/data-search="/g)?.length;
+      const stated = /\/\s*(\d+)\s*feeds/.exec(html)?.[1];
+      const n = listed ?? (stated == null ? null : Number(stated));
+      if (n == null) throw new Error("no feed count");
       return `${n} feeds`;
     },
   },
@@ -142,11 +155,12 @@ export const STATUS = {
   hub: { url: "https://travny.pages.dev/", ok: () => true },
 };
 
-export async function fetchText(fetchImpl, url) {
+// cacheTtl 0: status probes must see fresh state (badge itself caches 2 min).
+export async function fetchText(fetchImpl, url, { cacheTtl = 300 } = {}) {
   const res = await fetchImpl(url, {
     headers: { "user-agent": "travny-badges" },
     signal: AbortSignal.timeout(6000),
-    cf: { cacheTtl: 300, cacheEverything: true },
+    cf: cacheTtl ? { cacheTtl, cacheEverything: true } : { cacheTtl: 0, cacheEverything: false },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();

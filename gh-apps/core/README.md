@@ -1,23 +1,21 @@
 # gh-apps/core
 
-Dependency-free modules shared by more than one Worker in `gh-apps/`.
-Imported by relative path; no package, no build. Each consumer typechecks,
-tests and bundles them as part of its own `npm run check`.
+[![Consumer CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-| Module | Used by |
-|---|---|
-| `github-app.ts` | kanarek-companion, claudiusz (gremlin via companion runtime) |
-| `auth.ts` | kanarek-companion, kanarek-review |
-| `review-service-protocol.ts` | kanarek-companion, kanarek-review |
-| `review-cooldown-store.ts` | kanarek-companion (Durable Object), kanarek-review tests |
-| `worker-deploy.mjs` | Workers Builds deploy scripts: kanarek-companion, shitpost-reactor (deploys only the newest `main` commit for its watch paths; upload → fence → activate → verify → triggers; rollback by version id; tests in `kanarek-companion/test/worker-deploy.test.ts`) |
-| `deploy-lock.mjs` | Lease lock in D1 `deploy-locks` (table `locks`, 15 min TTL) held by `worker-deploy.mjs` and the kanarek-companion credential sync; CLI `acquire\|release <worker> <owner>`. Build and Actions Cloudflare tokens need D1 Edit. |
+Dependency-free modules shared by **two or more** Workers under `gh-apps/`. Import relatively; no package, independent build or app-to-app `src/` imports. Each consumer runs its own `npm run check`.
 
-Rules:
+| Module | Consumers / contract |
+| --- | --- |
+| `github-app.ts` | Automation, Claudiusz; Gremlin through companion runtime |
+| `auth.ts` | Companion ↔ Review auth |
+| `review-service-protocol.ts` | Companion ↔ Review routing payload |
+| `review-cooldown-store.ts` | Companion Durable Object; Review tests |
+| `worker-deploy.mjs` | Companion and Reactor Workers Builds: newest-main fence, activation, verification, rollback |
+| `deploy-lock.mjs` | Shared D1 `deploy-locks` lease (15 min TTL), used by deploy and credential sync |
 
-- Only code needed by two or more Workers lands here; single-app code stays in
-  that app.
-- No imports from any app directory and no npm dependencies. Ambient
-  `cloudflare:workers` types come from the consumer's tsconfig.
-- Changes here rebuild every consumer: CI path filters and Workers Builds watch
-  paths include `gh-apps/core/**`.
+## Change rules
+
+- Shared-code changes trigger [consumer CI](../../.github/workflows/gh-apps-ci.yml) and Worker watch paths. Validate affected app(s), not this folder alone.
+- Keep single-consumer logic in that app. Cloudflare ambient types come from consumer TypeScript configuration.
+- Lock command: `acquire|release <worker> <owner>`. D1 Edit permission required by deploy/sync tokens.
+- Deployment tests: [`kanarek-companion/test/worker-deploy.test.ts`](../kanarek-companion/test/worker-deploy.test.ts).

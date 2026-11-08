@@ -1,26 +1,21 @@
 # GitHub Apps
 
-GitHub App infrastructure for `trvny`.
+[![Shared CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflareworkers&logoColor=white)](https://developers.cloudflare.com/workers/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-- [Automation (shared Worker)](kanarek-companion/) is the common runtime for
-  Kanarek Companion, GPTomek Bridge, Gremlin operator actions, and specialists.
-  Cloudflare deploys it as `automation`; its maintained source directory remains
-  `kanarek-companion`.
-- [kanarek-review](kanarek-review/) is the private free-review provider Worker
-  reached from the companion through a Cloudflare Service Binding.
-- [GPTomek](gptomek/) is the coding bot identity and reuses the same Worker for
-  installation authentication and GitHub API operations.
-- [Claudiusz](claudiusz/) is a standalone MCP Worker (`claudiusz-mcp`) for
-  Claude's comments, reactions and reviews as `claudiusz69[bot]`.
-- [Gremlin](gremlin/) is the OAuth-guarded operator Worker (`gremlin`); it
-  bundles the companion action runtime.
-- [Shitpost Reactor](shitpost-reactor/) is a scheduled meme/post publisher
-  Worker.
-- [core](core/) holds dependency-free modules shared by more than one Worker
-  (GitHub App auth, review-service protocol). Cross-app imports go through
-  `core/`, never into another app's `src/`.
+GitHub App integrations and Workers. **`gh-apps/core/` is the only shared-code layer**; never import another app's `src/`.
 
-**Automation** is both the logical runtime name and the deployed Cloudflare
-Worker name. `kanarek-companion` remains the directory/package and Kanarek
-GitHub App slug. Keep private keys only in Worker secrets. See
-[the architecture map](kanarek-companion/docs/architecture.md) for state invariants.
+| Component | Responsibility | Runtime / entry |
+| --- | --- | --- |
+| [Automation](kanarek-companion/) | Shared runtime: Kanarek Companion, GPTomek, Gremlin, specialists | `kanarek-companion/src/runtime.ts`; deployed as `automation` |
+| [Kanarek Review](kanarek-review/) | Private provider routing, free/paid fallback, cooldowns | Separate Worker, called via Service Binding |
+| [GPTomek](gptomek/) | GitHub App identity and guarded write bridge | Shared Automation Worker; [operator guide](gptomek/README.md) |
+| [Claudiusz](claudiusz/) | Claude GitHub comments, reviews and reactions | `claudiusz-mcp` Worker / Manufact adapter |
+| [Gremlin](gremlin/) | Guarded actions and MCP operator | `gremlin` Worker; reuses Automation runtime |
+| [Shitpost Reactor](shitpost-reactor/) | Generate and publish posts | Scheduled Worker + publisher workflow |
+| [Core](core/) | Shared auth, protocol and deploy helpers | Relative imports; no package/build |
+
+## Work here
+
+- **CI:** [GitHub Apps CI](../../.github/workflows/gh-apps-ci.yml) checks affected app directories and shared core. A green shared badge is not a per-app release signal.
+- **Commands:** run `npm ci && npm run check` from the affected app directory. See each app's README for deploy/runtime requirements.
+- **Invariants:** one shared Worker runtime, one shared core; secrets in Worker configuration, never in Git. [Architecture](kanarek-companion/docs/architecture.md) owns route/state boundaries; [GPTomek reference](gptomek/docs/REFERENCE.md) owns its transport contract.

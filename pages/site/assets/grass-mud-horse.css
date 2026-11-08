@@ -70,13 +70,13 @@ a:hover {
   letter-spacing:.21em;
   text-transform:uppercase
 }
-.hero h1 {
+.hero h1, .hero .hero-title {
   max-width:820px;
   margin:20px 0 26px;
   font:900 clamp(2.8rem,7.5vw,6.1rem)/.99 Georgia,"Times New Roman",serif;
   letter-spacing:-.065em
 }
-.hero h1 em {
+.hero h1 em, .hero .hero-title em {
   font-style:normal;
   color:var(--red)
 }
@@ -344,7 +344,7 @@ a:hover {
 .hero {
   padding-top:35px
 }
-.hero h1 {
+.hero h1, .hero .hero-title {
   font-size:clamp(2.5rem,10vw,4.5rem)
 }
 .scene {

@@ -289,6 +289,18 @@ function contextPriority(path: string, changedPaths: readonly string[]): number 
   return 100;
 }
 
+export function selectReviewEvidenceFiles(files: PullRequestFile[]): ReviewFile[] {
+  return files.filter((file) => typeof file.filename === 'string' &&
+    typeof file.patch === 'string' && reviewablePath(file.filename))
+    .map((file) => ({
+      path: file.filename as string,
+      patch: file.patch as string,
+      rightLines: patchAddedRightLines(file.patch as string),
+      sha: typeof file.sha === 'string' && SHA_RE.test(file.sha)
+        ? file.sha.toLowerCase() : null,
+    }));
+}
+
 export function selectReviewFiles(
   files: PullRequestFile[],
   maxDiffChars: number,

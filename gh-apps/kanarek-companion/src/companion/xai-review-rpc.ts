@@ -1,5 +1,6 @@
 import { GROK_CACHE_ID, GROK_REVIEW_SCHEMA } from '../../../core/xai-review.ts';
 import { agenticReviewTarget, requestAgenticGrokReview } from './xai-review-agent.ts';
+import type { GithubGateway } from '../gptomek/github-gateway.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -60,15 +61,16 @@ export async function requestGrokReview(
   apiKey: string | undefined,
   fetcher: typeof fetch = fetch,
   deadlineAt = Date.now() + 240_000,
-  githubAuth?: { appId: string; privateKey: string },
+  gatewayForRepository?: (repository: string) => Promise<Pick<GithubGateway, 'read'>>,
 ): Promise<XaiReviewRpcResult> {
   const request = grokReviewRequest(input);
   if (!request) return error(400, 'invalid_review_request');
   if (!apiKey) return error(503, 'xai_not_configured');
-  const agentTarget = githubAuth ? agenticReviewTarget(input) : null;
-  if (agentTarget && githubAuth) {
+  const agentTarget = gatewayForRepository ? agenticReviewTarget(input) : null;
+  if (agentTarget && gatewayForRepository) {
     try {
-      return await requestAgenticGrokReview(request, agentTarget, apiKey, githubAuth, fetcher, deadlineAt);
+      const gateway = await gatewayForRepository(agentTarget.repository);
+      return await requestAgenticGrokReview(request, agentTarget, apiKey, gateway, fetcher, deadlineAt);
     } catch (cause) {
       console.warn(JSON.stringify({ kanarekXaiReview: 'agent_failed', code:
         cause instanceof Error ? cause.name : 'unknown' }));

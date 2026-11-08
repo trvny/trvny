@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { agenticReviewTarget, runGrokAgentSession } from '../src/companion/xai-review-agent.ts';
+import { agenticReviewTarget, runGrokAgentSession, requestAgenticGrokReview } from '../src/companion/xai-review-agent.ts';
 
 const sha = 'a'.repeat(40);
 const scope = { messages: [{ role: 'system', content: 'Review' }, {
@@ -47,4 +47,16 @@ test('Grok asks for source, receives evidence and returns structured findings', 
   const history = requests[1].input as Array<Record<string, unknown>>;
   assert.equal(history.some((part) => part.type === 'reasoning' && part.encrypted_content === 'opaque'), true);
   assert.equal(history.some((part) => part.type === 'function_call_output' && part.call_id === 'c1'), true);
+});
+
+test('agentic reviews reject stale or closed PRs before any model calls', async () => {
+  const sha = 'a'.repeat(40);
+  const target = { repository: 'trvny/trvny', number: 17, headSha: sha };
+  let modelCalls = 0;
+  const fetcher = (async () => { modelCalls++; return Response.json({}); }) as typeof fetch;
+  const stale = await requestAgenticGrokReview({ model: 'grok-4.7' }, target, 'dummy', {
+    read: async () => ({ state: 'closed', head: { sha } }),
+  }, fetcher, Date.now() + 30_000);
+  assert.equal(stale.status, 409);
+  assert.equal(modelCalls, 0);
 });

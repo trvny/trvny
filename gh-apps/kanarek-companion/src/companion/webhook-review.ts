@@ -22,6 +22,7 @@ import {
   objectValue,
   reviewTextIsChinese,
   selectReviewFiles,
+  selectReviewEvidenceFiles,
   type ReviewDependencyEvidence,
   fetchReviewDependencyEvidence,
   reviewInputState,
@@ -844,7 +845,7 @@ export async function runWebhookReview(
     {
       maxPages: 30,
       stopWhen: (items) =>
-        reviewFileCollectionComplete(items, maxDiffChars, maxPatchChars),
+        !paidPhase && reviewFileCollectionComplete(items, maxDiffChars, maxPatchChars),
     },
   );
   const changeInventory = reviewChangeInventory(
@@ -852,6 +853,7 @@ export async function runWebhookReview(
     reviewChangeInventoryComplete(pr.changed_files, rawFiles),
   );
   const files = selectReviewFiles(rawFiles, maxDiffChars, maxPatchChars);
+  const verifiableFiles = paidPhase ? selectReviewEvidenceFiles(rawFiles) : files;
   const inputState = reviewInputState(rawFiles, files.length);
   if (inputState !== 'reviewable') {
     return {
@@ -901,7 +903,7 @@ export async function runWebhookReview(
       excluded,
       signal,
     ),
-    files,
+    verifiableFiles,
     {
       maxAttempts: reviewSweepMaxAttempts(paidPhase ? 'paid' : 'free'),
       ...(paidPhase

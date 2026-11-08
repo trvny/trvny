@@ -332,7 +332,9 @@ async function renderArchive(env, url) {
   const navigation = `<nav aria-label="Archive navigation" class="feeds"><a href="/archive">Newest</a>${newer}${older}</nav>`;
   const canonical = cursor ? `${SITE_URL}/archive?cursor=${encodeURIComponent(cursor)}` : `${SITE_URL}/archive`;
   const body = `<h2>Full archive</h2><p class="meta">Newest first · up to 25 entries per page</p>${articles || '<p>Nothing published yet.</p>'}${navigation}`;
-  return response(htmlPage(`${FEED_TITLE} archive`, body, canonical), 'text/html; charset=utf-8');
+  // Cursor pages only re-list posts; keep crawl paths, index posts and /archive instead.
+  const robots = cursor ? 'noindex,follow' : undefined;
+  return response(htmlPage(`${FEED_TITLE} archive`, body, canonical, undefined, undefined, undefined, undefined, robots), 'text/html; charset=utf-8');
 }
 
 function postSummary(post) {
@@ -604,14 +606,14 @@ function postStructuredData(post) {
   return `<script type="application/ld+json">${JSON.stringify(schema).replaceAll('<', '\\u003c')}</script>`;
 }
 
-function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`, structuredData = '', description = FEED_DESCRIPTION, language = 'pl') {
+function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`, structuredData = '', description = FEED_DESCRIPTION, language = 'pl', robots = 'index,follow,max-image-preview:large') {
   const locale = { pl: 'pl_PL', en: 'en_US', de: 'de_DE', fr: 'fr_FR', es: 'es_ES', it: 'it_IT', ru: 'ru_RU', ja: 'ja_JP', 'zh-Hans': 'zh_CN' }[language] || 'en_US';
   return `<!doctype html><html lang="${escapeHtml(language)}"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}">
-<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="robots" content="${robots}">
 <meta name="msvalidate.01" content="23A368B2C5F4DF3471A67EA6CB057149">
 <meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw">
 <meta name="theme-color" content="#111111">

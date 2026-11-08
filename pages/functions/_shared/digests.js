@@ -33,6 +33,8 @@ export function publicationPath(post) {
   return `/${post.digest === true ? 'przeglad' : 'teksty'}/${slug}/`;
 }
 
+// Newest publication first; edits (`updated`) only break ties within one date.
 export function latestFirst(first, second) {
-  return (Date.parse(second.updated) || 0) - (Date.parse(first.updated) || 0);
+  return (Date.parse(second.date) || 0) - (Date.parse(first.date) || 0)
+    || (Date.parse(second.updated) || 0) - (Date.parse(first.updated) || 0);
 }

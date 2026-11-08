@@ -5,8 +5,9 @@
 export const MARKER = '<!-- claude-badge -->';
 export const OPT_OUT = '<!-- no-badge -->';
 
+// Own badge set (travnie/.github assets/badges), not shields.io.
 const BADGE =
-  '[![Claude](https://img.shields.io/badge/Claude-d97757?logo=claude&logoColor=white)](https://claude.ai)';
+  '[![Claudiusz](https://raw.githubusercontent.com/travnie/.github/main/assets/badges/claudiusz.svg)](https://github.com/apps/claudiusz69)';
 
 export function withBadge(body: string): string {
   // Marker only (+ its newline); authored whitespace kept.

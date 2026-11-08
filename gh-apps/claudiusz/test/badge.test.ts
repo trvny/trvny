@@ -5,7 +5,7 @@ import { MARKER, OPT_OUT, withBadge } from '../src/badge.ts';
 
 test('badge prepended once', () => {
   const once = withBadge('LGTM');
-  assert.ok(once.startsWith(`${MARKER}\n[![Claude](`));
+  assert.ok(once.startsWith(`${MARKER}\n[![Claudiusz](`));
   assert.ok(once.endsWith('\n\nLGTM'));
   assert.equal(withBadge(once), once);
 });

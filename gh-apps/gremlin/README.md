@@ -1,5 +1,11 @@
 # Gremlin
 
+[![GitHub Apps CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/)
+
+> **Agent entry:** `src/index.ts` is a thin OAuth-gated wrapper around the companion action runtime.
+> **Validate:** `cd gh-apps/gremlin && npm ci && npm run check`.
+> **Boundary:** guarded mutations only; shared transport and replay contract live in [GPTomek reference](../gptomek/docs/REFERENCE.md).
+
 `gremlin` is the guarded operator surface for GitHub, Cloudflare, maintenance,
 workflow, coding, release, and policy automation: the Custom GPT actions
 (`/gpt-actions/**`), the specialist MCP (`/mcp`), and the specialist routes.

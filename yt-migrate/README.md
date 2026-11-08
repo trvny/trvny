@@ -4,8 +4,8 @@ Two **one-way copy** tools, not account synchronization. Source accounts remain 
 
 | Service | Maintained code | Run / state |
 | --- | --- | --- |
-| YouTube + YouTube Music | [`migrate.py`](migrate.py) | [Daily workflow](../../.github/workflows/yt-migrate.yml); quota-bound `state.json` |
-| Contacts + Tasks + Calendar | [`google/migrate.py`](google/migrate.py) | [Google workflow](../../.github/workflows/google-migrate.yml); encrypted checkpoint, write cap |
+| YouTube + YouTube Music | [`migrate.py`](migrate.py) | [Daily workflow](../.github/workflows/yt-migrate.yml); quota-bound `state.json` |
+| Contacts + Tasks + Calendar | [`google/migrate.py`](google/migrate.py) | [Google workflow](../.github/workflows/google-migrate.yml); encrypted checkpoint, write cap |
 
 ## Safe operation
 

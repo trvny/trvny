@@ -16,6 +16,6 @@ GitHub App integrations and Workers. **`gh-apps/core/` is the only shared-code l
 
 ## Work here
 
-- **CI:** [GitHub Apps CI](../../.github/workflows/gh-apps-ci.yml) checks affected app directories and shared core. A green shared badge is not a per-app release signal.
+- **CI:** [GitHub Apps CI](../.github/workflows/gh-apps-ci.yml) checks affected app directories and shared core. A green shared badge is not a per-app release signal.
 - **Commands:** run `npm ci && npm run check` from the affected app directory. See each app's README for deploy/runtime requirements.
 - **Invariants:** one shared Worker runtime, one shared core; secrets in Worker configuration, never in Git. [Architecture](kanarek-companion/docs/architecture.md) owns route/state boundaries; [GPTomek reference](gptomek/docs/REFERENCE.md) owns its transport contract.

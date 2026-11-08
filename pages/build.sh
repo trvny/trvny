@@ -10,7 +10,7 @@ cp token-worldcup/recount-*.py token-worldcup/recount-*.mjs token-worldcup/*-tok
 
 # Publish pinned Papagenerator sources from travnie/twojstar without forking them.
 # Bump this commit after testing upstream changes, not on every hub deployment.
-papagenerator_revision=dec8f8a75788ab6fbbb1d0f1b0793c9c0bb0e870
+papagenerator_revision=e9eafac3f5370fa199d68a5fbf829f8db147c9bb
 papagenerator_base="https://raw.githubusercontent.com/travnie/twojstar/$papagenerator_revision/papagenerator"
 papagenerator_dir=site/papagenerator
 mkdir -p "$papagenerator_dir"

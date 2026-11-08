@@ -4,7 +4,8 @@
 
 > **Agent entry:** `src/index.ts` is a thin OAuth-gated wrapper around the companion action runtime.
 > **Validate:** `cd gh-apps/gremlin && npm ci && npm run check`.
-> **Boundary:** guarded mutations only; shared transport and replay contract live in [GPTomek reference](../gptomek/docs/REFERENCE.md).
+> **Boundary:** Guarded mutations only. Shared transport and replay contract:
+> [GPTomek reference](../gptomek/docs/REFERENCE.md).
 
 `gremlin` is the guarded operator surface for GitHub, Cloudflare, maintenance,
 workflow, coding, release, and policy automation: the Custom GPT actions

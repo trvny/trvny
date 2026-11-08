@@ -61,7 +61,10 @@ export class GptomekSignerEntrypoint extends WorkerEntrypoint<RuntimeEnv> {
 
 export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
   async completeReview(input: unknown, deadlineAt: number) {
-    return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt);
+    return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt, {
+      appId: this.env.GITHUB_APP_ID,
+      privateKey: this.env.GITHUB_PRIVATE_KEY,
+    });
   }
 }
 

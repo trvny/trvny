@@ -364,8 +364,10 @@ export function reviewPrompt(
     complete: false,
     files: files.map((file) => ({ path: file.path, status: 'unknown' })),
   },
+  scope?: { repository: string; headSha: string },
 ): string {
   return JSON.stringify({
+    ...(scope ? { review_scope: { repository: scope.repository, head_sha: scope.headSha } } : {}),
     pull_request: {
       number,
       title: typeof title === 'string' ? title.slice(0, 300) : '',
@@ -889,6 +891,7 @@ export async function runWebhookReview(
     callers,
     dependencyEvidence,
     changeInventory,
+    paidPhase ? { repository: target.repository, headSha: target.headSha } : undefined,
   );
   const sweep = await sweepReviewProviders(
     (excluded, signal) => askReviewRouter(

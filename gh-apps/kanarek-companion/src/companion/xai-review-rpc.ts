@@ -1,4 +1,5 @@
 import { GROK_CACHE_ID, GROK_REVIEW_SCHEMA } from '../../../core/xai-review.ts';
+import { agenticReviewTarget, requestAgenticGrokReview } from './xai-review-agent.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -59,10 +60,21 @@ export async function requestGrokReview(
   apiKey: string | undefined,
   fetcher: typeof fetch = fetch,
   deadlineAt = Date.now() + 240_000,
+  githubAuth?: { appId: string; privateKey: string },
 ): Promise<XaiReviewRpcResult> {
   const request = grokReviewRequest(input);
   if (!request) return error(400, 'invalid_review_request');
   if (!apiKey) return error(503, 'xai_not_configured');
+  const agentTarget = githubAuth ? agenticReviewTarget(input) : null;
+  if (agentTarget && githubAuth) {
+    try {
+      return await requestAgenticGrokReview(request, agentTarget, apiKey, githubAuth, fetcher, deadlineAt);
+    } catch (cause) {
+      console.warn(JSON.stringify({ kanarekXaiReview: 'agent_failed', code:
+        cause instanceof Error ? cause.name : 'unknown' }));
+      return error(502, 'xai_agent_failed');
+    }
+  }
 
   const timeLeft = deadlineAt - Date.now() - 5_000;
   if (!Number.isFinite(timeLeft) || timeLeft <= 0) return error(504, 'xai_deadline_expired');

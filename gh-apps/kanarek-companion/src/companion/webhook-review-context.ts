@@ -291,7 +291,7 @@ function contextPriority(path: string, changedPaths: readonly string[]): number 
 
 export function selectReviewEvidenceFiles(files: PullRequestFile[]): ReviewFile[] {
   return files.filter((file) => typeof file.filename === 'string' &&
-    typeof file.patch === 'string' && reviewablePath(file.filename))
+    typeof file.patch === 'string')
     .map((file) => ({
       path: file.filename as string,
       patch: file.patch as string,

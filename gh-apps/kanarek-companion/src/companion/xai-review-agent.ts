@@ -195,7 +195,12 @@ export async function requestAgenticGrokReview(
   const changedSummary = changed.map((file) => ({
     path: file.filename, status: file.status, previous_path: file.previous_filename,
   }));
+  const currentPr = obj(await github.read(repo + '/pulls/' + target.number));
+  if (obj(currentPr.head).sha !== target.headSha || changed.length !== pr.changed_files) {
+    return fail('agent_changed_during_read', 409);
+  }
   let tree: string[] | null = null;
+  let treeTruncated = false;
   const execute: ToolExecutor = async (name, args) => {
     if (name === 'read_pr') return { title: pr.title, body: typeof pr.body === 'string' ? pr.body.slice(0, 12_000) : '' };
     if (name === 'list_changed') {
@@ -218,13 +223,15 @@ export async function requestAgenticGrokReview(
     if (name === 'list_paths') {
       if (!tree) {
         const data = obj(await github.read(repo + '/git/trees/' + target.headSha + '?recursive=1'));
+        treeTruncated = data.truncated === true;
         tree = Array.isArray(data.tree) ? data.tree.map(obj)
           .filter((item) => item.type === 'blob' && typeof item.path === 'string')
           .map((item) => item.path as string) : [];
       }
       const query = typeof args.query === 'string' ? args.query.toLowerCase().slice(0, 100) : '';
       const paths = tree.filter((path) => path.toLowerCase().includes(query));
-      return { paths: paths.slice(0, 180), total: paths.length, truncated: paths.length > 180 };
+      return { paths: paths.slice(0, 180), total: paths.length,
+        truncated: paths.length > 180 || treeTruncated, upstream_truncated: treeTruncated };
     }
     if (name === 'search_code') {
       const query = typeof args.query === 'string' ? args.query.trim().slice(0, 120) : '';

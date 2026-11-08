@@ -63,10 +63,15 @@ export class GptomekSignerEntrypoint extends WorkerEntrypoint<RuntimeEnv> {
 export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
   async completeReview(input: unknown, deadlineAt: number) {
     return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt, async (repository) => {
+      const boundedFetch: typeof fetch = (url, init = {}) => {
+        const remaining = deadlineAt - Date.now() - 5_000;
+        if (remaining <= 0) throw new Error('grok_agent_github_deadline');
+        return fetch(url, { ...init, signal: AbortSignal.timeout(Math.min(30_000, remaining)) });
+      };
       const install = await repositoryInstallationId(
-        this.env.GITHUB_APP_ID, this.env.GITHUB_PRIVATE_KEY, repository, fetch);
+        this.env.GITHUB_APP_ID, this.env.GITHUB_PRIVATE_KEY, repository, boundedFetch);
       const client = await createInstallationClient(
-        this.env.GITHUB_APP_ID, this.env.GITHUB_PRIVATE_KEY, install, fetch);
+        this.env.GITHUB_APP_ID, this.env.GITHUB_PRIVATE_KEY, install, boundedFetch);
       return { read: async (path: string) => {
         const repoPath = '/repos/' + repository + '/';
         const search = path.startsWith('/search/code?') ?

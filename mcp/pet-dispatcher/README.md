@@ -1,5 +1,11 @@
 # Pet Dispatcher
 
+[![pet-dispatcher CI](https://github.com/trvny/trvny/actions/workflows/pet-dispatcher.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/pet-dispatcher.yml) [![MCP](https://img.shields.io/badge/MCP-1C3C3C?logo=modelcontextprotocol&logoColor=white&style=flat-square)](https://modelcontextprotocol.io/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square)](https://www.typescriptlang.org/)
+
+> **Agent entry:** `src/index.ts` is the local confined MCP worker; `control-plane/` is the remote Cloudflare Queues coordinator.
+> **Validate / run:** `cd mcp/pet-dispatcher && npm ci && npm run check:portable`.
+> **Boundary:** workspace confinement by default; trusted host/device/LAN access requires explicit scoped authority. [Interactive bridge contract](docs/interactive-tool-bridge.md) is authoritative.
+
 Workspace-confined MCP worker for using a trusted development machine without exposing an unrestricted host shell.
 
 Phase 1 provides the local confined worker. Phase 2 adds a replaceable remote transport with a Cloudflare Queues control plane, signed task envelopes, local duplicate suppression, heartbeat/cancellation and outbound-only polling from the Legion.

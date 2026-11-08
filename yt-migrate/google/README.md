@@ -1,5 +1,11 @@
 # Google account migration
 
+[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square)](https://www.python.org/)
+
+> **Agent entry:** `migrate.py` copies Contacts, Tasks, Calendar; the workflow owns encrypted checkpoint restore/save.
+> **Validate / run:** [manual Google migration workflow](../../.github/workflows/google-migrate.yml) with `dry_run=true` before any writes.
+> **Boundary:** one-way copy, never delete/mutate the source; secrets and checkpoint stay outside public logs; the workflow is **not a CI status**.
+
 One-way **copy** from old (`SRC`) to new (`DST`) account. Source data never deleted or modified.
 Scope: **Contacts** (common fields), **Google Tasks** (lists, subtasks, due/completion), and **Google Calendar** (owned calendars and standard events). Not a complete Google Takeout restore.
 

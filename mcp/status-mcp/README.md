@@ -1,10 +1,16 @@
 # status-mcp
 
+[![MCP](https://img.shields.io/badge/MCP-1C3C3C?logo=modelcontextprotocol&logoColor=white&style=flat-square)](https://modelcontextprotocol.io/) [![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/)
+
+> **Agent entry:** `src/index.ts` exposes one `status` MCP tool for TVPI, Feedseek, weather and Autka.
+> **Validate / run:** `cd mcp/status-mcp && npm ci && npm run check`.
+> **Boundary:** `STATUS_MCP_TOKEN` is required on public POST endpoints; service bindings themselves need no per-service token; `src/icon.ts` is generated.
+
 [![status-mcp](https://github.com/trvny/trvny/actions/workflows/status-mcp-ci.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/status-mcp-ci.yml)
 
 One [MCP](https://modelcontextprotocol.io) server, one tool — health-checks all
-four TRAVNY ecosystem projects in a single call. Cloudflare Worker, **free tier**: service
-bindings, no token, plus outbound GitHub fetches.
+four TRAVNY ecosystem projects in a single call. Cloudflare Worker on the free tier: service bindings need no extra token;
+the public MCP endpoint requires `STATUS_MCP_TOKEN`.
 
 ## Why one server, one tool
 

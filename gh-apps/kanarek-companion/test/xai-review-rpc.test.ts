@@ -16,6 +16,7 @@ test('Grok RPC request uses bounded, structured, stateless Responses', () => {
   const request = grokReviewRequest(review)!;
   assert.equal(request.model, 'grok-4.7');
   assert.equal(request.store, false);
+  assert.equal(request.prompt_cache_key, 'kanarek-paid-code-review-v1');
   assert.equal(request.max_output_tokens, 36_864);
   assert.deepEqual(request.reasoning, { effort: 'high' });
   assert.equal((request.text as { format: { type: string } }).format.type, 'json_schema');
@@ -69,4 +70,11 @@ test('Grok RPC hides upstream response bodies and rejects incomplete output', as
     (async () => Response.json({ status: 'incomplete', output: [] })) as typeof fetch);
   assert.equal(incomplete.status, 502);
   assert.equal((await requestGrokReview(review, '', fetch)).status, 503);
+});
+
+test('Grok RPC distinguishes timed-out calls without leaking upstream data', async () => {
+  const timedOut = await requestGrokReview(review, 'dummy',
+    (async () => { throw new DOMException('deadline exceeded', 'TimeoutError'); }) as typeof fetch);
+  assert.equal(timedOut.status, 502);
+  assert.equal((timedOut.payload.error as { code: string }).code, 'xai_timeout');
 });

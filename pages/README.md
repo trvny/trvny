@@ -1,35 +1,26 @@
-# pages
+# TRAVNY Pages
 
-TRAVNY hub at [travny.pages.dev](https://travny.pages.dev) (canonical).
-`trfny.com` serves a distinct English brand homepage; `www` redirects to it.
-Its robots and sitemap cover that homepage only. Other custom-domain paths
-redirect directly to the stable hub, preserving path and query.
-Cloudflare Pages project `travny`, built from this directory: static `site/`, Pages
-Functions in `functions/`, build step `build.sh`.
+[![Pages CI](https://github.com/trvny/trvny/actions/workflows/travny-pages.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/travny-pages.yml) [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare_Pages-F38020?style=flat-square&logo=cloudflarepages&logoColor=white)](https://developers.cloudflare.com/pages/) [![Astro](https://img.shields.io/badge/Astro-BC52EE?style=flat-square&logo=astro&logoColor=white)](https://astro.build/)
 
-- Deploy: Cloudflare Git build on push to `main` touching `pages/**`; `build.sh` copies `token-worldcup/` renders into `site/teksty/token-worldcup/`; `travny-pages.yml` keeps the
-  project's Git source and build settings asserted.
-- Checks: `travny-pages.yml` (eslint 10 + `node --test tests/*.test.mjs`).
-- Design tokens: `site/assets/tokens.css`, opt-in `--tr-*` variables plus
-  repo themes via `data-theme` / `data-mode="dark"`. Hub (`site/index.html`)
-  maps its matching hues to them with identical literal fallbacks; other
-  pages keep their own palettes.
-- Moved from `trvny/tvpi` (`site/`, `functions/`) on 2026-10-12. The TV stream Worker stays in tvpi.
+**Canonical hub:** [travny.pages.dev](https://travny.pages.dev). Cloudflare Pages project `travny`, repository root `pages/`, build `build.sh`, output `site/`, Functions `functions/`.
 
-- Papagenerator: https://travny.pages.dev/papagenerator/ is assembled by `build.sh` from a pinned commit of `travnie/twojstar/papagenerator` (the only maintained editor source). To update, bump `papagenerator_revision`. No new Cloudflare Pages project, Worker or cron is needed. Fetch failure fails the build deliberately: Cloudflare keeps the previous working deployment live rather than publishing an incomplete site.
+## Source map
 
-- Badges: `functions/badge/[[path]].js`; catalogue + builder at `/badges/`
-  (reads `/badge/index.json`). Same style as the static set in
-  `travnie/.github/assets/badges`.
-  - `/badge/<slug>.svg`: AI brands (`_shared/badge.js`), ecosystem (`_shared/eco.js`).
-  - `/badge/model/<model-id>.svg`: lobe-icons ModelIcon rules in generated
-    `_shared/model-icons.js` (refresh: `scripts/sync_model_icons.py`).
-  - `/badge/o/<octicon>.svg`: any Primer Octicon.
-  - Live: `/badge/feedseek/feeds.svg`, `/badge/tvpi/channels.svg`, `/badge/status/<slug>.svg`.
-  - `/badge/mark/<slug>.svg?size=`: bare logo.
-  - Common query: `?label=`, `?value=`, `?color=` (palette name or hex).
-  - Icons: own inline marks (twojstar, Kanarek, Autka, tvpi, papiesz), pinned
-    `@primer/octicons` and `@lobehub/icons-static-svg` on jsDelivr. Probe or icon
-    failures render a short-cached fallback, never an error page.
+| Concern | Maintained source / output |
+| --- | --- |
+| Hub | `site/index.html`, `site/assets/tokens.css`; existing HTML preserved |
+| Pages Functions / redirects | `functions/`; brand-only `trfny.com` homepage, robots and sitemap; other deep paths redirect to the canonical hub |
+| Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests join one `/teksty/` stream/feed |
+| Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
+| Papagenerator | Pinned `travnie/twojstar/papagenerator` commit fetched by `build.sh`; **not** a second editor source |
+| Badges | `functions/badge/[[path]].js`; public [/badges/](https://travny.pages.dev/badges/) catalog, `/badge/<slug>.svg`, `/badge/o/<octicon>.svg`, `/badge/model/<model-id>.svg`, live status badges |
 
-- Astro: `astro/` builds `/lab/` and CoCzyDziennik issue pages under `/przeglad/` without replacing the existing site. Published issues automatically join `/teksty/` and its **one shared Atom feed** (`/teksty/feed.xml`) alongside legacy articles and Shitpost Reactor entries. The `/przeglad/` route remains an archive/permalink space, not a second feed or publication catalog. See [canonical Astro publishing instructions](astro/README.md).
+## Edit / validate
+
+```sh
+cd pages
+bash build.sh
+node --test tests/*.test.mjs
+```
+
+[Pages CI](../.github/workflows/travny-pages.yml) also runs lint and asserts the Cloudflare Git source/settings. Do not change project, move Astro's output into `site/` directly, duplicate the publication feed, or alter legacy Atom IDs/URLs. Design tokens are opt-in `--tr-*`; existing pages keep their palette.

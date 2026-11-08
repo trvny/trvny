@@ -1,12 +1,15 @@
-# Account migration (old Google account -> new)
+# Google account migration
 
-Single home for the one-way Google account migration tools. Source accounts are read-only; do not delete old account data until independently verified on the destination.
+Two **one-way copy** tools, not account synchronization. Source accounts remain read-only; never delete source data without verifying the destination.
 
-| Service | Implementation | Workflow | State |
-| --- | --- | --- | --- |
-| YouTube / YouTube Music | [`migrate.py`](migrate.py) | [`yt-migrate.yml`](../.github/workflows/yt-migrate.yml) | `yt-migrate/state.json`, daily quota-bound |
-| Contacts / Google Tasks / Calendar | [`google/migrate.py`](google/migrate.py) | [`google-migrate.yml`](../.github/workflows/google-migrate.yml) | Encrypted Actions-cache checkpoint, write-capped |
+| Service | Maintained code | Run / state |
+| --- | --- | --- |
+| YouTube + YouTube Music | [`migrate.py`](migrate.py) | [Daily workflow](../../.github/workflows/yt-migrate.yml); quota-bound `state.json` |
+| Contacts + Tasks + Calendar | [`google/migrate.py`](google/migrate.py) | [Google workflow](../../.github/workflows/google-migrate.yml); encrypted checkpoint, write cap |
 
-Read [Google Contacts/Tasks/Calendar setup](google/README.md) for OAuth scopes, secrets, dry-run and limitations.
+## Safe operation
 
-The workflow files remain separate because they need distinct API permissions, quotas and checkpoint handling. The YouTube workflow runs daily; the Contacts/Tasks/Calendar schedule requires `GOOGLE_MIGRATE_ACTIVE=true` and stops copying after completion. The migration is **not** ongoing two-way account sync.
+- Follow [Google OAuth setup / dry run](google/README.md) for scopes, secrets and limits. Start its workflow with `dry_run=true`; only then enable writes.
+- The YouTube workflow runs daily. Google schedule stays disabled unless `GOOGLE_MIGRATE_ACTIVE=true`, and skips completed copies.
+- Keep `YT_*` and `GM_*` credentials/checkpoints separate. Never expose personal data in logs, PRs or README examples.
+- These workflows **perform migrations**, so their badges should not be presented as CI/test status.

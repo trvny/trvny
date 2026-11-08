@@ -1,5 +1,11 @@
 # Kanarek Review
 
+[![GitHub Apps CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/)
+
+> **Agent entry:** Private review provider Worker; only Companion calls it through a Service Binding.
+> **Validate:** `cd gh-apps/kanarek-review && npm ci && npm run check`.
+> **Boundary:** owns routing/model ordering and cooldowns, **not** GitHub review publication (Companion owns that).
+
 `kanarek-review` is the private review-provider Worker used by the shared
 `kanarek-companion` runtime. It owns provider credentials, routing, cooldowns,
 and model fallback. The normal pool is free-first, including Gemini Standard when

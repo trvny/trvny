@@ -1,5 +1,11 @@
 # Claudiusz MCP
 
+[![GitHub Apps CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/) [![MCP](https://img.shields.io/badge/MCP-1C3C3C?logo=protocol&logoColor=white&style=flat-square)](https://modelcontextprotocol.io/)
+
+> **Agent entry:** `src/` MCP OAuth + GitHub App; Manufact is a host adapter for the same bundle.
+> **Validate:** `cd gh-apps/claudiusz && npm ci && npm run check`.
+> **Boundary:** GitHub identity `claudiusz69[bot]`; secrets in runtime; Workers and Manufact use the same App installation.
+
 Remote MCP server that acts on GitHub as
 [`claudiusz69[bot]`](https://github.com/apps/claudiusz69), so Claude's comments,
 reactions and reviews carry the bot identity instead of `trvny`.

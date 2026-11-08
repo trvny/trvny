@@ -1,5 +1,11 @@
 # Shared automation Worker
 
+[![gh apps ci CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square)](https://www.typescriptlang.org/)
+
+> **Agent entry:** `src/runtime.ts` composes route groups for Companion, GPTomek, Gremlin and specialists.
+> **Validate:** `cd gh-apps/kanarek-companion && npm ci && npm run check`.
+> **Boundary:** deployed Worker is **Automation**; `kanarek-companion` is the source/package/App slug. [Architecture](docs/architecture.md) and [scoped agent rules](AGENTS.md) own state/transport invariants.
+
 **Automation** is the deployed Cloudflare Worker runtime at
 `https://automation.travny.workers.dev`. The same Worker was renamed in place;
 `kanarek-companion` remains the source directory/package and the separate

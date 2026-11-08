@@ -1,5 +1,11 @@
 # Shitpost Reactor
 
+[![gh apps ci CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/)
+
+> **Agent entry:** `generate.mjs` drafts; `publish.mjs` publishes; Worker serves the public Reactor.
+> **Validate:** `cd gh-apps/shitpost-reactor && npm ci && npm run check`.
+> **Boundary:** [scheduled publisher](../../.github/workflows/shitpost-reactor.yml) is an operational workflow, **not** the CI status; published titles/Atom IDs must remain stable.
+
 Public presentation: **Reactor**. Post titles derive from the stored topic when it is a presentable subject or sourced headline; internal generation instructions fall back to the post's opening line. Homepage, archives, canonical posts, social metadata and feeds share this title. Public content is styled as editorial commentary without "shitpost" labels. Internal workflow, R2 keys, OIDC audience and historical feed identifiers remain unchanged.
 
 Small scheduled shitpost generator and public feed. GitHub Actions is the only clock; the existing Kanarek free-router is the model pool; local `style-reference.md` owns Reactor-specific craft notes.

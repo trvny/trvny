@@ -72,7 +72,7 @@ export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
         const search = path.startsWith('/search/code?') ?
           new URL(path, 'https://api.github.com').searchParams.get('q') : null;
         const exactSearch = search !== null && search.endsWith(' repo:' + repository) &&
-          (search.match(/\\brepo:/g) || []).length === 1;
+          search.split(/\s+/).filter((part) => part.startsWith('repo:')).length === 1;
         if (!githubReadAllowed(path) || (!path.startsWith(repoPath) && !exactSearch)) {
           throw new Error('grok_agent_read_out_of_scope');
         }

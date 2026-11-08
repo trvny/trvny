@@ -46,7 +46,10 @@ test('Grok asks for source, receives evidence and returns structured findings', 
   assert.equal(requests[1].prompt_cache_key, requests[0].prompt_cache_key);
   const history = requests[1].input as Array<Record<string, unknown>>;
   assert.equal(history.some((part) => part.type === 'reasoning' && part.encrypted_content === 'opaque'), true);
-  assert.equal(history.some((part) => part.type === 'function_call_output' && part.call_id === 'c1'), true);
+  assert.equal(history.some((part) => part.type === 'function_call_output' && part.call_id === 'c1' &&
+    String(part.output).includes('@@ -1 +1 @@')), true);
+  const parsed = JSON.parse((result.payload.choices as Array<{ message: { content: string } }>)[0].message.content);
+  assert.deepEqual(parsed, { summary: '无问题', findings: [] });
 });
 
 test('agentic reviews reject stale or closed PRs before any model calls', async () => {

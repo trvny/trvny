@@ -10,7 +10,8 @@ type ToolExecutor = (name: string, args: Json) => Promise<unknown>;
 
 const SHA = /^[a-f0-9]{40}$/i;
 const REPOSITORY = /^(?:trvny|travnie)\/[A-Za-z0-9_.-]+$/;
-const MAX_ROUNDS = 12;
+const MAX_ROUNDS = 20;
+const MAX_TOOL_CALLS = 48;
 const AGENT_POLICY = [
   'Review the specified pull request for real defects introduced by its changes.',
   'You have read-only tools. Inspect relevant diffs and explore repository code, callers, configs, and external documentation as needed. Do not guess from a single diff.',
@@ -24,8 +25,9 @@ const TOOL_DEFS = [
   { name: 'list_changed', description: 'Search the PR changed-file inventory by filename substring. Empty query lists changed paths. Use when the PR has many files.', parameters: {
     type: 'object', properties: { query: { type: 'string' } }, required: ['query'], additionalProperties: false,
   } },
-  { name: 'read_diff', description: 'Read an exact GitHub PR file patch. Use to verify changed lines.', parameters: {
-    type: 'object', properties: { path: { type: 'string' } }, required: ['path'], additionalProperties: false,
+  { name: 'read_diff', description: 'Read a PR file patch in chunks. Supply offset for continuation. Use to verify changed lines.', parameters: {
+    type: 'object', properties: { path: { type: 'string' }, offset: { type: 'integer' } },
+    required: ['path', 'offset'], additionalProperties: false,
   } },
   { name: 'read_file', description: 'Read a repository file at the PR head, with line numbers. Follow references and call sites.', parameters: {
     type: 'object', properties: { path: { type: 'string' }, start_line: { type: 'integer' }, end_line: { type: 'integer' } },
@@ -155,8 +157,10 @@ export async function runGrokAgentSession(
         usage: { prompt_tokens: cumulativeInput, completion_tokens: cumulativeOutput },
       } };
     }
+    if (totalToolCalls + calls.length > MAX_TOOL_CALLS) return fail('agent_tool_budget', 504);
     history.push(...outputs);
     for (const call of calls) {
+      if (deadlineAt - Date.now() <= 8_000) return fail('agent_deadline', 504);
       totalToolCalls++;
       let toolResult: unknown;
       try { toolResult = await executeTool(call.name, toolArgs(call.arguments)); }
@@ -177,10 +181,12 @@ export async function requestAgenticGrokReview(
   deadlineAt: number,
 ): Promise<AgentResult> {
   const repo = '/repos/' + target.repository;
+  if (deadlineAt - Date.now() <= 15_000) return fail('agent_deadline', 504);
   const pr = obj(await github.read(repo + '/pulls/' + target.number));
   if (obj(pr.head).sha !== target.headSha || pr.state !== 'open') return fail('agent_stale_pr', 409);
   const changed: Json[] = [];
   for (let page = 1; page <= 30; page++) {
+    if (deadlineAt - Date.now() <= 15_000) return fail('agent_deadline', 504);
     const batch = await github.read(repo + '/pulls/' + target.number +
       '/files?per_page=100&page=' + page) as Json[];
     changed.push(...batch);
@@ -200,8 +206,14 @@ export async function requestAgenticGrokReview(
     if (name === 'read_diff') {
       const path = safePath(args.path);
       const file = changed.find((item) => item.filename === path);
-      return file ? { path, status: file.status, patch: file.patch ?? null,
-        previous_path: file.previous_filename ?? null } : { error: 'not_changed' };
+      if (!file) return { error: 'not_changed' };
+      const offset = Number(args.offset);
+      if (!Number.isInteger(offset) || offset < 0) return { error: 'invalid_offset' };
+      const patch = typeof file.patch === 'string' ? file.patch : '';
+      const chunk = patch.slice(offset, offset + 40_000);
+      return { path, status: file.status, patch: chunk, offset, total_chars: patch.length,
+        has_more: offset + chunk.length < patch.length,
+        previous_path: file.previous_filename ?? null };
     }
     if (name === 'list_paths') {
       if (!tree) {

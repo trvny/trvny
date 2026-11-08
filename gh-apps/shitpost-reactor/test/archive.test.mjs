@@ -151,6 +151,7 @@ test('newest first, 25 posts a page, without listing R2 on complete indexes', as
   assert.ok(first.body.indexOf('Post number 64') < first.body.indexOf('Post number 40'));
   assert.doesNotMatch(first.body, /Post number 39/);
   assert.match(first.body, /Newest first/);
+  assert.match(first.body, /<meta name="robots" content="index,follow,max-image-preview:large">/);
   assert.match(first.body, /Older 25/);
   assert.doesNotMatch(first.body, /← Newer 25/);
   assert.deepEqual(b.counts, { lists: 0, bodies: 25, puts: 0 });
@@ -162,6 +163,7 @@ test('newest first, 25 posts a page, without listing R2 on complete indexes', as
   assert.match(second.body, /Post number 15/);
   assert.ok(second.body.indexOf('Post number 39') < second.body.indexOf('Post number 15'));
   assert.match(second.body, /← Newer 25/);
+  assert.match(second.body, /<meta name="robots" content="noindex,follow">/);
   assert.match(second.body, /Older 25/);
   const last = await archive(b.env, post(15).id);
   assert.equal((last.body.match(/<article>/g) || []).length, 14);

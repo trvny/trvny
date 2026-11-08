@@ -1,5 +1,11 @@
 # Cloudflare Telegram assistant
 
+[![Telegram Assistant CI](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square)](https://www.typescriptlang.org/)
+
+> **Agent entry:** `src/` contains the webhook, Queue consumer and user-facing Telegram flows.
+> **Validate:** `cd tg-bots/cloudflare-assistant && npm ci && npm run check && npm test`.
+> **Boundaries:** keep this Worker on Telegram delivery; reuse Kanarek provider routing and Pet Dispatcher for privileged host/repository work. See [bot workspace](../README.md) and [CI](../../.github/workflows/tg-assistant-ci.yml).
+
 Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Cloudflare handles everyday chat and RSS curation; Hermes remains the heavyweight worker for repo/build/test jobs.
 
 ## What exists now

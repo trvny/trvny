@@ -19,10 +19,12 @@
 
 ```sh
 cd pages/token-worldcup
-npm ci && npm run check:openai
+set -e
+npm ci
+npm run check:openai
 python -m pip install -r requirements.txt
 python recount-deepseek-tokens.py --check
 python recount-claude-tokens.py --dry-run
 ```
 
-[Quarto CI](../../.github/workflows/quarto.yml) repeats deterministic recounts and rejects stale HTML. Use verified GPT-5/`o200k_base`, Claude Opus 5.5 and DeepSeek V4.1 counts; other OpenAI reference encodings include `cl100k_base`, `r50k_base`, `o200k_harmony`. Do **not** relabel GPT-5 counts as GPT-6/6.1 without a reproducible authoritative mapping. Prompt/chat-template counts are a future benchmark, not measured here.
+[Quarto CI](../../.github/workflows/quarto.yml) checks deterministic counts; push/PR CI also rejects stale rendered HTML, but manually dispatched `check` skips the HTML drift gate. Claude `--dry-run` validates inputs only: after corpus changes, run a real Anthropic recount, audit/update `claude-*-token-counts.json` and rerender the report. Use verified GPT-5/`o200k_base`, Claude Opus 5.5 and DeepSeek V4.1 counts; other OpenAI reference encodings include `cl100k_base`, `r50k_base`, `o200k_harmony`. Do **not** relabel GPT-5 counts as GPT-6/6.1 without a reproducible authoritative mapping. Prompt/chat-template counts are a future benchmark, not measured here.

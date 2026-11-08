@@ -23,4 +23,4 @@ bash build.sh
 node --test tests/*.test.mjs
 ```
 
-[Pages CI](../.github/workflows/travny-pages.yml) also runs lint and asserts the Cloudflare Git source/settings. Do not change project, move Astro's output into `site/` directly, duplicate the publication feed, or alter legacy Atom IDs/URLs. Design tokens are opt-in `--tr-*`; existing pages keep their palette.
+[Pages CI](../.github/workflows/travny-pages.yml) runs lint. PR checks do not change Cloudflare settings; main pushes and manual `assert` runs can PATCH project settings, including setting `preview_deployment_setting` to `none`. Do not change project, move Astro's output into `site/` directly, duplicate the publication feed, or alter legacy Atom IDs/URLs. Design tokens are opt-in `--tr-*`; existing pages keep their palette.

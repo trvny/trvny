@@ -61,7 +61,7 @@ test('review source badge adds a deterministic provider favicon without model in
   assert.equal(reviewSourceBadge('free-router', null), 'free router');
 });
 
-test('only genuinely clean reviews stay silent', () => {
+test('only genuinely empty finding lists are classified as clean', () => {
   assert.equal(reviewDisposition([], []), 'clean');
   assert.equal(reviewDisposition([{}], []), 'invalid_findings');
   assert.equal(reviewDisposition([{}], [{}]), 'publish');
@@ -527,14 +527,60 @@ test('paid phase never pays a second provider after an invalid review', async ()
   assert.ok(reviewSweepMaxAttempts('free') > 1);
 });
 
-test('provider sweep accepts a clean review without asking anyone else', async () => {
+test('free review seeks a second independent clean assessment', async () => {
+  const seen: string[][] = [];
+  const result = await sweepReviewProviders((excluded) => {
+    seen.push([...excluded]);
+    return Promise.resolve<ReviewRouterOutcome>({
+      kind: 'ok', review: {
+        model: null, provider: excluded.length ? 'orcarouter' : 'vercel',
+        parsed: { summary: '没有发现问题。', findings: [] },
+      },
+    });
+  }, sweepFiles);
+  assert.deepEqual(seen, [[], ['vercel']]);
+  assert.equal(result.disposition, 'clean');
+  assert.equal(result.generated?.provider, 'orcarouter');
+});
+
+test('second free reviewer can catch a defect after the first reports clean', async () => {
+  const outcomes: ReviewRouterOutcome[] = [
+    { kind: 'ok', review: { provider: 'vercel', model: null,
+      parsed: { summary: '没有发现问题。', findings: [] } } },
+    { kind: 'ok', review: { ...sweepReview('  const result = unsafeCall(input);'),
+      provider: 'orcarouter' } },
+  ];
+  const result = await sweepReviewProviders(
+    () => Promise.resolve(outcomes.shift() ?? { kind: 'unavailable' }), sweepFiles);
+  assert.equal(result.disposition, 'publish');
+  assert.equal(result.generated?.provider, 'orcarouter');
+  assert.equal(result.findings.length, 1);
+});
+
+test('a lone complete clean result remains usable if the second provider fails', async () => {
+  const outcomes: ReviewRouterOutcome[] = [
+    { kind: 'ok', review: { model: null, provider: 'groq',
+      parsed: { summary: '没有发现问题。', findings: [] } } },
+    { kind: 'unavailable' },
+  ];
+  const result = await sweepReviewProviders(
+    () => Promise.resolve(outcomes.shift() ?? { kind: 'unavailable' }), sweepFiles);
+  assert.equal(result.disposition, 'clean');
+  assert.equal(result.generated?.provider, 'groq');
+  assert.equal(result.attempts, 2);
+});
+
+test('paid clean review stops after one billed provider', async () => {
   let calls = 0;
   const result = await sweepReviewProviders(() => {
     calls += 1;
-    return Promise.resolve<ReviewRouterOutcome>({ kind: 'ok', review: { model: null, provider: 'vercel', parsed: { summary: '', findings: [] } } });
-  }, sweepFiles);
-  assert.equal(calls, 1);
+    return Promise.resolve<ReviewRouterOutcome>({
+      kind: 'ok', review: { model: null, provider: 'xai',
+        parsed: { summary: '没有发现问题。', findings: [] } },
+    });
+  }, sweepFiles, { maxAttempts: reviewSweepMaxAttempts('paid') });
   assert.equal(result.disposition, 'clean');
+  assert.equal(calls, 1);
 });
 
 test('a clean partial Groq scan cannot certify the entire PR', async () => {
@@ -543,11 +589,13 @@ test('a clean partial Groq scan cannot certify the entire PR', async () => {
     seen.push([...excluded]);
     return Promise.resolve<ReviewRouterOutcome>(excluded.length === 0
       ? { kind: 'ok', review: { model: 'gpt-oss-120b', provider: 'groq', partial: true, parsed: { summary: '', findings: [] } } }
-      : { kind: 'ok', review: { model: 'gpt-oss:120b', provider: 'ollama', parsed: { summary: '', findings: [] } } });
+      : excluded.length === 1
+        ? { kind: 'ok', review: { model: 'gpt-oss:120b', provider: 'ollama', parsed: { summary: '', findings: [] } } }
+        : { kind: 'unavailable' });
   }, sweepFiles);
   assert.equal(result.generated?.provider, 'ollama');
   assert.equal(result.disposition, 'clean');
-  assert.deepEqual(seen, [[], ['groq']]);
+  assert.deepEqual(seen, [[], ['groq'], ['groq', 'ollama']]);
 });
 
 test('a lone clean partial Groq scan remains inconclusive', async () => {

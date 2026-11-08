@@ -14,6 +14,8 @@ function objectValue(value: unknown): JsonObject {
 }
 
 function error(status: number, code: string, retryAfter?: string): XaiReviewRpcResult {
+  // The router sees only HTTP status. Keep private failure reasons in logs.
+  if (status >= 500) console.warn(JSON.stringify({ kanarekXaiReview: 'rpc_failed', status, code }));
   return { status, payload: { error: { code, message: code } },
     ...(retryAfter ? { retryAfter } : {}) };
 }
@@ -75,8 +77,10 @@ export async function requestGrokReview(
       body: JSON.stringify(request),
       signal: AbortSignal.timeout(Math.min(240_000, timeLeft)),
     });
-  } catch {
-    return error(502, 'xai_network_or_timeout');
+  } catch (cause) {
+    const timeout = cause instanceof Error &&
+      (cause.name === 'TimeoutError' || cause.name === 'AbortError');
+    return error(502, timeout ? 'xai_timeout' : 'xai_network');
   }
   if (!upstream.ok) {
     const retryAfter = upstream.headers.get('retry-after') || undefined;
@@ -99,6 +103,16 @@ export async function requestGrokReview(
     typeof part.text === 'string').map((part) => part.text as string).join('\n');
   if (!text.trim()) return error(502, 'xai_empty_response');
   const usage = objectValue(data.usage);
+  const inputDetails = objectValue(usage.input_tokens_details);
+  const outputDetails = objectValue(usage.output_tokens_details);
+  console.info(JSON.stringify({
+    kanarekXaiReview: 'completed',
+    model: typeof data.model === 'string' ? data.model : request.model,
+    inputTokens: usage.input_tokens ?? null,
+    cachedTokens: inputDetails.cached_tokens ?? null,
+    outputTokens: usage.output_tokens ?? null,
+    reasoningTokens: outputDetails.reasoning_tokens ?? null,
+  }));
   return {
     status: 200,
     payload: {

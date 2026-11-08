@@ -578,8 +578,15 @@ export async function sweepReviewProviders(
       // A clean answer based on only a Groq-sized subset is not a clean PR.
       // Keep sweeping the other free providers instead of blessing unseen files.
       if (!(outcome.review.partial && disposition === 'clean')) {
-        last = { attempts, disposition, excluded: [...excluded], findings, generated: outcome.review };
-        if (disposition !== 'invalid_findings') return last;
+        const candidate = { attempts, disposition, excluded: [...excluded], findings, generated: outcome.review };
+        if (disposition === 'publish') return candidate;
+        if (disposition === 'clean') {
+          // One clean free model is not an independent code review. Seek a second.
+          if (last?.disposition === 'clean' || maxAttempts === 1) return candidate;
+          last = candidate;
+        } else if (!last || last.disposition === 'invalid_findings') {
+          last = candidate;
+        }
       }
     }
     // Without a concrete provider id the router cannot skip it next time.
@@ -955,12 +962,6 @@ export async function runWebhookReview(
         model: generated.model,
       }),
     );
-    return {
-      reviewed: true,
-      provider: generated.provider,
-      findingCount: 0,
-      skipped: 'no_findings',
-    };
   }
   if (disposition === 'invalid_findings') {
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
@@ -989,7 +990,7 @@ export async function runWebhookReview(
   let judged: JudgedFindings | null = null;
   let decisionMarker: string | null = null;
   // Skip expensive L2 when the 15-minute alarm needs its publication margin.
-  if (!paidPhase && Date.now() - alarmStartedAt < 12 * 60_000) {
+  if (disposition === 'publish' && !paidPhase && Date.now() - alarmStartedAt < 12 * 60_000) {
     const decisionAttempt = await askDecisionJudge(
       findings,
       generated.provider,
@@ -1033,12 +1034,6 @@ export async function runWebhookReview(
       judgeModel: judged.model,
       findingCountBeforeJudge: findings.length,
     }));
-    return {
-      reviewed: true,
-      provider: generated.provider,
-      findingCount: 0,
-      skipped: 'no_findings_judged',
-    };
   }
 
   const submit = async (): Promise<WebhookReviewResult> => {
@@ -1060,7 +1055,8 @@ export async function runWebhookReview(
       };
     }
 
-    const summary = generated.parsed.summary || '发现了需要处理的问题。🐤';
+    const summary = generated.parsed.summary ||
+      (publishFindings.length ? '发现了需要处理的问题。🐤' : '未发现需要处理的问题。🐤');
     const severity = { high: '高', medium: '中', low: '低' } as const;
     const payload = {
       commit_id: target.headSha,
@@ -1107,6 +1103,9 @@ export async function runWebhookReview(
       reviewed: true,
       provider: generated.provider,
       findingCount: publishFindings.length,
+      ...(publishFindings.length === 0
+        ? { skipped: judged ? 'no_findings_judged' : 'no_findings' }
+        : {}),
     };
   };
 

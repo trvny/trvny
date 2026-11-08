@@ -4,7 +4,7 @@
 
 > **Agent entry:** `src/index.ts` is the local confined MCP worker; `control-plane/` is the remote Cloudflare Queues coordinator.
 > **Validate / run:** `cd mcp/pet-dispatcher && npm ci && npm run check:portable`.
-> **Boundary:** workspace confinement by default; trusted host/device/LAN access requires explicit scoped authority. [Interactive bridge contract](docs/interactive-tool-bridge.md) is authoritative.
+> **Boundary:** workspace confinement by default; trusted host/device/LAN access requires explicit scoped authority. [Interactive bridge contract](interactive-tool-bridge.md) is authoritative.
 
 Workspace-confined MCP worker for using a trusted development machine without exposing an unrestricted host shell.
 

@@ -17,5 +17,5 @@ Dependency-free modules shared by **two or more** Workers under `gh-apps/`. Impo
 
 - Shared-code changes trigger [consumer CI](../../.github/workflows/gh-apps-ci.yml) and Worker watch paths. Validate affected app(s), not this folder alone.
 - Keep single-consumer logic in that app. Cloudflare ambient types come from consumer TypeScript configuration.
-- Lock command: `acquire|release <worker> <owner>`. D1 Edit permission required by deploy/sync tokens.
+- Lock CLI (with dependencies installed): from `gh-apps/kanarek-companion/`, run `node ../core/deploy-lock.mjs acquire <worker> <owner>` or replace `acquire` with `release`. Deploy/sync tokens need D1 Edit.
 - Deployment tests: [`kanarek-companion/test/worker-deploy.test.ts`](../kanarek-companion/test/worker-deploy.test.ts).

@@ -4,7 +4,7 @@
 
 > **Agent entry:** `src/content/digests/YYYY-MM-DD.md` is the only maintained source for each digest; `src/pages/` renders Astro routes.
 > **Validate:** `cd pages/astro && npm ci && npm run build` (or `npm run check` for Astro types).
-> **Boundary:** additive output to the existing Pages hub, **one** shared `/teksty/feed.xml`; [automatic publication gate](../../.github/workflows/coczydziennik-publish.yml) runs after PR review.
+> **Boundary:** additive output to the existing Pages hub, **one** shared `/teksty/feed.xml`; [publication gate](../../.github/workflows/coczydziennik-publish.yml) starts on digest PR events and waits before checking CI/review state. It does not wait for review approval; branch protection is separate.
 
 Incremental Astro 7 + MDX lab pages under **/lab/** and Markdown CoCzyDziennik issues under **/przeglad/**, both on the existing Cloudflare Pages project. The old hub and Quarto renders remain unchanged. Existing Pages Functions inject shared navigation and preserve English `lang` and `Content-Language` for Lab routes.
 

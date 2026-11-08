@@ -2,7 +2,7 @@
 
 [![GitHub Apps CI](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/gh-apps-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/)
 
-> **Agent entry:** `src/index.ts` is a thin OAuth-gated wrapper around the companion action runtime.
+> **Agent entry:** `src/entry.ts` wraps MCP in OAuth; `src/index.ts` reuses the guarded companion runtime and serves legacy GPT Actions. Do not deploy `src/index.ts` as the production MCP entry.
 > **Validate:** `cd gh-apps/gremlin && npm ci && npm run check`.
 > **Boundary:** Guarded mutations only. Shared transport and replay contract:
 > [GPTomek reference](../gptomek/docs/REFERENCE.md).

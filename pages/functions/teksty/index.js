@@ -65,7 +65,7 @@ export async function onRequest(context) {
           element.before(renderShitpostCard(shitpost), { html: true });
         }
         if (publications.length > 0) {
-          element.setInnerContent(publications.sort((a, b) => Number(b.featured === true) - Number(a.featured === true) || latestFirst(a, b)).map(renderCard).join("\n"), { html: true });
+          element.setInnerContent(publications.sort(latestFirst).map(renderCard).join("\n"), { html: true });
         }
       },
     });

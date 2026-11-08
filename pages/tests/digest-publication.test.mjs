@@ -49,7 +49,7 @@ class FakeRewriter {
   }
 }
 
-test('published digest joins the home page, text directory and Atom while featured links stay pinned', async () => {
+test('published digest joins the home page, text directory and Atom, newest first', async () => {
   const originalFetch = globalThis.fetch;
   const originalRewriter = globalThis.HTMLRewriter;
   globalThis.fetch = () => Promise.resolve(Response.json({ version: 'https://jsonfeed.org/version/1.1', items: [] }));
@@ -67,8 +67,8 @@ test('published digest joins the home page, text directory and Atom while featur
     assert.doesNotMatch(homeHtml, /<details class="textexpand">/);
     assert.ok(homeHtml.indexOf('News &amp; &lt;more&gt;') < homeHtml.indexOf('<nav class="fastext">'));
     assert.match(textsHtml, /<div id="text-list">[\s\S]*News &amp; &lt;more&gt;[\s\S]*<\/div>/);
-    assert.ok(textsHtml.indexOf('Token World Cup') < textsHtml.indexOf('News &amp; &lt;more&gt;'));
     assert.ok(textsHtml.indexOf('News &amp; &lt;more&gt;') < textsHtml.indexOf('Older text'));
+    assert.ok(textsHtml.indexOf('Older text') < textsHtml.indexOf('Token World Cup'), 'featured is not pinned');
     assert.match(xml, /<id>https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/<\/id>/);
     assert.match(xml, /<link rel="alternate" href="https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/"\/>/);
     assert.ok(xml.indexOf('News &amp; &lt;more&gt;') < xml.indexOf('Older text'));

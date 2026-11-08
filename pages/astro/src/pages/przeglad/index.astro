@@ -4,7 +4,7 @@ import DigestLayout from '../../layouts/DigestLayout.astro';
 const issues = (await getCollection('digests', ({ data }) => !data.draft)).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 const formatDate = (date) => new Intl.DateTimeFormat('pl-PL', { dateStyle: 'long', timeZone: 'UTC' }).format(date);
 ---
-<DigestLayout title="CoCzyDziennik" description="Przegląd wydarzeń, technologii i kultury — archiwum TRAVNY.">
+<DigestLayout title="CoCzyDziennik" description="Przegląd wydarzeń, technologii i kultury — archiwum CoCzyDziennika TRAVNY z codziennymi wydaniami i streszczeniami.">
   <h1>CoCzyDziennik</h1>
   <p class="lede">Świat, technologia, kultura i ciekawostki. Przegląd w jednym miejscu, z linkami do źródeł.</p>
   <div class="rule"></div>

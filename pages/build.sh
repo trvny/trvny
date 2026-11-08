@@ -4,9 +4,9 @@ set -eu
 out=site/teksty/token-worldcup
 mkdir -p "$out"
 cp token-worldcup/token-worldcup.html "$out/index.html"
-# effort-matrix links to the sibling filename; canonical points at the directory.
-cp token-worldcup/token-worldcup.html "$out/token-worldcup.html"
 cp token-worldcup/effort-matrix.html "$out/effort-matrix.html"
+# Pages link these sources by relative name; publish them next to the HTML.
+cp token-worldcup/recount-*.py token-worldcup/recount-*.mjs token-worldcup/*-token-counts.json "$out/"
 
 # Publish pinned Papagenerator sources from travnie/twojstar without forking them.
 # Bump this commit after testing upstream changes, not on every hub deployment.

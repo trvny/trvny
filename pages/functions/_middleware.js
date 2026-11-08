@@ -277,6 +277,13 @@ export async function onRequest(context) {
     return Response.redirect(url.toString(), 301);
   }
 
+  // Former duplicate of the Token Worldcup index; build no longer publishes it.
+  if ((context.request.method === "GET" || context.request.method === "HEAD")
+    && ["/teksty/token-worldcup/token-worldcup", "/teksty/token-worldcup/token-worldcup.html"].includes(url.pathname)) {
+    url.pathname = "/teksty/token-worldcup/";
+    return Response.redirect(url.toString(), 301);
+  }
+
   if (context.request.method !== "GET") {
     return withPreviewNoindex(await context.next(), url.hostname);
   }

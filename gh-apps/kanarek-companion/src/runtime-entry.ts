@@ -7,7 +7,8 @@ import {
   botekGithubPullStatus,
   type BotekEngramStoreInput,
 } from './specialists/botek-specialists.ts';
-import { createAppJwt } from '../../core/github-app.ts';
+import { createAppJwt, createInstallationClient, repositoryInstallationId } from '../../core/github-app.ts';
+import { githubReadAllowed } from './gptomek/github-gateway.ts';
 import { requestGrokReview } from './companion/xai-review-rpc.ts';
 import runtime, { actionFetch, type RuntimeEnv } from './runtime.ts';
 import type { JsonObject } from './tools/common.ts';
@@ -61,7 +62,28 @@ export class GptomekSignerEntrypoint extends WorkerEntrypoint<RuntimeEnv> {
 
 export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
   async completeReview(input: unknown, deadlineAt: number) {
-    return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt);
+    return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt, async (repository) => {
+      const boundedFetch: typeof fetch = (url, init = {}) => {
+        const remaining = deadlineAt - Date.now() - 5_000;
+        if (remaining <= 0) throw new Error('grok_agent_github_deadline');
+        return fetch(url, { ...init, signal: AbortSignal.timeout(Math.min(30_000, remaining)) });
+      };
+      const install = await repositoryInstallationId(
+        this.env.GITHUB_APP_ID, this.env.GITHUB_PRIVATE_KEY, repository, boundedFetch);
+      const client = await createInstallationClient(
+        this.env.GITHUB_APP_ID, this.env.GITHUB_PRIVATE_KEY, install, boundedFetch);
+      return { read: async (path: string) => {
+        const repoPath = '/repos/' + repository + '/';
+        const search = path.startsWith('/search/code?') ?
+          new URL(path, 'https://api.github.com').searchParams.get('q') : null;
+        const exactSearch = search !== null && search.endsWith(' repo:' + repository) &&
+          search.split(/\s+/).filter((part) => part.startsWith('repo:')).length === 1;
+        if (!githubReadAllowed(path) || (!path.startsWith(repoPath) && !exactSearch)) {
+          throw new Error('grok_agent_read_out_of_scope');
+        }
+        return client.json(path, 'grok_agent_scoped_read');
+      } };
+    });
   }
 }
 

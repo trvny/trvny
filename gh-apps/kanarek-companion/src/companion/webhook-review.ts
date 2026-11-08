@@ -22,6 +22,7 @@ import {
   objectValue,
   reviewTextIsChinese,
   selectReviewFiles,
+  selectReviewEvidenceFiles,
   type ReviewDependencyEvidence,
   fetchReviewDependencyEvidence,
   reviewInputState,
@@ -364,8 +365,10 @@ export function reviewPrompt(
     complete: false,
     files: files.map((file) => ({ path: file.path, status: 'unknown' })),
   },
+  scope?: { repository: string; headSha: string },
 ): string {
   return JSON.stringify({
+    ...(scope ? { review_scope: { repository: scope.repository, head_sha: scope.headSha } } : {}),
     pull_request: {
       number,
       title: typeof title === 'string' ? title.slice(0, 300) : '',
@@ -842,7 +845,7 @@ export async function runWebhookReview(
     {
       maxPages: 30,
       stopWhen: (items) =>
-        reviewFileCollectionComplete(items, maxDiffChars, maxPatchChars),
+        !paidPhase && reviewFileCollectionComplete(items, maxDiffChars, maxPatchChars),
     },
   );
   const changeInventory = reviewChangeInventory(
@@ -850,6 +853,7 @@ export async function runWebhookReview(
     reviewChangeInventoryComplete(pr.changed_files, rawFiles),
   );
   const files = selectReviewFiles(rawFiles, maxDiffChars, maxPatchChars);
+  const verifiableFiles = paidPhase ? selectReviewEvidenceFiles(rawFiles) : files;
   const inputState = reviewInputState(rawFiles, files.length);
   if (inputState !== 'reviewable') {
     return {
@@ -889,6 +893,7 @@ export async function runWebhookReview(
     callers,
     dependencyEvidence,
     changeInventory,
+    paidPhase ? { repository: target.repository, headSha: target.headSha } : undefined,
   );
   const sweep = await sweepReviewProviders(
     (excluded, signal) => askReviewRouter(
@@ -898,7 +903,7 @@ export async function runWebhookReview(
       excluded,
       signal,
     ),
-    files,
+    verifiableFiles,
     {
       maxAttempts: reviewSweepMaxAttempts(paidPhase ? 'paid' : 'free'),
       ...(paidPhase

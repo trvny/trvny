@@ -128,3 +128,28 @@ test('judge revision never changes the selected output kind', () => {
     top_text: 'a', bottom_text: 'b' } }), selected, parse), null);
   assert.equal(parseJudgeRevision('{"revision":{"kind":"text","text":""}}', selected, parse), null);
 });
+
+test('invalid candidate excludes its provider before collecting another valid draft', async () => {
+  let calls = 0;
+  const excludes = [];
+  const fetchImpl = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    if (body.model === JUDGE_MODEL) {
+      return Response.json({ model: 'judge', choices: [{ message: { content: '{"pick":1}' } }] });
+    }
+    const index = calls++;
+    excludes.push(init.headers['x-kanarek-review-exclude-provider'] || '');
+    return new Response(JSON.stringify({ model: 'model-' + index, choices: [{
+      message: { content: index === 0 ? 'not json' : JSON.stringify({ kind: 'text', text: 'valid ' + index }) },
+    }] }), {
+      headers: { 'x-kanarek-review-provider': ['aihubmix', 'vercel', 'groq'][index] },
+    });
+  };
+  const result = await generateBestShitpost({
+    endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl,
+    count: 2, log: () => {},
+  });
+  assert.equal(result.editorial.candidates.length, 2);
+  assert.deepEqual(result.editorial.candidates.map((item) => item.provider), ['vercel', 'groq']);
+  assert.deepEqual(excludes, ['', 'aihubmix', 'aihubmix,vercel']);
+});

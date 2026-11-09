@@ -16,6 +16,10 @@ on: # yamllint disable-line rule:truthy
       - ".github/workflows/devbox-control.yml"
   workflow_dispatch:
 
+concurrency:
+  group: devbox-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

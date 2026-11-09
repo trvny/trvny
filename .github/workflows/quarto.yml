@@ -29,6 +29,9 @@ permissions:
 
 jobs:
   check:
+    concurrency:
+      group: quarto-check-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     if: >-
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
@@ -85,6 +88,10 @@ jobs:
         run: git diff --exit-code -- pages/token-worldcup
 
   update:
+    concurrency:
+      group: quarto-extension-update
+      queue: max
+      cancel-in-progress: false
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' &&

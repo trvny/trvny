@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { boundedTree } from '../src/companion/webhook-review-context.ts';
 import {
   applyReviewJudge,
+  focusedReviewJudgeContext,
   reviewJudgeThreshold,
   verifyReviewFindings,
 } from '../src/companion/webhook-review-judge.ts';
 import {
   parseReviewJson,
   reviewDisposition,
+  reviewPublicationDisposition,
   reviewFreeSweepBudgetMs,
   reviewSourceBadge,
   reviewSourceLabel,
@@ -16,6 +19,50 @@ import {
   sweepReviewProviders,
   type ReviewRouterOutcome,
 } from '../src/companion/webhook-review.ts';
+
+test('clean reviews are silent and need no generated summary', () => {
+  assert.equal(reviewPublicationDisposition([]), 'silent');
+  assert.equal(reviewPublicationDisposition([{}]), 'comment');
+  const parsed = parseReviewJson('{"summary":"","findings":[]}');
+  assert.ok(parsed);
+  assert.equal(reviewDisposition(parsed.findings, []), 'clean');
+});
+
+test('judge receives the relevant evidence, not every unrelated file and diff', () => {
+  const input = JSON.stringify({
+    pull_request: { number: 1 },
+    diff: '### src/a.ts\n@@ -1 +1 @@\n+const a = broken();\n\n### other/b.ts\n@@ -1 +1 @@\n+const b = fine();',
+    change_inventory: { complete: true, files: [{ path: 'src/a.ts' }, { path: 'other/b.ts' }] },
+    repository_context: {
+      files: [
+        { path: 'src/a.ts', content: 'a detail' },
+        { path: 'src/AGENTS.md', content: 'scope guidance' },
+        { path: 'other/b.ts', content: 'unrelated context' },
+      ],
+      callers: [{ path: 'src/a.ts', callers: ['src/c.ts'] }, { path: 'other/b.ts', callers: [] }],
+      tree: ['src/a.ts', 'other/b.ts'],
+    },
+  });
+  const focused = JSON.parse(focusedReviewJudgeContext(input, [{ path: 'src/a.ts' }]));
+  assert.equal(focused.diff.includes('src/a.ts'), true);
+  assert.equal(focused.diff.includes('other/b.ts'), false);
+  assert.deepEqual(focused.repository_context.files.map((file: { path: string }) => file.path),
+    ['src/a.ts', 'src/AGENTS.md']);
+  assert.equal(focused.repository_context.callers.length, 1);
+  assert.equal(focused.change_inventory.files.length, 2);
+});
+
+test('tree prioritizes nearby paths and never claims an incomplete tree is complete', () => {
+  const files = Array.from({ length: 700 }, (_item, index) =>
+    ({ path: `unrelated/long-name-${index}.ts` }));
+  files.push({ path: 'src/core/AGENTS.md' }, { path: 'src/core/entry.ts' },
+    { path: 'src/other/related.ts' }, { path: 'README.md' });
+  const tree = boundedTree(files, ['src/core/entry.ts']);
+  assert.equal(tree[0], 'src/core/AGENTS.md');
+  assert.equal(tree.includes('src/core/entry.ts'), true);
+  assert.equal(tree.includes('README.md'), false);
+  assert.ok(tree.length < files.length);
+});
 
 test('review source label includes provider and concrete upstream model', () => {
   assert.equal(

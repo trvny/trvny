@@ -40,7 +40,9 @@ jobs:
           set -euo pipefail
           python -m json.tool .devcontainer/devcontainer.json >/dev/null
           python -m json.tool .devcontainer/tools/package.json >/dev/null
-          python -m json.tool .mcp.json >/dev/null
+          if [ -f .mcp.json ]; then
+            python -m json.tool .mcp.json >/dev/null
+          fi
           python -m py_compile .devcontainer/maintenance.py .devcontainer/media.py .devcontainer/handoff.py .devcontainer/codespaces_control.py
           for script in .devcontainer/devbox .devcontainer/setup.sh .devcontainer/install-hermes.sh .devcontainer/install-ubol.sh; do
             bash -n "$script"

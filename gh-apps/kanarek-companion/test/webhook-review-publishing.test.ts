@@ -49,6 +49,8 @@ test('judge receives the relevant evidence, not every unrelated file and diff', 
   assert.deepEqual(focused.repository_context.files.map((file: { path: string }) => file.path),
     ['src/a.ts', 'src/AGENTS.md']);
   assert.equal(focused.repository_context.callers.length, 1);
+  assert.deepEqual(focused.repository_context.tree, ['src/a.ts']);
+  assert.equal(focused.repository_context.treeTruncated, true);
   assert.equal(focused.change_inventory.files.length, 2);
 });
 

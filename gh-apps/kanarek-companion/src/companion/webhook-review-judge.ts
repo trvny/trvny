@@ -647,6 +647,8 @@ export function focusedReviewJudgeContext(
       });
     };
     const callers = Array.isArray(repository.callers) ? repository.callers : [];
+    const tree = Array.isArray(repository.tree) ? repository.tree : [];
+    const relevantTree = tree.filter((value) => typeof value === 'string' && relevantFile({ path: value }));
     return JSON.stringify({
       ...input,
       diff: relevantDiff.join('\n\n'),
@@ -654,6 +656,8 @@ export function focusedReviewJudgeContext(
         ...repository,
         files: files.filter(relevantFile),
         callers: callers.filter((item) => paths.has(String(objectValue(item).path ?? ''))),
+        tree: relevantTree,
+        treeTruncated: repository.treeTruncated === true || relevantTree.length < tree.length,
       },
     });
   } catch {

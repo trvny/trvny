@@ -686,12 +686,12 @@ export async function fetchCallerEvidence(
 export function boundedTree(entries: GitTreeEntry[], changedPaths: readonly string[]): string[] {
   const output: string[] = [];
   let used = 0;
-  for (const path of entries
+  for (const { path } of entries
     .map((entry) => entry.path)
     .filter((path): path is string => Boolean(path))
-    .filter((path) => contextPriority(path, changedPaths) < 20)
-    .sort((left, right) => contextPriority(left, changedPaths) - contextPriority(right, changedPaths)
-      || left.localeCompare(right))) {
+    .map((path) => ({ path, priority: contextPriority(path, changedPaths) }))
+    .filter(({ priority }) => priority < 20)
+    .sort((left, right) => left.priority - right.priority || left.path.localeCompare(right.path))) {
     if (output.length >= MAX_TREE_PATHS) break;
     const next = path.length + 1;
     if (used + next > MAX_TREE_CHARS) break;
@@ -718,6 +718,7 @@ export async function fetchRepositoryContext(
     treeEntries = Array.isArray(tree.tree) ? tree.tree : [];
     treeTruncated = tree.truncated === true;
   } catch (error) {
+    treeTruncated = true;
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'tree_unavailable',

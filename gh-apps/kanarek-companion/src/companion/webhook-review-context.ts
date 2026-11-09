@@ -12,8 +12,8 @@ export const MAX_PATCH_CHARS = 14_000;
 const MAX_CONTEXT_FILES = 24;
 const MAX_CONTEXT_FILE_CHARS = 32_000;
 const MAX_CONTEXT_BLOB_BYTES = 192_000;
-const MAX_TREE_PATHS = 2_000;
-const MAX_TREE_CHARS = 24_000;
+const MAX_TREE_PATHS = 400;
+const MAX_TREE_CHARS = 8_000;
 const MAX_CALLER_TARGETS = 2;
 const MAX_CALLER_CANDIDATES = 6;
 const MAX_CALLERS_PER_TARGET = 5;
@@ -279,6 +279,12 @@ function contextPriority(path: string, changedPaths: readonly string[]): number 
     }
   }
 
+  // A nearby README can explain behavior; the root README should not accompany every deep code change.
+  if (name === 'README.md') {
+    if (sameDirectory) return -110;
+    return pathDirectory && changedPaths.some((changed) => changed.startsWith(`${pathDirectory}/`))
+      ? -40 : 100;
+  }
   if (name === 'AGENTS.md' && ancestorConfig) return -300;
   if (ancestorConfig) return -200;
   if (sameDirectory) return -120;
@@ -684,13 +690,15 @@ export async function fetchCallerEvidence(
   return results.filter((entry): entry is CallerEvidence => Boolean(entry));
 }
 
-function boundedTree(entries: GitTreeEntry[]): string[] {
+export function boundedTree(entries: GitTreeEntry[], changedPaths: readonly string[]): string[] {
   const output: string[] = [];
   let used = 0;
-  for (const path of entries
+  for (const { path } of entries
     .map((entry) => entry.path)
     .filter((path): path is string => Boolean(path))
-    .sort()) {
+    .map((path) => ({ path, priority: contextPriority(path, changedPaths) }))
+    .filter(({ priority }) => priority < 20)
+    .sort((left, right) => left.priority - right.priority || left.path.localeCompare(right.path))) {
     if (output.length >= MAX_TREE_PATHS) break;
     const next = path.length + 1;
     if (used + next > MAX_TREE_CHARS) break;
@@ -717,6 +725,7 @@ export async function fetchRepositoryContext(
     treeEntries = Array.isArray(tree.tree) ? tree.tree : [];
     treeTruncated = tree.truncated === true;
   } catch (error) {
+    treeTruncated = true;
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'tree_unavailable',
@@ -725,8 +734,9 @@ export async function fetchRepositoryContext(
     );
   }
 
-  const tree = boundedTree(treeEntries);
   const changedPaths = files.map((file) => file.path);
+  const tree = boundedTree(treeEntries, changedPaths);
+  treeTruncated ||= tree.length < treeEntries.filter((entry) => typeof entry.path === 'string').length;
   const changedPathSet = new Set(changedPaths);
   const entriesByPath = new Map(
     treeEntries
@@ -751,6 +761,7 @@ export async function fetchRepositoryContext(
       entry,
       priority: contextPriority(entry.path ?? '', changedPaths),
     }))
+    .filter(({ priority }) => priority < 20)
     .sort((left, right) => {
       const priority = left.priority - right.priority;
       if (priority !== 0) return priority;

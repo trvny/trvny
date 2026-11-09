@@ -153,8 +153,20 @@ test('signed legacy-audience publishing works on both hosts; retries preserve ol
   const privateDrafts = withVault.objects.get('editorial/gh-1001-1.json');
   assert.equal(publicPost.content.text, post.content.text);
   assert.equal('editorial' in publicPost, false);
-  assert.equal(privateDrafts.candidates[1].content.text, 'second draft');
+  assert.equal(privateDrafts.runner_up.content.text, 'second draft');
+  assert.equal(privateDrafts.runner_up.provider, 'aihubmix');
+  assert.equal(privateDrafts.winner.provider, 'groq');
+  assert.equal('candidates' in privateDrafts, false);
+  assert.equal(JSON.stringify(privateDrafts).includes('first draft'), false);
   assert.equal(privateDrafts.pick, 0);
   assert.equal((await publish(stable, await token(1001), withVault, candidatePost)).status, 200);
   assert.equal(withVault.postWrites, 1);
+  const withSingle = bucket();
+  const single = {
+    ...post,
+    editorial: { candidates: [candidatePost.editorial.candidates[0]], pick: 0, judge: null },
+  };
+  assert.equal((await publish(stable, await token(1002), withSingle, single)).status, 201);
+  assert.equal(withSingle.objects.has('editorial/gh-1002-1.json'), false);
+  assert.equal(withSingle.objects.get('posts/gh-1002-1.json').content.text, post.content.text);
 });

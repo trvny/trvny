@@ -28,21 +28,21 @@ function routerFake({ texts, judge, failAfter = Infinity }) {
 }
 
 test('best-of asks distinct providers, then publishes the judge pick', async () => {
-  const fake = routerFake({ texts: ['meh', 'better', 'best'], judge: '{"pick":2,"why":"sharpest turn"}' });
+  const fake = routerFake({ texts: ['meh', 'better'], judge: '{"pick":1,"why":"sharpest turn"}' });
   const lines = [];
   const result = await generateBestShitpost({
     endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl: fake.fetchImpl, log: (l) => lines.push(l),
   });
-  assert.equal(result.content.text, 'best');
-  assert.equal(result.provider, 'groq');
-  assert.deepEqual(fake.calls.map((call) => call.exclude), ['', 'aihubmix', 'aihubmix,vercel', '']);
+  assert.equal(result.content.text, 'better');
+  assert.equal(result.provider, 'vercel');
+  assert.deepEqual(fake.calls.map((call) => call.exclude), ['', 'aihubmix', '']);
   assert.equal(fake.calls.at(-1).model, JUDGE_MODEL);
-  assert.match(lines[0], /candidates=3 pick=2/);
+  assert.match(lines[0], /candidates=2 pick=1/);
 });
 
 test('an invalid or failed judge falls back to the first candidate', async () => {
   for (const judge of ['{"pick":7}', 'not json', new TypeError('fetch failed')]) {
-    const fake = routerFake({ texts: ['first', 'second', 'third'], judge });
+    const fake = routerFake({ texts: ['first', 'second'], judge });
     const result = await generateBestShitpost({
       endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl: fake.fetchImpl,
       sleepImpl: async () => {}, log: () => {},
@@ -76,7 +76,7 @@ test('judge pick parsing tolerates fences and rejects out-of-range picks', () =>
 
 test('the judge can polish its pick without discarding the original finalists', async () => {
   const fake = routerFake({
-    texts: ['raw first', 'raw second', 'raw third'],
+    texts: ['raw first', 'raw second'],
     judge: JSON.stringify({
       pick: 1, why: 'best premise',
       revision: { kind: 'text', title: 'A sharper headline', text: 'polished second' },
@@ -87,11 +87,11 @@ test('the judge can polish its pick without discarding the original finalists', 
     log: () => {},
   });
   assert.equal(result.content.text, 'polished second');
-  assert.equal(result.editorial.candidates.length, 3);
+  assert.equal(result.editorial.candidates.length, 2);
   assert.equal(result.editorial.candidates[1].content.text, 'raw second');
   assert.equal(result.editorial.pick, 1);
   assert.equal(result.editorial.revised, true);
-  assert.equal(fake.calls.length, 4);
+  assert.equal(fake.calls.length, 3);
 });
 
 test('transient 502 exhaustion retries without using up a candidate slot', async () => {
@@ -101,7 +101,7 @@ test('transient 502 exhaustion retries without using up a candidate slot', async
   const fetchImpl = async (_url, init) => {
     const body = JSON.parse(init.body);
     if (body.model === JUDGE_MODEL) {
-      return Response.json({ model: 'judge', choices: [{ message: { content: '{"pick":2}' } }] });
+      return Response.json({ model: 'judge', choices: [{ message: { content: '{"pick":1}' } }] });
     }
     const attempt = candidateCalls++;
     calls.push(init.headers['x-kanarek-review-exclude-provider'] || '');
@@ -116,9 +116,9 @@ test('transient 502 exhaustion retries without using up a candidate slot', async
     endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl,
     sleepImpl: async (ms) => { sleeps.push(ms); }, log: () => {},
   });
-  assert.equal(result.content.text, 'candidate 2');
-  assert.equal(result.editorial.candidates.length, 3);
-  assert.deepEqual(calls, ['', 'aihubmix', 'aihubmix', 'aihubmix', 'aihubmix,vercel']);
+  assert.equal(result.content.text, 'candidate 1');
+  assert.equal(result.editorial.candidates.length, 2);
+  assert.deepEqual(calls, ['', 'aihubmix', 'aihubmix', 'aihubmix']);
   assert.deepEqual(sleeps, [2_000, 5_000]);
 });
 

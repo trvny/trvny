@@ -208,21 +208,27 @@ test('generated editorial headline survives publishing validation and feeds', ()
   assert.equal(feed.items[0].id, textPost.url);
 });
 
-test('editorial validates original finalists without adding them to public posts', () => {
+test('editorial retains only the losing draft without leaking candidates to public posts', () => {
   const source = validateRecord(textPost);
-  const editorial = validateEditorial({
+  const input = {
     candidates: [
       { provider: 'groq', model: 'model-one', content: { kind: 'text', text: 'first' } },
       { provider: 'orcarouter', model: 'model-two', content: { kind: 'text', text: 'second' } },
     ],
     pick: 1, judge: { provider: 'aihubmix', model: 'judge' }, revised: true, why: 'good',
-  }, source);
-  assert.equal(editorial.candidates.length, 2);
-  assert.equal(editorial.candidates[1].content.text, 'second');
+  };
+  const editorial = validateEditorial(input, source);
+  assert.equal(editorial.runner_up.content.text, 'first');
+  assert.equal(editorial.runner_up.provider, 'groq');
+  assert.deepEqual(editorial.winner, { provider: 'orcarouter', model: 'model-two' });
+  assert.equal('candidates' in editorial, false);
   assert.equal(editorial.pick, 1);
   assert.equal(editorial.revised, true);
   assert.equal(validateRecord({ ...textPost, editorial }).editorial, undefined);
-  assert.throws(() => validateEditorial({ ...editorial, pick: 9 }, source), /invalid_editorial_pick/);
-  assert.throws(() => validateEditorial({ ...editorial, candidates: [{ provider: 'x', model: 'y',
+  assert.equal(validateEditorial({ ...input, candidates: [input.candidates[0]], pick: 0 }, source), null);
+  assert.throws(() => validateEditorial({ ...input, pick: 9 }, source), /invalid_editorial_pick/);
+  assert.throws(() => validateEditorial({ ...input, candidates: [...input.candidates, input.candidates[0]] }, source),
+    /invalid_editorial/);
+  assert.throws(() => validateEditorial({ ...input, candidates: [{ provider: 'x', model: 'y',
     content: { kind: 'text', text: 'x'.repeat(2_401) } }] }, source), /invalid_text/);
 });

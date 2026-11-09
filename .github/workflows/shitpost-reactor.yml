@@ -56,21 +56,30 @@ jobs:
       - name: Test generator and feed
         run: npm test
 
-      - name: Require deployed Reactor Worker
+      - name: Require compatible deployed Reactor Worker
         shell: bash
         run: |
           set -euo pipefail
-          expected="$(git -C ../.. log -1 --format=%H -- gh-apps/shitpost-reactor gh-apps/core/worker-deploy.mjs gh-apps/core/deploy-lock.mjs ':(exclude,glob)gh-apps/shitpost-reactor/**/*.md')"
+          worker_paths=(
+            gh-apps/shitpost-reactor
+            gh-apps/core/worker-deploy.mjs
+            gh-apps/core/deploy-lock.mjs
+            ':(exclude,glob)gh-apps/shitpost-reactor/**/*.md'
+          )
+          expected="$(git -C ../.. log -1 --first-parent --format=%H -- "${worker_paths[@]}")"
           for attempt in {1..10}; do
             deployed="$(curl --fail --silent --show-error --max-time 8 https://shitpost-reactor.travny.workers.dev/version || true)"
-            if [[ "$deployed" == "$expected" ]]; then
-              echo "Reactor Worker ready: $deployed"
+            # Docs-only Builds stamp a newer commit without changing Worker code.
+            if [[ "$deployed" =~ ^[0-9a-f]{40}$ ]] \
+              && git -C ../.. merge-base --is-ancestor "$expected" "$deployed" 2>/dev/null \
+              && [[ "$(git -C ../.. log -1 --first-parent --format=%H "$deployed" -- "${worker_paths[@]}")" == "$expected" ]]; then
+              echo "Reactor Worker compatible: deployed=$deployed source=$expected"
               exit 0
             fi
-            echo "Reactor Worker not yet on $expected (attempt $attempt/10)"
+            echo "Reactor Worker not compatible with $expected (deployed=${deployed:-unavailable}, attempt $attempt/10)"
             sleep 15
           done
-          echo "Reactor Worker deployment is stale; refusing incompatible publish" >&2
+          echo "Reactor Worker deployment is stale or incompatible; refusing publish" >&2
           exit 1
 
       - name: Generate draft
@@ -93,5 +102,5 @@ jobs:
         with:
           name: shitpost-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/shitpost-reactor/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14

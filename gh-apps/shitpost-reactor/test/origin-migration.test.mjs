@@ -81,8 +81,10 @@ function bucket(records = []) {
       get: async (key) => key === 'index.json'
         ? { json: async () => [], etag: 'fixture-index', customMetadata: { archive_index_version: '2' } }
         : objects.has(key) ? { json: async () => structuredClone(objects.get(key)) } : null,
+      head: async (key) => objects.has(key) ? { key } : null,
       put: async (key, body) => {
         if (key.startsWith('posts/')) { postWrites++; objects.set(key, JSON.parse(body)); }
+        if (key.startsWith('editorial/')) objects.set(key, JSON.parse(body));
       },
       list: async () => ({
         objects: [...objects].map(([key, record]) => ({ key, uploaded: new Date(record.published_at), customMetadata: { published_at: record.published_at } })),
@@ -115,8 +117,8 @@ test('signed legacy-audience publishing works on both hosts; retries preserve ol
     const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', keyPair.privateKey, new TextEncoder().encode(input));
     return `${input}.${Buffer.from(signature).toString('base64url')}`;
   }
-  const publish = async (origin, jwt, store) => worker.fetch(new Request(`${origin}/api/publish`, {
-    method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' }, body: JSON.stringify(post),
+  const publish = async (origin, jwt, store, payload = post) => worker.fetch(new Request(`${origin}/api/publish`, {
+    method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' }, body: JSON.stringify(payload),
   }), store.env);
   for (const origin of [legacy, stable]) {
     const store = bucket([post]);
@@ -134,4 +136,25 @@ test('signed legacy-audience publishing works on both hosts; retries preserve ol
   const rejected = await publish(stable, await token(1000, stable), fresh);
   assert.equal(rejected.status, 401);
   assert.equal(fresh.postWrites, 1);
+  const candidatePost = {
+    ...post,
+    editorial: {
+      candidates: [
+        { provider: 'groq', model: 'first-model', content: { kind: 'text', text: 'first draft' } },
+        { provider: 'aihubmix', model: 'second-model', content: { kind: 'text', text: 'second draft' } },
+      ],
+      pick: 0, judge: { provider: 'orcarouter', model: 'judge-model' }, why: 'specific', revised: true,
+    },
+  };
+  const withVault = bucket();
+  const response = await publish(stable, await token(1001), withVault, candidatePost);
+  assert.equal(response.status, 201);
+  const publicPost = withVault.objects.get('posts/gh-1001-1.json');
+  const privateDrafts = withVault.objects.get('editorial/gh-1001-1.json');
+  assert.equal(publicPost.content.text, post.content.text);
+  assert.equal('editorial' in publicPost, false);
+  assert.equal(privateDrafts.candidates[1].content.text, 'second draft');
+  assert.equal(privateDrafts.pick, 0);
+  assert.equal((await publish(stable, await token(1001), withVault, candidatePost)).status, 200);
+  assert.equal(withVault.postWrites, 1);
 });

@@ -18,6 +18,7 @@ on:
 permissions: {}
 concurrency:
   group: google-migrate
+  queue: max
   cancel-in-progress: false
 
 jobs:

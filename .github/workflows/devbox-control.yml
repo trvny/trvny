@@ -18,6 +18,7 @@ permissions:
 
 concurrency:
   group: gptomek-devbox-personal
+  queue: max
   cancel-in-progress: false
 
 jobs:

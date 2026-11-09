@@ -6,6 +6,7 @@ on:
 
 concurrency:
   group: gptomek-control-mailbox
+  queue: max
   cancel-in-progress: false
 
 permissions:

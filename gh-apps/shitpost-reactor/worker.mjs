@@ -184,11 +184,11 @@ export function validateRecord(input) {
   throw new Error('invalid_content_kind');
 }
 
-// Archive original finalists, never in the public post/feeds.
+// Keep only the losing draft in private R2, never in public feeds.
 export function validateEditorial(value, record) {
   if (value == null) return null;
   if (record.schema_version !== 2 || !value || typeof value !== 'object' || Array.isArray(value)
-    || !Array.isArray(value.candidates) || value.candidates.length < 1 || value.candidates.length > 3) {
+    || !Array.isArray(value.candidates) || value.candidates.length < 1 || value.candidates.length > 2) {
     throw new Error('invalid_editorial');
   }
   const candidates = value.candidates.map((item) => {
@@ -205,8 +205,12 @@ export function validateEditorial(value, record) {
     provider: nonEmptyString(value.judge.provider, 'editorial_judge_provider', 200),
     model: nonEmptyString(value.judge.model, 'editorial_judge_model', 200),
   };
+  // One survivor needs no private vault entry. Two finalists: store only loser.
+  if (candidates.length === 1) return null;
   return {
-    candidates, pick, judge,
+    runner_up: candidates[1 - pick],
+    winner: { provider: candidates[pick].provider, model: candidates[pick].model },
+    pick, judge,
     why: typeof value.why === 'string' ? value.why.slice(0, 300) : '',
     revised: value.revised === true,
     generated_at: record.generated_at,

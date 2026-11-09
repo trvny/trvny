@@ -24,6 +24,7 @@ export const runtimeFetch: typeof fetch = (input, init) => fetch(input, init);
 
 const CONTEXT_CONFIG_NAMES = new Set([
   'AGENTS.md',
+  'README.md',
   'package.json',
   'tsconfig.json',
   'tsconfig.base.json',
@@ -278,6 +279,12 @@ function contextPriority(path: string, changedPaths: readonly string[]): number 
     }
   }
 
+  // A nearby README can explain behavior; the root README should not accompany every deep code change.
+  if (name === 'README.md') {
+    if (sameDirectory) return -110;
+    return pathDirectory && changedPaths.some((changed) => changed.startsWith(`${pathDirectory}/`))
+      ? -40 : 100;
+  }
   if (name === 'AGENTS.md' && ancestorConfig) return -300;
   if (ancestorConfig) return -200;
   if (sameDirectory) return -120;

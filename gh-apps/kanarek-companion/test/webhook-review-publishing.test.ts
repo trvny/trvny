@@ -57,11 +57,14 @@ test('judge receives the relevant evidence, not every unrelated file and diff', 
 test('tree prioritizes nearby paths without unrelated README noise', () => {
   const files = Array.from({ length: 700 }, (_item, index) =>
     ({ path: `unrelated/long-name-${index}.ts` }));
-  files.push({ path: 'src/core/AGENTS.md' }, { path: 'src/core/entry.ts' },
+  files.push({ path: 'src/core/AGENTS.md' }, { path: 'src/core/README.md' },
+    { path: 'src/core/entry.ts' }, { path: 'src/README.md' },
     { path: 'src/other/related.ts' }, { path: 'README.md' });
   const tree = boundedTree(files, ['src/core/entry.ts']);
   assert.equal(tree[0], 'src/core/AGENTS.md');
   assert.equal(tree.includes('src/core/entry.ts'), true);
+  assert.equal(tree.includes('src/core/README.md'), true);
+  assert.equal(tree.includes('src/README.md'), true);
   assert.equal(tree.includes('README.md'), false);
   assert.ok(tree.length < files.length);
 });

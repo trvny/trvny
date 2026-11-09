@@ -656,6 +656,7 @@ export function focusedReviewJudgeContext(
         ...repository,
         files: files.filter(relevantFile),
         callers: callers.filter((item) => paths.has(String(objectValue(item).path ?? ''))),
+        // Verified npm bump evidence may support a source finding outside package.json.
         tree: relevantTree,
         treeTruncated: repository.treeTruncated === true || relevantTree.length < tree.length,
       },

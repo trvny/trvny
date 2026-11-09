@@ -52,7 +52,7 @@ test('judge receives the relevant evidence, not every unrelated file and diff', 
   assert.equal(focused.change_inventory.files.length, 2);
 });
 
-test('tree prioritizes nearby paths and never claims an incomplete tree is complete', () => {
+test('tree prioritizes nearby paths without unrelated README noise', () => {
   const files = Array.from({ length: 700 }, (_item, index) =>
     ({ path: `unrelated/long-name-${index}.ts` }));
   files.push({ path: 'src/core/AGENTS.md' }, { path: 'src/core/entry.ts' },

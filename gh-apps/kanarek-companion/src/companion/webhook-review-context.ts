@@ -24,7 +24,6 @@ export const runtimeFetch: typeof fetch = (input, init) => fetch(input, init);
 
 const CONTEXT_CONFIG_NAMES = new Set([
   'AGENTS.md',
-  'README.md',
   'package.json',
   'tsconfig.json',
   'tsconfig.base.json',

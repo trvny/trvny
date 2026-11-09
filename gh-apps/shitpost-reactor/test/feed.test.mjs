@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import worker, { renderAtom, renderJsonFeed, renderRss, validateOidcClaims, validateRecord } from '../worker.mjs';
+import worker, { renderAtom, renderJsonFeed, renderRss, validateEditorial, validateOidcClaims, validateRecord } from '../worker.mjs';
 
 const textPost = {
   id: 'gh-123-1',
@@ -206,4 +206,23 @@ test('generated editorial headline survives publishing validation and feeds', ()
   const feed = JSON.parse(renderJsonFeed([{ ...textPost, content: titled.content }]));
   assert.equal(feed.items[0].title, 'A departmental incident report');
   assert.equal(feed.items[0].id, textPost.url);
+});
+
+test('editorial validates original finalists without adding them to public posts', () => {
+  const source = validateRecord(textPost);
+  const editorial = validateEditorial({
+    candidates: [
+      { provider: 'groq', model: 'model-one', content: { kind: 'text', text: 'first' } },
+      { provider: 'orcarouter', model: 'model-two', content: { kind: 'text', text: 'second' } },
+    ],
+    pick: 1, judge: { provider: 'aihubmix', model: 'judge' }, revised: true, why: 'good',
+  }, source);
+  assert.equal(editorial.candidates.length, 2);
+  assert.equal(editorial.candidates[1].content.text, 'second');
+  assert.equal(editorial.pick, 1);
+  assert.equal(editorial.revised, true);
+  assert.equal(validateRecord({ ...textPost, editorial }).editorial, undefined);
+  assert.throws(() => validateEditorial({ ...editorial, pick: 9 }, source), /invalid_editorial_pick/);
+  assert.throws(() => validateEditorial({ ...editorial, candidates: [{ provider: 'x', model: 'y',
+    content: { kind: 'text', text: 'x'.repeat(2_401) } }] }, source), /invalid_text/);
 });

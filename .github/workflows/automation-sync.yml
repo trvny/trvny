@@ -24,6 +24,7 @@ jobs:
     if: ${{ inputs.target == 'automation' || inputs.target == 'all' }}
     concurrency:
       group: automation-sync-cloudflare
+      queue: max
       cancel-in-progress: false
     runs-on: ubuntu-slim
     # Up to 3 min waiting for the deploy lock (DEPLOY_LOCK_WAIT_MS) + sync.
@@ -214,6 +215,7 @@ jobs:
     if: ${{ inputs.target == 'kanarek-review' || inputs.target == 'all' }}
     concurrency:
       group: automation-sync-kanarek-review
+      queue: max
       cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -305,6 +307,7 @@ jobs:
     if: ${{ inputs.target == 'gremlin' || inputs.target == 'all' }}
     concurrency:
       group: automation-sync-gremlin
+      queue: max
       cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -407,6 +410,7 @@ jobs:
     if: ${{ inputs.target == 'tg-assistant' || inputs.target == 'all' }}
     concurrency:
       group: automation-sync-tg-assistant
+      queue: max
       cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -454,6 +458,7 @@ jobs:
     if: ${{ inputs.target == 'pet-dispatcher' || inputs.target == 'all' }}
     concurrency:
       group: pet-dispatcher-control-oauth-credentials
+      queue: max
       cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 5

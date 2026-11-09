@@ -46,7 +46,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_dispatch' && inputs.sha == '')
     concurrency:
-      group: megalinter-${{ github.ref }}
+      group: megalinter-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 25

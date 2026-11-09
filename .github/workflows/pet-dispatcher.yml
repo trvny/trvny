@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 20
     concurrency:
-      group: pet-dispatcher-check-linux-${{ github.ref }}
+      group: pet-dispatcher-check-linux-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: true
     defaults:
       run:
@@ -76,7 +76,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     concurrency:
-      group: pet-dispatcher-check-windows-${{ github.ref }}
+      group: pet-dispatcher-check-windows-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: true
     defaults:
       run:
@@ -104,6 +104,7 @@ jobs:
     timeout-minutes: 10
     concurrency:
       group: pet-dispatcher-control-oauth-credentials
+      queue: max
       cancel-in-progress: false
     defaults:
       run:

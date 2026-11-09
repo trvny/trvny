@@ -447,8 +447,8 @@ export async function generateBestShitpost({
         excludeProviders: usedProviders,
         deadlineAt: candidates.length ? candidateDeadlineAt : deadlineAt,
       });
-      const content = parse(completion.content);
       if (completion.provider && completion.provider !== 'unknown') usedProviders.push(completion.provider);
+      const content = parse(completion.content);
       candidates.push({ content, provider: completion.provider, model: completion.model });
     } catch (error) {
       firstError ??= error;

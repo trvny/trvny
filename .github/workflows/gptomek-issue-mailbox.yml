@@ -5,7 +5,8 @@ on:
     types: [edited, labeled, unlabeled]
 
 concurrency:
-  group: gptomek-control-mailbox
+  # Only issue #203 uses the shared queue; other issue events stay isolated.
+  group: ${{ github.event.issue.number == 203 && github.event.issue.user.login == 'trvny' && 'gptomek-control-mailbox' || github.run_id }}
   queue: max
   cancel-in-progress: false
 

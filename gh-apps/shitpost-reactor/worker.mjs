@@ -184,6 +184,37 @@ export function validateRecord(input) {
   throw new Error('invalid_content_kind');
 }
 
+// Archive original finalists, never in the public post/feeds.
+export function validateEditorial(value, record) {
+  if (value == null) return null;
+  if (record.schema_version !== 2 || !value || typeof value !== 'object' || Array.isArray(value)
+    || !Array.isArray(value.candidates) || value.candidates.length < 1 || value.candidates.length > 3) {
+    throw new Error('invalid_editorial');
+  }
+  const candidates = value.candidates.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('invalid_editorial_candidate');
+    return {
+      provider: nonEmptyString(item.provider, 'editorial_provider', 200),
+      model: nonEmptyString(item.model, 'editorial_model', 200),
+      content: validateRecord({ ...record, content: item.content }).content,
+    };
+  });
+  const pick = value.pick;
+  if (!Number.isInteger(pick) || pick < 0 || pick >= candidates.length) throw new Error('invalid_editorial_pick');
+  const judge = value.judge == null ? null : {
+    provider: nonEmptyString(value.judge.provider, 'editorial_judge_provider', 200),
+    model: nonEmptyString(value.judge.model, 'editorial_judge_model', 200),
+  };
+  return {
+    candidates, pick, judge,
+    why: typeof value.why === 'string' ? value.why.slice(0, 300) : '',
+    revised: value.revised === true,
+    generated_at: record.generated_at,
+    language: record.language || null,
+    topic: record.topic,
+  };
+}
+
 // One full index serves the archive and the bounded feed/homepage views.
 // Older versions stored only the newest 250 IDs in a raw array.
 function normalizeIndex(value) {
@@ -767,21 +798,36 @@ async function publish(request, env) {
   }
 
   let source = null;
+  let editorial = null;
   try {
     const text = await request.text();
     if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) throw new Error('payload_too_large');
-    source = validateRecord(JSON.parse(text));
+    const input = JSON.parse(text);
+    source = validateRecord(input);
+    editorial = validateEditorial(input.editorial, source);
   } catch {
     return response('invalid payload\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
   }
 
-  const id = `gh-${claims.run_id}-${claims.run_attempt}`;
+  const id = 'gh-' + claims.run_id + '-' + claims.run_attempt;
+  const saveEditorial = async () => {
+    if (!editorial) return;
+    const key = 'editorial/' + id + '.json';
+    if (!await env.FEED.head(key)) {
+      await env.FEED.put(key, JSON.stringify(editorial) + '\n', {
+        httpMetadata: { contentType: 'application/json; charset=utf-8' },
+      });
+    }
+  };
   const existing = await readPost(env, id);
   if (existing) {
+    await saveEditorial();
     await ensureIndexed(env, existing);
-    return response(`${JSON.stringify({ ok: true, id, url: publicPostUrl(existing), duplicate: true })}\n`, 'application/json; charset=utf-8', { cache: 'no-store' });
+    return response(JSON.stringify({ ok: true, id, url: publicPostUrl(existing), duplicate: true }) + '\n',
+      'application/json; charset=utf-8', { cache: 'no-store' });
   }
 
+  await saveEditorial();
   const publishedAt = new Date().toISOString();
   const post = { ...source, id, published_at: publishedAt, url: `${SITE_URL}/posts/${id}` };
   await env.FEED.put(`posts/${id}.json`, `${JSON.stringify(post, null, 2)}\n`, {

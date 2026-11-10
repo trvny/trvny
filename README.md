@@ -28,7 +28,11 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-No open pull requests. 🎉
+| Repository | PR | Title | Author | State | Updated |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/trvny | [#1361](https://github.com/trvny/trvny/pull/1361) | deps: bump the cloudflare-toolchain group in /mcp/status-mcp with 2 updates | @dependabot[bot] | ready | 2026-11-09 |
+| trvny/WiFi-Automatic | [#64](https://github.com/trvny/WiFi-Automatic/pull/64) | ci: bump step-security/harden-runner from 2.22.3 to 2.22.4 in the actions group | @dependabot[bot] | ready | 2026-11-09 |
+| trvny/WiFi-Automatic | [#65](https://github.com/trvny/WiFi-Automatic/pull/65) | deps: bump the gradle group with 2 updates | @dependabot[bot] | ready | 2026-11-09 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

@@ -31,7 +31,11 @@
 ## 🔀 Otwarte pull requesty
 
 <!--OPEN_PRS:START-->
-Brak otwartych pull requestów. 🎉
+| Repozytorium | PR | Tytuł | Autor | Stan | Aktualizacja |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/trvny | [#1361](https://github.com/trvny/trvny/pull/1361) | deps: bump the cloudflare-toolchain group in /mcp/status-mcp with 2 updates | @dependabot[bot] | gotowy | 2026-11-09 |
+| trvny/WiFi-Automatic | [#64](https://github.com/trvny/WiFi-Automatic/pull/64) | ci: bump step-security/harden-runner from 2.22.3 to 2.22.4 in the actions group | @dependabot[bot] | gotowy | 2026-11-09 |
+| trvny/WiFi-Automatic | [#65](https://github.com/trvny/WiFi-Automatic/pull/65) | deps: bump the gradle group with 2 updates | @dependabot[bot] | gotowy | 2026-11-09 |
 <!--OPEN_PRS:END-->
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
@@ -89,7 +93,7 @@ Brak otwartych pull requestów. 🎉
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝Impossible is a word to be found only in the dictionary of fools. — Napoleon Bonaparte❞</i>
+<i>❝All the passions die with the years; self-love alone never dies. — Voltaire❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
@@ -98,10 +102,10 @@ Brak otwartych pull requestów. 🎉
 <!--README_FEED:START-->
 - [Trust but Verify: Implementing Frontier AI Policy in California and Beyond](https://carnegieendowment.org/research/2026/11/trust-but-verify-implementing-frontier-ai-policy-in-california-and-beyond)
 - [Promises Made, Promises Unmet: The NPP’s Struggle to Reform Sri Lanka](https://carnegieendowment.org/research/2026/11/promises-made-promises-unmet-the-npps-struggle-to-reform-sri-lanka)
-- [Jade Benning's Final Call | Post Mortem](https://www.cbsnews.com/video/110726-48-hours-post-mortem-episode-3/)
-- [The pros and cons of using an Amazfit smartwatch](https://www.engadget.com/2306820/using-amazfit-smartwatch-pros-and-cons/)
-- [This week on "Sunday Morning" \(Nov. 8\)](https://www.cbsnews.com/news/this-week-on-sunday-morning-nov-8-2026/)
-- [Detroit Lions Reveal Uniform Combo for Matchup vs. Miami](https://sports.yahoo.com/articles/detroit-lions-reveal-uniform-combo-231038067.html)
+- [homeassistant-ai/ha-mcp](https://github.com/homeassistant-ai/ha-mcp)
+- [garrytan/gbrain](https://github.com/garrytan/gbrain)
+- [anthropics/claude-quickstarts](https://github.com/anthropics/claude-quickstarts)
+- [google-deepmind/mujoco](https://github.com/google-deepmind/mujoco)
 <!--README_FEED:END-->
 
 <div align="center">

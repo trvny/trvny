@@ -33,7 +33,15 @@
 <!--OPEN_PRS:START-->
 | 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1361](https://github.com/trvny/trvny/pull/1361) | deps: bump the cloudflare-toolchain group in /mcp/status-mcp with 2 updates | @dependabot[bot] | 就绪 | 2026-11-09 |
+| trvny/trvny | [#1363](https://github.com/trvny/trvny/pull/1363) | deps: update anthropic requirement from >=2.3.0 to >=2.6.0 in /pages/token-worldcup in the pip group | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1364](https://github.com/trvny/trvny/pull/1364) | deps: bump wrangler from 4.156.0 to 4.158.0 in /gh-apps/shitpost-reactor in the cloudflare-toolchain group | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1365](https://github.com/trvny/trvny/pull/1365) | deps: bump wrangler from 4.156.0 to 4.158.0 in /tg-bots/cloudflare-assistant in the cloudflare-toolchain group | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1366](https://github.com/trvny/trvny/pull/1366) | deps: bump the cloudflare-toolchain group in /gh-apps/claudiusz with 2 updates | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1367](https://github.com/trvny/trvny/pull/1367) | deps: bump the cloudflare-toolchain group in /mcp/pet-dispatcher with 2 updates | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1368](https://github.com/trvny/trvny/pull/1368) | deps: bump the cloudflare-toolchain group in /gh-apps/kanarek-review with 2 updates | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1369](https://github.com/trvny/trvny/pull/1369) | deps: bump the npm group in /pages/astro with 2 updates | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1370](https://github.com/trvny/trvny/pull/1370) | deps: bump the cloudflare-toolchain group in /gh-apps/kanarek-companion with 2 updates | @dependabot[bot] | 就绪 | 2026-11-10 |
+| trvny/trvny | [#1371](https://github.com/trvny/trvny/pull/1371) | deps: bump @google/genai from 2.32.0 to 3.0.0 in /mcp/pet-dispatcher in the npm group | @dependabot[bot] | 就绪 | 2026-11-10 |
 | trvny/WiFi-Automatic | [#64](https://github.com/trvny/WiFi-Automatic/pull/64) | ci: bump step-security/harden-runner from 2.22.3 to 2.22.4 in the actions group | @dependabot[bot] | 就绪 | 2026-11-09 |
 | trvny/WiFi-Automatic | [#65](https://github.com/trvny/WiFi-Automatic/pull/65) | deps: bump the gradle group with 2 updates | @dependabot[bot] | 就绪 | 2026-11-09 |
 <!--OPEN_PRS:END-->
@@ -93,7 +101,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝All the passions die with the years; self-love alone never dies. — Voltaire❞</i>
+<i>❝Lenovo stands for ‘new legend’. ‘Le’ for legend, and ‘novo’ stands for new.❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
@@ -102,10 +110,10 @@
 <!--README_FEED:START-->
 - [Trust but Verify: Implementing Frontier AI Policy in California and Beyond](https://carnegieendowment.org/research/2026/11/trust-but-verify-implementing-frontier-ai-policy-in-california-and-beyond)
 - [Promises Made, Promises Unmet: The NPP’s Struggle to Reform Sri Lanka](https://carnegieendowment.org/research/2026/11/promises-made-promises-unmet-the-npps-struggle-to-reform-sri-lanka)
-- [homeassistant-ai/ha-mcp](https://github.com/homeassistant-ai/ha-mcp)
-- [garrytan/gbrain](https://github.com/garrytan/gbrain)
-- [anthropics/claude-quickstarts](https://github.com/anthropics/claude-quickstarts)
-- [google-deepmind/mujoco](https://github.com/google-deepmind/mujoco)
+- [Ma go wiele telefonów. Mało kto wie, do czego służy ten otwór](https://antyweb.pl/maly-otwor-obok-gniazda-ladowania-telefonu-do-czego-sluzy)
+- [Tchibo Esperto Mini: mały ekspres BEZ kapsułek, który skradł me serce](https://antyweb.pl/tchibo-esperto-mini-maly-ekspres-bez-kapsulek-ktory-skradl-me-serce)
+- [O północy w Porębie Wielkiej samochód wypadł z drogi, uderzył w drzewo i dachował - Gazeta Krakowska](https://news.google.com/atom/articles/CBMiwgFBVV95cUxPSGEwTVpFRU5NQ2diQUVWVUtQVjJUUW85LU9KZXBCTEtFQnlPWk1TOW1xSl9FQUgyd1pvVWxYRjRpbXhJY3d1NXl1UXQtcVp6aHAwS1VtaTg3SEVZZXpPUHVKZmJjRXgzV1ZhR3JELUs5UUFYWktPbmRMek9PSW9TUlFtaGx4TUh5SWk3MnZIYW5sdzFlZ2R6Ry1DbG1fbGZ5SDh2R0U0WGE4aXUwaVpvTTBqQzZLT1FNQWpteGNBU08yUQ?oc=5)
+- [Nocny wypadek w Rudzach k. Zatora. Pijana 17-latka Zatorzanka wypadła z jadącego samochodu - Gazeta Krakowska](https://news.google.com/atom/articles/CBMizgFBVV95cUxOQ3pZTlQ4dng5aUtJSENUMEFndnUzcGJCcUVwRVg5RXhsMjZha2o1WjZmZy0zQnB6QVNzaV9TZWFGOG05b0VDUTI3LWVveTVGdl9PNzRpbkktbHBrMGQ1ZXF5R01sbkhxblhoQkwzVnF4RUVTOTNEUFVjY2cybGY3NEhHbHQ0WkRHMUR6Z1djeEVzZDE1TVI5Y1FoNHpkTllLcndVc0pYUVVrNlFXQjJOQW1Idlg3SXJpRDdFMDdocVJEckwyR2NjMWJnR0Zvdw?oc=5)
 <!--README_FEED:END-->
 
 <div align="center">

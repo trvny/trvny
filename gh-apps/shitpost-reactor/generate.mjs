@@ -17,7 +17,7 @@ import {
 import { MEME_TEMPLATES, chooseMemeLook, fitMemeCaption, memeImageUrl, normalizeMemeLook } from './templates.mjs';
 import { generateWithBaconFallback } from './bacon-fallback.mjs';
 import { OUTPUT_LANGUAGES } from './languages.mjs';
-export { OUTPUT_LANGUAGES } from './languages.mjs';
+export { OUTPUT_LANGUAGES };
 import { chooseLLMTopic, loadNewsForLane, resolveTopicLane } from './topics.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://automation.travny.workers.dev/review-router/v1/chat/completions';

@@ -35,6 +35,7 @@ test("home inline script remains parseable", () => {
 
 test("Weather is the default mobile feature and auto-rotation resumes after interaction", () => {
   assert.ok(home.indexOf('class="panel wx"') < home.indexOf('class="panel tv"'));
+  assert.match(home, /@media \(min-width:641px\)\{\.feature-rail>\.panel\.tv\{order:-1\}\}/);
   assert.match(home, /data-slide="0" aria-label="Weather" aria-pressed="true"/);
   assert.match(home, /data-slide="1" aria-label="TV status" aria-pressed="false"/);
 
@@ -88,4 +89,28 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   cycle();
   assert.equal(track.scrollLeft, 0);
   assert.equal(dots[0].state, "true");
+
+  clock = 50_000;
+  context.document.hidden = true;
+  cycle();
+  assert.equal(track.scrollLeft, 0, "hidden tab must not rotate");
+  context.document.hidden = false;
+
+  context.matchMedia = (query) => ({ matches: query.includes("max-width") || query.includes("reduced-motion") });
+  context.setupRail("featureRail", "featureDots", 10_000);
+  cycle();
+  assert.equal(track.scrollLeft, 0, "reduced motion must not rotate");
+
+  context.matchMedia = (query) => ({ matches: query.includes("max-width") });
+  let onVisibility;
+  context.window.IntersectionObserver = class {
+    constructor(callback) { onVisibility = callback; }
+    observe() {}
+  };
+  context.setupRail("featureRail", "featureDots", 10_000);
+  cycle();
+  assert.equal(track.scrollLeft, 0, "offscreen rail must not rotate");
+  onVisibility([{ isIntersecting: true, intersectionRatio: 0.5 }]);
+  cycle();
+  assert.equal(track.scrollLeft, 360, "visible rail resumes rotating");
 });

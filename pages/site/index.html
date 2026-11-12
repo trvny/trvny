@@ -111,6 +111,7 @@
   @keyframes blink{50%{opacity:0}}
   .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:30px}
   .feature-rail{display:contents}
+  @media (min-width:641px){.feature-rail>.panel.tv{order:-1}}
   .panel{grid-column:span 1; display:block; text-decoration:none; color:inherit; min-width:0;
     background:#0b0f16; border-top:6px solid var(--faint); padding:14px 16px 16px;
     position:relative; transition:background .12s, transform .12s}

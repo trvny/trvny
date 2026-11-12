@@ -262,7 +262,17 @@
   </div>
   <div class="grid">
     <div class="feature-rail" id="featureRail" aria-label="TV and weather panels">
-    <a class="panel tv" href="/tv/">
+    <a class="panel wx" href="https://weather.travny.workers.dev/">
+      <div class="phead"><span class="blk">P200</span> POGODA <span class="en">CHRZANÓW</span></div>
+      <div class="wxrow">
+        <span class="wxtemp" id="wxtemp">—°</span>
+        <span class="wxcond" id="wxcond">Pogoda Chrzanów</span>
+      </div>
+      <div class="wxmeta" id="wxmeta">Temperatura, AQI, pyłki i ostrzeżenia IMGW · dane odświeżane automatycznie</div>
+      <div class="wxwarn" id="wxwarn"></div>
+      <div class="wxplace">Kościelec (Chrzanów) · mediana źródeł</div>
+      <span class="go">OTWÓRZ ›</span>
+    </a>    <a class="panel tv" href="/tv/">
       <div class="phead"><span class="blk">P101</span> TVP ✕ IPTV <span class="en" id="tvcount">—/9 ON AIR</span></div>
       <div class="tvbig"><span class="n" id="tvbig">—/9</span><span class="lbl">ON&nbsp;AIR</span></div>
       <div class="chips" id="tvchips">
@@ -278,23 +288,13 @@
       </div>
       <span class="go">OTWÓRZ ›</span>
     </a>
-    <a class="panel wx" href="https://weather.travny.workers.dev/">
-      <div class="phead"><span class="blk">P200</span> POGODA <span class="en">CHRZANÓW</span></div>
-      <div class="wxrow">
-        <span class="wxtemp" id="wxtemp">—°</span>
-        <span class="wxcond" id="wxcond">Pogoda Chrzanów</span>
-      </div>
-      <div class="wxmeta" id="wxmeta">Temperatura, AQI, pyłki i ostrzeżenia IMGW · dane odświeżane automatycznie</div>
-      <div class="wxwarn" id="wxwarn"></div>
-      <div class="wxplace">Kościelec (Chrzanów) · mediana źródeł</div>
-      <span class="go">OTWÓRZ ›</span>
-    </a>
+
     </div>
     <div class="rail-controls" id="featureDots">
       <span class="rail-hint">SWIPE ↔</span>
       <div class="rail-dots" role="group" aria-label="Choose a live panel">
-        <button type="button" data-slide="0" aria-label="TV status" aria-pressed="true">101</button>
-        <button type="button" data-slide="1" aria-label="Weather" aria-pressed="false">200</button>
+        <button type="button" data-slide="0" aria-label="Weather" aria-pressed="true">200</button>
+        <button type="button" data-slide="1" aria-label="TV status" aria-pressed="false">101</button>
       </div>
     </div>
     <section class="panel fd">
@@ -373,7 +373,7 @@ function setupRail(trackId, dotsId, delay) {
   const slides=[...track.children],buttons=[...nav.querySelectorAll("button[data-slide]")];
   const mobile=matchMedia("(max-width:640px)");
   const reduced=matchMedia("(prefers-reduced-motion:reduce)");
-  let visible=false,manual=false,frame=0;
+  let visible=false,pauseUntil=0,frame=0;
   const select=index=>buttons.forEach((button,i)=>button.setAttribute("aria-pressed",String(i===index)));
   function current(){
     const first=slides[0].offsetLeft;
@@ -389,9 +389,9 @@ function setupRail(trackId, dotsId, delay) {
       behavior:reduced.matches?"auto":"smooth"});
     select(index);
   }
-  buttons.forEach((button,i)=>button.addEventListener("click",()=>{manual=true;show(i);}));
+  buttons.forEach((button,i)=>button.addEventListener("click",()=>{pauseUntil=Date.now()+delay*2;show(i);}));
   ["pointerdown","touchstart","wheel","keydown"].forEach(type=>
-    track.addEventListener(type,()=>{manual=true;},{passive:true}));
+    track.addEventListener(type,()=>{pauseUntil=Date.now()+delay*2;},{passive:true}));
   track.addEventListener("scroll",()=>{
     if(frame)return;
     frame=requestAnimationFrame(()=>{frame=0;if(mobile.matches)select(current());});
@@ -403,11 +403,11 @@ function setupRail(trackId, dotsId, delay) {
     observer.observe(track);
   }else{visible=true;}
   setInterval(()=>{
-    if(!mobile.matches||reduced.matches||document.hidden||!visible||manual)return;
+    if(!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil)return;
     show((current()+1)%slides.length);
   },delay);
 }
-setupRail("featureRail","featureDots",14000);
+setupRail("featureRail","featureDots",10000);
 setupRail("benchRail","benchDots",19000);
 const WORKER = "https://tvpi.travny.workers.dev";
 const CH = [

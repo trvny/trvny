@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import worker, { renderAtom, renderJsonFeed, renderRss, validateEditorial, validateOidcClaims, validateRecord } from '../worker.mjs';
+import worker, { renderAtom, renderJsonFeed, renderRss, validateEditorial, validateOidcClaims, validateRecord, validatePublishLanguage } from '../worker.mjs';
 
 const textPost = {
   id: 'gh-123-1',
@@ -76,6 +76,18 @@ test('multilingual entries retain language and generated headlines without chang
   )).text();
   assert.match(html, /<html lang="ja">/);
   assert.match(html, /<meta property="og:locale" content="ja_JP">/);
+});
+
+test('publish accepts only the four output languages while preserving old archive validation', () => {
+  for (const language of ['pl', 'en', 'zh-Hans', 'ru']) {
+    const record = validateRecord({ ...textPost, language });
+    assert.equal(validatePublishLanguage(record).language, language);
+  }
+  for (const language of ['de', 'fr', 'es', 'it', 'ja', null]) {
+    const archived = validateRecord({ ...textPost, language });
+    if (language) assert.equal(archived.language, language);
+    assert.throws(() => validatePublishLanguage(archived), /unsupported_publish_language/);
+  }
 });
 
 test('validateRecord accepts schema v2 text and meme shapes', () => {

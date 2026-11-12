@@ -113,6 +113,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     constructor(callback) { onVisibility = callback; }
     observe() {}
   };
+  context.IntersectionObserver = context.window.IntersectionObserver;
   context.setupRail("featureRail", "featureDots", 10_000);
   cycle();
   assert.equal(track.scrollLeft, 0, "offscreen rail must not rotate");

@@ -5,6 +5,7 @@ import {
 } from './limits.mjs';
 import { fitMemeCaption, getMemeTemplate, memeImageUrl, normalizeMemeLook } from './templates.mjs';
 import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
+import { OUTPUT_LANGUAGES } from './languages.mjs';
 
 const FEED_TITLE = 'Reactor';
 const FEED_DESCRIPTION = 'Komentarze i obserwacje z pogranicza technologii, kultury i codzienności.';
@@ -185,6 +186,14 @@ export function validateRecord(input) {
 }
 
 // Keep only the losing draft in private R2, never in public feeds.
+const PUBLISH_LANGUAGES = new Set(OUTPUT_LANGUAGES.map(({ code }) => code));
+
+// Archived entries keep their original language; only new writes are restricted.
+export function validatePublishLanguage(record) {
+  if (!PUBLISH_LANGUAGES.has(record?.language)) throw new Error('unsupported_publish_language');
+  return record;
+}
+
 export function validateEditorial(value, record) {
   if (value == null) return null;
   if (record.schema_version !== 2 || !value || typeof value !== 'object' || Array.isArray(value)
@@ -807,7 +816,7 @@ async function publish(request, env) {
     const text = await request.text();
     if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) throw new Error('payload_too_large');
     const input = JSON.parse(text);
-    source = validateRecord(input);
+    source = validatePublishLanguage(validateRecord(input));
     editorial = validateEditorial(input.editorial, source);
   } catch {
     return response('invalid payload\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });

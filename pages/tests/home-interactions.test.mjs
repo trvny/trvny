@@ -54,6 +54,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   const track = {
     children: [{ offsetLeft: 0 }, { offsetLeft: 360 }],
     scrollLeft: 0,
+    contains(node) { return this.children.includes(node); },
     addEventListener(name, callback) { events[name] = callback; },
     scrollTo({ left }) { this.scrollLeft = left; },
   };
@@ -89,6 +90,11 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   cycle();
   assert.equal(track.scrollLeft, 0);
   assert.equal(dots[0].state, "true");
+
+  context.document.activeElement = track.children[0];
+  cycle();
+  assert.equal(track.scrollLeft, 0, "focused link must stay visible");
+  context.document.activeElement = null;
 
   clock = 50_000;
   context.document.hidden = true;

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { OUTPUT_LANGUAGES } from './languages.mjs';
 
 export const BACON_IPSUM_URL = 'https://baconipsum.com/api/?type=meat-and-filler&sentences=2';
 const FETCH_TIMEOUT_MS = 4_000;
@@ -7,29 +8,24 @@ const MAX_BACON_BYTES = 16_384;
 // Bacon Ipsum itself is English-only. Select an ingredient from its response
 // and produce a genuine local-language post without spending any model tokens.
 const MEATS = Object.freeze([
-  { pattern: /\bbacon\b/i, names: ['boczek', 'bacon', 'Speck', 'bacon', 'pancetta', 'bacon', 'бекон', 'ベーコン', '培根'] },
-  { pattern: /\bpastrami\b/i, names: ['pastrami', 'pastrami', 'Pastrami', 'pastrami', 'pastrami', 'pastrami', 'пастрами', 'パストラミ', '熏牛肉'] },
-  { pattern: /\bbrisket\b/i, names: ['mostek wołowy', 'brisket', 'Rinderbrust', 'poitrine de bœuf', 'pecho de res', 'punta di petto', 'грудинка', '牛バラ肉', '牛腩'] },
-  { pattern: /\b(sausage|andouille|kielbasa)\b/i, names: ['kiełbasa', 'sausage', 'Wurst', 'saucisse', 'salchicha', 'salsiccia', 'колбаса', 'ソーセージ', '香肠'] },
-  { pattern: /\b(ribs|ribeye)\b/i, names: ['żeberka', 'ribs', 'Rippchen', 'côtes', 'costillas', 'costine', 'рёбрышки', 'スペアリブ', '排骨'] },
-  { pattern: /\b(pork|ham|pig)\b/i, names: ['szynka', 'ham', 'Schinken', 'jambon', 'jamón', 'prosciutto', 'ветчина', 'ハム', '火腿'] },
-  { pattern: /\b(beef|steak|t-bone|sirloin)\b/i, names: ['wołowina', 'beef', 'Rindfleisch', 'bœuf', 'ternera', 'manzo', 'говядина', '牛肉', '牛肉'] },
-  { pattern: /\b(chicken|poultry)\b/i, names: ['kurczak', 'chicken', 'Hähnchen', 'poulet', 'pollo', 'pollo', 'курица', '鶏肉', '鸡肉'] },
-  { pattern: /\b(turkey|turducken)\b/i, names: ['indyk', 'turkey', 'Truthahn', 'dinde', 'pavo', 'tacchino', 'индейка', '七面鳥', '火鸡'] },
-  { pattern: /\b(meatball|burger|ground round)\b/i, names: ['kotlet', 'meatball', 'Frikadelle', 'boulette', 'albóndiga', 'polpetta', 'котлета', 'ミートボール', '肉丸'] },
+  { pattern: /\bbacon\b/i, names: { pl: 'boczek', en: 'bacon', 'zh-Hans': '培根', ru: 'бекон' } },
+  { pattern: /\bpastrami\b/i, names: { pl: 'pastrami', en: 'pastrami', 'zh-Hans': '熏牛肉', ru: 'пастрами' } },
+  { pattern: /\bbrisket\b/i, names: { pl: 'mostek wołowy', en: 'brisket', 'zh-Hans': '牛腩', ru: 'грудинка' } },
+  { pattern: /\b(sausage|andouille|kielbasa)\b/i, names: { pl: 'kiełbasa', en: 'sausage', 'zh-Hans': '香肠', ru: 'колбаса' } },
+  { pattern: /\b(ribs|ribeye)\b/i, names: { pl: 'żeberka', en: 'ribs', 'zh-Hans': '排骨', ru: 'рёбрышки' } },
+  { pattern: /\b(pork|ham|pig)\b/i, names: { pl: 'szynka', en: 'ham', 'zh-Hans': '火腿', ru: 'ветчина' } },
+  { pattern: /\b(beef|steak|t-bone|sirloin)\b/i, names: { pl: 'wołowina', en: 'beef', 'zh-Hans': '牛肉', ru: 'говядина' } },
+  { pattern: /\b(chicken|poultry)\b/i, names: { pl: 'kurczak', en: 'chicken', 'zh-Hans': '鸡肉', ru: 'курица' } },
+  { pattern: /\b(turkey|turducken)\b/i, names: { pl: 'indyk', en: 'turkey', 'zh-Hans': '火鸡', ru: 'индейка' } },
+  { pattern: /\b(meatball|burger|ground round)\b/i, names: { pl: 'kotlet', en: 'meatball', 'zh-Hans': '肉丸', ru: 'котлета' } },
 ]);
 
-const LANGUAGES = Object.freeze([
-  { code: 'pl', render: (meat) => 'Wyczerpano dzienny przydział myśli. Komisja awaryjna mianowała ' + meat + ' dyrektorem kreatywnym. Posiedzenie zakończyło się skwierczeniem.' },
-  { code: 'en', render: (meat) => 'The thought budget is gone. ' + meat + ' has been appointed interim head of creativity. All complaints must now be filed in the frying pan.' },
-  { code: 'de', render: (meat) => 'Das Gedankenbudget ist aufgebraucht. ' + meat + ' übernimmt ab sofort die Leitung der Kreativabteilung. Beschwerden bitte direkt in die Pfanne.' },
-  { code: 'fr', render: (meat) => 'Le budget des idées est épuisé. ' + meat + ' prend officiellement la direction de la créativité. Les réclamations vont directement à la poêle.' },
-  { code: 'es', render: (meat) => 'Se agotó el presupuesto de ideas. ' + meat + ' acaba de asumir la dirección de creatividad. Todas las quejas deben presentarse en la sartén.' },
-  { code: 'it', render: (meat) => 'Il bilancio delle idee è finito. ' + meat + ' è stato nominato direttore creativo ad interim. Ogni reclamo va presentato alla padella.' },
-  { code: 'ru', render: (meat) => 'Бюджет мыслей закончился. ' + meat + ' назначили временным директором по креативу. Все жалобы теперь принимаются на сковороде.' },
-  { code: 'ja', render: (meat) => '本日のアイデア予算は尽きました。代わりに' + meat + 'が臨時クリエイティブ部長に就任。苦情はフライパンまでお願いします。' },
-  { code: 'zh-Hans', render: (meat) => '今日创意配额耗尽。委员会任命了' + meat + '为临时创意总监，所有投诉一律交给平底锅。对外公告称此举将极大提升生产效率，然而唯一持续增长的绩效指标是油温。' },
-]);
+const LANGUAGE_RENDERERS = Object.freeze({
+  pl: (meat) => 'Wyczerpano dzienny przydział myśli. Komisja awaryjna mianowała ' + meat + ' dyrektorem kreatywnym. Posiedzenie zakończyło się skwierczeniem.',
+  en: (meat) => 'The thought budget is gone. ' + meat + ' has been appointed interim head of creativity. All complaints must now be filed in the frying pan.',
+  'zh-Hans': (meat) => '今日创意配额耗尽。委员会任命了' + meat + '为临时创意总监，所有投诉一律交给平底锅。对外公告称此举将极大提升生产效率，然而唯一持续增长的绩效指标是油温。',
+  ru: (meat) => 'Бюджет мыслей закончился. ' + meat + ' назначили временным директором по креативу. Все жалобы теперь принимаются на сковороде.',
+});
 
 export function baconFallbackEligible(error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -44,14 +40,14 @@ function seededByte(seed, salt) {
 }
 
 export function createBaconPost({ seed = '', source = '', offline = false, languageCode = '' } = {}) {
-  const requested = LANGUAGES.findIndex((item) => item.code === languageCode);
-  const languageIndex = requested >= 0 ? requested : seededByte(seed, 'bacon-language') % LANGUAGES.length;
-  const language = LANGUAGES[languageIndex];
+  const requested = OUTPUT_LANGUAGES.findIndex((item) => item.code === languageCode);
+  const languageIndex = requested >= 0 ? requested : seededByte(seed, 'bacon-language') % OUTPUT_LANGUAGES.length;
+  const language = OUTPUT_LANGUAGES[languageIndex];
   const found = MEATS.filter((meat) => meat.pattern.test(source));
   const choices = found.length ? found : MEATS;
   const meat = choices[seededByte(seed, 'bacon-meat') % choices.length];
   return {
-    content: { kind: 'text', text: language.render(meat.names[languageIndex]) },
+    content: { kind: 'text', text: LANGUAGE_RENDERERS[language.code](meat.names[language.code]) },
     provider: offline ? 'bacon-offline' : 'baconipsum',
     model: 'bacon-fallback/' + language.code,
     language: language.code,

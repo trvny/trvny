@@ -118,7 +118,8 @@ test('signed legacy-audience publishing works on both hosts; retries preserve ol
     return `${input}.${Buffer.from(signature).toString('base64url')}`;
   }
   const publish = async (origin, jwt, store, payload = post) => worker.fetch(new Request(`${origin}/api/publish`, {
-    method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ ...payload, language: 'en' }),
   }), store.env);
   for (const origin of [legacy, stable]) {
     const store = bucket([post]);

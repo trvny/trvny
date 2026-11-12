@@ -16,6 +16,8 @@ import {
 } from './limits.mjs';
 import { MEME_TEMPLATES, chooseMemeLook, fitMemeCaption, memeImageUrl, normalizeMemeLook } from './templates.mjs';
 import { generateWithBaconFallback } from './bacon-fallback.mjs';
+import { OUTPUT_LANGUAGES } from './languages.mjs';
+export { OUTPUT_LANGUAGES } from './languages.mjs';
 import { chooseLLMTopic, loadNewsForLane, resolveTopicLane } from './topics.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://automation.travny.workers.dev/review-router/v1/chat/completions';
@@ -37,26 +39,11 @@ export const DEFAULT_MYSAAS_SEARCH_URL = 'https://mysaas.lol/api/agent/v1/posts'
 
 const MAX_ERROR_BODY = 2_000;
 
-export const LIMERICK_LANGUAGES = Object.freeze([
-  { code: 'en', prompt: 'English' },
-  { code: 'pl', prompt: 'Polish' },
-  { code: 'zh-Hans', prompt: 'Simplified Chinese' },
-  { code: 'ru', prompt: 'Russian' },
-]);
+export const LIMERICK_LANGUAGES = Object.freeze(
+  OUTPUT_LANGUAGES.map(({ code, name }) => ({ code, prompt: name })),
+);
 
-// One shuffled bag per nine runs: varied order, no back-to-back language.
-export const OUTPUT_LANGUAGES = Object.freeze([
-  { code: 'pl', name: 'Polish', prompt: '波兰语' },
-  { code: 'en', name: 'English', prompt: '英语' },
-  { code: 'de', name: 'German', prompt: '德语' },
-  { code: 'fr', name: 'French', prompt: '法语' },
-  { code: 'es', name: 'Spanish', prompt: '西班牙语' },
-  { code: 'it', name: 'Italian', prompt: '意大利语' },
-  { code: 'ru', name: 'Russian', prompt: '俄语' },
-  { code: 'ja', name: 'Japanese', prompt: '日语' },
-  { code: 'zh-Hans', name: 'Simplified Chinese', prompt: '简体中文' },
-]);
-
+// One shuffled bag per four runs: varied order, no back-to-back language.
 function languageIndex(key, length) {
   return createHash('sha256').update(key).digest().readUInt32BE(0) % length;
 }

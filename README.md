@@ -30,15 +30,6 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1363](https://github.com/trvny/trvny/pull/1363) | deps: update anthropic requirement from >=2.3.0 to >=2.6.0 in /pages/token-worldcup in the pip group | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1364](https://github.com/trvny/trvny/pull/1364) | deps: bump wrangler from 4.156.0 to 4.158.0 in /gh-apps/shitpost-reactor in the cloudflare-toolchain group | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1365](https://github.com/trvny/trvny/pull/1365) | deps: bump wrangler from 4.156.0 to 4.158.0 in /tg-bots/cloudflare-assistant in the cloudflare-toolchain group | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1366](https://github.com/trvny/trvny/pull/1366) | deps: bump the cloudflare-toolchain group in /gh-apps/claudiusz with 2 updates | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1367](https://github.com/trvny/trvny/pull/1367) | deps: bump the cloudflare-toolchain group in /mcp/pet-dispatcher with 2 updates | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1368](https://github.com/trvny/trvny/pull/1368) | deps: bump the cloudflare-toolchain group in /gh-apps/kanarek-review with 2 updates | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1369](https://github.com/trvny/trvny/pull/1369) | deps: bump the npm group in /pages/astro with 2 updates | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1370](https://github.com/trvny/trvny/pull/1370) | deps: bump the cloudflare-toolchain group in /gh-apps/kanarek-companion with 2 updates | @dependabot[bot] | ready | 2026-11-10 |
-| trvny/trvny | [#1371](https://github.com/trvny/trvny/pull/1371) | deps: bump @google/genai from 2.32.0 to 3.0.0 in /mcp/pet-dispatcher in the npm group | @dependabot[bot] | ready | 2026-11-10 |
 | trvny/WiFi-Automatic | [#64](https://github.com/trvny/WiFi-Automatic/pull/64) | ci: bump step-security/harden-runner from 2.22.3 to 2.22.4 in the actions group | @dependabot[bot] | ready | 2026-11-09 |
 | trvny/WiFi-Automatic | [#65](https://github.com/trvny/WiFi-Automatic/pull/65) | deps: bump the gradle group with 2 updates | @dependabot[bot] | ready | 2026-11-09 |
 <!--OPEN_PRS:END-->

@@ -58,7 +58,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     addEventListener(name, callback) { events[name] = callback; },
     scrollTo({ left }) { this.scrollLeft = left; },
   };
-  const nav = { querySelectorAll: () => dots };
+  const nav = { querySelectorAll: () => dots, contains: (node) => dots.includes(node) };
   let clock = 0;
   let cycle = null;
   const context = {
@@ -94,6 +94,9 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   context.document.activeElement = track.children[0];
   cycle();
   assert.equal(track.scrollLeft, 0, "focused link must stay visible");
+  context.document.activeElement = dots[0];
+  cycle();
+  assert.equal(track.scrollLeft, 0, "focused selector must stay on the selected slide");
   context.document.activeElement = null;
 
   clock = 50_000;

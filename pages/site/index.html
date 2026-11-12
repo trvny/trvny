@@ -404,7 +404,7 @@ function setupRail(trackId, dotsId, delay) {
     observer.observe(track);
   }else{visible=true;}
   setInterval(()=>{
-    if(!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||track.contains(document.activeElement))return;
+    if(!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||track.contains(document.activeElement)||nav.contains(document.activeElement))return;
     show((current()+1)%slides.length);
   },delay);
 }

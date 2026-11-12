@@ -117,9 +117,9 @@ test('signed legacy-audience publishing works on both hosts; retries preserve ol
     const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', keyPair.privateKey, new TextEncoder().encode(input));
     return `${input}.${Buffer.from(signature).toString('base64url')}`;
   }
-  const publish = async (origin, jwt, store, payload = post) => worker.fetch(new Request(`${origin}/api/publish`, {
+  const publish = async (origin, jwt, store, payload = post, language = 'en') => worker.fetch(new Request(`${origin}/api/publish`, {
     method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ ...payload, language: 'en' }),
+    body: JSON.stringify(language ? { ...payload, language } : payload),
   }), store.env);
   for (const origin of [legacy, stable]) {
     const store = bucket([post]);
@@ -128,7 +128,13 @@ test('signed legacy-audience publishing works on both hosts; retries preserve ol
     assert.deepEqual(await result.json(), { ok: true, id: post.id, url: `${stable}/posts/${post.id}`, duplicate: true });
     assert.equal(store.postWrites, 0);
     assert.equal(store.objects.get(`posts/${post.id}.json`).url, post.url);
+    assert.equal((await publish(origin, await token(123), store, post, null)).status, 200,
+      'legacy run retries without language remain idempotent');
   }
+  assert.equal((await publish(stable, await token(998), bucket(), post, null)).status, 400,
+    'new posts must specify one allowed language');
+  assert.equal((await publish(stable, await token(997), bucket(), post, 'ja')).status, 400,
+    'retired languages must not be published');
   const fresh = bucket();
   const result = await publish(stable, await token(999), fresh);
   assert.equal(result.status, 201);

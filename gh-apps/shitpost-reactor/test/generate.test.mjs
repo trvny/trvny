@@ -49,9 +49,9 @@ test('model contract uses compact Chinese instructions and preserves output sche
   assert.match(messages[1].content, /Teams o 07:59/);
 });
 
-test('shuffled language bags prevent repeated languages on scheduled runs', () => {
+test('shuffled four-language bags prevent repeated languages on scheduled runs', () => {
   const codes = OUTPUT_LANGUAGES.map((language) => language.code);
-  assert.equal(new Set(codes).size, 9);
+  assert.deepEqual(codes, ['pl', 'en', 'zh-Hans', 'ru']);
   const chosen = Array.from({ length: 1_800 }, (_, index) =>
     chooseOutputLanguage('arbitrary-seed', String(index + 1)).code);
   for (let index = 0; index < chosen.length; index += codes.length) {
@@ -63,16 +63,16 @@ test('shuffled language bags prevent repeated languages on scheduled runs', () =
 });
 
 test('generation and judge enforce the selected language independent of source', () => {
-  const outputLanguage = OUTPUT_LANGUAGES.find((language) => language.code === 'ja');
+  const outputLanguage = OUTPUT_LANGUAGES.find((language) => language.code === 'zh-Hans');
   const messages = buildMessages('# skill', 'Sejm discusses an odd decree', 'seed', 'auto', null, {
     newsReference: { title: 'Sejm uchwala nowy przepis', source: 'PAP' },
     outputLanguage,
   });
-  assert.match(messages[0].content, /本次只用日语/);
+  assert.match(messages[0].content, /本次只用简体中文/);
   assert.match(messages[0].content, /标题、正文与梗图字幕/);
-  assert.match(messages[1].content, /强制输出语言: Japanese \(ja\)/);
-  const judge = judgeMessages([{ content: { kind: 'text', text: '日本語' } }], {}, outputLanguage);
-  assert.match(judge[0].content, /指定语言日语/);
+  assert.match(messages[1].content, /强制输出语言: Simplified Chinese \(zh-Hans\)/);
+  const judge = judgeMessages([{ content: { kind: 'text', text: '中文' } }], {}, outputLanguage);
+  assert.match(judge[0].content, /指定语言简体中文/);
 });
 
 test('optional limerick instructions are Chinese but never scheduled by cadence', () => {

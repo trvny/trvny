@@ -816,7 +816,7 @@ async function publish(request, env) {
     const text = await request.text();
     if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) throw new Error('payload_too_large');
     const input = JSON.parse(text);
-    source = validatePublishLanguage(validateRecord(input));
+    source = validateRecord(input);
     editorial = validateEditorial(input.editorial, source);
   } catch {
     return response('invalid payload\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
@@ -840,6 +840,12 @@ async function publish(request, env) {
       'application/json; charset=utf-8', { cache: 'no-store' });
   }
 
+  // Preserve idempotent retries of archived runs; guard only new publications.
+  try {
+    validatePublishLanguage(source);
+  } catch {
+    return response('invalid payload\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
+  }
   await saveEditorial();
   const publishedAt = new Date().toISOString();
   const post = { ...source, id, published_at: publishedAt, url: `${SITE_URL}/posts/${id}` };

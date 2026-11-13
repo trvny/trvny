@@ -10,6 +10,10 @@ const root = new URL('../site/teksty/githubowa-kraina/', import.meta.url);
 test('atlas regions, cards and generated guide stay in sync', async () => {
   const data = JSON.parse(await readFile(new URL('atlas.json', root), 'utf8'));
   const html = await readFile(new URL('index.html', root), 'utf8');
+  const explorer = await readFile(new URL('explore.js', root), 'utf8');
+  const generator = await readFile(new URL('../scripts/github-world-guide.mjs', import.meta.url), 'utf8');
+  assert.ok(explorer.trim(), 'atlas interaction script is empty');
+  assert.ok(generator.trim(), 'atlas guide generator is empty');
   assert.equal(new Set(data.regions.map(region => region.id)).size, data.regions.length);
   for (const region of data.regions) {
     const card = [...html.matchAll(/<a\b[^>]*data-region="([^"]+)"[^>]*>/g)]

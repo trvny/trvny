@@ -8,6 +8,7 @@ import {
   reviewFileCollectionComplete,
   reviewInputState,
   reviewTextIsChinese,
+  selectReviewEvidenceFiles,
   selectReviewFiles,
   type WebhookReviewEnv,
 } from '../src/companion/webhook-review-context.ts';
@@ -164,6 +165,15 @@ function queuedJob(
     },
   };
 }
+
+test('paid review evidence skips generated dependency locks', () => {
+  const files = [
+    { filename: 'gh-apps/package-lock.json', patch: 'changed' },
+    { filename: 'worker/pnpm-lock.yaml', patch: 'changed' },
+    { filename: 'worker/package.json', patch: 'changed' },
+  ];
+  assert.deepEqual(selectReviewEvidenceFiles(files).map((file) => file.path), ['worker/package.json']);
+});
 
 test('review line anchors include only added RIGHT-side lines', () => {
   const patch = [

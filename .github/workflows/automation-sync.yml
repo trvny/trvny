@@ -50,7 +50,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+          cache-dependency-path: gh-apps/package-lock.json
       # Wrangler comes from the package lockfile so Dependabot keeps it current.
       - run: npm ci
       - name: Sync Worker credentials
@@ -243,7 +243,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: gh-apps/kanarek-review/package-lock.json
+          cache-dependency-path: gh-apps/package-lock.json
       # Wrangler comes from the package lockfile so Dependabot keeps it current.
       - run: npm ci
       - name: Sync review provider credentials
@@ -330,7 +330,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: gh-apps/gremlin/package-lock.json
+          cache-dependency-path: gh-apps/package-lock.json
       # Wrangler comes from the package lockfile so Dependabot keeps it current.
       - run: npm ci
       # Code deploys via Workers Builds; this job only syncs credentials.

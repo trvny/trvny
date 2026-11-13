@@ -54,11 +54,13 @@ const stateAndBody = async (head: string) => {
   return { stateHash, body };
 };
 
-test('keeps comment state and rendering stable across head-only changes', async () => {
+test('keeps visible comment stable across head-only changes while tracking the revision', async () => {
   const first = await stateAndBody('1'.repeat(40));
   const second = await stateAndBody('2'.repeat(40));
   assert.equal(first.stateHash, second.stateHash);
-  assert.equal(first.body, second.body);
+  const withoutHead = (body: string) => body.replace(/<!-- kanarek-quip-head:[a-f0-9]{40} -->\n/, '');
+  assert.equal(withoutHead(first.body), withoutHead(second.body));
+  assert.notEqual(first.body, second.body);
 });
 
 test('keeps CI startup stable from missing results into pending checks', async () => {

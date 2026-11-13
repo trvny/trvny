@@ -148,7 +148,8 @@ export function reuseQuipForHead(
   currentHead: string,
   previousQuip: string,
 ): boolean {
-  return previousKey === quipKey && previousHead === currentHead && Boolean(previousQuip);
+  // Legacy comments had no head marker. Stamp them without generating another paid quip.
+  return previousKey === quipKey && (previousHead === undefined || previousHead === currentHead) && Boolean(previousQuip);
 }
 
 // Keep the existing adaptive percentage, but roll per revision, not per PR lifetime.

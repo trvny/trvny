@@ -21,6 +21,8 @@ const PRUNE_LIMIT = 24;
 const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1_000;
 const ENTRY_PREFIX = `${BANK_KEY}:entry:`;
 const MAINTENANCE_KEY = `${BANK_KEY}:maintenance:last`;
+const AI_WINDOW_PREFIX = 'kanarek:companion:quip-ai-window:v1:';
+const AI_WINDOW_TTL_SECONDS = 60 * 60;
 const ENTRY_KEY_RE = new RegExp(
   `^${ENTRY_PREFIX}([a-f0-9]{16}):([a-f0-9]{16})$`,
 );
@@ -243,6 +245,28 @@ export function effectiveAiPercent(
   const remaining = limit - size;
   if (!remaining) return 0;
   return Math.ceil((configured * remaining) / limit);
+}
+
+// Per-PR spend gate across head changes. The existing PR lock serializes writes;
+// KV keeps the throttle durable across Worker restarts and deployment changes.
+export async function claimAiWindow(
+  env: CompanionEnv,
+  repository: string,
+  pullRequestNumber: number,
+): Promise<boolean> {
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv) return false;
+  try {
+    const key = `${AI_WINDOW_PREFIX}${await hash(`${repository.trim().toLowerCase()}#${pullRequestNumber}`)}`;
+    if (await kv.get(key)) return false;
+    await kv.put(key, '1', { expirationTtl: AI_WINDOW_TTL_SECONDS });
+    return true;
+  } catch (error) {
+    console.warn(
+      `Kanarek quip AI window unavailable: ${error instanceof Error ? error.message : 'unknown_error'}`,
+    );
+    return false;
+  }
 }
 
 export async function shouldAskAiForBank(

@@ -123,7 +123,9 @@ The active phrase bank uses Workers KV under
 `KANAREK_AI_PERCENT` is a ceiling, not a permanent spend rate. The effective AI
 percentage decreases as the current context fills what it can actually retain.
 With the default ceiling of 25% and no global-cap pressure, the rough curve is
-25% at 0/256 entries, 13% at 128/256, and 0% at 256/256. If the persistent bank
+25% at 0/256 entries, 13% at 128/256, and 0% at 256/256. New PR heads get
+independent rollout decisions, capped at one AI attempt per PR per hour to
+prevent repeated pushes from exhausting paid provider credits. If the persistent bank
 cannot be measured, AI generation is skipped.
 
 Anthropic direct quips use Claude Haiku 5.5 with low effort and thinking

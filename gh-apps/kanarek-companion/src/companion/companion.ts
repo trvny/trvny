@@ -4,6 +4,7 @@ import {
   archiveQuip,
   bankContext,
   canUsePool,
+  claimAiWindow,
   loadBank,
   maintainBank,
   poolEntries,
@@ -426,6 +427,13 @@ export async function refreshCompanion(
         env,
         measuredBank,
       );
+      if (aiSelected) {
+        aiSelected = await claimAiWindow(
+          env,
+          target.repository,
+          target.pullRequestNumber,
+        );
+      }
     }
     if (!aiSelected) await tryPool();
   }

@@ -61,3 +61,22 @@ test('rollout stays stable per revision, but new revisions can receive AI', asyn
   assert.equal(eligible.some(Boolean), true);
   assert.equal(eligible.some((value) => !value), true);
 });
+
+test('bounds billable quip attempts per PR across fresh heads', async () => {
+  const values = new Map<string, string>();
+  const writes: Array<{ key: string; ttl: number | undefined }> = [];
+  const kv = {
+    async get(key: string) { return values.get(key) ?? null; },
+    async put(key: string, value: string, options?: { expirationTtl?: number }) {
+      values.set(key, value);
+      writes.push({ key, ttl: options?.expirationTtl });
+    },
+  } as unknown as KVNamespace;
+  const { claimAiWindow } = await import('../src/companion/companion-bank.ts');
+  const env = { KANAREK_QUIP_KV: kv };
+  assert.equal(await claimAiWindow(env as never, 'trvny/trvny', 13), true);
+  assert.equal(await claimAiWindow(env as never, 'trvny/trvny', 13), false);
+  assert.equal(await claimAiWindow(env as never, 'trvny/trvny', 14), true);
+  assert.equal(writes.length, 2);
+  assert.equal(writes[0]?.ttl, 3600);
+});

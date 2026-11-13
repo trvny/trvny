@@ -35,6 +35,22 @@ function setupRail(trackId, dotsId, delay) {
   buttons.forEach((button,i)=>button.addEventListener("click",()=>{pauseUntil=Date.now()+delay*2;show(i);}));
   ["pointerdown","touchstart","wheel","keydown"].forEach(type=>
     track.addEventListener(type,()=>{pauseUntil=Date.now()+delay*2;},{passive:true}));
+  let touchStart=null;
+  track.addEventListener("touchstart",event=>{
+    const touch=event.touches[0];
+    if(!mobile.matches||!touch||event.target.closest("input, select, button, audio")){touchStart=null;return;}
+    touchStart={x:touch.clientX,y:touch.clientY,index:current()};
+  },{passive:true});
+  track.addEventListener("touchend",event=>{
+    const touch=event.changedTouches[0],start=touchStart;
+    touchStart=null;
+    if(!start||!touch)return;
+    const dx=touch.clientX-start.x,dy=touch.clientY-start.y;
+    if(Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.2)return;
+    if(start.index===slides.length-1&&dx<0)show(0);
+    else if(start.index===0&&dx>0)show(slides.length-1);
+  },{passive:true});
+  track.addEventListener("touchcancel",()=>{touchStart=null;},{passive:true});
   track.addEventListener("scroll",()=>{
     if(frame)return;
     frame=requestAnimationFrame(()=>{frame=0;if(mobile.matches)select(current());});

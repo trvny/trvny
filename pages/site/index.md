@@ -8,7 +8,7 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
 
 ## Services
 
-- Radio player on the home page: Radio Paradise, Trójka, Czwórka and BBC Radio 1; Paradise track metadata from `/api/radio-now`.
+- Home weather/TV/radio carousel on mobile; radio: Radio Paradise, Trójka, Czwórka and BBC Radio 1; Paradise track metadata from `/api/radio-now`.
 - [Bench Lab](https://travny.pages.dev/lab/): Streambench, Codebench and Docbench carousel.
 - [TVPI](https://travny.pages.dev/tv/): browser page for stable TVP IPTV entry points and playlists.
 - [Weather](https://weather.travny.workers.dev/): multi-source local weather for Kościelec in Chrzanów.

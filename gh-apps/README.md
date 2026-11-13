@@ -19,5 +19,10 @@ GitHub App integrations and Workers. **`gh-apps/core/` is the only shared-code l
 ## Work here
 
 - **CI:** [GitHub Apps CI](../.github/workflows/gh-apps-ci.yml) checks affected app directories and shared core. A green shared badge is not a per-app release signal.
-- **Commands:** run `npm ci` in `gh-apps/`, then `npm run check --workspace=<package-name>` (or `npm run check` for all). The shared `gh-apps/package-lock.json` owns versions; `npm run dedupe` refreshes its hoisting. npm commands from an app directory also discover the workspace root. GPTomek has no npm package: validate its shared runtime from `gh-apps/kanarek-companion/`. See component READMEs for deploy requirements.
+- **Commands:** run `npm ci` in `gh-apps/`, then
+  `npm run check --workspace=<package-name>` (or `npm run check` for all).
+  The shared `gh-apps/package-lock.json` owns versions; `npm run dedupe`
+  refreshes its hoisting. npm commands from an app directory also find the
+  workspace root. GPTomek has no npm package: validate via
+  `gh-apps/kanarek-companion/`. See component READMEs for deploy requirements.
 - **Invariants:** one shared Worker runtime, one shared core; secrets in Worker configuration, never in Git. [Architecture](kanarek-companion/docs/architecture.md) owns route/state boundaries; [GPTomek reference](gptomek/docs/REFERENCE.md) owns its transport contract.

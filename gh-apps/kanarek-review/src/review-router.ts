@@ -85,16 +85,15 @@ const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
 ]);
 // openrouter.ai/api/v1/models: all pinned :free models accept `reasoning`.
 const OPENROUTER_MODEL_PROFILES = new Map<string, ModelProfile>([
-  ['nvidia/nemotron-3.5-lightning:free', { contextTokens: 1_000_000, maxOutputTokens: 65_536 }],
-  ['thinkingmachines/inkling:free', { contextTokens: 1_048_576, maxOutputTokens: 262_144 }],
-  // Free variant not in the API catalog yet; limits from the paid listing.
-  ['minimax/minimax-m3.1-flash:free', { contextTokens: 1_048_576, maxOutputTokens: 524_288 }],
-  ['nvidia/nemotron-3-ultra-550b-a55b:free', { contextTokens: 1_000_000, maxOutputTokens: 65_536 }],
+  ['baidu/ernie-5.5-flash-preview:free', { contextTokens: 1_024_000, maxOutputTokens: 921_600 }],
+  ['thinkingmachines/inkling-2-small:free', { contextTokens: 1_048_576, maxOutputTokens: 131_072 }],
+  ['particle-ai/particle-1:free', { contextTokens: 1_048_576, maxOutputTokens: 131_072 }],
+  ['recursive/flint-v1.0:free', { contextTokens: 262_144, maxOutputTokens: 235_929 }],
   ['nvidia/nemotron-3.5-super-vl:free', { contextTokens: 1_000_000, maxOutputTokens: 131_072 }],
+  ['dots-studio/dots-3-note-preview:free', { contextTokens: 512_000, maxOutputTokens: 460_800 }],
+  ['nvidia/nemotron-3.5-lightning:free', { contextTokens: 1_000_000, maxOutputTokens: 65_536 }],
   ['cohere/north-mini-code:free', { contextTokens: 256_000, maxOutputTokens: 64_000 }],
-  ['poolside/laguna-s-2.1:free', { contextTokens: 262_144, maxOutputTokens: 32_768 }],
-  ['thinkingmachines/inkling-small:free', { contextTokens: 1_048_576, maxOutputTokens: 262_144 }],
-  ['xingchen-agi/xing4.0-29b-a4b:free', { contextTokens: 262_144, maxOutputTokens: 235_929 }],
+  ['nvidia/nemotron-3-ultra-550b-a55b:free', { contextTokens: 1_000_000, maxOutputTokens: 65_536 }],
 ]);
 const OPENROUTER_REASONING_MODELS = new Set<string>(OPENROUTER_MODEL_PROFILES.keys());
 // OpenRouter rejects longer `models` fallback lists; the rest are tried individually.
@@ -119,12 +118,18 @@ const AIHUBMIX_MODEL_PROFILES = new Map<string, ModelProfile>([
   }],
   ['xiaomi-mimo-v2.6-pro-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],
   ['coding-minimax-m3-free', { contextTokens: 1_000_000, maxOutputTokens: 524_288, thinks: true }],
-  ['crouton-alpha-free', { contextTokens: 1_048_576 }],
+  ['north-mini-code-free', { contextTokens: 256_000, maxOutputTokens: 64_000, efforts: ['none', 'high'] }],
+  ['coding-glm-5.3-flash-free', {
+    contextTokens: 1_000_000,
+    maxOutputTokens: 131_072,
+    thinks: true,
+    efforts: ['low', 'high', 'max'],
+  }],
+  ['nemotron-3-ultra-550b-a55b-free', { contextTokens: 1_048_576, thinks: true }],
   ['nemotron-3.5-super-vl-free', { contextTokens: 1_000_000, thinks: true }],
   ['nemotron-3.5-lightning-free', { contextTokens: 1_048_576, thinks: true }],
   ['xiaomi-mimo-v2.6-flash-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],
   ['gemma-4-31b-it-free', { contextTokens: 262_144, efforts: ['minimal', 'high'] }],
-  ['laguna-s-2.1-free', { contextTokens: 1_048_576, maxOutputTokens: 262_144, thinks: true }],
   ['agents-a1-free', { contextTokens: 262_144 }],
   ['dots-3-note-preview-free', { contextTokens: 524_288, thinks: true }],
   ['lfm-2.5-2.6b-free', { contextTokens: 131_072, thinks: true }],

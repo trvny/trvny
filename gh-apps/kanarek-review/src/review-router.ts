@@ -351,16 +351,8 @@ function validProviderCooldown(value: unknown): value is ProviderCooldown {
   );
 }
 
-function configuredModelList(raw: string | undefined, fallback: readonly string[]): string[] {
-  const configured = raw?.split(',').map((value) => value.trim()).filter(Boolean) ?? [];
-  return [...new Set(configured.length > 0 ? configured : fallback)];
-}
-
-function orderedTaskModels(configured: readonly string[], preferred: readonly string[]): string[] {
-  const allowed = new Set(configured);
-  const ordered = preferred.filter((model) => allowed.has(model));
-  for (const model of configured) if (!ordered.includes(model)) ordered.push(model);
-  return ordered;
+function configuredModelList(raw: string | undefined): string[] {
+  return [...new Set(raw?.split(',').map((value) => value.trim()).filter(Boolean) ?? [])];
 }
 
 export function reviewRouterTaskProfile(model: unknown): FreeTaskProfileId {
@@ -495,62 +487,38 @@ function workersAiMaxOutputTokens(env: ReviewRouterEnv): number {
 }
 
 function configuredFreeProviderOrder(raw: string | undefined): FreeReviewProviderId[] {
-  const allowed = new Set<string>(DEFAULT_FREE_PROVIDER_ORDER);
-  const ordered: FreeReviewProviderId[] = [];
-  const seen = new Set<FreeReviewProviderId>();
-  for (const value of raw?.split(',') ?? []) {
-    const normalized = value.trim().toLowerCase();
-    if (!allowed.has(normalized)) continue;
-    const provider = normalized as FreeReviewProviderId;
-    if (seen.has(provider)) continue;
-    seen.add(provider);
-    ordered.push(provider);
-  }
-  for (const provider of DEFAULT_FREE_PROVIDER_ORDER) {
-    if (!seen.has(provider)) ordered.push(provider);
-  }
-  return ordered;
+  const allowed = new Set<string>([...FREE_PROVIDER_IDS, 'workers-ai']);
+  return [...new Set((raw?.split(',') ?? [])
+    .map((value) => value.trim().toLowerCase())
+    .filter((value): value is FreeReviewProviderId => allowed.has(value)))];
 }
 
 function configuredTaskFreeProviderOrder(
   env: ReviewRouterEnv,
   task: FreeTaskProfileId,
 ): FreeReviewProviderId[] {
-  const taskOrder = task === 'general' ? undefined
-    : configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'providerOrders', task)?.join(',');
-  const ordered: FreeReviewProviderId[] = task === 'general'
-    ? configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER)
-    : taskOrder?.trim() || env.KANAREK_REVIEW_PROVIDER_ORDER?.trim()
-      ? configuredFreeProviderOrder(taskOrder || env.KANAREK_REVIEW_PROVIDER_ORDER)
-      : [...DEFAULT_FREE_TASK_PROVIDER_ORDER[task]];
-  return geminiUsesFreeTier(env)
-    ? ordered
-    : ordered.filter((provider) => provider !== 'gemini-standard');
+  const route = configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'providerOrders', task);
+  const selected = route !== undefined
+    ? configuredFreeProviderOrder(route.join(','))
+    : configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER);
+  return (geminiUsesFreeTier(env)
+    ? selected
+    : selected.filter((id) => id !== 'gemini-standard'))
+    .filter((id) => id !== 'workers-ai' || workersAiEnabled(env));
 }
 
 function freeProviderOrder(
   env: ReviewRouterEnv,
   task: FreeTaskProfileId = 'general',
 ): ReviewProviderId[] {
-  return [...configuredTaskFreeProviderOrder(env, task), 'workers-ai'];
+  return configuredTaskFreeProviderOrder(env, task);
 }
 
 function configuredPaidProviderOrder(raw: string | undefined): PaidReviewProviderId[] {
-  const allowed = new Set<string>(DEFAULT_PAID_PROVIDER_ORDER);
-  const ordered: PaidReviewProviderId[] = [];
-  const seen = new Set<PaidReviewProviderId>();
-  for (const value of raw?.split(',') ?? []) {
-    const normalized = value.trim().toLowerCase();
-    if (!allowed.has(normalized)) continue;
-    const provider = normalized as PaidReviewProviderId;
-    if (seen.has(provider)) continue;
-    seen.add(provider);
-    ordered.push(provider);
-  }
-  for (const provider of DEFAULT_PAID_PROVIDER_ORDER) {
-    if (!seen.has(provider)) ordered.push(provider);
-  }
-  return ordered;
+  const allowed = new Set<string>(PAID_PROVIDER_IDS);
+  return [...new Set((raw?.split(',') ?? [])
+    .map((value) => value.trim().toLowerCase())
+    .filter((value): value is PaidReviewProviderId => allowed.has(value)))];
 }
 
 function providers(
@@ -558,36 +526,12 @@ function providers(
   includePaidReserves = false,
   task: FreeTaskProfileId = 'general',
 ): readonly ReviewProvider[] {
-  const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
-  const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
-  const openRouterModels = orderedTaskModels(
-    configuredModelList(reviewOpenRouterModels || sharedOpenRouterModels, DEFAULT_REVIEW_OPENROUTER_MODELS),
-    taskModelPreference(env, 'OPENROUTER', task),
-  );
-  const aihubMixConfigured = configuredModelList(
-    env.KANAREK_REVIEW_AIHUBMIX_MODELS?.trim() || env.KANAREK_REVIEW_AIHUBMIX_MODEL?.trim(),
-    DEFAULT_REVIEW_AIHUBMIX_MODELS,
-  ).filter((model) => !AIHUBMIX_RETIRED_FREE_MODELS.has(model));
-  const aihubMixModels = orderedTaskModels(
-    aihubMixConfigured,
-    taskModelPreference(env, 'AIHUBMIX', task),
-  );
-  const orcaRouterModels = orderedTaskModels(
-    configuredModelList(env.KANAREK_REVIEW_ORCAROUTER_MODELS, DEFAULT_REVIEW_ORCAROUTER_MODELS),
-    taskModelPreference(env, 'ORCAROUTER', task),
-  );
-  const ollamaModels = configuredModelList(
-    env.KANAREK_REVIEW_OLLAMA_MODELS,
-    DEFAULT_REVIEW_OLLAMA_MODELS,
-  );
-  const vercelConfigured = configuredModelList(
-    env.KANAREK_REVIEW_VERCEL_MODELS,
-    DEFAULT_REVIEW_VERCEL_MODELS,
-  );
-  const vercelModels = orderedTaskModels(
-    vercelConfigured,
-    taskModelPreference(env, 'VERCEL', task),
-  );
+  const openRouterModels = configuredTaskModels(env, 'OPENROUTER', task);
+  const aihubMixModels = configuredTaskModels(env, 'AIHUBMIX', task)
+    .filter((model) => !AIHUBMIX_RETIRED_FREE_MODELS.has(model));
+  const orcaRouterModels = configuredTaskModels(env, 'ORCAROUTER', task);
+  const ollamaModels = configuredTaskModels(env, 'OLLAMA', task);
+  const vercelModels = configuredTaskModels(env, 'VERCEL', task);
   const unorderedFreeProviders: ReviewProvider[] = [
     {
       id: 'aihubmix',

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -9,7 +10,6 @@ import {
   retryAfterCooldownMs,
   modelAttemptTimeoutMs,
   nearestReasoningEffort,
-  REVIEW_ROUTER_MODEL_DEFAULTS,
   reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
   reviewRouterTaskProfile,
@@ -33,7 +33,37 @@ function request(
   });
 }
 
-const auth = { KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
+// Defaults drawn from the exact Wrangler config, not a second model catalog.
+const wranglerVars = (JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')) as {
+  vars: Record<string, unknown>;
+}).vars;
+const routing = wranglerVars.KANAREK_REVIEW_ROUTING as {
+  providerOrders: Record<string, string[]>;
+  taskModels: Record<string, Record<string, string[]>>;
+};
+const generalModels = (provider: string): string[] => routing.taskModels[provider]?.general ?? [];
+const REVIEW_ROUTER_MODEL_DEFAULTS = {
+  KANAREK_REVIEW_OPENROUTER_MODELS: generalModels('openrouter'),
+  KANAREK_REVIEW_AIHUBMIX_MODELS: generalModels('aihubmix'),
+  KANAREK_REVIEW_ORCAROUTER_MODELS: generalModels('orcarouter'),
+  KANAREK_REVIEW_HUGGINGFACE_MODEL: wranglerVars.KANAREK_REVIEW_HUGGINGFACE_MODEL as string,
+};
+const auth = {
+  KANAREK_REVIEW_ROUTER_TOKEN: routerToken,
+  KANAREK_REVIEW_ROUTING: { providerOrders: routing.providerOrders },
+  KANAREK_REVIEW_PROVIDER_ORDER: routing.providerOrders.general.join(','),
+  KANAREK_REVIEW_OPENROUTER_MODELS: generalModels('openrouter').join(','),
+  KANAREK_REVIEW_AIHUBMIX_MODELS: generalModels('aihubmix').join(','),
+  KANAREK_REVIEW_ORCAROUTER_MODELS: generalModels('orcarouter').join(','),
+  KANAREK_REVIEW_VERCEL_MODELS: generalModels('vercel').join(','),
+  KANAREK_REVIEW_OLLAMA_MODELS: generalModels('ollama').join(','),
+  KANAREK_REVIEW_GROQ_MODEL: wranglerVars.KANAREK_REVIEW_GROQ_MODEL as string,
+  KANAREK_REVIEW_HUGGINGFACE_MODEL: wranglerVars.KANAREK_REVIEW_HUGGINGFACE_MODEL as string,
+  KANAREK_REVIEW_GEMINI_MODEL: wranglerVars.KANAREK_REVIEW_GEMINI_MODEL as string,
+  KANAREK_REVIEW_DEEPSEEK_MODEL: wranglerVars.KANAREK_REVIEW_DEEPSEEK_MODEL as string,
+  KANAREK_REVIEW_PAID_PROVIDER_ORDER: wranglerVars.KANAREK_REVIEW_PAID_PROVIDER_ORDER as string,
+  KANAREK_REVIEW_WORKERS_AI_MODEL: wranglerVars.KANAREK_REVIEW_WORKERS_AI_MODEL as string,
+} as const;
 
 
 function workersAiBinding(

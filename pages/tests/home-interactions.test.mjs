@@ -55,10 +55,11 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     },
     addEventListener(name, callback) { this[name] = callback; },
   }));
+  const stationSelect = { matches: selector => selector.includes("select") };
   const track = {
     children: [{ offsetLeft: 0 }, { offsetLeft: 360 }, { offsetLeft: 720 }],
     scrollLeft: 0, scrollWidth: 1080, clientWidth: 360,
-    contains(node) { return this.children.includes(node); },
+    contains(node) { return node === stationSelect || this.children.includes(node); },
     addEventListener(name, callback) { events[name] = callback; },
     scrollTo({ left }) { this.scrollLeft = left; },
   };
@@ -110,8 +111,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   cycle();
   assert.equal(track.scrollLeft, 0, "focused link must stay visible");
   dots[0].matches = () => true;
-  track.children[1].matches = selector => selector.includes("select");
-  context.document.activeElement = track.children[1];
+  context.document.activeElement = stationSelect;
   cycle();
   assert.equal(track.scrollLeft, 0, "open station selector stays visible");
   context.document.activeElement = dots[0];

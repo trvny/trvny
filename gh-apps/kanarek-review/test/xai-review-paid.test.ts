@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { wranglerVars } from './wrangler-config.ts';
+import { testVars as wranglerVars } from './routing-fixture.ts';
 
 import { handleReviewRouterRequest } from '../src/review-router.ts';
 

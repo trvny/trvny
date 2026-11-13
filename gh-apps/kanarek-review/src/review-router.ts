@@ -59,7 +59,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
 } as const;
 const VERCEL_HY3_MODEL = 'tencent/hy3';
 // Known provider IDs; not a fallback queue.
-const FREE_PROVIDER_IDS = [
+export const FREE_PROVIDER_IDS = [
   'aihubmix',
   'openrouter',
   'ollama',
@@ -210,7 +210,7 @@ function configuredTaskModels(
   return configuredModelList(legacy);
 }
 
-const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex'] as const;
+export const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex'] as const;
 type PaidReviewProviderId = (typeof PAID_PROVIDER_IDS)[number];
 export type ReviewProviderBudgetClass = 'free-quota' | 'monthly-free-credit' | 'daily-neurons' | 'paid-reserve';
 const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudgetClass> = {
@@ -311,7 +311,7 @@ export type ProviderCooldownId =
   // One model of a multi-model provider.
   | `${ReviewProviderId}#${string}`;
 
-const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
+export const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
   'aihubmix',
   'openrouter',
   'orcarouter',

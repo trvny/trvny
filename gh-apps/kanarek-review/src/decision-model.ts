@@ -20,7 +20,7 @@ type DecisionProvider = {
   apiKey: (env: DecisionModelEnv) => string | undefined;
 };
 
-const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
+export const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
   aihubmix: {
     id: 'aihubmix',
     cooldownId: 'aihubmix-decision',

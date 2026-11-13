@@ -188,12 +188,15 @@ function configuredTaskModels(
   const key = provider.toLowerCase();
   const selected = configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'taskModels', key, task);
   if (selected !== undefined) return selected;
+  const general = configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'taskModels', key, 'general');
+  if (general !== undefined) return general;
   const vars = env as unknown as Record<string, string | undefined>;
-  const legacy = vars[`KANAREK_REVIEW_${provider}_MODELS`] ||
-    (provider === 'AIHUBMIX' ? env.KANAREK_REVIEW_AIHUBMIX_MODEL : undefined) ||
-    (provider === 'OPENROUTER' ? env.KANAREK_OPENROUTER_MODELS : undefined);
-  if (legacy?.trim()) return configuredModelList(legacy);
-  return configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'taskModels', key, 'general') ?? [];
+  const legacy = [
+    vars[`KANAREK_REVIEW_${provider}_MODELS`],
+    provider === 'AIHUBMIX' ? env.KANAREK_REVIEW_AIHUBMIX_MODEL : undefined,
+    provider === 'OPENROUTER' ? env.KANAREK_OPENROUTER_MODELS : undefined,
+  ].find((value) => value?.trim());
+  return configuredModelList(legacy);
 }
 
 const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex'] as const;

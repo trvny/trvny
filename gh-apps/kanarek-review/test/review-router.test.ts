@@ -1701,8 +1701,8 @@ test('provider health exposes budget classes and task queues', async () => {
   assert.equal(health.taskOrders.review[0], 'openrouter');
   assert.equal(health.taskOrders.quip[0], 'vercel');
   assert.equal(health.taskOrders.shitpost[1], 'openrouter');
-  // Fast, proven fallback precedes slow providers when no override exists.
-  assert.ok(health.taskOrders.review.indexOf('groq') < health.taskOrders.review.indexOf('aihubmix'));
+  // Full-context AIHubMix precedes Groq, whose TPM limit allows only partial reviews.
+  assert.ok(health.taskOrders.review.indexOf('aihubmix') < health.taskOrders.review.indexOf('groq'));
 });
 
 test('review router tries pinned OrcaRouter free models first', async () => {

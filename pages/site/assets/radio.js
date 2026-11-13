@@ -12,7 +12,7 @@
     const station = root.querySelector('[data-station]');
     const mark = root.querySelector('[data-mark]');
     const markLabel = root.querySelector('[data-mark-label]');
-    const quality = root.querySelector('[data-quality]');
+    const quality = root.querySelector('.radio-footer [data-quality]');
     if (!(audio instanceof HTMLAudioElement) || !(controls instanceof HTMLElement) ||
         !(play instanceof HTMLButtonElement) || !(volume instanceof HTMLInputElement) ||
         !(status instanceof HTMLElement) || !(cover instanceof HTMLImageElement) ||

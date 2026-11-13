@@ -66,8 +66,8 @@ export type RuntimeEnv = GatewayEnv &
 export { gatewayManifest, githubGateway };
 export { pluginMcpOpenApi } from './runtime-openapi.ts';
 export {
-  gremlinMcpManifest as combinedGremlinMcpManifest,
-  handleGremlinMcp as handleCombinedGremlinMcp,
+  scopedMcpManifest,
+  handleScopedMcp,
 } from './specialists/mcp-adapter.ts';
 export type { ActionInvoke } from './action-auth.ts';
 export type { JsonObject } from './tools/common.ts';

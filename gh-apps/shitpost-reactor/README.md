@@ -67,9 +67,9 @@ Editorial target: usually one to three sharp sentences (about 120–450
 characters), one concrete anchor and one coherent surreal turn. This is a
 **soft writing preference**, not a new fixed template. The existing
 2,400-character validation ceiling stays compatible with older drafts and
-retries; generation and judging should trim filler. News and community lanes, source
-freshness, language rotation, provider routing, published archives and fallback
-semantics are unchanged.
+retries; generation and judging should trim filler. News and community lanes,
+source freshness, language rotation, provider routing, published archives and
+fallback semantics are unchanged.
 
 ## Bacon Ipsum emergency mode
 

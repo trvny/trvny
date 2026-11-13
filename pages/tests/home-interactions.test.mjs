@@ -57,7 +57,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   }));
   const track = {
     children: [{ offsetLeft: 0 }, { offsetLeft: 360 }, { offsetLeft: 720 }],
-    scrollLeft: 0,
+    scrollLeft: 0, scrollWidth: 1080, clientWidth: 360,
     contains(node) { return this.children.includes(node); },
     addEventListener(name, callback) { events[name] = callback; },
     scrollTo({ left }) { this.scrollLeft = left; },
@@ -146,9 +146,21 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   events.touchstart({ touches: [{ clientX: 100, clientY: 50 }], target });
   events.touchend({ changedTouches: [{ clientX: 260, clientY: 55 }] });
   assert.equal(track.scrollLeft, 720, "backward swipe wraps from weather to radio");
-  events.touchstart({ touches: [{ clientX: 280, clientY: 50 }], target: { closest: () => ({}) } });
+  track.scrollLeft = 600;
+  events.touchstart({ touches: [{ clientX: 280, clientY: 50 }], target });
+  events.touchend({ changedTouches: [{ clientX: 120, clientY: 55 }] });
+  assert.equal(track.scrollLeft, 600, "a swipe before the end does not wrap");
+  track.scrollLeft = 720;
+  events.touchstart({ touches: [{ clientX: 280, clientY: 50 }], target: { closest: selector => selector.split(", ").includes("input") ? {} : null } });
   events.touchend({ changedTouches: [{ clientX: 120, clientY: 55 }] });
   assert.equal(track.scrollLeft, 720, "radio controls do not trigger swipe wrapping");
+  track.children[2].matches = selector => selector.includes('data-playing="true"');
+  cycle();
+  assert.equal(track.scrollLeft, 720, "playing radio stops automatic rotation");
+  track.children[2].matches = () => false;
+  clock += 30_000;
+  cycle();
+  assert.equal(track.scrollLeft, 0, "rotation resumes after playback stops");
 });
 
 test("home hosts radio and Lab hosts the shared workbench rail", () => {

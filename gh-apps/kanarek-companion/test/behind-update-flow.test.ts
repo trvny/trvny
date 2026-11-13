@@ -188,7 +188,7 @@ test('refreshCompanion keeps existing quips per head but rotates after a push', 
   const oldHead = '1'.repeat(40);
   const nextHead = '2'.repeat(40);
   const initial = await refresh({ behind: 0, head: oldHead });
-  const previousQuip = 'Previous reusable quip with an unmistakable phrase about sleepy canaries.';
+  const previousQuip = 'Старый комментарий про сонную канарейку, который нельзя повторять после нового коммита.';
   const oldBody = initial.body
     .replace(/<!-- kanarek-quip:[A-Za-z0-9_-]+ -->/, `<!-- kanarek-quip:${encoded(previousQuip)} -->`)
     .replace('kanarek-source:preset', 'kanarek-source:ai');

@@ -21,6 +21,9 @@ done
 
 # Additive Astro build. Never target Astro's output at site/: keep legacy files safe.
 npm --prefix astro ci --no-audit --no-fund
+mkdir -p site/assets/vendor
+cp astro/node_modules/hls.js/dist/hls.min.js site/assets/vendor/hls.min.js
+cp astro/node_modules/hls.js/LICENSE site/assets/vendor/hls.LICENSE
 npm --prefix astro run build
 cp -R astro/dist/lab site/
 cp -R astro/dist/przeglad site/

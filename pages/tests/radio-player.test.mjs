@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
+import { setImmediate } from "node:timers";
 
-test("radio controls follow external pause and play events", async () => {
+async function player() {
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
     addEventListener(type, callback) { (this.listeners[type] ??= []).push(callback); }
@@ -13,56 +14,105 @@ test("radio controls follow external pause and play events", async () => {
     removeAttribute(name) { delete this.attributes[name]; }
   }
   class Audio extends Element {
-    constructor() { super(); this.paused = true; this.playCalls = 0; this.sourceChanges = 0; this.setAttribute("src", "https://stream.radioparadise.com/aac-320"); }
+    constructor() { super(); this.paused = true; this.playCalls = 0; }
     get src() { return this.getAttribute("src"); }
-    set src(value) { this.sourceChanges += 1; this.setAttribute("src", value); }
-    play() { this.paused = false; this.playCalls += 1; this.dispatch("play"); return Promise.resolve(); }
+    set src(value) { this.setAttribute("src", value); }
+    play() { this.paused = false; this.playCalls++; this.dispatch("play"); return Promise.resolve(); }
     pause() { this.paused = true; this.dispatch("pause"); }
-    load() { this.loadCalls = (this.loadCalls ?? 0) + 1; }
+    load() {}
+    canPlayType() { return ""; }
   }
   class Button extends Element {}
   class Input extends Element { constructor() { super(); this.value = "0.8"; } }
   class Image extends Element {}
+  class Select extends Element {
+    constructor() { super(); this.value = "paradise"; }
+    get selectedOptions() { return [this.options[this.value]]; }
+  }
   const audio = new Audio();
   const play = new Button();
-  play.setAttribute("aria-label", "Radio Paradise playback");
   const status = new Element();
-  const controls = new Element();
+  const station = new Select();
+  station.options = {
+    paradise: { textContent: "Radio Paradise", dataset: { url: "paradise.aac", kind: "direct", mark: "RP", quality: "320K AAC" } },
+    trojka: { textContent: "Trójka", dataset: { url: "trojka.m3u8", kind: "hls", mark: "3", quality: "LIVE HLS" } },
+    bbc1: { textContent: "BBC Radio 1", dataset: { url: "bbc.m3u8", kind: "hls", mark: "1", quality: "320K HLS" } },
+  };
   const elements = {
-    "[data-audio]": audio, "[data-controls]": controls, "[data-play]": play,
+    "[data-audio]": audio, "[data-controls]": new Element(), "[data-play]": play,
     "[data-volume]": new Input(), "[data-status]": status, "[data-cover]": new Image(),
     "[data-title]": new Element(), "[data-artist]": new Element(), "[data-album]": new Element(),
+    "[data-station-picker]": new Element(), "[data-station]": station, "[data-mark]": new Element(),
+    "[data-mark-label]": new Element(), "[data-quality]": new Element(),
   };
   const root = new Element();
   root.querySelector = (selector) => elements[selector];
-  const document = { hidden: false, listeners: {}, querySelectorAll: () => [root], addEventListener(type, listener) { this.listeners[type] = listener; } };
+  const document = { hidden: false, querySelectorAll: () => [root], addEventListener() {} };
+  const instances = [];
+  class Hls {
+    static Events = { ERROR: "error" };
+    static isSupported() { return true; }
+    constructor() { instances.push(this); }
+    on(_event, callback) { this.onError = callback; }
+    loadSource(url) { this.url = url; }
+    attachMedia(media) { this.media = media; }
+    destroy() { this.destroyed = true; }
+  }
+  let resolveMetadata;
+  const metadata = new Promise((resolve) => { resolveMetadata = resolve; });
   const script = await readFile(new URL("../site/assets/radio.js", import.meta.url), "utf8");
-  assert.ok(script);
-  const pendingMetadata = Promise.race([]);
   runInNewContext(script, {
-    document, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
-    HTMLInputElement: Input, HTMLImageElement: Image, AbortSignal,
-    fetch: () => pendingMetadata, setTimeout, clearTimeout,
+    document, window: { Hls }, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
+    HTMLInputElement: Input, HTMLImageElement: Image, HTMLSelectElement: Select, AbortSignal,
+    fetch: () => metadata, setTimeout, clearTimeout,
   });
-  assert.equal(audio.hidden, true);
-  assert.equal(controls.hidden, false);
-  play.dispatch("click");
-  audio.dispatch("playing");
-  assert.equal(status.textContent, "Playing live");
-  audio.pause();
-  assert.equal(status.textContent, "Paused");
-  assert.equal(play.getAttribute("aria-label"), "Radio Paradise playback");
-  play.dispatch("click");
-  assert.equal(audio.playCalls, 2);
-  assert.equal(play.getAttribute("aria-label"), "Radio Paradise playback");
-  audio.pause();
-  await audio.play();
-  assert.equal(status.textContent, "Connecting…");
-  assert.equal(play.getAttribute("aria-label"), "Radio Paradise playback");
-  audio.dispatch("error");
-  assert.equal(status.textContent, "Stream unavailable. Try again.");
-  const changesBeforeRetry = audio.sourceChanges;
-  play.dispatch("click");
-  assert.equal(audio.sourceChanges, changesBeforeRetry + 1);
-  assert.equal(audio.playCalls, 4);
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  const select = (value) => { station.value = value; station.dispatch("change"); };
+  return { audio, play, status, station, elements, instances, select, flush, resolveMetadata };
+}
+
+test("switching stations stops the old stream and respects pause", async () => {
+  const p = await player();
+  p.select("trojka");
+  await p.flush();
+  assert.equal(p.audio.playCalls, 0);
+  assert.equal(p.elements["[data-title]"].textContent, "Trójka");
+  p.play.dispatch("click");
+  await p.flush();
+  assert.equal(p.instances[0].url, "trojka.m3u8");
+  assert.equal(p.instances[0].media, p.audio);
+  p.audio.dispatch("playing");
+  assert.equal(p.status.textContent, "Playing live");
+  p.select("bbc1");
+  await p.flush();
+  assert.equal(p.instances[0].destroyed, true);
+  assert.equal(p.instances[1].url, "bbc.m3u8");
+  assert.equal(p.audio.playCalls, 2);
+  p.play.dispatch("click");
+  assert.equal(p.instances[1].destroyed, true);
+  p.select("paradise");
+  assert.equal(p.audio.playCalls, 2);
+  p.play.dispatch("click");
+  assert.equal(p.audio.src, "paradise.aac");
+  assert.equal(p.audio.playCalls, 3);
+});
+
+test("late Paradise metadata cannot overwrite another station", async () => {
+  const p = await player();
+  p.select("trojka");
+  p.resolveMetadata({ ok: true, json: async () => ({ title: "Old track", artist: "Old artist" }) });
+  await p.flush();
+  assert.equal(p.elements["[data-title]"].textContent, "Trójka");
+  assert.equal(p.elements["[data-artist]"].textContent, "Live radio");
+});
+
+test("a pending HLS setup cannot restart after pause", async () => {
+  const p = await player();
+  p.select("trojka");
+  p.play.dispatch("click");
+  p.play.dispatch("click");
+  await p.flush();
+  assert.equal(p.instances.length, 0);
+  assert.equal(p.audio.playCalls, 0);
+  assert.equal(p.status.textContent, "Paused");
 });

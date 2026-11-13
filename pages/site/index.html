@@ -291,10 +291,17 @@
     <h2 id="radio-heading">Radio</h2>
     <span class="radio-live"><span aria-hidden="true"></span> LIVE</span>
   </div>
-  <div class="radio-station"><span>RADIO PARADISE</span><span>MAIN MIX</span></div>
+  <label class="radio-station" data-station-picker hidden><span>STATION</span>
+    <select data-station aria-label="Radio station">
+      <option value="paradise" data-url="https://stream.radioparadise.com/aac-320" data-kind="direct" data-mark="RP" data-quality="320K AAC">Radio Paradise</option>
+      <option value="trojka" data-url="https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8" data-kind="hls" data-mark="3" data-quality="LIVE HLS">Trójka</option>
+      <option value="czworka" data-url="https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8" data-kind="hls" data-mark="4" data-quality="LIVE HLS">Czwórka</option>
+      <option value="bbc1" data-url="https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio=320000.norewind.m3u8" data-kind="hls" data-mark="1" data-quality="320K HLS">BBC Radio 1</option>
+    </select>
+  </label>
   <div class="radio-now">
     <div class="radio-art" aria-hidden="true">
-      <span class="radio-fallback"><b>RP</b><small>RADIO<br>PARADISE</small></span>
+      <span class="radio-fallback"><b data-mark>RP</b><small data-mark-label>RADIO PARADISE</small></span>
       <img data-cover alt="" hidden>
     </div>
     <div class="radio-track">
@@ -308,7 +315,7 @@
     <a href="https://streambench.travny.workers.dev/">Open Streambench</a>
   </audio>
   <div class="radio-controls" data-controls hidden>
-    <button class="radio-play" data-play type="button" aria-label="Radio Paradise playback" aria-pressed="false">
+    <button class="radio-play" data-play type="button" aria-label="Radio playback" aria-pressed="false">
       <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15L19 12z"></path></svg>
       <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"></path></svg>
     </button>
@@ -317,7 +324,7 @@
       <label class="radio-volume"><span>VOLUME</span><input data-volume aria-label="Radio volume" type="range" min="0" max="1" step="0.05" value="0.8"></label>
     </div>
   </div>
-  <div class="radio-footer"><span>320K AAC</span><a href="https://streambench.travny.workers.dev/">More stations ↗</a></div>
+  <div class="radio-footer"><span data-quality>320K AAC</span><a href="https://streambench.travny.workers.dev/">More stations ↗</a></div>
 </section>
   <nav class="fastext" aria-label="Skróty do narzędzi TRAVNY">
     <a class="ft cyan" href="/tv/">TVP IPTV<small>9 kanałów</small></a>

@@ -31,7 +31,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Doc Bench](https://docbench.travny.workers.dev/) · [LLM guide](https://docbench.travny.workers.dev/llms.txt) · [full guide](https://docbench.travny.workers.dev/llms-full.txt)
 
 ## Usage notes
-- The home page includes the Radio Paradise player; track metadata: `/api/radio-now`.
+- The home radio player offers Radio Paradise, Trójka, Czwórka and BBC Radio 1; Paradise track metadata: `/api/radio-now`.
 - Lab hosts the Streambench, Codebench and Docbench carousel.
 
 - TVPI upstream HLS signatures are short-lived. Prefer maintained TVPI Worker endpoints over short-lived tokenized upstream URLs.

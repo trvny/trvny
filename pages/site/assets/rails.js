@@ -63,7 +63,9 @@ function setupRail(trackId, dotsId, delay) {
     observer.observe(track);
   }else{visible=true;}
   setInterval(()=>{
-    if(paused||!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||track.contains(document.activeElement)||nav.contains(document.activeElement)||slides.some(slide=>slide.matches?.('[data-radio][data-playing="true"]')))return;
+    const focused=document.activeElement;
+    const keyboardFocus=focused&&(track.contains(focused)||nav.contains(focused))&&focused.matches(":focus-visible");
+    if(paused||!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||keyboardFocus||slides.some(slide=>slide.matches?.('[data-radio][data-playing="true"]')))return;
     show((current()+1)%slides.length);
   },delay);
 }

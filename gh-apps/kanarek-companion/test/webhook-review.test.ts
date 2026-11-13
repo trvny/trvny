@@ -170,6 +170,7 @@ test('paid review evidence skips generated dependency locks', () => {
   const files = [
     { filename: 'gh-apps/package-lock.json', patch: 'changed' },
     { filename: 'worker/pnpm-lock.yaml', patch: 'changed' },
+    { filename: 'worker/npm-shrinkwrap.json', patch: 'changed' },
     { filename: 'worker/package.json', patch: 'changed' },
   ];
   assert.deepEqual(selectReviewEvidenceFiles(files).map((file) => file.path), ['worker/package.json']);

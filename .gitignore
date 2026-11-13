@@ -85,4 +85,5 @@ worker-configuration.d.ts
 # Generated output specific to Pages
 /pages/site/teksty/token-worldcup/
 /pages/site/papagenerator/
+/pages/site/assets/vendor/
 /pages/astro/.astro/

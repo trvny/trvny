@@ -25,7 +25,7 @@ const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
     id: 'aihubmix',
     cooldownId: 'aihubmix-decision',
     endpoint: 'https://aihubmix.com/v1/systemone',
-    models: ['decision-model-preview', 'mammoth-1-free', 'elephant-1-free'],
+    models: ['decision-model-preview', 'mammoth-1-free', 'elephant-1-free', 'span-01-lite-free'],
     apiKey: (env) => env.AIHUBMIX_API_KEY,
   },
   openrouter: {

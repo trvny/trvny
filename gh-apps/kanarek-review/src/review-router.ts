@@ -57,7 +57,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_GEMINI_THINKING_LEVEL: 'high',
 } as const;
 // Known provider IDs; not a fallback queue.
-const DEFAULT_FREE_PROVIDER_ORDER = [
+const FREE_PROVIDER_IDS = [
   'aihubmix',
   'openrouter',
   'ollama',
@@ -67,7 +67,7 @@ const DEFAULT_FREE_PROVIDER_ORDER = [
   'huggingface-publicai',
   'gemini-standard',
 ] as const;
-type FreeReviewProviderId = (typeof DEFAULT_FREE_PROVIDER_ORDER)[number];
+type FreeReviewProviderId = (typeof FREE_PROVIDER_IDS)[number] | 'workers-ai';
 type FreeTaskProfileId = 'general' | 'quip' | 'review' | 'judge' | 'shitpost';
 
 const HIGH_REASONING_TASKS = new Set<FreeTaskProfileId>(['review', 'judge', 'shitpost']);
@@ -196,8 +196,8 @@ function configuredTaskModels(
     (provider === 'OPENROUTER' ? env.KANAREK_OPENROUTER_MODELS : undefined));
 }
 
-const DEFAULT_PAID_PROVIDER_ORDER = ['xai', 'deepseek', 'gemini-flex'] as const;
-type PaidReviewProviderId = (typeof DEFAULT_PAID_PROVIDER_ORDER)[number];
+const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex'] as const;
+type PaidReviewProviderId = (typeof PAID_PROVIDER_IDS)[number];
 export type ReviewProviderBudgetClass = 'free-quota' | 'monthly-free-credit' | 'daily-neurons' | 'paid-reserve';
 const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudgetClass> = {
   aihubmix: 'free-quota',
@@ -474,7 +474,7 @@ function workProviderTimeoutMs(env: ReviewRouterEnv): number {
 }
 
 function workersAiModel(env: ReviewRouterEnv): string {
-  return configuredText(env.KANAREK_REVIEW_WORKERS_AI_MODEL, DEFAULT_WORKERS_AI_REVIEW_MODEL);
+  return configuredText(env.KANAREK_REVIEW_WORKERS_AI_MODEL, '');
 }
 
 function workersAiMaxOutputTokens(env: ReviewRouterEnv): number {
@@ -536,7 +536,7 @@ function providers(
     {
       id: 'aihubmix',
       url: 'https://aihubmix.com/v1/chat/completions',
-      model: aihubMixModels[0] ?? DEFAULT_REVIEW_AIHUBMIX_MODELS[0],
+      model: aihubMixModels[0] ?? '',
       fallbackModels: aihubMixModels.slice(1),
       apiKey: (providerEnv) => providerEnv.AIHUBMIX_API_KEY,
       timeoutMs: reviewFreeProbeTimeoutMs(
@@ -555,20 +555,20 @@ function providers(
     {
       id: 'ollama',
       url: 'https://ollama.com/v1/chat/completions',
-      model: ollamaModels[0] ?? DEFAULT_REVIEW_OLLAMA_MODELS[0],
+      model: ollamaModels[0] ?? '',
       fallbackModels: ollamaModels.slice(1),
       apiKey: (providerEnv) => providerEnv.OLLAMA_API_KEY,
     },
     {
       id: 'groq',
       url: 'https://api.groq.com/openai/v1/chat/completions',
-      model: env.KANAREK_REVIEW_GROQ_MODEL?.trim() || DEFAULT_REVIEW_GROQ_MODEL,
+      model: env.KANAREK_REVIEW_GROQ_MODEL?.trim() || '',
       apiKey: (providerEnv) => providerEnv.GROQ_API_KEY,
     },
     {
       id: 'vercel',
       url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
-      model: vercelModels[0] ?? DEFAULT_REVIEW_VERCEL_MODELS[0],
+      model: vercelModels[0] ?? '',
       fallbackModels: vercelModels.slice(1),
       apiKey: (providerEnv) => providerEnv.AI_GATEWAY_API_KEY,
     },
@@ -578,7 +578,7 @@ function providers(
       // Cost policy is configured on the OrcaRouter workspace.
       id: 'orcarouter',
       url: 'https://api.orcarouter.ai/v1/chat/completions',
-      model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],
+      model: orcaRouterModels[0] ?? '',
       fallbackModels: orcaRouterModels.slice(1),
       apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
       timeoutMs: reviewFreeProbeTimeoutMs(env.KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS),
@@ -588,14 +588,14 @@ function providers(
       // another inference provider when the Public AI route is unavailable.
       id: 'huggingface-publicai',
       url: 'https://router.huggingface.co/v1/chat/completions',
-      model: env.KANAREK_REVIEW_HUGGINGFACE_MODEL?.trim() || DEFAULT_REVIEW_HUGGINGFACE_MODEL,
+      model: env.KANAREK_REVIEW_HUGGINGFACE_MODEL?.trim() || '',
       apiKey: (providerEnv) => providerEnv.HUGGINGFACE_API_KEY,
     },
     geminiProvider(env, 'gemini-standard'),
   ];
   const freeProviders = configuredTaskFreeProviderOrder(env, task)
     .map((id) => unorderedFreeProviders.find((provider) => provider.id === id))
-    .filter((provider): provider is ReviewProvider => Boolean(provider));
+    .filter((provider): provider is ReviewProvider => Boolean(provider?.model?.trim()));
   if (!includePaidReserves) return freeProviders;
   return [...freeProviders, ...paidProviders(env)];
 }
@@ -621,7 +621,7 @@ function deepSeekPaidProvider(
   return {
     id: 'deepseek',
     url: 'https://api.deepseek.com/chat/completions',
-    model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || DEFAULT_REVIEW_DEEPSEEK_MODEL,
+    model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || '',
     apiKey: (providerEnv) => providerEnv.DEEPSEEK_API_KEY,
     timeoutMs: mode === 'work' ? workProviderTimeoutMs(env) : MAX_TIMEOUT_MS,
     requestFields: {
@@ -653,7 +653,7 @@ function geminiProvider(
   return {
     id,
     url: 'https://generativelanguage.googleapis.com/v1/interactions',
-    model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
+    model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || '',
     apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
     timeoutMs: MAX_TIMEOUT_MS,
     protocol: 'gemini-interactions',
@@ -694,7 +694,7 @@ function paidProvidersForMode(
   return configuredPaidProviderOrder(env.KANAREK_REVIEW_PAID_PROVIDER_ORDER)
     .filter((id) => mode === 'review' || id !== 'xai')
     .filter((id) => id !== 'gemini-flex' || !geminiUsesFreeTier(env))
-    .map((id) => providersById[id]);
+    .map((id) => providersById[id]).filter((provider) => Boolean(provider.model.trim()));
 }
 
 function paidProviders(env: ReviewRouterEnv): readonly ReviewProvider[] {
@@ -1491,7 +1491,7 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
           };
     }),
   );
-  const workersAiConfigured = workersAiEnabled(env);
+  const workersAiConfigured = workersAiEnabled(env) && freeProviderOrder(env).includes('workers-ai');
   const [workersAiCooldown, workersAiBudget] = workersAiConfigured
     ? await Promise.all([
         activeProviderCooldown(env, 'workers-ai'),
@@ -2487,7 +2487,7 @@ export async function handleReviewRouterRequest(
   }
 
 
-  if (!paidOnly && !workOnly && workersAiEnabled(env) && !excluded.has('workers-ai')) {
+  if (!paidOnly && !workOnly && workersAiEnabled(env) && freeProviderOrder(env, task).includes('workers-ai') && !excluded.has('workers-ai')) {
     configured += 1;
     const provider: ReviewProviderId = 'workers-ai';
     const workersModel = workersAiModel(env);

@@ -1,0 +1,205 @@
+{
+  "regions": [
+    {
+      "id": "feedseek",
+      "name": "Feedseek",
+      "description": "The observatory for generated and enhanced feeds.",
+      "url": "https://github.com/trvny/feedseek",
+      "items": [
+        {
+          "name": "Feed directory",
+          "description": "Browse the published RSS, Atom and JSON feeds.",
+          "url": "https://trvny.github.io/feedseek/"
+        },
+        {
+          "name": "Web reader",
+          "description": "Read entries from the Feedseek catalogue in a browser.",
+          "url": "https://trvny.github.io/feedseek/reader/"
+        },
+        {
+          "name": "Source registry",
+          "description": "The configuration that lists feed sources and generators.",
+          "url": "https://github.com/trvny/feedseek/blob/main/feeds.yaml"
+        },
+        {
+          "name": "Model feeds",
+          "description": "Machine-readable feed output and guidance for agents.",
+          "url": "https://github.com/trvny/feedseek/blob/main/docs/model-feeds.md"
+        }
+      ]
+    },
+    {
+      "id": "kanarek",
+      "name": "Kanarek",
+      "description": "Android news, widgets and streaming in one app.",
+      "url": "https://github.com/travnie/Kanarek",
+      "items": [
+        {
+          "name": "News reader",
+          "description": "Follow RSS and Atom sources, save articles and use offline content.",
+          "url": "https://github.com/travnie/Kanarek#news"
+        },
+        {
+          "name": "Home-screen widget",
+          "description": "A configurable news slideshow with navigation and source settings.",
+          "url": "https://github.com/travnie/Kanarek"
+        },
+        {
+          "name": "Radio and TV",
+          "description": "Background radio and IPTV playback with playlists and Cast.",
+          "url": "https://github.com/travnie/Kanarek"
+        },
+        {
+          "name": "Optional Worker",
+          "description": "An optional Cloudflare backend for fetching and network features. The app can parse feeds directly.",
+          "url": "https://github.com/travnie/Kanarek"
+        }
+      ]
+    },
+    {
+      "id": "wam",
+      "name": "WAM Bridge",
+      "description": "Windows audio crosses the Wi-Fi bridge to Samsung speakers.",
+      "url": "https://github.com/travnie/wambridge",
+      "items": [
+        {
+          "name": "Audio bridge",
+          "description": "A local stream and Samsung playback API send audio to supported speakers.",
+          "url": "https://github.com/travnie/wambridge"
+        },
+        {
+          "name": "foobar2000 output",
+          "description": "A component streams audio playing in foobar2000, including internet radio.",
+          "url": "https://github.com/travnie/wambridge"
+        },
+        {
+          "name": "Speaker compatibility",
+          "description": "Shape M5 WAM550 was tested; other models remain candidates.",
+          "url": "https://github.com/travnie/wambridge#speaker-compatibility"
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "name": "Aistee",
+      "description": "An Android-first AI workbench with shared Kotlin Multiplatform logic.",
+      "url": "https://github.com/travnie/aistee",
+      "items": [
+        {
+          "name": "Android app",
+          "description": "The first client for a workbench bringing multiple AI providers together.",
+          "url": "https://github.com/travnie/aistee"
+        },
+        {
+          "name": "Provider connections",
+          "description": "Use native providers and web-based services from one workbench.",
+          "url": "https://github.com/travnie/aistee"
+        },
+        {
+          "name": "Shared core",
+          "description": "Kotlin Multiplatform hosts shared provider and domain logic. Desktop and iOS are planned.",
+          "url": "https://github.com/travnie/aistee"
+        },
+        {
+          "name": "Rolling APK",
+          "description": "The current rolling Android build, published by the project.",
+          "url": "https://github.com/travnie/aistee/releases"
+        }
+      ]
+    },
+    {
+      "id": "autka",
+      "name": "Autka",
+      "description": "A car-shopping project spanning Poland, Europe and US imports.",
+      "url": "https://github.com/travnie/Autka",
+      "items": [
+        {
+          "name": "Car shopping",
+          "description": "Brings marketplace routes and car-shopping tools together. Reliable licensed listings remain a project constraint.",
+          "url": "https://github.com/travnie/Autka"
+        },
+        {
+          "name": "Import calculator",
+          "description": "Estimates the cost of bringing a car from the USA to Poland.",
+          "url": "https://github.com/travnie/Autka"
+        },
+        {
+          "name": "Android app",
+          "description": "The Android-first open-source project and its current development status.",
+          "url": "https://github.com/travnie/Autka"
+        }
+      ]
+    },
+    {
+      "id": "tvpi",
+      "name": "TVPI",
+      "description": "Stable entry points for TVP IPTV streams.",
+      "url": "https://github.com/trvny/tvpi",
+      "items": [
+        {
+          "name": "TV player",
+          "description": "Open the TVP channels from the TRAVNY hub.",
+          "url": "https://travny.pages.dev/tv/"
+        },
+        {
+          "name": "Stable playlist",
+          "description": "A saveable M3U with Worker endpoints for each channel.",
+          "url": "https://tvpi.travny.workers.dev/playlist.m3u"
+        },
+        {
+          "name": "Residential refresh",
+          "description": "A Polish home connection can refresh upstream manifests. Continuous availability is not guaranteed.",
+          "url": "https://github.com/trvny/tvpi"
+        }
+      ]
+    },
+    {
+      "id": "workshop",
+      "name": "twojstar workshop",
+      "description": "A shared home for tools, utilities and experiments.",
+      "url": "https://github.com/travnie/twojstar",
+      "items": [
+        {
+          "name": "Codebench",
+          "description": "Generate, scan and export QR codes and barcodes in the browser.",
+          "url": "https://codebench.travny.workers.dev/"
+        },
+        {
+          "name": "Streambench",
+          "description": "A local-first workshop for IPTV, radio, playlists and streams.",
+          "url": "https://streambench.travny.workers.dev/"
+        },
+        {
+          "name": "Docbench",
+          "description": "Work with documents and PDFs locally in the browser.",
+          "url": "https://docbench.travny.workers.dev/"
+        },
+        {
+          "name": "Weather Feed",
+          "description": "Local weather, air quality and alerts for Kościelec and Chrzanów.",
+          "url": "https://weather.travny.workers.dev/"
+        },
+        {
+          "name": "Feedboard",
+          "description": "Windows 11 feed widget and settings application.",
+          "url": "https://github.com/travnie/twojstar/tree/main/feedboard"
+        },
+        {
+          "name": "Paint.NET plugins",
+          "description": "Image tools including ICO and AI Restore plugins.",
+          "url": "https://github.com/travnie/twojstar/tree/main/paintdotnet"
+        },
+        {
+          "name": "Audacity plugin",
+          "description": "Auto Declip VST3 for audio restoration.",
+          "url": "https://github.com/travnie/twojstar/tree/main/audacity"
+        },
+        {
+          "name": "Intent Keyboard",
+          "description": "An experiment turning rough intent into natural text.",
+          "url": "https://github.com/travnie/twojstar/tree/main/intent-keyboard"
+        }
+      ]
+    }
+  ]
+}

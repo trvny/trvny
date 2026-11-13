@@ -48,7 +48,7 @@ async function player({ deferredPause = false, nativeHls = false } = {}) {
     "[data-audio]": audio, "[data-controls]": new Element(), "[data-play]": play,
     "[data-volume]": new Input(), "[data-status]": status, "[data-cover]": new Image(),
     "[data-title]": new Element(), "[data-artist]": new Element(), "[data-album]": new Element(),
-    "[data-station-picker]": new Element(), "[data-station]": station, "[data-mark]": new Element(),
+    "[data-station-picker]": new Element(), "[data-station]": station, ".radio-fallback [data-mark]": new Element(),
     "[data-mark-label]": new Element(), ".radio-footer [data-quality]": new Element(),
   };
   const root = new Element();

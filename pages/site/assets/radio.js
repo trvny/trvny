@@ -10,7 +10,7 @@
     const album = root.querySelector('[data-album]');
     const picker = root.querySelector('[data-station-picker]');
     const station = root.querySelector('[data-station]');
-    const mark = root.querySelector('[data-mark]');
+    const mark = root.querySelector('.radio-fallback [data-mark]');
     const markLabel = root.querySelector('[data-mark-label]');
     const quality = root.querySelector('.radio-footer [data-quality]');
     if (!(audio instanceof HTMLAudioElement) || !(controls instanceof HTMLElement) ||

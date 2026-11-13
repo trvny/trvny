@@ -151,3 +151,15 @@ test("external pause and resume preserve the source", async () => {
   assert.equal(p.instances[0].stopped, false);
   assert.equal(p.status.textContent, "Connecting…");
 });
+
+test("discarding a teardown pause does not hide the next external pause", async () => {
+  const p = await player({ deferredPause: true });
+  p.play.dispatch("click");
+  p.select("trojka");
+  p.pauseEvents.length = 0;
+  await p.flush();
+  p.audio.pause();
+  p.pauseEvents.shift()();
+  assert.equal(p.status.textContent, "Paused");
+  assert.equal(p.instances[0].stopped, true);
+});

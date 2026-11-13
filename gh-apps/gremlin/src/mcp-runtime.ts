@@ -10,8 +10,8 @@ import {
   type RuntimeEnv,
 } from 'kanarek-companion/runtime';
 
-// Gremlin owns MCP composition. The shared runtime exposes guarded services,
-// not a second copy of the operator policy or specialist implementations.
+// Gremlin owns its MCP entry wiring and capability metadata.
+// The shared adapter still implements operator and specialist dispatch.
 export function gremlinMcpManifest(origin: string): JsonObject {
   return combinedGremlinMcpManifest(pluginMcpOpenApi(origin));
 }

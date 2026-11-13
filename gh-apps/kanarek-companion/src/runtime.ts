@@ -61,8 +61,8 @@ export type RuntimeEnv = GatewayEnv &
     XAI_API_KEY?: string;
   };
 
-// Gremlin consumes existing services through this private package boundary.
-// Gremlin-specific MCP composition and capability metadata live in gremlin/.
+// Gremlin consumes existing guarded services through this package boundary.
+// Operator and specialist dispatch remain here until the staged cutover.
 export { gatewayManifest, githubGateway };
 export { pluginMcpOpenApi } from './runtime-openapi.ts';
 export {

@@ -22,6 +22,7 @@
 
     let wantsPlaying = false;
     let playbackAttempt = 0;
+    let internalPauses = 0;
     let metadataVersion = 0;
     let timer;
     let hls;
@@ -49,6 +50,7 @@
     function stop() {
       wantsPlaying = false;
       playbackAttempt += 1;
+      if (!audio.paused) internalPauses += 1;
       audio.pause();
       if (hls) { hls.destroy(); hls = undefined; }
       audio.removeAttribute('src');
@@ -105,6 +107,7 @@
       if (!wantsPlaying) { wantsPlaying = true; playbackAttempt += 1; showPlayback(true, 'Connecting…'); }
     });
     audio.addEventListener('pause', () => {
+      if (internalPauses) { internalPauses -= 1; return; }
       if (audio.paused && wantsPlaying) stop();
     });
     audio.addEventListener('playing', () => { if (wantsPlaying) showPlayback(true, 'Playing live'); });

@@ -4,7 +4,8 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { setImmediate } from "node:timers";
 
-async function player() {
+async function player({ deferredPause = false } = {}) {
+  const pauseEvents = [];
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
     addEventListener(type, callback) { (this.listeners[type] ??= []).push(callback); }
@@ -18,7 +19,12 @@ async function player() {
     get src() { return this.getAttribute("src"); }
     set src(value) { this.setAttribute("src", value); }
     play() { this.paused = false; this.playCalls++; this.dispatch("play"); return Promise.resolve(); }
-    pause() { this.paused = true; this.dispatch("pause"); }
+    pause() {
+      if (this.paused) return;
+      this.paused = true;
+      if (deferredPause) pauseEvents.push(() => this.dispatch("pause"));
+      else this.dispatch("pause");
+    }
     load() {}
     canPlayType() { return ""; }
   }
@@ -68,7 +74,7 @@ async function player() {
   });
   const flush = () => new Promise((resolve) => setImmediate(resolve));
   const select = (value) => { station.value = value; station.dispatch("change"); };
-  return { audio, play, status, station, elements, instances, select, flush, resolveMetadata };
+  return { audio, play, status, station, elements, instances, select, flush, resolveMetadata, pauseEvents };
 }
 
 test("switching stations stops the old stream and respects pause", async () => {
@@ -115,4 +121,16 @@ test("a pending HLS setup cannot restart after pause", async () => {
   assert.equal(p.instances.length, 0);
   assert.equal(p.audio.playCalls, 0);
   assert.equal(p.status.textContent, "Paused");
+});
+
+
+test("a queued pause from the old stream cannot cancel a station change", async () => {
+  const p = await player({ deferredPause: true });
+  p.play.dispatch("click");
+  p.select("trojka");
+  assert.equal(p.pauseEvents.length, 1);
+  p.pauseEvents.shift()();
+  await p.flush();
+  assert.equal(p.instances[0].url, "trojka.m3u8");
+  assert.equal(p.audio.playCalls, 2);
 });

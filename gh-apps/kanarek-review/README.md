@@ -122,41 +122,33 @@ provider credentials.
 
 ## Provider chain
 
-The provider inventory and task policy are separate concerns.
-`KANAREK_REVIEW_PROVIDER_ORDER` remains the operator-controlled order for the
-legacy/general free lane. Quip, code-review, judge, and shitpost lanes use
-maintained task-specific preferences while sharing the same keys, cooldowns and
-quota state. `/health` exposes the legacy `freeOrder`, all effective
-`taskOrders`, and a coarse budget class for each provider.
+Production provider and model order is maintained **only** in
+[`wrangler.jsonc`](wrangler.jsonc), under the `KANAREK_REVIEW_ROUTING`
+JSON binding. The code defines supported provider IDs, API adapters, and
+per-model safety limits, but no second queue or model catalog to append.
 
-Multi-model providers (AIHubMix, OpenRouter, OrcaRouter, Vercel) keep one
-configured pool each, ordered per task best-first (`*_TASK_MODEL_PREFERENCES`):
-review and judge lead with strong, recent models, because version and release
-claims need fresh training data; quips lead with fast models; shitposts lead
-with the largest/most creative ones, where age matters less. For the same
-reason the review/judge provider queues put Groq and Ollama (gpt-oss) and the
-Bielik fallback behind fresher providers. AIHubMix's pool: `coding-kimi-k3-free`,
-`coding-glm-5.3-free`, `qwen3.8-max-free`, `xiaomi-mimo-v2.6-pro-free`,
-`coding-minimax-m3-free`, `nemotron-3.5-super-vl-free`,
-`nemotron-3.5-lightning-free`, `qwen3.8-flash-free`,
-`xiaomi-mimo-v2.6-flash-free`, `gemma-4-31b-it-free`, `laguna-s-2.1-free`,
-`agents-a1-free`, `dots-3-note-preview-free` and `lfm-2.5-2.6b-free`. Retryable model failures
-fall through inside AIHubMix before abandoning the provider.
+- `providerOrders.general` is the general free lane; `quip`, `review`,
+  `judge` and `shitpost` override it for their respective tasks.
+- `taskModels.<provider>.<task>` contains the exact models to try for that
+  task. A missing task entry inherits `taskModels.<provider>.general`.
+- `decisionModels` is a separate, free decision-only System One pool.
+- `KANAREK_REVIEW_PAID_PROVIDER_ORDER` controls the paid review queue,
+  which runs only after the free review phase or when explicitly requested.
 
-AIHubMix and OrcaRouter use the shorter
-`KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS` for non-review traffic, but code review
-lifts every HTTP provider to the review task's patient timeout floor instead of
-cutting off a model while it is still analyzing the pull request. Provider model
-fallbacks share that provider-level deadline. Unknown names and duplicates are
-ignored, and omitted known providers are appended in the default order, matching
-the quip provider-order behavior. Workers AI is temporarily disabled in this Worker and its account-level
-daily neuron allocation is reserved for the SpaceMolt gateway. The dormant model/budget
-settings remain documented here so the fallback can be restored deliberately later. `@cf/zai-org/glm-4.7-flash`
-remains the configured emergency model: it supports reasoning and tool use while
-consuming substantially fewer neurons than `@cf/qwen/qwen3.8-27b`, preserving
-more of the 10k-neuron daily reserve for actual failures upstream.
+The router tries providers and models in listed order. Omitting a provider or
+model means **do not try it**. No hidden defaults, extra providers, or model
+pools are appended. Duplicates and unknown provider IDs are ignored.
+Legacy model/order env variables are accepted only for callers without a
+corresponding structured task/general list; production no longer sets
+duplicated global model lists.
 
-The private System One route is intentionally separate from the OpenAI-compatible
+Provider and individual model cooldowns can skip unavailable entries without
+reordering other entries. The API key for each provider is a Worker secret.
+The optional `workers-ai` entry follows the same explicit ordering if enabled.
+Production keeps Workers AI disabled to preserve the shared account's neuron
+budget for SpaceMolt; no Workers AI route is present in production queues.
+
+The private System One routeThe private System One route is intentionally separate from the OpenAI-compatible
 chat router. It forwards at most 16 typed `choice` / `noul` / `score`
 questions through a rotating decision-only pool:
 
@@ -182,55 +174,22 @@ normal pass; if that judge also fails, verified L1 findings are published
 unchanged. Paid review skips L2 because its larger context can exceed the
 decision runtimes' input windows.
 
-Latency is task policy too. Quips keep the normal short provider deadlines.
-Code review and the generative L2 judge get at least 60 seconds per provider,
-while the experimental System One L2 has its separate bounded total budget and
-shitpost generation gets at least 120 seconds per provider. A provider's model
-fallbacks share that provider-level deadline instead of resetting a fresh full
-timeout for every candidate model. Kanarek Companion separately bounds the
-sequential free-review sweep, so the pool can be patient without running forever.
-The live `/health` payload exposes the effective free queue as
-`providerPool.freeOrder`.
+Latency is task policy too. Quips keep short deadlines, reviews and judges
+allow longer completions, and Kanarek Companion separately bounds its free
+review sweep. OpenRouter code review sends **one request per configured model**,
+with a 35-second per-model cap and a 120-second provider budget, rather than
+a hidden upstream `models` chain. Other task lanes retain their supported
+provider-side fallback behavior.
 
-The router falls through on request rejection, transient failures, quota
-exhaustion, authentication errors, or provider unavailability. Current
-families are:
+The router moves to the next listed model/provider on unusable responses,
+request rejections, quota exhaustion, authentication failures, or upstream
+unavailability. It never tries an omitted provider. The live `/health`
+payload lists the effective general and task queues in
+`providerPool.freeOrder` and `providerPool.taskOrders`, but its readiness
+signal reflects configuration/cooldowns rather than a guaranteed successful
+inference. Paid providers follow their own explicitly configured order.
 
-1. AIHubMix
-2. OpenRouter
-3. Ollama Cloud
-4. Groq
-5. Vercel AI Gateway
-6. OrcaRouter
-7. Hugging Face Inference Providers pinned to Public AI
-8. DeepSeek V4.1 Flash through the direct DeepSeek API, only for the
-   `kanarek-review` PR-review contract when `DEEPSEEK_API_KEY` is configured
-9. Gemini 3.8 Flash via free Standard is third in the Reactor candidate pool, after AIHubMix and OpenRouter, when the project is unbilled and `GEMINI_API_KEY` is configured. It stays late for reviews and quips.
-10. Cloudflare Workers AI fallback (temporarily disabled; budget reserved for SpaceMolt)
-
-Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
-official `openrouter/free` model can be used directly and lets OpenRouter choose
-a compatible free model automatically. The configured explicit `:free` models
-are therefore a quality/order policy rather than a technical requirement;
-OpenRouter models are ordered per task (`OPENROUTER_TASK_MODEL_PREFERENCES`):
-review leads with Inkling, quips with Nemotron 3.5 Lightning. Every pinned
-`:free` model has a catalog profile (context/output caps) and thinks by
-default, so each individual attempt gets the 16K floor and `reasoning.effort`
-(low for quips). The server-side `models` chain is capped at 3 fallbacks,
-OpenRouter's limit; the rest are tried individually.
-Repeated HTTP 404s on `stealth/space-bunny-alpha:free` and
-`qwen/qwen3.8-27b:free` prompted their removal from this review chain.
-Slow free candidates have up to 70 seconds per attempt within a five-minute
-OpenRouter review budget; quotas still use the existing router cooldowns.
-
-`openrouter/free` remains the catch-all fallback. The server-side fallback
-chain deliberately omits optional adjustable-reasoning fields because its models
-are heterogeneous. If that chain is rejected or its primary model is unavailable,
-the router tries each configured model individually and adds reasoning only where
-the model supports it. Expired models are removed from the maintained list instead
-of being rediscovered as repeatable 400s on every review.
-
-Vercel AI Gateway is intentionally classified as `monthly-free-credit`. The
+Vercel AI Gateway is intentionally classifiedVercel AI Gateway is intentionally classified as `monthly-free-credit`. The
 account-level $5/month spend cap is the guardrail, so both zero-price models and
 models consuming that included monthly allowance are part of the free budget.
 The cap stays enforced at Vercel instead of being duplicated here.
@@ -419,36 +378,26 @@ watch `gh-apps/kanarek-review/**` plus `gh-apps/core/**`.
 
 ## Operator routing settings
 
-Edit [`wrangler.jsonc`](wrangler.jsonc) for production routing. The
-`KANAREK_REVIEW_ROUTING` JSON binding groups the frequently tuned lists:
+Edit [`wrangler.jsonc`](wrangler.jsonc). The single
+`KANAREK_REVIEW_ROUTING` binding holds all free queues:
 
-- `providerOrders`: free-provider priority for `quip`, `review`, `judge`
-  and `shitpost`.
-- `taskModels`: per-provider model priorities for those tasks. The
-  provider's global `KANAREK_REVIEW_<PROVIDER>_MODELS` list remains the
-  allowlist. Keep only task-specific favorites here; all other allowed models
-  run afterward in global order.
-- `decisionModels`: independent decision-model priority per provider.
+- `providerOrders`: `general`, `quip`, `review`, `judge`, `shitpost`.
+  Each list is exact and ordered. Missing task lists inherit `general`.
+- `taskModels`: per-provider `general` model list and exact task-specific
+  lists for providers that vary by task. Missing tasks inherit `general`.
+- `decisionModels`: independent decision model queue per provider.
 
-Lists are ordinary JSON arrays, one model/provider per item. Task priority
-wins over global priority; missing task entries inherit the global order.
-An order appends omitted known providers as fallbacks and does not disable
-providers. API credentials remain Worker secrets, never `vars`.
+Omitted entries are **not** automatically appended. To add a provider/model
+to a task, put it in that task's list. Keep Workers AI absent unless deliberately
+enabled with its binding, model and neuron budget. Provider API credentials
+are secrets, never routing variables.
 
-Model lifecycle: the temporary Qwen3.8 Max/Flash free IDs retired on
-2026-10-27. Keep them off the free allowlist even in stale overrides.
-`crouton-alpha-free` is enabled as a later coding fallback. AIHubMix's
-coding GLM 5.3 requests in the operator's export completed successfully but
-often exceeded 120 seconds, so only AIHubMix reviews get a longer deadline.
-A local timeout is not an upstream outage; account-wide 429 differs from
-an upstream-busy 429. Other gateways have distinct provider-wide cooldowns
-and retain model-level fallback on model errors.
+`KANAREK_REVIEW_PAID_PROVIDER_ORDER` stays a separate top-level setting
+for the paid escalation queue. Other top-level variables configure timeouts,
+cooldowns, reasoning and provider-specific API behavior, **not duplicate
+model-order lists**. For legacy callers with no structured route, the router
+accepts the old env settings without modifying the production configuration.
 
-The grouped JSON object counts as **one binding**, rather than 24 separate
-text variables. Workers Free permits 64 text/JSON variables and secrets in
-total, so keep room for secrets when adding settings. Tests check headroom.
-
-Other frequently tuned values, including timeouts, cooldowns, reasoning,
-provider-wide model lists and paid fallback order, remain top-level `vars`.
-TypeScript defaults protect calls made without Wrangler bindings; production
-model order is maintained in Wrangler only.
+The grouped JSON object counts as one Worker binding and leaves room for
+provider secrets under Workers Free plan limits. Tests validate the actual
+Wrangler values rather than duplicating their inventories in TypeScript.

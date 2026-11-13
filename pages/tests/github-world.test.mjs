@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 
 const root = new URL('../site/teksty/githubowa-kraina/', import.meta.url);
 

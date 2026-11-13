@@ -10,8 +10,8 @@ type ToolExecutor = (name: string, args: Json) => Promise<unknown>;
 
 const SHA = /^[a-f0-9]{40}$/i;
 const REPOSITORY = /^(?:trvny|travnie)\/[A-Za-z0-9_.-]+$/;
-const MAX_ROUNDS = 20;
-const MAX_TOOL_CALLS = 48;
+const MAX_ROUNDS = 6;
+const MAX_TOOL_CALLS = 18;
 const AGENT_POLICY = [
   'Review the specified pull request for real defects introduced by its changes.',
   'You have read-only tools. Inspect relevant diffs and explore repository code, callers, configs, and external documentation as needed. Do not guess from a single diff.',
@@ -115,8 +115,8 @@ export async function runGrokAgentSession(
           reasoning: request.reasoning,
           max_output_tokens: request.max_output_tokens,
           input: history,
-          tools: [...TOOL_DEFS, { type: 'web_search' }],
-          tool_choice: round === 0 ? 'required' : 'auto',
+          tools: round === MAX_ROUNDS - 1 ? [] : [...TOOL_DEFS, { type: 'web_search' }],
+          tool_choice: round === MAX_ROUNDS - 1 ? 'none' : round === 0 ? 'required' : 'auto',
           text: { format: { type: 'json_schema', name: 'kanarek_code_review',
             strict: true, schema: GROK_REVIEW_SCHEMA } },
         }),
@@ -169,6 +169,9 @@ export async function runGrokAgentSession(
         output: JSON.stringify(toolResult).slice(0, 50_000) });
     }
   }
+  console.warn(JSON.stringify({ kanarekXaiReview: 'agent_budget_exhausted',
+    rounds: MAX_ROUNDS, toolCalls: totalToolCalls, inputTokens: cumulativeInput,
+    cachedTokens: cachedInput, outputTokens: cumulativeOutput }));
   return fail('agent_rounds_exhausted', 504);
 }
 

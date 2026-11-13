@@ -4,6 +4,8 @@ import test from 'node:test';
 import { handleReviewRouterRequest } from '../src/review-router.ts';
 
 const endpoint = 'https://kanarek-review.example/review-router/v1/chat/completions';
+const paidSettings = { KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai,deepseek,gemini-flex',
+  KANAREK_REVIEW_DEEPSEEK_MODEL: 'deepseek-flash' } as const;
 
 function req(model: string): Request {
   return new Request(endpoint, {
@@ -20,6 +22,7 @@ test('paid review selects Grok through the private RPC', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
     KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    ...paidSettings,
     XAI_REVIEW_RPC: {
       async completeReview(input) {
         calls += 1;
@@ -42,6 +45,7 @@ test('paid review selects Grok through the private RPC', async () => {
 test('paid Grok model and reasoning are configurable via Wrangler bindings', async () => {
   const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
     KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    ...paidSettings,
     KANAREK_REVIEW_XAI_MODEL: 'grok-4.6',
     KANAREK_REVIEW_XAI_REASONING_EFFORT: 'xhigh',
     XAI_REVIEW_RPC: {
@@ -71,6 +75,7 @@ test('paid Grok uses the shared defaults for missing or invalid bindings', async
     const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
       ...settings,
       KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    ...paidSettings,
       XAI_REVIEW_RPC: {
         async completeReview(input) {
           assert.equal(input.model, 'grok-4.7');
@@ -91,6 +96,7 @@ test('Grok is never called by the free or paid-work aliases', async () => {
   let calls = 0;
   const env = {
     KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    ...paidSettings,
     XAI_REVIEW_RPC: { async completeReview() {
       calls += 1;
       return { status: 200, payload: {} };
@@ -107,6 +113,7 @@ test('Grok is never called by the free or paid-work aliases', async () => {
 test('Grok quota error falls through to DeepSeek', async () => {
   const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
     KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    ...paidSettings,
     DEEPSEEK_API_KEY: 'dummy',
     XAI_REVIEW_RPC: { async completeReview() {
       return { status: 429, payload: { error: { message: 'limited' } } };

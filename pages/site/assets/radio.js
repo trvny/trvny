@@ -22,7 +22,7 @@
 
     let wantsPlaying = false;
     let playbackAttempt = 0;
-    let internalPauses = 0;
+    let awaitingPlayback = false;
     let metadataVersion = 0;
     let timer;
     let hls;
@@ -50,7 +50,7 @@
     function stop() {
       wantsPlaying = false;
       playbackAttempt += 1;
-      if (!audio.paused) internalPauses += 1;
+      awaitingPlayback = false;
       audio.pause();
       if (hls) { hls.destroy(); hls = undefined; }
       audio.removeAttribute('src');
@@ -65,6 +65,7 @@
     }
     async function start() {
       wantsPlaying = true;
+      awaitingPlayback = true;
       const attempt = ++playbackAttempt;
       if (hls) { hls.destroy(); hls = undefined; }
       const option = station.selectedOptions[0];
@@ -108,6 +109,7 @@
       if (resume) void start();
     });
     audio.addEventListener('play', () => {
+      awaitingPlayback = false;
       if (!wantsPlaying) {
         wantsPlaying = true;
         playbackAttempt += 1;
@@ -116,8 +118,7 @@
       }
     });
     audio.addEventListener('pause', () => {
-      if (internalPauses) { internalPauses -= 1; return; }
-      if (audio.paused && wantsPlaying) {
+      if (audio.paused && wantsPlaying && !awaitingPlayback) {
         wantsPlaying = false;
         playbackAttempt += 1;
         if (hls) hls.stopLoad();

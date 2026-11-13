@@ -1,5 +1,4 @@
 import { runWithActionRequestContext } from './action-context.ts';
-import type { ActionInvoke } from './action-auth.ts';
 import { AnchorMutationReplayStore } from './specialists/anchor-replay.ts';
 import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './investigation/bug-investigation.ts';
 import {
@@ -32,11 +31,7 @@ import {
   handleReleaseReplaceAction,
   RELEASE_ASSET_REPLACE_PATH,
 } from './operator/release-replace-action.ts';
-import {
-  gremlinMcpManifest as combinedGremlinMcpManifest,
-  handleGremlinMcp as handleCombinedGremlinMcp,
-} from './specialists/mcp-adapter.ts';
-import { pluginMcpOpenApi, runtimeOpenApi } from './runtime-openapi.ts';
+import { runtimeOpenApi } from './runtime-openapi.ts';
 import { reviewProviderPoolStateViaService } from './companion/review-service.ts';
 import {
   handleSymbolInvestigationAction,
@@ -66,38 +61,16 @@ export type RuntimeEnv = GatewayEnv &
     XAI_API_KEY?: string;
   };
 
-export function gremlinMcpManifest(origin: string): JsonObject {
-  return combinedGremlinMcpManifest(pluginMcpOpenApi(origin));
-}
-
-// Reuse the shared digest/count implementation with the *curated* Gremlin
-// manifest, rather than describing the full legacy Kanarek gateway.
-export async function gremlinGatewayManifest(
-  origin: string,
-  metadata?: RuntimeEnv['CF_VERSION_METADATA'],
-): Promise<JsonObject> {
-  return {
-    ...await gatewayManifest(pluginMcpOpenApi(origin), metadata),
-    service: 'gremlin',
-    mcp: gremlinMcpManifest(origin),
-  };
-}
-
-export function handleGremlinMcp(
-  request: Request,
-  env: RuntimeEnv,
-  invoke: ActionInvoke,
-): Promise<Response | null> {
-  return handleCombinedGremlinMcp(
-    request,
-    pluginMcpOpenApi(new URL(request.url).origin),
-    env,
-    invoke,
-    githubGateway(request, env, actionFetch),
-    actionFetch,
-  );
-}
-
+// Gremlin consumes existing services through this private package boundary.
+// Gremlin-specific MCP composition and capability metadata live in gremlin/.
+export { gatewayManifest, githubGateway };
+export { pluginMcpOpenApi } from './runtime-openapi.ts';
+export {
+  gremlinMcpManifest as combinedGremlinMcpManifest,
+  handleGremlinMcp as handleCombinedGremlinMcp,
+} from './specialists/mcp-adapter.ts';
+export type { ActionInvoke } from './action-auth.ts';
+export type { JsonObject } from './tools/common.ts';
 
 async function manifest(request: Request, env: RuntimeEnv): Promise<JsonObject> {
   return gatewayManifest(

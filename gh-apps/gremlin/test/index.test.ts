@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { gremlinGatewayManifest, gremlinMcpManifest } from 'kanarek-companion/runtime';
+import { gremlinGatewayManifest, gremlinMcpManifest } from '../src/mcp-runtime.ts';
 import worker from '../src/index.ts';
 
 const ORIGIN = 'https://gremlin.internal';

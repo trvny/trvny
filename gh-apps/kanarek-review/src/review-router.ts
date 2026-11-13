@@ -22,10 +22,10 @@ const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
 const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
 // Give slow free models time to complete without starving the other providers.
-const OPENROUTER_REVIEW_TIMEOUT_MS = 300_000;
-const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 70_000;
-const AIHUBMIX_REVIEW_TIMEOUT_MS = 6 * 60_000;
-const AIHUBMIX_REVIEW_ATTEMPT_CAP_MS = 5 * 60_000;
+const OPENROUTER_REVIEW_TIMEOUT_MS = 120_000;
+const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 35_000;
+const AIHUBMIX_REVIEW_TIMEOUT_MS = 120_000;
+const AIHUBMIX_REVIEW_ATTEMPT_CAP_MS = 35_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
 const SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS = 25 * 60_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
@@ -2027,6 +2027,10 @@ function providerAttempts(
       provider.model,
       fallbackModels.length ? 'primary_only' : 'default',
     );
+    if (task === 'review') {
+      // Review: one HTTP request per model; no opaque provider-side fallback chain.
+      return [primaryAttempt, ...fallbackModels.map((model) => individualAttempt(model, 'model_fallback'))];
+    }
     if (!fallbackModels.length) return [primaryAttempt];
     const chainModels = [provider.model, ...fallbackModels.slice(0, OPENROUTER_CHAIN_FALLBACKS)];
     const chainLimit = (field: 'contextTokens' | 'maxOutputTokens'): number =>
@@ -2143,7 +2147,7 @@ function shouldTryNextAttempt(
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
   if (provider.id === 'openrouter') {
-    if (status === 404) return true;
+    if ([404, 410, 502, 503, 504].includes(status)) return true;
     if (status !== 400) return false;
     if (attemptIndex === 0) return true;
     return category === 'http_400_invalid_model';

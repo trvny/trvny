@@ -139,3 +139,32 @@ test('Grok does not double-charge or retry an agent result that may be billed', 
   assert.equal(result.status, 502);
   assert.equal(calls, 1);
 });
+ 
+test('Grok does not fall back after a tool-mode 403 in a later, billed round', async () => {
+  const sha = 'a'.repeat(40);
+  const scoped = {
+    ...review,
+    messages: [review.messages[0], { role: 'user', content: JSON.stringify({
+      review_scope: { repository: 'trvny/trvny', head_sha: sha },
+      pull_request: { number: 17 },
+    }) }],
+  };
+  let calls = 0;
+  const result = await requestGrokReview(
+    scoped, 'dummy', (async () => {
+      calls++;
+      if (calls === 1) return Response.json({
+        status: 'completed',
+        usage: { input_tokens: 10, output_tokens: 5 },
+        output: [{ type: 'function_call', name: 'read_pr', call_id: 'c1', arguments: '{}' }],
+      });
+      return new Response(null, { status: 403 });
+    }) as typeof fetch, Date.now() + 60_000,
+    async () => ({
+      read: async (path: string) => path.includes('/files?')
+        ? [] : { state: 'open', head: { sha }, changed_files: 0 },
+    }),
+  );
+  assert.equal(result.status, 403);
+  assert.equal(calls, 2);
+});

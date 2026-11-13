@@ -54,7 +54,7 @@ a fake or incompatible stream.
 
 Paid review requests get their initial output budget from
 `../kanarek-companion/wrangler.jsonc` via
-`KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS` (currently `36864`,
+`KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS` (currently `65536`,
 accepted 512–65536). Grok uses that requested budget directly, bounded by
 its adapter's 8192-token floor and 131072-token ceiling.
 Other paid providers may override the request: DeepSeek uses
@@ -175,12 +175,26 @@ normal pass; if that judge also fails, verified L1 findings are published
 unchanged. Paid review skips L2 because its larger context can exceed the
 decision runtimes' input windows.
 
-Latency is task policy too. Quips keep short deadlines, reviews and judges
-allow longer completions, and Kanarek Companion separately bounds its free
-review sweep. OpenRouter code review sends **one request per configured model**,
-with a 35-second per-model cap and a 120-second provider budget, rather than
-a hidden upstream `models` chain. Other task lanes retain their supported
-provider-side fallback behavior.
+Latency is task policy too. Quips keep short deadlines; judges get 60 s per
+provider. Free code review uses one rule for every provider: a 180-second
+provider budget, and a 120-second cap per model while another model of that
+provider remains (the last model gets the rest). Review sends **one request per
+configured model**, never a hidden upstream `models` chain. Paid review
+providers (Grok, DeepSeek) get 300 s each. Kanarek Companion bounds the whole
+free sweep, the paid pass and L2 by its 15-minute alarm wall time.
+
+Free first, then paid: Companion sweeps the free queue (each provider excluded
+after an unusable answer; a clean verdict needs two free providers), and only
+an exhausted free sweep or rejected findings escalate to `kanarek-review-paid`.
+The paid pass makes one router call: the paid queue fails over on HTTP errors,
+but anything billed is final and never retried — an unusable answer
+(`invalid_output`/`invalid_findings`, also when the router discarded it, Grok
+returned truncated/empty output, or a provider timed out mid-generation; the
+router names it in `x-kanarek-review-billed-provider`), a paid call cut off by
+the alarm budget (`paid_timeout`), or a failed GitHub publication
+(`publish_failed`). These outcomes also settle the head, so a redelivered
+webhook does not pay again. Only a paid pass where no provider answered
+retries with backoff.
 
 The router moves to the next listed model/provider on unusable responses,
 request rejections, quota exhaustion, authentication failures, or upstream
@@ -230,7 +244,8 @@ rotates out until it recovers. Spend limits and routing policy
 must remain enforced in OrcaRouter itself.
 
 DeepSeek uses the official OpenAI-compatible endpoint with `deepseek-flash`.
-Both paid contracts enable high-effort thinking with a 128K generation ceiling.
+Both paid contracts enable high-effort thinking with a 128K generation ceiling;
+paid review allows 300 s per request.
 The review contract additionally forces JSON output and uses the expanded
 review context profile; the work contract deliberately does not force JSON so
 native tool calls remain available and allows a longer model-turn timeout.
@@ -240,10 +255,15 @@ cooldown/fallback path.
 
 Gemini uses the native Interactions endpoint. When
 `KANAREK_REVIEW_GEMINI_SERVICE_TIER=standard`, the request omits `service_tier`
-(Standard is Google's default), joins the free pool and caps output at 8K tokens.
+(Standard is Google's default) and joins the free pool. The free tier limits
+requests and tokens per minute, not output length, and thinking counts against
+`max_output_tokens`, so non-quip tasks get the 16K reasoning floor up to the
+model's 64K ceiling (quips: low thinking, 2K floor).
 The `gemini-flex` paid fallback is omitted in this mode to avoid retrying the
 same unbilled key after free attempts.
-Reactor candidates use `thinking_level: medium` with the existing 8K free-tier output ceiling; judges and review tasks keep their configured reasoning level. Provider keys stay in the shared private router. Switching this setting back to `flex`
+Reactor candidates use `thinking_level: medium`; judges and review tasks keep
+their configured reasoning level. Provider keys stay in the shared private
+router. Switching this setting back to `flex`
 restores the old paid reserve instead; neither mode overrides the project's
 actual Google billing status. Quota 429s continue through shared cooldowns.
 

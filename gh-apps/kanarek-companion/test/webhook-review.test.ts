@@ -7,6 +7,7 @@ import {
   patchAddedRightLines,
   reviewFileCollectionComplete,
   reviewInputState,
+  reviewTextIsChinese,
   selectReviewFiles,
   type WebhookReviewEnv,
 } from '../src/companion/webhook-review-context.ts';
@@ -28,6 +29,7 @@ import {
   reviewContinuationJob,
   reviewMarker,
   reviewRetryDelayMs,
+  emptySweepSkip,
   reviewRouterEnvForAttempt,
   reviewSourceLabel,
   submittedReviewMatches,
@@ -364,6 +366,10 @@ test('review retries are bounded and only cover transient failures', () => {
     2 * 60_000,
   );
   // A billed completion that failed verification is not retried.
+  assert.equal(
+    reviewRetryDelayMs({ ...transient, skipped: 'invalid_output' }, 0),
+    null,
+  );
   assert.equal(
     reviewRetryDelayMs({ ...transient, skipped: 'invalid_findings' }, 0),
     null,
@@ -962,7 +968,7 @@ test('free and paid review output budgets stay independent', () => {
   };
   assert.equal(reviewOutputTokens(env, 'kanarek-review-free'), 36_864);
   assert.equal(reviewOutputTokens(env, 'kanarek-review-paid'), 16_384);
-  assert.equal(reviewOutputTokens({}, 'kanarek-review-paid'), 36_864);
+  assert.equal(reviewOutputTokens({}, 'kanarek-review-paid'), 65_536);
   assert.equal(reviewOutputTokens({}, 'kanarek-review-free'), 65_536);
 });
 
@@ -1273,4 +1279,23 @@ test('review state lives in the existing quip and never leaks across heads', asy
     }), 'travnie/llmbench', 21, headA),
     { settled: true, badge: null },
   );
+});
+
+test('language gate drops only non-Chinese findings, not the whole review', () => {
+  const zh = { path: 'a.ts', title: '空指针', body: '会崩溃。' };
+  const en = { path: 'a.ts', title: 'Null deref', body: 'Crashes.' };
+  assert.equal(reviewTextIsChinese({ summary: 'English summary', findings: [] }), true);
+  assert.equal(reviewTextIsChinese({ summary: '', findings: [zh, en] }), true);
+  assert.equal(reviewTextIsChinese({ summary: '', findings: [en] }), false);
+  assert.equal(reviewTextIsChinese({ summary: '', findings: [{ ...zh, title: 'English' }] }), false);
+});
+
+test('paid sweep that got any answer is final; only a silent pass retries', () => {
+  assert.equal(emptySweepSkip('free', { excluded: ['vercel'] }), 'paid_escalation_needed');
+  assert.equal(emptySweepSkip('paid', { excluded: ['xai'] }), 'invalid_output');
+  assert.equal(emptySweepSkip('paid', { excluded: [] }), 'providers_failed');
+  assert.equal(emptySweepSkip('paid', { excluded: [], aborted: true }), 'paid_timeout');
+  assert.equal(reviewRetryDelayMs({ findingCount: 0, provider: null, reviewed: false, skipped: 'paid_timeout' }, 0), null);
+  const base = { findingCount: 0, provider: 'xai', reviewed: false };
+  assert.equal(reviewRetryDelayMs({ ...base, skipped: 'publish_failed' }, 0), null);
 });

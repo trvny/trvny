@@ -1,6 +1,7 @@
 import { createInstallationClient } from '../../../core/github-app.ts';
 import { isGptomekFallbackPullRequest } from '../gptomek/gptomek-control.ts';
 import {
+  REVIEW_BILLED_PROVIDER_HEADER,
   REVIEW_PROVIDER_EXCLUDE_HEADER,
   REVIEW_ROUTER_CODE_REVIEW_MODEL,
   REVIEW_ROUTER_PATH,
@@ -20,6 +21,7 @@ import {
   type RawFinding,
   type ParsedReview,
   objectValue,
+  containsHan,
   reviewTextIsChinese,
   selectReviewFiles,
   selectReviewEvidenceFiles,
@@ -61,7 +63,7 @@ const DEFAULT_MAX_DIFF_CHARS = 60_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
 const DEFAULT_PAID_MAX_DIFF_CHARS = 250_000;
 const DEFAULT_PAID_MAX_CONTEXT_CHARS = 500_000;
-const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 36_864;
+const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 65_536;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
 const PAID_MAX_PATCH_CHARS = 48_000;
@@ -72,6 +74,17 @@ const REVIEW_SWEEP_MAX_ATTEMPTS = 8;
 // 15-minute Durable Object alarm wall-time limit.
 const DEFAULT_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
 const MAX_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
+// L2 needs room for System One (25s router budget) plus a generative judge pass.
+const L2_MIN_BUDGET_MS = 90_000;
+const DECISION_L2_DEADLINE_MS = 40_000;
+
+/** Time left for provider calls before the 90s publication margin of the alarm. */
+function alarmBudgetLeftMs(alarmStartedAt: number): number {
+  return Math.max(0, MAX_REVIEW_SWEEP_BUDGET_MS - (Date.now() - alarmStartedAt));
+}
+const SETTLED_SKIPS = new Set([
+  'no_code_diff', 'invalid_output', 'invalid_findings', 'paid_timeout', 'publish_failed',
+]);
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const REVIEW_OUTCOME_KEY = 'review_outcome';
@@ -460,16 +473,19 @@ async function askReviewRouter(
     env,
   );
   if (!response || !response.ok) {
+    const billed = response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER)?.trim() || null;
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'providers_unavailable',
         routerModel,
         excludedProviders,
         status: response?.status ?? 500,
+        billedProvider: billed,
       }),
     );
     await response?.body?.cancel();
-    return { kind: 'unavailable' };
+    // A paid provider generated but the router discarded it: an answer, not an outage.
+    return billed ? { kind: 'invalid', provider: billed } : { kind: 'unavailable' };
   }
 
   const provider = response.headers.get('x-kanarek-review-provider') ?? 'free-router';
@@ -497,6 +513,8 @@ async function askReviewRouter(
     );
     return { kind: 'invalid', provider };
   }
+  // Publication falls back to the stock Chinese summary.
+  if (parsed.summary && !containsHan(parsed.summary)) parsed.summary = '';
   const model =
     typeof payload.model === 'string' && payload.model.trim()
       ? payload.model.trim().slice(0, 200)
@@ -505,6 +523,7 @@ async function askReviewRouter(
 }
 
 export interface ReviewSweepResult {
+  aborted?: boolean;
   attempts: number;
   disposition: 'clean' | 'invalid_findings' | 'publish' | null;
   excluded: string[];
@@ -518,6 +537,21 @@ export interface ReviewSweepResult {
  */
 export function reviewSweepMaxAttempts(phase: ReviewPhase): number {
   return phase === 'paid' ? 1 : REVIEW_SWEEP_MAX_ATTEMPTS;
+}
+
+/**
+ * Outcome when a sweep produced no usable review. Free → escalate to paid.
+ * Paid: a provider that answered (excluded) was billed, so the result is final;
+ * only a pass where nobody answered is retryable.
+ */
+export function emptySweepSkip(
+  phase: ReviewPhase,
+  sweep: Pick<ReviewSweepResult, 'aborted' | 'excluded'>,
+): 'paid_escalation_needed' | 'invalid_output' | 'paid_timeout' | 'providers_failed' {
+  if (phase === 'free') return 'paid_escalation_needed';
+  if (sweep.excluded.length) return 'invalid_output';
+  // Budget ran out while a paid call was in flight: it may have billed.
+  return sweep.aborted ? 'paid_timeout' : 'providers_failed';
 }
 
 export function reviewFreeSweepBudgetMs(raw: string | undefined): number {
@@ -548,6 +582,7 @@ export async function sweepReviewProviders(
   const startedAt = now();
   const excluded: string[] = [];
   let attempts = 0;
+  let aborted = false;
   let last: ReviewSweepResult | null = null;
 
   while (attempts < maxAttempts) {
@@ -563,7 +598,13 @@ export async function sweepReviewProviders(
     } finally {
       clearTimeout(timer);
     }
-    if (outcome.kind === 'unavailable' || deadline.signal.aborted) break;
+    if (deadline.signal.aborted) {
+      // Cut off mid-call: a paid provider may have billed. Callers see it via `aborted`.
+      aborted = true;
+      if (outcome.kind === 'invalid') excluded.push(outcome.provider);
+      break;
+    }
+    if (outcome.kind === 'unavailable') break;
     const provider = outcome.kind === 'ok' ? outcome.review.provider : outcome.provider;
     if (outcome.kind === 'ok') {
       const findings = verifyReviewFindings(outcome.review.parsed, files);
@@ -588,8 +629,8 @@ export async function sweepReviewProviders(
   }
 
   return last
-    ? { ...last, attempts, excluded }
-    : { attempts, disposition: null, excluded, findings: [], generated: null };
+    ? { ...last, aborted, attempts, excluded }
+    : { aborted, attempts, disposition: null, excluded, findings: [], generated: null };
 }
 
 const REVIEW_PROVIDER_DISPLAY: Record<string, { domain: string; label: string }> = {
@@ -900,14 +941,13 @@ export async function runWebhookReview(
     verifiableFiles,
     {
       maxAttempts: reviewSweepMaxAttempts(paidPhase ? 'paid' : 'free'),
-      ...(paidPhase
-        ? {}
-        : {
-            budgetMs: Math.min(
-              reviewFreeSweepBudgetMs(env.KANAREK_WEBHOOK_REVIEW_FREE_SWEEP_BUDGET_MS),
-              Math.max(0, MAX_REVIEW_SWEEP_BUDGET_MS - (Date.now() - alarmStartedAt)),
-            ),
-          }),
+      // Both phases stay inside the alarm's wall time; context fetch already used some.
+      budgetMs: Math.min(
+        paidPhase
+          ? MAX_REVIEW_SWEEP_BUDGET_MS
+          : reviewFreeSweepBudgetMs(env.KANAREK_WEBHOOK_REVIEW_FREE_SWEEP_BUDGET_MS),
+        alarmBudgetLeftMs(alarmStartedAt),
+      ),
     },
   );
   const generated = sweep.generated;
@@ -929,7 +969,7 @@ export async function runWebhookReview(
       reviewed: false,
       provider: null,
       findingCount: 0,
-      skipped: paidPhase ? 'providers_failed' : 'paid_escalation_needed',
+      skipped: emptySweepSkip(paidPhase ? 'paid' : 'free', sweep),
     };
   }
 
@@ -989,7 +1029,7 @@ export async function runWebhookReview(
   let judged: JudgedFindings | null = null;
   let decisionMarker: string | null = null;
   // Skip expensive L2 when the 15-minute alarm needs its publication margin.
-  if (disposition === 'publish' && !paidPhase && Date.now() - alarmStartedAt < 12 * 60_000) {
+  if (disposition === 'publish' && !paidPhase && alarmBudgetLeftMs(alarmStartedAt) > L2_MIN_BUDGET_MS) {
     const judgeContext = focusedReviewJudgeContext(reviewInput, findings);
     const decisionAttempt = await askDecisionJudge(
       findings,
@@ -997,6 +1037,8 @@ export async function runWebhookReview(
       generated.model,
       judgeContext,
       reviewEnv,
+      // Router budget is 25s; leave the rest of the L2 window for the generative judge.
+      AbortSignal.timeout(Math.min(DECISION_L2_DEADLINE_MS, alarmBudgetLeftMs(alarmStartedAt))),
     );
     judged = decisionAttempt.judged;
     decisionMarker = decisionAttempt.marker;
@@ -1007,6 +1049,7 @@ export async function runWebhookReview(
         generated.model,
         judgeContext,
         reviewEnv,
+        AbortSignal.timeout(alarmBudgetLeftMs(alarmStartedAt)),
       );
     }
   }
@@ -1130,7 +1173,22 @@ export async function runWebhookReview(
     };
   };
 
-  return submitGate ? submitGate(target, submit) : submit();
+  if (!paidPhase) return submitGate ? submitGate(target, submit) : submit();
+  // The paid completion is already billed: a publication failure must not become
+  // job_failed, whose retry would run (and bill) the paid pass again.
+  try {
+    return await (submitGate ? submitGate(target, submit) : submit());
+  } catch (error) {
+    console.error(JSON.stringify({ // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      kanarekWebhookReview: 'paid_publish_failed',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      headSha: target.headSha,
+      provider: generated.provider,
+      error: error instanceof Error ? error.message : 'unknown_error',
+    }));
+    return { reviewed: false, provider: generated.provider, findingCount: 0, skipped: 'publish_failed' };
+  }
 
 }
 
@@ -1567,7 +1625,15 @@ export class WebhookReviewJob {
           reviewTargetKey(active.target) !== reviewTargetKey(continuation.target)) {
         return false;
       }
-      if (result.reviewed || result.skipped === 'no_code_diff') {
+      // Billed paid outcomes are settled too: a redelivered webhook for this head
+      // must not start (and pay for) the same review again.
+      // A paid answer that went stale (draft/close/label flip on the same head+base)
+      // was still billed; free ones may run again after reopening.
+      if (
+        result.reviewed ||
+        (result.skipped && SETTLED_SKIPS.has(result.skipped)) ||
+        (result.skipped === 'stale_after_generation' && continuation.phase === 'paid')
+      ) {
         await transaction.put(COMPLETED_TARGET_KEY, reviewTargetKey(continuation.target));
       }
       await transaction.put<ReviewOutcome>(REVIEW_OUTCOME_KEY, {

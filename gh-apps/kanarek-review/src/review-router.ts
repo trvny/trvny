@@ -13,6 +13,7 @@ import {
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
   REVIEW_ROUTER_WORK_MODEL,
+  REVIEW_BILLED_PROVIDER_HEADER,
 } from '../../core/review-service-protocol.ts';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -21,11 +22,12 @@ const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
 const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
-// Give slow free models time to complete without starving the other providers.
-const OPENROUTER_REVIEW_TIMEOUT_MS = 120_000;
-const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 35_000;
-const AIHUBMIX_REVIEW_TIMEOUT_MS = 120_000;
-const AIHUBMIX_REVIEW_ATTEMPT_CAP_MS = 35_000;
+// One review policy for every free provider: reasoning reviews need minutes, not
+// seconds. Multi-model providers give a model 120s before trying the next one.
+const REVIEW_PROVIDER_TIMEOUT_MS = 180_000;
+const REVIEW_MODEL_ATTEMPT_CAP_MS = 120_000;
+// Paid review: large context + high reasoning; same ceiling for every paid provider.
+const PAID_REVIEW_PROVIDER_TIMEOUT_MS = 300_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
 const SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS = 25 * 60_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
@@ -226,6 +228,7 @@ const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudge
   'workers-ai': 'daily-neurons',
 };
 const GROQ_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
+const GEMINI_MAX_OUTPUT_TOKENS = 65_536;
 const GEMINI_THINKING_LEVELS = new Set(['minimal', 'low', 'medium', 'high']);
 // Retired promotional IDs return model_retired even if a stale config lists them.
 const AIHUBMIX_RETIRED_FREE_MODELS = new Set([
@@ -469,9 +472,7 @@ export function taskProviderTimeoutMs(
     baseMs,
     provider === 'aihubmix' ? SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS : SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS,
   );
-  if (task === 'review') return Math.max(
-    baseMs, provider === 'aihubmix' ? AIHUBMIX_REVIEW_TIMEOUT_MS : 120_000,
-  );
+  if (task === 'review') return Math.max(baseMs, REVIEW_PROVIDER_TIMEOUT_MS);
   if (task === 'judge') return Math.max(baseMs, REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS);
   return baseMs;
 }
@@ -613,6 +614,14 @@ function providers(
   return [...freeProviders, ...paidProviders(env)];
 }
 
+// RPC failures after xAI started generating (timeout, truncated/empty/garbled output).
+const XAI_BILLED_FAILURE_CODES = new Set([
+  'xai_timeout', 'xai_invalid_response', 'xai_incomplete', 'xai_empty_response', 'xai_agent_failed',
+  'agent_timeout', 'agent_bad_response', 'agent_incomplete', 'agent_empty_response',
+  'agent_deadline', 'agent_rounds_exhausted',
+]);
+const XAI_BILLED_HEADER = 'x-kanarek-xai-billed';
+
 export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObject): Promise<Response> {
   if (!env.XAI_REVIEW_RPC) {
     return Response.json({ error: { message: 'xai_rpc_unavailable' } }, { status: 503 });
@@ -624,6 +633,8 @@ export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObje
   if (typeof result?.retryAfter === 'string' && /^[0-9]{1,6}$/.test(result.retryAfter)) {
     headers.set('retry-after', result.retryAfter);
   }
+  const code = isObject(result?.payload) && isObject(result.payload.error) ? result.payload.error.code : null;
+  if (typeof code === 'string' && XAI_BILLED_FAILURE_CODES.has(code)) headers.set(XAI_BILLED_HEADER, code);
   return Response.json(result?.payload || { error: { message: 'xai_rpc_invalid' } }, { status, headers });
 }
 
@@ -636,7 +647,7 @@ function deepSeekPaidProvider(
     url: 'https://api.deepseek.com/chat/completions',
     model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || '',
     apiKey: (providerEnv) => providerEnv.DEEPSEEK_API_KEY,
-    timeoutMs: mode === 'work' ? workProviderTimeoutMs(env) : MAX_TIMEOUT_MS,
+    timeoutMs: mode === 'work' ? workProviderTimeoutMs(env) : PAID_REVIEW_PROVIDER_TIMEOUT_MS,
     requestFields: {
       thinking: {
         type: configuredText(
@@ -690,7 +701,7 @@ function xaiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
     url: 'https://api.x.ai/v1/responses',
     model,
     apiKey: (providerEnv) => providerEnv.XAI_REVIEW_RPC ? 'rpc' : undefined,
-    timeoutMs: 300_000,
+    timeoutMs: PAID_REVIEW_PROVIDER_TIMEOUT_MS,
     requestFields: { reasoning: { effort } },
   };
 }
@@ -1164,8 +1175,9 @@ export function modelAttemptTimeoutMs(
   hasNextModel: boolean,
   provider: ReviewProviderId,
 ): number {
-  if (remainingProviderMs <= 0 || !hasNextModel || task === 'general' ||
-      provider === 'openrouter') return remainingProviderMs;
+  if (remainingProviderMs <= 0 || !hasNextModel || task === 'general') return remainingProviderMs;
+  if (task === 'review') return Math.min(remainingProviderMs, REVIEW_MODEL_ATTEMPT_CAP_MS);
+  if (provider === 'openrouter') return remainingProviderMs;
   return remainingProviderMs - Math.min(15_000, Math.floor(remainingProviderMs / 4));
 }
 
@@ -1950,14 +1962,17 @@ function providerAttempts(
     });
   }
   if (provider.id === 'gemini-standard') {
+    // Thinking counts against max_output_tokens. Free tier limits requests and
+    // tokens per minute, not output length: use the model's 64K output ceiling and
+    // the shared reasoning floor so thinking cannot starve the answer.
+    const thinking = task === 'quip' ? 'low' : task === 'shitpost' ? 'medium'
+      : configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL);
     return [{
       model: provider.model,
       label: 'default',
-      minimumMaxTokens: 2_048,
-      maximumMaxTokens: 8_192,
-      // Creative candidates use medium thinking; other tasks retain defaults.
-      requestFields: { thinking_level: task === 'shitpost' ? 'medium'
-        : configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL) },
+      minimumMaxTokens: task === 'quip' ? 2_048 : configuredReasoningMinimumMaxTokens(env),
+      maximumMaxTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      requestFields: { thinking_level: thinking },
     }];
   }
   if (provider.id === 'gemini-flex') {
@@ -2283,9 +2298,7 @@ export async function handleReviewRouterRequest(
       task,
       provider.id,
     );
-    const providerDeadlineAt = Date.now() + (provider.id === 'openrouter' && task === 'review'
-      ? Math.max(providerTimeoutMs, OPENROUTER_REVIEW_TIMEOUT_MS)
-      : providerTimeoutMs);
+    const providerDeadlineAt = Date.now() + providerTimeoutMs;
     const attempts = providerAttempts(provider, env, task);
     // Multi-model providers keep per-model cooldowns so one dead model is skipped
     // instead of failing (or cooling down) the whole provider.
@@ -2295,6 +2308,12 @@ export async function handleReviewRouterRequest(
     let providerFailureCategory = 'unknown';
     let providerInvalidRequest = true;
     let providerRetryAfterMs: number | null = null;
+
+    // Primaries cooling down will be skipped; they must not cap the live model's time.
+    const cooledPrimaries = supportsModelCooldown && multiModel
+      ? await Promise.all(attempts.map(async (item) =>
+          Boolean(await activeProviderCooldown(env, modelCooldownId(provider.id, item.model)))))
+      : attempts.map(() => false);
 
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
@@ -2333,22 +2352,11 @@ export async function handleReviewRouterRequest(
         if (singleModel) await clearProviderCooldown(modelKey, env);
       };
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
-      // Reserve time for every configured OpenRouter model instead of letting one
-      // stalled free model exhaust the whole provider-level deadline.
-      const attemptTimeoutMs = provider.id === 'aihubmix' && task === 'review'
-        ? Math.min(remainingProviderMs, AIHUBMIX_REVIEW_ATTEMPT_CAP_MS)
-        : provider.id === 'openrouter' && task === 'review'
-        ? Math.min(remainingProviderMs, Math.max(
-            12_000,
-            Math.min(
-              OPENROUTER_REVIEW_ATTEMPT_CAP_MS,
-              Math.floor(remainingProviderMs / (attempts.length - attemptIndex)),
-            ),
-          ))
-        : modelAttemptTimeoutMs(
-            remainingProviderMs, task, multiModel && attemptIndex + 1 < attempts.length,
-            provider.id,
-          );
+      const attemptTimeoutMs = modelAttemptTimeoutMs(
+        remainingProviderMs, task,
+        multiModel && cooledPrimaries.slice(attemptIndex + 1).some((cooled) => !cooled),
+        provider.id,
+      );
       if (attemptTimeoutMs <= 0) {
         providerFailureCategory = 'timeout';
         providerInvalidRequest = false;
@@ -2513,6 +2521,10 @@ export async function handleReviewRouterRequest(
             : provider.id === 'aihubmix'
               ? classifyAIHubMixError(status, preview)
               : `http_${status}`;
+        // xAI RPC reports a billed failure as 502/504; keep it distinguishable from an outage.
+        if (provider.id === 'xai' && response.headers.has(XAI_BILLED_HEADER)) {
+          providerFailureCategory = 'invalid_response';
+        }
         if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
         if (singleModel && ['http_404', 'http_404_model_retired', 'http_410', 'http_400_invalid_model']
           .includes(providerFailureCategory)) modelFault = providerFailureCategory;
@@ -2587,11 +2599,25 @@ export async function handleReviewRouterRequest(
   if (invalidRequests === configured) {
     return jsonError(diagnosticMessage('Invalid review request', failures), 'invalid_request', 400);
   }
-  return jsonError(
+  const exhausted = jsonError(
     diagnosticMessage('Review providers unavailable', failures),
     'review_router_exhausted',
     failures.length > 0 && failures.every((failure) => isQuotaFailure(failure.split(':', 2)[1] ?? ''))
       ? 429
       : 502,
   );
+  const billed = billedPaidProvider(failures);
+  if (billed) exhausted.headers.set(REVIEW_BILLED_PROVIDER_HEADER, billed);
+  return exhausted;
+}
+
+// Paid provider that generated (unusable 200) or was cut off mid-generation:
+// the caller must not retry it, or the same review is billed twice.
+export function billedPaidProvider(failures: readonly string[]): string | null {
+  for (const failure of failures) {
+    const [id, category] = failure.split(':', 2);
+    if (PAID_PROVIDER_IDS.some((paid) => paid === id) &&
+        (category === 'invalid_response' || category === 'timeout')) return id;
+  }
+  return null;
 }

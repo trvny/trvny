@@ -129,3 +129,26 @@ test('Grok quota error falls through to DeepSeek', async () => {
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'deepseek');
 });
+
+test('truncated Grok output is reported as a billed paid provider', async () => {
+  const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
+    KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai',
+    XAI_REVIEW_RPC: { async completeReview() {
+      return { status: 502, payload: { error: { code: 'xai_incomplete', message: 'xai_incomplete' } } };
+    } },
+  });
+  assert.equal(response?.status, 502);
+  assert.equal(response?.headers.get('x-kanarek-review-billed-provider'), 'xai');
+});
+
+test('Grok outage before generation is not reported as billed', async () => {
+  const response = await handleReviewRouterRequest(req('kanarek-review-paid'), {
+    KANAREK_REVIEW_ROUTER_TOKEN: 'check',
+    KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai',
+    XAI_REVIEW_RPC: { async completeReview() {
+      return { status: 503, payload: { error: { code: 'xai_http_503', message: 'xai_http_503' } } };
+    } },
+  });
+  assert.equal(response?.headers.get('x-kanarek-review-billed-provider'), null);
+});

@@ -229,7 +229,7 @@ export function verifyReviewFindings(
       typeof raw.title === 'string' ? raw.title.trim().slice(0, 140) : '';
     const findingBody =
       typeof raw.body === 'string' ? raw.body.trim().slice(0, 1_400) : '';
-    if (!title || !findingBody || !containsHan(`${title}${findingBody}`)) continue;
+    if (!containsHan(title) || !containsHan(findingBody)) continue;
 
     const key = `${selected.path}:${selected.anchorLine}:${existingCode.replace(/\s+/g, ' ').trim()}`;
     if (seen.has(key)) continue;
@@ -520,6 +520,7 @@ export async function askDecisionJudge(
   reviewerModel: string | null,
   reviewContext: string,
   env: WebhookReviewEnv,
+  signal?: AbortSignal,
 ): Promise<DecisionJudgeAttempt> {
   if (
     !findings.length ||
@@ -550,7 +551,7 @@ export async function askDecisionJudge(
       candidate_findings: judgeInput,
     },
     questions: reviewDecisionQuestions(findings),
-  }, env);
+  }, env, signal);
 
   if (!response || !response.ok) {
     const status = response?.status ?? 500;
@@ -699,6 +700,7 @@ export async function askReviewJudge(
   reviewerModel: string | null,
   reviewContext: string,
   env: WebhookReviewEnv,
+  signal?: AbortSignal,
 ): Promise<JudgedFindings | null> {
   if (
     !findings.length ||
@@ -727,6 +729,7 @@ export async function askReviewJudge(
         'Content-Type': 'application/json',
         [REVIEW_PROVIDER_EXCLUDE_HEADER]: reviewerProvider,
       },
+      signal,
       body: JSON.stringify({
         model: REVIEW_ROUTER_JUDGE_MODEL,
         stream: false,

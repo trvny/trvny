@@ -8,6 +8,7 @@ import {
   type ActionInvoke,
   type JsonObject,
   type RuntimeEnv,
+  type SpecialistToolName,
 } from 'kanarek-companion/runtime';
 
 // Gremlin owns its MCP specialist selection; the shared adapter only
@@ -16,7 +17,7 @@ export const GREMLIN_SPECIALIST_TOOL_NAMES = [
   'feedseek_search',
   'feedseek_fetch',
   'feedseek_recent',
-] as const;
+] as const satisfies readonly SpecialistToolName[];
 
 export function gremlinMcpManifest(origin: string): JsonObject {
   return scopedMcpManifest(pluginMcpOpenApi(origin), GREMLIN_SPECIALIST_TOOL_NAMES);

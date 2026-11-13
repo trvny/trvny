@@ -247,6 +247,7 @@ export function render(
   return `${MARKER}
 <!-- kanarek-state:${stateHash} -->
 <!-- kanarek-quip-key:${quipKey} -->
+<!-- kanarek-quip-head:${pr.head.sha} -->
 <!-- kanarek-quip-scope:${QUIP_PROMPT_SCOPE} -->
 <!-- kanarek-quip:${encoded(quip)} -->
 <!-- kanarek-pool:${encoded(JSON.stringify(pool))} -->

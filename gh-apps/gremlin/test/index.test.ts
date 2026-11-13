@@ -2,10 +2,36 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { GREMLIN_SPECIALIST_TOOL_NAMES, gremlinGatewayManifest, gremlinMcpManifest } from '../src/mcp-runtime.ts';
+import {
+  GREMLIN_MCP_OPERATION_IDS,
+  GREMLIN_SPECIALIST_TOOL_NAMES,
+  gremlinGatewayManifest,
+  gremlinMcpManifest,
+} from '../src/mcp-runtime.ts';
 import worker from '../src/index.ts';
 
 const ORIGIN = 'https://gremlin.internal';
+
+const EXPECTED_GREMLIN_OPERATORS = [
+  'getOperatorBootstrap',
+  'getGremlinKnowledge',
+  'inspectPackage',
+  'getOperatorCapabilities',
+  'runOperatorSmokeTest',
+  'runOperatorAutopilot',
+  'getAccountMaintenance',
+  'runAccountMaintenanceAutofix',
+  'getRepositoryContext',
+  'prepareChange',
+  'implementCodeChange',
+  'investigateCode',
+  'reviewCodeChange',
+  'inspectPullRequest',
+  'finalizePullRequest',
+  'orchestrateRelease',
+  'diagnoseWorkflowRun',
+  'githubBotRequest',
+] as const;
 
 test('Gremlin worker exposes private health without operator credentials', async () => {
   const response = await worker.fetch(new Request(`${ORIGIN}/health`), {} as never);
@@ -36,6 +62,8 @@ test('Gremlin worker owns GPT Actions routes and preserves auth', async () => {
 });
 
 test('Gremlin advertises a lean, non-overlapping MCP surface', async () => {
+  assert.deepEqual(GREMLIN_MCP_OPERATION_IDS, EXPECTED_GREMLIN_OPERATORS);
+  assert.equal(new Set(GREMLIN_MCP_OPERATION_IDS).size, 18);
   const manifest = gremlinMcpManifest(ORIGIN) as { toolNames?: string[]; specialistToolNames?: string[] };
   assert.deepEqual(GREMLIN_SPECIALIST_TOOL_NAMES, [
     'feedseek_search', 'feedseek_fetch', 'feedseek_recent',
@@ -102,6 +130,18 @@ test('Gremlin worker serves the full runtime action surface', async () => {
   assert.equal(document.servers?.[0]?.url, ORIGIN);
   // Runtime-level operation, not part of the bare gremlin-router surface.
   assert.ok(document.paths?.['/gpt-actions/operator/code-review']);
+  const legacyOperationIds = Object.values(document.paths ?? {}).flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    return Object.values(item).flatMap((operation) =>
+      operation && typeof operation === 'object' && 'operationId' in operation
+        ? [String(operation.operationId)]
+        : []);
+  });
+  assert.equal(legacyOperationIds.length, 29);
+  for (const legacyOnly of ['githubRead', 'getDoc', 'searchEngramMemory']) {
+    assert.ok(legacyOperationIds.includes(legacyOnly), legacyOnly);
+    assert.equal(GREMLIN_MCP_OPERATION_IDS.includes(legacyOnly as never), false);
+  }
 });
 
 // Capability and smoke metadata must reflect the curated Gremlin provider,
@@ -116,7 +156,7 @@ test('Gremlin capability metadata hashes the same 18 operators it exposes', asyn
     mcp: { toolNames: string[] };
   };
   assert.equal(capabilities.openApi.operationCount, 18);
-  assert.equal(capabilities.openApi.operationIds.length, 18);
+  assert.deepEqual(capabilities.openApi.operationIds, [...EXPECTED_GREMLIN_OPERATORS].sort());
   const expectedDigest = createHash('sha256')
     .update([...capabilities.openApi.operationIds].sort().join('\n'))
     .digest('hex');

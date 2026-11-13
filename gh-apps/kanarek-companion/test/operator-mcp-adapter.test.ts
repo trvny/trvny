@@ -6,11 +6,7 @@ import {
   handleOperatorMcp as handleOperatorMcpGw,
   MCP_PROTOCOL_VERSION,
 } from '../src/specialists/mcp-adapter.ts';
-import {
-  PLUGIN_MCP_OPERATION_IDS,
-  pluginMcpOpenApi,
-  runtimeOpenApi,
-} from '../src/runtime-openapi.ts';
+import { scopedRuntimeOpenApi, runtimeOpenApi } from '../src/runtime-openapi.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 import { scopedFeedseek } from './support/scoped-feedseek.ts';
 
@@ -23,6 +19,11 @@ const handleOperatorMcp = (request: Request, document: Parameters<typeof handleO
   handleOperatorMcpGw(request, document, invoke, loopbackGateway(request, invoke));
 
 const ORIGIN = 'https://gremlin.example';
+const SELECTED_OPERATOR_IDS = ['getRepositoryContext', 'getOperatorCapabilities'] as const;
+
+function selectedOperatorOpenApi(): Record<string, unknown> {
+  return scopedRuntimeOpenApi(ORIGIN, SELECTED_OPERATOR_IDS);
+}
 
 function mcpRequest(body: unknown, method: string, name?: string): Request {
   const headers: Record<string, string> = {
@@ -47,14 +48,14 @@ function operatorAuthResponse(): Response {
   return Response.json({ ok: true, data: { login: 'trvny' } });
 }
 
-test('operator MCP lists the migrated Gremlin action names from curated OpenAPI', async () => {
+test('operator MCP lists selected Actions from scoped OpenAPI', async () => {
   let calls = 0;
   const response = await handleOperatorMcp(
     mcpRequest(
       { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
       'tools/list',
     ),
-    pluginMcpOpenApi(ORIGIN),
+    selectedOperatorOpenApi(),
     async (request) => {
       calls += 1;
       assert.equal(new URL(request.url).pathname, '/gpt-actions/github/read');
@@ -82,7 +83,7 @@ test('operator MCP lists the migrated Gremlin action names from curated OpenAPI'
   assert.equal(payload.result.resultType, 'complete');
   assert.deepEqual(
     payload.result.tools.map((tool) => tool.name).sort(),
-    [...PLUGIN_MCP_OPERATION_IDS].sort(),
+    [...SELECTED_OPERATOR_IDS].sort(),
   );
 
   const context = payload.result.tools.find((tool) => tool.name === 'getRepositoryContext');
@@ -92,13 +93,13 @@ test('operator MCP lists the migrated Gremlin action names from curated OpenAPI'
   assert.equal(payload.result.tools.some((tool) => tool.name === 'githubRead'), false);
 });
 
-test('Gremlin MCP exposes only current operator, Context7 and Feedseek tools', async () => {
+test('scoped MCP exposes only selected operators and Feedseek specialists', async () => {
   const response = await handleGremlinMcp(
     mcpRequest(
       { jsonrpc: '2.0', id: 10, method: 'tools/list', params: {} },
       'tools/list',
     ),
-    pluginMcpOpenApi(ORIGIN),
+    selectedOperatorOpenApi(),
     {},
     async (request) => {
       assert.equal(new URL(request.url).pathname, '/gpt-actions/github/read');
@@ -113,8 +114,8 @@ test('Gremlin MCP exposes only current operator, Context7 and Feedseek tools', a
     result: { tools: Array<{ name: string }> };
   };
   const names = payload.result.tools.map((tool) => tool.name);
-  assert.equal(names.length, 21);
-  for (const name of PLUGIN_MCP_OPERATION_IDS) assert.ok(names.includes(name), name);
+  assert.equal(names.length, SELECTED_OPERATOR_IDS.length + scopedFeedseek.length);
+  for (const name of SELECTED_OPERATOR_IDS) assert.ok(names.includes(name), name);
   for (const name of [
     'feedseek_search',
     'feedseek_fetch',
@@ -134,7 +135,7 @@ test('Gremlin MCP exposes only current operator, Context7 and Feedseek tools', a
   assert.equal(names.includes('useGremlinStorage'), false);
 });
 
-test('Gremlin MCP rejects a call to the removed Engram provider', async () => {
+test('scoped MCP rejects calls to unselected Engram tools', async () => {
   let authCalls = 0;
   const response = await handleGremlinMcp(
     mcpRequest(
@@ -147,7 +148,7 @@ test('Gremlin MCP rejects a call to the removed Engram provider', async () => {
       'tools/call',
       'engram_status',
     ),
-    pluginMcpOpenApi(ORIGIN),
+    selectedOperatorOpenApi(),
     {},
     async (request) => {
       authCalls += 1;
@@ -236,7 +237,7 @@ test('operator MCP preserves GET semantics for capability inspection', async () 
       'tools/call',
       'getOperatorCapabilities',
     ),
-    pluginMcpOpenApi(ORIGIN),
+    selectedOperatorOpenApi(),
     async (request) => {
       calls += 1;
       if (calls === 1) return operatorAuthResponse();

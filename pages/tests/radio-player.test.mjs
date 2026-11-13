@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { setImmediate } from "node:timers";
 
-async function player({ deferredPause = false } = {}) {
+async function player({ deferredPause = false, nativeHls = false } = {}) {
   const pauseEvents = [];
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
@@ -26,7 +26,7 @@ async function player({ deferredPause = false } = {}) {
       else this.dispatch("pause");
     }
     load() {}
-    canPlayType() { return ""; }
+    canPlayType() { return nativeHls ? "maybe" : ""; }
   }
   class Button extends Element {}
   class Input extends Element { constructor() { super(); this.value = "0.8"; } }
@@ -92,6 +92,7 @@ test("switching stations stops the old stream and respects pause", async () => {
   p.audio.dispatch("playing");
   assert.equal(p.status.textContent, "Playing live");
   p.select("bbc1");
+  assert.equal(p.audio.paused, true);
   p.audio.dispatch("error");
   await p.flush();
   assert.equal(p.instances[0].destroyed, true);
@@ -162,4 +163,29 @@ test("discarding a teardown pause does not hide the next external pause", async 
   p.pauseEvents.shift()();
   assert.equal(p.status.textContent, "Paused");
   assert.equal(p.instances[0].stopped, true);
+});
+
+
+test("native HLS plays directly", async () => {
+  const p = await player({ nativeHls: true });
+  p.select("trojka");
+  p.play.dispatch("click");
+  await p.flush();
+  assert.equal(p.audio.src, "trojka.m3u8");
+  assert.equal(p.instances.length, 0);
+});
+
+test("fatal stream errors stop playback and allow retry", async () => {
+  const p = await player();
+  p.select("trojka");
+  p.play.dispatch("click");
+  await p.flush();
+  p.instances[0].onError("error", { fatal: true });
+  assert.equal(p.status.textContent, "Stream unavailable. Try again.");
+  p.play.dispatch("click");
+  await p.flush();
+  assert.equal(p.instances.length, 2);
+  p.audio.error = { code: 2 };
+  p.audio.dispatch("error");
+  assert.equal(p.status.textContent, "Stream unavailable. Try again.");
 });

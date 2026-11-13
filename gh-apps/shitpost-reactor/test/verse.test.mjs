@@ -44,5 +44,22 @@ test('text drafts retain poem line breaks across JSON and Markdown', () => {
   const markdown = renderMarkdown({
     content, provider: 'test', model: 'test', generated_at: '2026-11-13T20:00:00Z',
   });
-  assert.match(markdown, /> One detail stays awake\.\n> Another files a report\.\n> The ceiling applies for a passport\./);
+  assert.match(markdown, /> One detail stays awake\.  \n> Another files a report\.  \n> The ceiling applies for a passport\./);
+});
+
+test('the actual style reference only invites verses when a rollout nudge is present', async () => {
+  const { loadStyleReference } = await import('../generate.mjs');
+  const style = await loadStyleReference();
+  assert.match(style, /only to an explicit creative nudge/);
+  const plans = Array.from({ length: 120 }, (_, index) =>
+    resolveGenerationPlan('auto', 'seed', String(index + 1)));
+  const selected = plans.find((plan) => plan.shortVerseHint);
+  const unselected = plans.find((plan) => !plan.shortVerseHint);
+  assert.ok(selected && unselected);
+  const toPrompt = (plan) => buildMessages(style, 'local headline', 'seed', plan.mode,
+    null, { shortVerseHint: plan.shortVerseHint })[0].content;
+  assert.match(toPrompt(selected), /Optional creative nudge/);
+  assert.doesNotMatch(toPrompt(unselected), /Optional creative nudge/);
+  const explicit = resolveGenerationPlan('meme', 'seed', '42');
+  assert.doesNotMatch(toPrompt(explicit), /Optional creative nudge/);
 });

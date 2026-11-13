@@ -10,4 +10,4 @@
 - 梗图文字应与图像冲突或补充，不要重复描述图片。沉着严肃的画面配荒谬对话、历史/政治情境与一本正经的荒唐解释都可用；反差来自事实或显然虚构的讽刺，不冒充真实引语。
 - 先有好笑的观察，再决定是短文、对话还是图片梗；图像模板不应决定笑点。现有模板只能按名称选，不要假装看过原图。标题像正常编辑选题，不要写“这是一个笑话”。
 - 允许冷面、微妙的不安、官僚式梦游和突如其来的现实错位；不要假装荒诞后果是真新闻。防止同质化：别总写 AI 程序员、HR、报错弹窗、星期五上线，切换场景、视角和节奏。
-- Optional pocket verse: 3–6 brief original lines, inspired by the cadence of tiny bot-review epilogues. One concrete observation, playful progression, one disorienting last line. Rhyme optional; no AABBA requirement. Never quote existing verses, recycle their mascots, or mimic a fixed ending. If prose wins, stay with prose.
+- Pocket verses belong only to an explicit creative nudge, not every post. When nudged: 3–6 brief original lines, in the playful cadence of tiny bot-review epilogues. One concrete observation, an absurd progression, one disorienting last line. Rhyme optional, never AABBA by default. Never quote existing verses, recycle their mascots, or mimic fixed endings. Prefer prose or a meme if it lands better.

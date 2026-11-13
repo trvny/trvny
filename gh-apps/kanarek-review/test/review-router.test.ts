@@ -9,6 +9,7 @@ import {
   providerCooldownDurationMs,
   retryAfterCooldownMs,
   modelAttemptTimeoutMs,
+  billedPaidProvider,
   nearestReasoningEffort,
   reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
@@ -711,7 +712,7 @@ test('unbilled Gemini Standard is a free review provider and never a paid fallba
   assert.equal(requestBody.model, 'gemini-3.8-flash');
   assert.equal(requestBody.service_tier, undefined);
   assert.equal(requestBody.store, false);
-  assert.deepEqual(requestBody.generation_config, { max_output_tokens: 8_192, thinking_level: 'high' });
+  assert.deepEqual(requestBody.generation_config, { max_output_tokens: 16_384, thinking_level: 'high' });
   assert.equal(requests, 1);
 
   const health = await reviewProviderPoolHealth(env);
@@ -1203,9 +1204,10 @@ test('paid review contract uses the review task profile while work stays separat
 test('task timeout policy is patient only where latency is acceptable', () => {
   assert.equal(taskProviderTimeoutMs(10_000, 'general'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'quip'), 10_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 120_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 120_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 120_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 180_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 180_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 180_000);
+  assert.equal(taskProviderTimeoutMs(300_000, 'review', 'deepseek'), 300_000);
   assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost', 'aihubmix'), 1_500_000);
@@ -3305,7 +3307,9 @@ test('a model that failed is skipped next time while its provider keeps serving'
 });
 
 test('task model deadline reserves one more attempt', () => {
-  assert.equal(modelAttemptTimeoutMs(60_000, 'review', true, 'aihubmix'), 45_000);
+  assert.equal(modelAttemptTimeoutMs(60_000, 'review', true, 'aihubmix'), 60_000);
+  assert.equal(modelAttemptTimeoutMs(180_000, 'review', true, 'aihubmix'), 120_000);
+  assert.equal(modelAttemptTimeoutMs(180_000, 'review', true, 'openrouter'), 120_000);
   assert.equal(modelAttemptTimeoutMs(120_000, 'shitpost', true, 'aihubmix'), 105_000);
   assert.equal(modelAttemptTimeoutMs(10_000, 'quip', true, 'aihubmix'), 7_500);
   assert.equal(modelAttemptTimeoutMs(60_000, 'general', true, 'aihubmix'), 60_000);
@@ -3668,4 +3672,11 @@ test('Workers AI without a configured model cannot run', async () => {
   });
   assert.equal(response?.status, 503);
   assert.equal(runs, 0);
+});
+
+test('exhausted paid response names a provider that likely billed', () => {
+  assert.equal(billedPaidProvider(['xai:invalid_response', 'deepseek:http_503']), 'xai');
+  assert.equal(billedPaidProvider(['xai:http_429', 'deepseek:timeout']), 'deepseek');
+  assert.equal(billedPaidProvider(['xai:http_429', 'deepseek:network']), null);
+  assert.equal(billedPaidProvider(['vercel:invalid_response']), null);
 });

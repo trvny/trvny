@@ -15,6 +15,8 @@ export const REVIEW_ROUTER_PAID_MODEL = 'kanarek-review-paid';
 export const REVIEW_ROUTER_WORK_MODEL = 'kanarek-work-paid';
 export const REVIEW_WORKERS_AI_OVERRIDE_HEADER = 'x-kanarek-review-workers-ai-enabled';
 export const REVIEW_PROVIDER_EXCLUDE_HEADER = 'x-kanarek-review-exclude-provider';
+// Set on an exhausted paid response when a paid provider likely billed (unusable 200 or timeout).
+export const REVIEW_BILLED_PROVIDER_HEADER = 'x-kanarek-review-billed-provider';
 
 export type ReviewProviderPoolHealth = {
   available: number;

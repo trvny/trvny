@@ -124,6 +124,7 @@ jobs:
                 companion=true
                 review=true
                 manufact=true
+                companion_deploy=true
               fi
               # The Docker build copies Claudiusz and shared core code.
               if grep -E '^gh-apps/(claudiusz|core)/' <<<"$files" |
@@ -137,7 +138,7 @@ jobs:
               if grep -Eq '^gh-apps/gremlin/|^gh-apps/core/.*\.ts$|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
                 gremlin=true
               fi
-              if grep '^gh-apps/shitpost-reactor/' <<<"$files" |
+              if grep -Eq '^gh-apps/shitpost-reactor/|^gh-apps/core/(worker-deploy|deploy-lock)\.mjs$' <<<"$files" |
                   grep -Ev '\.md$' >/dev/null; then
                 shitpost=true
               fi

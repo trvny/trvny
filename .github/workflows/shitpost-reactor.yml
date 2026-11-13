@@ -62,6 +62,8 @@ jobs:
           set -euo pipefail
           worker_paths=(
             gh-apps/shitpost-reactor
+            gh-apps/package.json
+            gh-apps/package-lock.json
             gh-apps/core/worker-deploy.mjs
             gh-apps/core/deploy-lock.mjs
             ':(exclude,glob)gh-apps/shitpost-reactor/**/*.md'

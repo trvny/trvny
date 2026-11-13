@@ -72,10 +72,10 @@ export async function requestGrokReview(
       const gateway = await gatewayForRepository(agentTarget.repository);
       const agentResult = await requestAgenticGrokReview(request, agentTarget, apiKey,
         gateway, fetcher, deadlineAt);
-      if (agentResult.status !== 403) return agentResult;
+      if (agentResult.status !== 403 || agentResult.unbilledRejection !== true) return agentResult;
       // Tool-mode denial is not proof the key cannot run a normal review.
-      // A rejected request does not generate billable inference; try the
-      // established tool-free path once, without retrying other paid failures.
+      // Only a first-round denial predates inference; never retry a later
+      // denial after earlier successful, possibly billed tool rounds.
       console.warn(JSON.stringify({ kanarekXaiReview: 'agent_tool_denied_fallback', status: 403 }));
     } catch (cause) {
       console.warn(JSON.stringify({ kanarekXaiReview: 'agent_failed', code:

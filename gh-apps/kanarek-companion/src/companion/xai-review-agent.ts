@@ -5,7 +5,7 @@ type Json = Record<string, unknown>;
 type ToolCall = { type: 'function_call'; call_id: string; name: string; arguments: string };
 type Target = { repository: string; number: number; headSha: string };
 type ReadGateway = Pick<GithubGateway, 'read'>;
-type AgentResult = { status: number; payload: Json; retryAfter?: string };
+type AgentResult = { status: number; payload: Json; retryAfter?: string; unbilledRejection?: true };
 type ToolExecutor = (name: string, args: Json) => Promise<unknown>;
 
 const SHA = /^[a-f0-9]{40}$/i;
@@ -141,7 +141,12 @@ export async function runGrokAgentSession(
       const retryAfter = response.headers.get('retry-after') || undefined;
       await response.body?.cancel();
       const result = abort('xai_http_' + response.status, response.status);
-      return retryAfter ? { ...result, retryAfter } : result;
+      return {
+        ...result,
+        ...(retryAfter ? { retryAfter } : {}),
+        // Only the first rejected HTTP attempt is known to precede billable output.
+        ...(response.status === 403 && round === 0 ? { unbilledRejection: true as const } : {}),
+      };
     }
     let result: Json;
     try { result = obj(await response.json()); } catch { return abort('agent_bad_response'); }

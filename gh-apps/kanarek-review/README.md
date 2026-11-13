@@ -260,7 +260,9 @@ requests and tokens per minute, not output length, and thinking counts against
 model's 64K ceiling (quips: low thinking, 2K floor).
 The `gemini-flex` paid fallback is omitted in this mode to avoid retrying the
 same unbilled key after free attempts.
-Reactor candidates use `thinking_level: medium`; judges and review tasks keep their configured reasoning level. Provider keys stay in the shared private router. Switching this setting back to `flex`
+Reactor candidates use `thinking_level: medium`; judges and review tasks keep
+their configured reasoning level. Provider keys stay in the shared private
+router. Switching this setting back to `flex`
 restores the old paid reserve instead; neither mode overrides the project's
 actual Google billing status. Quota 429s continue through shared cooldowns.
 

@@ -19,9 +19,5 @@
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "1.2.4",
     "kanarek-companion": "file:../kanarek-companion"
-  },
-  "overrides": {
-    "undici": "7.30.1",
-    "sharp": "0.35.5"
   }
 }

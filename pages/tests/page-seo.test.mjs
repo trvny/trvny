@@ -20,21 +20,28 @@ function parseUserAgents(block) {
 }
 
 test("Astro Lab canonical URLs and discovery routes agree", async () => {
-  const routes = [
-    ["/lab/", "index.html"],
-    ["/lab/field-notes/", "field-notes/index.html"],
-  ];
   const sitemap = await readFile(new URL("../site/sitemap.xml", import.meta.url), "utf8");
-  const fullGuide = await readFile(new URL("../site/llms-full.txt", import.meta.url), "utf8");
-  for (const [route, file] of routes) {
-    const url = `https://travny.pages.dev${route}`;
-    const html = await readFile(new URL(`../astro/dist/lab/${file}`, import.meta.url), "utf8");
-    assert.ok(html.includes(`<link rel="canonical" href="${url}"`), `canonical missing: ${route}`);
-    assert.ok(html.includes(`<meta property="og:url" content="${url}"`), `OG URL missing: ${route}`);
-    assert.match(html, /<html lang="en">/);
-    assert.ok(sitemap.includes(`<loc>${url}</loc>`), `sitemap missing: ${route}`);
-    assert.ok(fullGuide.split(/\r?\n/).some(line => line.trimEnd().endsWith(url)), `full LLM guide missing: ${route}`);
-  }
+  const guides = [
+    await readFile(new URL("../site/llms.txt", import.meta.url), "utf8"),
+    await readFile(new URL("../site/llms-full.txt", import.meta.url), "utf8"),
+  ];
+  const lab = await readFile(new URL("../astro/dist/lab/index.html", import.meta.url), "utf8");
+  const labUrl = "https://travny.pages.dev/lab/";
+  assert.ok(lab.includes(`<link rel="canonical" href="${labUrl}"`), "canonical missing: /lab/");
+  assert.ok(lab.includes(`<meta property="og:url" content="${labUrl}"`), "OG URL missing: /lab/");
+  assert.match(lab, /<html lang="en">/);
+  assert.match(lab, /<meta name="robots" content="index,follow"/);
+  assert.ok(sitemap.includes(`<loc>${labUrl}</loc>`), "sitemap missing: /lab/");
+  assert.ok(guides[1].split(/\r?\n/).some(line => line.trimEnd().endsWith(labUrl)), "full LLM guide missing: /lab/");
+
+  // Field notes: working notebook, linked from the lab but not indexed or advertised.
+  const notesUrl = "https://travny.pages.dev/lab/field-notes/";
+  const notes = await readFile(new URL("../astro/dist/lab/field-notes/index.html", import.meta.url), "utf8");
+  assert.match(notes, /<meta name="robots" content="noindex,follow"/);
+  assert.ok(!notes.includes('rel="canonical"'), "noindex page must not declare a canonical");
+  assert.ok(!sitemap.includes(notesUrl), "noindex page listed in sitemap");
+  for (const guide of guides) assert.ok(!guide.includes(notesUrl), "noindex page listed in LLM guide");
+  assert.ok(lab.includes('href="/lab/field-notes/"'), "lab must still link the notes");
 });
 
 test("breadcrumb trails reflect the public page hierarchy", () => {

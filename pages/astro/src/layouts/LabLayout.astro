@@ -1,7 +1,7 @@
 ---
 import '../styles/lab.css';
 import { breadcrumbJson } from '../lib/breadcrumbs.mjs';
-const { title = 'Laboratory', description = 'Experiments from the TRAVNY workshop.' } = Astro.props.frontmatter ?? Astro.props;
+const { title = 'Laboratory', description = 'Experiments from the TRAVNY workshop.', noindex = false } = Astro.props.frontmatter ?? Astro.props;
 const canonicalPath = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.url.pathname}/`;
 const canonicalUrl = new URL(canonicalPath, 'https://travny.pages.dev').toString();
 const isLabHome = canonicalPath === '/lab/';
@@ -18,8 +18,8 @@ const breadcrumbs = breadcrumbJson(crumbs);
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <meta name="robots" content="index,follow" />
-    <link rel="canonical" href={canonicalUrl} />
+    <meta name="robots" content={noindex ? 'noindex,follow' : 'index,follow'} />
+    {!noindex && <link rel="canonical" href={canonicalUrl} />}
     <meta property="og:type" content="website" />
     <meta property="og:title" content={`${title} · TRAVNY Lab`} />
     <meta property="og:description" content={description} />

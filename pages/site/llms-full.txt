@@ -42,7 +42,6 @@ TVP upstream stream signatures are short-lived. Consumers should save the stable
 ### Lab
 
 - Workshop: https://travny.pages.dev/lab/
-- Field notes: https://travny.pages.dev/lab/field-notes/
 
 The Astro Lab is an English-language section of the existing Hub with experiments and a notebook of planned follow-ups. It shares the Hub deployment and is not a separate service.
 

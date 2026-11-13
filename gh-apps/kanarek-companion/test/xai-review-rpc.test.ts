@@ -169,3 +169,29 @@ test('Grok does not fall back after a tool-mode 403 in a later, billed round', a
   assert.equal(result.status, 403);
   assert.equal(calls, 2);
 });
+
+test('Grok never retries paid agent HTTP 502 or 504', async () => {
+  const sha = 'a'.repeat(40);
+  const scoped = {
+    ...review,
+    messages: [review.messages[0], { role: 'user', content: JSON.stringify({
+      review_scope: { repository: 'trvny/trvny', head_sha: sha },
+      pull_request: { number: 17 },
+    }) }],
+  };
+  for (const status of [502, 504]) {
+    let calls = 0;
+    const result = await requestGrokReview(
+      scoped, 'dummy', (async () => {
+        calls++;
+        return new Response(null, { status });
+      }) as typeof fetch, Date.now() + 60_000,
+      async () => ({
+        read: async (path: string) => path.includes('/files?')
+          ? [] : { state: 'open', head: { sha }, changed_files: 0 },
+      }),
+    );
+    assert.equal(result.status, status);
+    assert.equal(calls, 1);
+  }
+});

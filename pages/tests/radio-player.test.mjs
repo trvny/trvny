@@ -81,6 +81,9 @@ async function player({ deferredPause = false, nativeHls = false } = {}) {
 
 test("switching stations stops the old stream and respects pause", async () => {
   const p = await player();
+  assert.equal(p.audio.hidden, true);
+  assert.equal(p.elements["[data-controls]"].hidden, false);
+  assert.equal(p.elements["[data-station-picker]"].hidden, false);
   p.select("trojka");
   await p.flush();
   assert.equal(p.audio.playCalls, 0);

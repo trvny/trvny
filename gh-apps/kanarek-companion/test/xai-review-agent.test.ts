@@ -97,6 +97,10 @@ test('paid Grok caps tool iterations and forces a final answer', async () => {
   assert.equal(requests[0]?.tool_choice, 'required');
   assert.equal(requests[requests.length - 1]?.tool_choice, 'none');
   assert.deepEqual(requests[requests.length - 1]?.tools, []);
+  const finalRequest = requests[requests.length - 1] as { text?: { format?: { type?: string } } };
+  assert.equal(finalRequest.text?.format?.type, 'json_schema');
+  const parsed = JSON.parse((result.payload.choices as Array<{ message: { content: string } }>)[0].message.content);
+  assert.deepEqual(parsed, { summary: '无问题', findings: [] });
 });
 
 test('Grok stops tool execution at budget and still returns a review', async () => {

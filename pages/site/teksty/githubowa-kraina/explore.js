@@ -46,27 +46,38 @@
     back.focus();
   };
   close.addEventListener('click', () => dialog.close());
-  fetch('/teksty/githubowa-kraina/atlas.json')
+  const atlas = fetch('/teksty/githubowa-kraina/atlas.json')
     .then(response => {
       if (!response.ok) throw new Error('Atlas unavailable');
       return response.json();
     })
-    .then(data => {
-      for (const region of data.regions) {
-        const card = document.querySelector(`[data-region="${region.id}"]`);
-        if (!card) continue;
-        card.setAttribute('aria-haspopup', 'dialog');
-        const hint = text('span', 'Explore region', 'explore-hint');
-        hint.lang = 'en';
-        card.append(hint);
-        card.addEventListener('click', event => {
-          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          showRegion(region);
-          dialog.showModal();
-          close.focus();
-        });
+    .catch(error => {
+      console.warn('Atlas unavailable; project links remain accessible.', error);
+      return null;
+    });
+  let selection = 0;
+  dialog.addEventListener('close', () => { selection += 1; });
+  for (const card of document.querySelectorAll('[data-region]')) {
+    card.setAttribute('aria-haspopup', 'dialog');
+    const hint = text('span', 'Explore region', 'explore-hint');
+    hint.lang = 'en';
+    card.append(hint);
+    card.addEventListener('click', async event => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      const current = ++selection;
+      title.textContent = 'Loading region';
+      content.replaceChildren(text('p', 'Loading places…', 'dialog-intro'));
+      dialog.showModal();
+      close.focus();
+      const data = await atlas;
+      if (current !== selection || !dialog.open) return;
+      const region = data?.regions.find(entry => entry.id === card.dataset.region);
+      if (region) showRegion(region);
+      else {
+        title.textContent = 'Region unavailable';
+        content.replaceChildren(text('p', 'The atlas could not be loaded. You can still open this project.', 'dialog-intro'), link('Open project ↗', card.href));
       }
-    })
-    .catch(() => {});
+    });
+  }
 })();

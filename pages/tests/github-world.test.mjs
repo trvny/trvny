@@ -12,7 +12,10 @@ test('atlas regions, cards and generated guide stay in sync', async () => {
   const html = await readFile(new URL('index.html', root), 'utf8');
   assert.equal(new Set(data.regions.map(region => region.id)).size, data.regions.length);
   for (const region of data.regions) {
-    assert.ok(html.includes(`data-region="${region.id}"`));
+    const card = [...html.matchAll(/<a\b[^>]*data-region="([^"]+)"[^>]*>/g)]
+      .find(match => match[1] === region.id)?.[0];
+    assert.ok(card);
+    assert.ok(card.includes(`href="${region.url}"`));
     assert.ok(region.name && region.description && region.items.length);
     for (const item of region.items) {
       assert.ok(item.name && item.description);
@@ -22,5 +25,6 @@ test('atlas regions, cards and generated guide stay in sync', async () => {
   }
   const cards = [...html.matchAll(/data-region="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(cards.sort(), data.regions.map(region => region.id).sort());
+  assert.ok(html.includes(`<strong>${data.regions.length}</strong><span>regions to explore</span>`));
   execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/github-world-guide.mjs', import.meta.url)), '--check']);
 });

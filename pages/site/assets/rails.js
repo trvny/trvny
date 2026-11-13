@@ -39,7 +39,8 @@ function setupRail(trackId, dotsId, delay) {
   track.addEventListener("touchstart",event=>{
     const touch=event.touches[0];
     if(!mobile.matches||!touch||event.target.closest("input, select, button, audio")){touchStart=null;return;}
-    touchStart={x:touch.clientX,y:touch.clientY,index:current()};
+    const max=Math.max(0,track.scrollWidth-track.clientWidth);
+    touchStart={x:touch.clientX,y:touch.clientY,atStart:track.scrollLeft<=2,atEnd:track.scrollLeft>=max-2};
   },{passive:true});
   track.addEventListener("touchend",event=>{
     const touch=event.changedTouches[0],start=touchStart;
@@ -47,8 +48,8 @@ function setupRail(trackId, dotsId, delay) {
     if(!start||!touch)return;
     const dx=touch.clientX-start.x,dy=touch.clientY-start.y;
     if(Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.2)return;
-    if(start.index===slides.length-1&&dx<0)show(0);
-    else if(start.index===0&&dx>0)show(slides.length-1);
+    if(start.atEnd&&dx<0)show(0);
+    else if(start.atStart&&dx>0)show(slides.length-1);
   },{passive:true});
   track.addEventListener("touchcancel",()=>{touchStart=null;},{passive:true});
   track.addEventListener("scroll",()=>{
@@ -62,7 +63,7 @@ function setupRail(trackId, dotsId, delay) {
     observer.observe(track);
   }else{visible=true;}
   setInterval(()=>{
-    if(paused||!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||track.contains(document.activeElement)||nav.contains(document.activeElement))return;
+    if(paused||!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||track.contains(document.activeElement)||nav.contains(document.activeElement)||slides.some(slide=>slide.matches?.('[data-radio][data-playing="true"]')))return;
     show((current()+1)%slides.length);
   },delay);
 }

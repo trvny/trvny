@@ -1,8 +1,5 @@
-import runtime, {
-  gremlinGatewayManifest,
-  handleGremlinMcp,
-  type RuntimeEnv,
-} from 'kanarek-companion/runtime';
+import runtime, { type RuntimeEnv } from 'kanarek-companion/runtime';
+import { gremlinGatewayManifest, handleGremlinMcp } from './mcp-runtime.ts';
 
 type Env = RuntimeEnv & {
   CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };

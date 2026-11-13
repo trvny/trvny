@@ -6,7 +6,8 @@ import {
   type OAuthHelpers,
 } from '@cloudflare/workers-oauth-provider';
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
-import { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
+import type { RuntimeEnv } from 'kanarek-companion/runtime';
+import { handleGremlinMcp } from './mcp-runtime.ts';
 import worker from './index.ts';
 import { GREMLIN_GITHUB_LOGIN, isGremlinGithubOwner } from './operator-identity.ts';
 import { unauthenticatedMcpFallback } from './mcp-fallback.ts';

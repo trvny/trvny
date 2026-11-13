@@ -471,6 +471,12 @@ export const operatorRoutes: readonly Route<OperatorContext>[] = [
 
 const worker = {
   fetch(request: Request, env: GremlinRouterEnv): Promise<Response | null> {
+    // Only GPT Actions are owned here. Skip the operator handler chain for
+    // webhook, specialist, health and other companion traffic.
+    const pathname = new URL(request.url).pathname;
+    if (pathname !== '/gpt-actions' && !pathname.startsWith('/gpt-actions/')) {
+      return Promise.resolve(null);
+    }
     return firstMatch(operatorRoutes, { request, env });
   },
 };

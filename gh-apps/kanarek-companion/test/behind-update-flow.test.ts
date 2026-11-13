@@ -88,7 +88,7 @@ async function refresh(options: {
       return json([]);
     }
     if (method === 'GET' && url.pathname === '/repos/trvny/trvny/issues/12/comments') {
-      return json(options.oldComment ? [{ id: 123, body: options.oldComment, user: { login: 'kanarek-companion[bot]' } }] : []);
+      return json(options.oldComment ? [{ id: 123, body: options.oldComment, user: { login: 'kanarek-companion[bot]', type: 'Bot' } }] : []);
     }
     if (method === 'PUT' && url.pathname === '/repos/trvny/trvny/pulls/12/update-branch') {
       updateCalls += 1;

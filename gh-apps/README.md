@@ -23,6 +23,7 @@ GitHub App integrations and Workers. **`gh-apps/core/` is the only shared-code l
   `npm run check --workspace=<package-name>` (or `npm run check` for all).
   The shared `gh-apps/package-lock.json` owns versions; `npm run dedupe`
   refreshes its hoisting. npm commands from an app directory also find the
-  workspace root. GPTomek has no npm package: validate via
-  `gh-apps/kanarek-companion/`. See component READMEs for deploy requirements.
+  workspace root. GPTomek has no npm package: validate its shared runtime
+  with `npm run check --workspace=kanarek-companion`. See component READMEs
+  for deploy requirements.
 - **Invariants:** one shared Worker runtime, one shared core; secrets in Worker configuration, never in Git. [Architecture](kanarek-companion/docs/architecture.md) owns route/state boundaries; [GPTomek reference](gptomek/docs/REFERENCE.md) owns its transport contract.

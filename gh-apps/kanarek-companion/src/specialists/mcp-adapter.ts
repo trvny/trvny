@@ -7,6 +7,7 @@ import {
   specialistToolDescriptors,
   specialistToolNames,
   type SpecialistToolEnv,
+  type SpecialistToolName,
 } from '../tools/registry.ts';
 
 export const MCP_PATH = '/mcp';
@@ -525,6 +526,15 @@ async function operatorToolResult(
   };
 }
 
+function specialistSelection(names: readonly SpecialistToolName[]): ReadonlySet<string> {
+  const allowed = new Set<string>();
+  for (const name of names) {
+    if (!isSpecialistToolName(name)) throw new Error(`unknown_specialist_tool:${String(name)}`);
+    allowed.add(name);
+  }
+  return allowed;
+}
+
 function selectedSpecialistSurface(
   env: SpecialistToolEnv,
   fetcher: typeof fetch,
@@ -558,10 +568,14 @@ function combinedSurface(
     if (names.has(tool.name)) throw new Error(`duplicate_mcp_tool:${tool.name}`);
     names.add(tool.name);
   }
+  const specialistLabel = secondaryTools.length === 0
+    ? ''
+    : secondaryTools.every((tool) => typeof tool.name === 'string' && tool.name.startsWith('feedseek_'))
+      ? ' and Feedseek'
+      : ' and selected specialist tools';
   return {
     serverInfo: OPERATOR_SERVER_INFO,
-    instructions:
-      'Guarded GPTomek workflows and Feedseek. Use direct provider apps for ordinary calls.',
+    instructions: `Guarded GPTomek workflows${specialistLabel}. Use direct provider apps for ordinary calls.`,
     serializeBatchToolCalls: true,
     tools: () => [...primaryTools, ...secondaryTools].map((tool) => ({ ...tool })),
     hasTool: (name) => primary.hasTool(name) || secondary.hasTool(name),
@@ -617,9 +631,9 @@ export function operatorMcpManifest(document: JsonObject): JsonObject {
 
 export function scopedMcpManifest(
   document: JsonObject,
-  selectedSpecialistNames: readonly string[],
+  selectedSpecialistNames: readonly SpecialistToolName[],
 ): JsonObject {
-  const allowed = new Set(selectedSpecialistNames);
+  const allowed = specialistSelection(selectedSpecialistNames);
   const operatorToolNames = [...operatorRoutes(document).keys()].sort();
   const specialistNames = specialistToolNames()
     .filter((name) => allowed.has(name))
@@ -659,7 +673,7 @@ export async function handleScopedMcp(
   env: SpecialistToolEnv,
   invoke: ActionInvoke,
   github: GithubGateway,
-  selectedSpecialistNames: readonly string[],
+  selectedSpecialistNames: readonly SpecialistToolName[],
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   return handleMcp(
@@ -667,7 +681,7 @@ export async function handleScopedMcp(
     github,
     combinedSurface(
       operatorSurface(request, document, invoke),
-      selectedSpecialistSurface(env, fetcher, new Set(selectedSpecialistNames)),
+      selectedSpecialistSurface(env, fetcher, specialistSelection(selectedSpecialistNames)),
     ),
   );
 }

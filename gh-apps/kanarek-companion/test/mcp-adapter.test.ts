@@ -292,7 +292,11 @@ test('Gremlin MCP exposes only Feedseek without changing the shared specialist g
 
 test('scoped MCP only exposes requested specialist names', async () => {
   const document = { paths: {} };
-  const manifest = scopedMcpManifest(document, ['feedseek_search', 'unused_name']) as {
+  assert.throws(
+    () => scopedMcpManifest(document, ['feedseek_search', 'unused_name'] as never),
+    /unknown_specialist_tool:unused_name/,
+  );
+  const manifest = scopedMcpManifest(document, ['feedseek_search']) as {
     specialistToolNames?: string[];
     toolNames?: string[];
   };
@@ -312,6 +316,21 @@ test('scoped MCP only exposes requested specialist names', async () => {
   assert.ok(response);
   const payload = await response.json() as { result: { tools: Array<{ name: string }> } };
   assert.deepEqual(payload.result.tools.map((tool) => tool.name), ['feedseek_search']);
+});
+
+test('empty specialist scope omits Feedseek from MCP instructions', async () => {
+  const request = rpcRequest({
+    jsonrpc: '2.0', id: 153, method: 'initialize',
+    params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 'test', version: '1' } },
+  }, 'initialize');
+  const invoke = authorizedInvoke();
+  const response = await handleScopedMcpGw(
+    request, { paths: {} }, {}, invoke, loopbackGateway(request, invoke), [],
+  );
+  assert.ok(response);
+  const payload = await response.json() as { result: { instructions: string } };
+  assert.doesNotMatch(payload.result.instructions, /Feedseek/);
+  assert.match(payload.result.instructions, /Guarded GPTomek workflows/);
 });
 
 test('scoped MCP dispatches selected Feedseek and rejects unselected tools', async () => {

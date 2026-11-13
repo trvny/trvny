@@ -50,7 +50,9 @@ const REVIEW_ROUTER_MODEL_DEFAULTS = {
 };
 const auth = {
   KANAREK_REVIEW_ROUTER_TOKEN: routerToken,
-  KANAREK_REVIEW_ROUTING: { providerOrders: routing.providerOrders },
+  KANAREK_REVIEW_ROUTING: { providerOrders: {
+    ...routing.providerOrders, general: [...routing.providerOrders.general, 'workers-ai'],
+  } },
   KANAREK_REVIEW_PROVIDER_ORDER: routing.providerOrders.general.join(','),
   KANAREK_REVIEW_OPENROUTER_MODELS: generalModels('openrouter').join(','),
   KANAREK_REVIEW_AIHUBMIX_MODELS: generalModels('aihubmix').join(','),
@@ -139,6 +141,7 @@ test('free router skips a successful provider response with no assistant content
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ROUTING: { providerOrders: { general: ['openrouter', 'orcarouter'] } },
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
     calls.push(url);
@@ -182,6 +185,7 @@ test('free router preserves an explicit refusal instead of bypassing it', async 
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ROUTING: { providerOrders: { general: ['openrouter', 'orcarouter'] } },
   }, (() => {
     calls += 1;
     return Promise.resolve(Response.json({
@@ -293,7 +297,7 @@ test('review router prefers OpenRouter before the paid review reserves', async (
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
   assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
   // Review lane leads with its preferred model.
-  assert.equal(call.model, 'thinkingmachines/inkling:free');
+  assert.equal(call.model, generalModels('openrouter')[0]);
   assert.equal(call.authorization, 'Bearer openrouter-key');
 });
 
@@ -1582,6 +1586,8 @@ test('AIHubMix shares one model pool but orders it by task', async () => {
   }), {
     ...auth,
     AIHUBMIX_API_KEY: 'aihubmix-key',
+    KANAREK_REVIEW_ROUTING: { ...auth.KANAREK_REVIEW_ROUTING,
+      taskModels: { aihubmix: { review: routing.taskModels.aihubmix.review } } },
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: string };
     models.push(body.model ?? '');
@@ -1694,7 +1700,7 @@ test('provider health exposes budget classes and task queues', async () => {
     'monthly-free-credit',
   );
   assert.equal(health.taskOrders.review[0], 'openrouter');
-  assert.equal(health.taskOrders.quip[0], 'aihubmix');
+  assert.equal(health.taskOrders.quip[0], 'vercel');
   assert.equal(health.taskOrders.shitpost[1], 'openrouter');
   // Fast, proven fallback precedes slow providers when no override exists.
   assert.ok(health.taskOrders.review.indexOf('groq') < health.taskOrders.review.indexOf('aihubmix'));
@@ -1940,6 +1946,7 @@ test('review router honors the shared configured OpenRouter model chain', async 
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
     KANAREK_OPENROUTER_MODELS: 'first/free, second/free,first/free',
+    KANAREK_REVIEW_OPENROUTER_MODELS: undefined,
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
@@ -1991,6 +1998,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
   const env = {
     ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
     KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    KANAREK_REVIEW_ROUTING: { providerOrders: { general: ['openrouter', 'orcarouter'] } },
   };
   const firstUrls: string[] = [];
   const first = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {

@@ -98,3 +98,36 @@ test('paid Grok caps tool iterations and forces a final answer', async () => {
   assert.equal(requests[requests.length - 1]?.tool_choice, 'none');
   assert.deepEqual(requests[requests.length - 1]?.tools, []);
 });
+
+test('Grok stops tool execution at budget and still returns a review', async () => {
+  const requests: Array<Record<string, unknown>> = [];
+  let executed = 0;
+  const fetcher = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    requests.push(body);
+    if (body.tool_choice === 'none') {
+      return Response.json({ status: 'completed',
+        usage: { input_tokens: 40, output_tokens: 20 },
+        output: [{ type: 'message', role: 'assistant',
+          content: [{ type: 'output_text', text: '{"summary":"","findings":[]}' }] }],
+      });
+    }
+    return Response.json({ status: 'completed',
+      usage: { input_tokens: 100, output_tokens: 40 },
+      output: Array.from({ length: 19 }, (_, i) => ({
+        type: 'function_call', name: 'read_pr', call_id: 'call' + i, arguments: '{}',
+      })) });
+  }) as typeof fetch;
+
+  const result = await runGrokAgentSession({ model: 'grok-4.7', max_output_tokens: 8192 },
+    { repository: 'trvny/trvny', number: 17, headSha: sha },
+    fetcher, async () => { executed++; return {}; },
+    'test-key', Date.now() + 30_000, [{ path: 'src/a.ts' }]);
+
+  assert.equal(result.status, 200);
+  assert.equal(requests.length, 2);
+  assert.equal(executed, 0);
+  assert.equal(requests[0]?.parallel_tool_calls, false);
+  assert.equal(requests[1]?.tool_choice, 'none');
+  assert.deepEqual(requests[1]?.tools, []);
+});

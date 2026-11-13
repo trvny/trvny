@@ -3,6 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
 import { refreshCompanion } from '../src/companion/companion.ts';
+import { decoded, encoded } from '../src/companion/quip.ts';
 import type { CompanionEnv, CompanionTarget } from '../src/companion/companion.ts';
 
 const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
@@ -24,6 +25,7 @@ async function refresh(options: {
   refreshedHead?: string;
   updateStatus?: number;
   updateThrows?: boolean;
+  oldComment?: string;
 }): Promise<{ body: string; pullCalls: number; state: string; updateCalls: number }> {
   let body = '';
   let pullCalls = 0;
@@ -86,7 +88,7 @@ async function refresh(options: {
       return json([]);
     }
     if (method === 'GET' && url.pathname === '/repos/trvny/trvny/issues/12/comments') {
-      return json([]);
+      return json(options.oldComment ? [{ id: 123, body: options.oldComment, user: { login: 'kanarek-companion[bot]' } }] : []);
     }
     if (method === 'PUT' && url.pathname === '/repos/trvny/trvny/pulls/12/update-branch') {
       updateCalls += 1;
@@ -96,7 +98,8 @@ async function refresh(options: {
         ? json({ message: 'Updating pull request branch.' }, status)
         : json({ message: 'Update rejected.' }, status);
     }
-    if (method === 'POST' && url.pathname === '/repos/trvny/trvny/issues/12/comments') {
+    if ((method === 'POST' && url.pathname === '/repos/trvny/trvny/issues/12/comments') ||
+      (method === 'PATCH' && url.pathname === '/repos/trvny/trvny/issues/comments/123')) {
       const raw = typeof init.body === 'string' ? init.body : '';
       body = String((JSON.parse(raw) as { body?: unknown }).body ?? '');
       return json({ id: 123 });
@@ -179,4 +182,20 @@ test('indeterminate auto-update stays waiting on the old head', async () => {
   assert.equal(ambiguous.pullCalls, 1);
   assert.equal(ambiguous.state, 'waiting');
   assert.match(ambiguous.body, /Kanarek · 🟡 waiting/);
+});
+
+test('refreshCompanion keeps existing quips per head but rotates after a push', async () => {
+  const oldHead = '1'.repeat(40);
+  const nextHead = '2'.repeat(40);
+  const initial = await refresh({ behind: 0, head: oldHead });
+  const previousQuip = 'Previous reusable quip with an unmistakable phrase about sleepy canaries.';
+  const oldBody = initial.body
+    .replace(/<!-- kanarek-quip:[A-Za-z0-9_-]+ -->/, `<!-- kanarek-quip:${encoded(previousQuip)} -->`)
+    .replace('kanarek-source:preset', 'kanarek-source:ai');
+  const existing = await refresh({ behind: 0, head: oldHead, oldComment: oldBody });
+  const pushed = await refresh({ behind: 0, head: nextHead, oldComment: oldBody });
+  const phrase = (body: string) => decoded(body.match(/<!-- kanarek-quip:([A-Za-z0-9_-]+) -->/)?.[1] ?? '');
+  assert.equal(phrase(existing.body), previousQuip);
+  assert.notEqual(phrase(pushed.body), previousQuip);
+  assert.ok(pushed.body.includes(`kanarek-quip-head:${nextHead}`));
 });

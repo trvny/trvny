@@ -179,7 +179,7 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
       : '仅输出JSON：' + textSchema + '。标题不超过90字符，正文是成品，不重复标题。';
   const availableTemplates = mode === 'text' ? '' : MEME_TEMPLATES.map((item) => item.id + '=' + item.name).join('; ');
   const scopedStyle = styleReference.replace(
-    /<!-- pocket-verse-only:start -->([\\s\\S]*?)<!-- pocket-verse-only:end -->/gu,
+    /<!-- pocket-verse-only:start -->([\s\S]*?)<!-- pocket-verse-only:end -->/gu,
     (_match, lines) => (shortVerseHint ? lines.trim() : ''),
   ).trim();
   const system = [

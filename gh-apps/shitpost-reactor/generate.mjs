@@ -504,7 +504,7 @@ export function renderMarkdown(record) {
         '',
         [content.top_text, content.bottom_text].filter(Boolean).map((line) => `> ${line.replaceAll('\n', ' ')}`).join('\n'),
       ].join('\n')
-    : content.text.split(/\r?\n/u).map((line) => `> ${line}`).join('\n');
+    : content.text.split(/\r?\n/u).map((line) => `> ${line}`).join('  \n');
 
   return [
     `# ${content.title || 'Reactor'}`,

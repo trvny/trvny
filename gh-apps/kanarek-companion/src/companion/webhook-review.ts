@@ -76,6 +76,7 @@ const DEFAULT_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
 const MAX_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
 // L2 needs room for System One (25s router budget) plus a generative judge pass.
 const L2_MIN_BUDGET_MS = 90_000;
+const DECISION_L2_DEADLINE_MS = 40_000;
 
 /** Time left for provider calls before the 90s publication margin of the alarm. */
 function alarmBudgetLeftMs(alarmStartedAt: number): number {
@@ -1036,6 +1037,8 @@ export async function runWebhookReview(
       generated.model,
       judgeContext,
       reviewEnv,
+      // Router budget is 25s; leave the rest of the L2 window for the generative judge.
+      AbortSignal.timeout(Math.min(DECISION_L2_DEADLINE_MS, alarmBudgetLeftMs(alarmStartedAt))),
     );
     judged = decisionAttempt.judged;
     decisionMarker = decisionAttempt.marker;

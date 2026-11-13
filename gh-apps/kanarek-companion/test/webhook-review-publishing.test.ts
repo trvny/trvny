@@ -733,3 +733,26 @@ test('deadline abort keeps a billed paid provider and flags the sweep as aborted
   assert.deepEqual(result.excluded, ['xai']);
   assert.equal(result.generated, null);
 });
+
+test('L1 verifier keeps the Chinese finding and drops non-Chinese or mixed ones', () => {
+  const finding = (title: string, body: string) => ({
+    severity: 'medium', path: 'src/a.ts', line: 2,
+    existing_code: 'const value = brokenCall();', title, body,
+  });
+  const parsed = parseReviewJson(JSON.stringify({
+    summary: '发现问题。',
+    findings: [
+      finding('错误调用', '该调用返回错误结果。'),
+      finding('Wrong call', 'Returns a wrong result.'),
+      finding('Wrong call', '该调用返回错误结果。'),
+    ],
+  }));
+  assert.ok(parsed);
+  const findings = verifyReviewFindings(parsed, [{
+    path: 'src/a.ts',
+    patch: '@@ -1,1 +1,2 @@\n const before = true;\n+const value = brokenCall();',
+    rightLines: new Set([2]),
+    sha: null,
+  }]);
+  assert.deepEqual(findings.map((item) => item.title), ['错误调用']);
+});

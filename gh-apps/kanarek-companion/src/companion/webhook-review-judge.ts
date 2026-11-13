@@ -520,6 +520,7 @@ export async function askDecisionJudge(
   reviewerModel: string | null,
   reviewContext: string,
   env: WebhookReviewEnv,
+  signal?: AbortSignal,
 ): Promise<DecisionJudgeAttempt> {
   if (
     !findings.length ||
@@ -550,7 +551,7 @@ export async function askDecisionJudge(
       candidate_findings: judgeInput,
     },
     questions: reviewDecisionQuestions(findings),
-  }, env);
+  }, env, signal);
 
   if (!response || !response.ok) {
     const status = response?.status ?? 500;

@@ -2300,6 +2300,12 @@ export async function handleReviewRouterRequest(
     let providerInvalidRequest = true;
     let providerRetryAfterMs: number | null = null;
 
+    // Primaries cooling down will be skipped; they must not cap the live model's time.
+    const cooledPrimaries = supportsModelCooldown && multiModel
+      ? await Promise.all(attempts.map(async (item) =>
+          Boolean(await activeProviderCooldown(env, modelCooldownId(provider.id, item.model)))))
+      : attempts.map(() => false);
+
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
       const modelKey = modelCooldownId(provider.id, attempt.model);
@@ -2338,7 +2344,8 @@ export async function handleReviewRouterRequest(
       };
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
       const attemptTimeoutMs = modelAttemptTimeoutMs(
-        remainingProviderMs, task, multiModel && attemptIndex + 1 < attempts.length,
+        remainingProviderMs, task,
+        multiModel && cooledPrimaries.slice(attemptIndex + 1).some((cooled) => !cooled),
         provider.id,
       );
       if (attemptTimeoutMs <= 0) {

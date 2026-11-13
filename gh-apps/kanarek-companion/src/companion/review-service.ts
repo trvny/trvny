@@ -67,6 +67,7 @@ export async function handleReviewRouterViaService(
 export async function reviewDecisionViaService(
   body: JsonObject,
   env: ReviewServiceEnv,
+  signal?: AbortSignal,
 ): Promise<Response | null> {
   const service = env.KANAREK_REVIEW_SERVICE;
   if (!service) return null;
@@ -74,6 +75,7 @@ export async function reviewDecisionViaService(
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   });
   try {
     return await service.fetch(serviceRequest(request, env));

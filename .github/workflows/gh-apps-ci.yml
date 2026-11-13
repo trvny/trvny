@@ -117,7 +117,14 @@ jobs:
                 manufact=true
               fi
               # Shared npm workspace updates may affect every app.
-              if grep -Eq '^gh-apps/package(-lock)?\.json
+              if grep -Eq '^gh-apps/package(-lock)?\.json$' <<<"$files"; then
+                claudiusz=true
+                gremlin=true
+                shitpost=true
+                companion=true
+                review=true
+                manufact=true
+              fi
               # The Docker build copies Claudiusz and shared core code.
               if grep -E '^gh-apps/(claudiusz|core)/' <<<"$files" |
                   grep -Ev '\.md$' >/dev/null; then
@@ -204,199 +211,6 @@ jobs:
         if: steps.scope.outputs.review == 'true'
         working-directory: gh-apps
         run: npm run check --workspace=kanarek-review
-
-  # Live-only checks and provider secrets stay outside PR test steps.
-  smoke-live:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.outputs.companion_deploy == 'true' }}
-    needs: check
-    runs-on: ubuntu-slim
-    timeout-minutes: 12
-    defaults:
-      run:
-        working-directory: gh-apps/kanarek-companion
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: gh-apps/package-lock.json
-
-      - run: npm ci
-      - name: Wait for Cloudflare production and smoke the live gateway
-        run: npm run smoke:live
-        env:
-          KANAREK_LIVE_ORIGIN: https://automation.travny.workers.dev
-          KANAREK_SMOKE_ATTEMPTS: "36"
-          KANAREK_SMOKE_INTERVAL_MS: "15000"
-
-  sync-provider-secrets:
-    if: ${{ github.event_name == 'push' && needs.check.outputs.review_sync == 'true' }}
-    needs: check
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
-    defaults:
-      run:
-        working-directory: gh-apps/kanarek-review
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: gh-apps/package-lock.json
-
-      - run: npm ci
-
-      - name: Sync provider credentials
-        shell: bash
-        run: |
-          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
-            kanarek-review GEMINI_API_KEY GEMINI_API_KEY optional
-          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
-            kanarek-review QWEN_API_KEY QWEN_API_KEY optional
-
-  # Docker is unavailable on ubuntu-slim. Build only when the image definition changes.
-  manufact-image-smoke:
-    needs: check
-    if: ${{ needs.check.outputs.manufact == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Build Manufact image
-        run: docker build -f gh-apps/claudiusz/Dockerfile.manufact -t claudiusz-manufact:ci gh-apps
-
-      - name: Smoke OAuth metadata as non-root
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker run --rm -d --name claudiusz-manufact-ci -p 127.0.0.1:3000:3000 claudiusz-manufact:ci
-          trap 'docker logs claudiusz-manufact-ci || true; docker rm -f claudiusz-manufact-ci || true' EXIT
-          [[ "$(docker exec claudiusz-manufact-ci id -u)" != "0" ]]
-          for ((attempt = 0; attempt < 30; attempt++)); do
-            if curl --fail --silent --show-error --max-time 3 \
-              http://127.0.0.1:3000/.well-known/oauth-authorization-server \
-              | jq -e '.issuer == "http://127.0.0.1:3000" and (.code_challenge_methods_supported | index("S256"))' >/dev/null; then
-              echo "Manufact container healthy and non-root"
-              exit 0
-            fi
-            sleep 2
-          done
-          exit 1
- <<<"$files"; then
-                claudiusz=true
-                gremlin=true
-                shitpost=true
-                companion=true
-                review=true
-                manufact=true
-              fi
-              # The Docker build copies Claudiusz and shared core code.
-              if grep -E '^gh-apps/(claudiusz|core)/' <<<"$files" |
-                  grep -Ev '\.md$' >/dev/null; then
-                manufact=true
-              fi
-              if grep '^gh-apps/claudiusz/' <<<"$files" | grep -Ev '\.md$' >/dev/null ||
-                  grep -Eq '^gh-apps/core/.*\.ts$' <<<"$files"; then
-                claudiusz=true
-              fi
-              if grep -Eq '^gh-apps/gremlin/|^gh-apps/core/.*\.ts$|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
-                gremlin=true
-              fi
-              if grep '^gh-apps/shitpost-reactor/' <<<"$files" |
-                  grep -Ev '\.md$' >/dev/null; then
-                shitpost=true
-              fi
-              # GPTomek lives in the companion runtime.
-              if grep -E '^gh-apps/(kanarek-companion|gptomek)/|^gh-apps/core/' <<<"$files" |
-                  grep -Ev '\.md$' >/dev/null; then
-                companion=true
-              fi
-              if grep -E '^gh-apps/kanarek-review/|^gh-apps/core/' <<<"$files" |
-                  grep -Ev '\.md$' >/dev/null; then
-                review=true
-              fi
-              # Only expect a new Worker SHA after a source change watched by Workers Builds.
-              if grep -E '^gh-apps/kanarek-companion/|^gh-apps/core/' <<<"$files" |
-                  grep -Ev '\.md$' >/dev/null; then
-                companion_deploy=true
-              fi
-              if grep -E '^gh-apps/kanarek-review/|^gh-apps/core/' <<<"$files" |
-                  grep -Ev '\.md$' >/dev/null; then
-                review_sync=true
-              fi
-            fi
-          fi
-
-          {
-            echo "claudiusz=$claudiusz"
-            echo "gremlin=$gremlin"
-            echo "shitpost=$shitpost"
-            echo "companion=$companion"
-            echo "review=$review"
-            echo "companion_deploy=$companion_deploy"
-            echo "review_sync=$review_sync"
-            echo "manufact=$manufact"
-          } >> "$GITHUB_OUTPUT"
-          {
-            echo "### GitHub Apps CI scope"
-            echo
-            echo "- Claudiusz: $claudiusz"
-            echo "- Gremlin: $gremlin"
-            echo "- Shitpost Reactor: $shitpost"
-            echo "- Kanarek Companion: $companion"
-            echo "- Kanarek Review: $review"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Check Claudiusz
-        if: steps.scope.outputs.claudiusz == 'true'
-        working-directory: gh-apps/claudiusz
-        run: |
-          npm ci
-          npm run check
-
-      - name: Check Gremlin
-        if: steps.scope.outputs.gremlin == 'true'
-        working-directory: gh-apps/gremlin
-        run: |
-          npm ci
-          npm run check
-
-      - name: Check Shitpost Reactor
-        if: steps.scope.outputs.shitpost == 'true'
-        working-directory: gh-apps/shitpost-reactor
-        run: |
-          npm ci
-          npm run check
-
-      - name: Check Kanarek Companion
-        if: steps.scope.outputs.companion == 'true'
-        working-directory: gh-apps/kanarek-companion
-        run: |
-          npm ci
-          npm run check
-
-      - name: Check Kanarek Review
-        if: steps.scope.outputs.review == 'true'
-        working-directory: gh-apps/kanarek-review
-        run: |
-          npm ci
-          npm run check
 
   # Live-only checks and provider secrets stay outside PR test steps.
   smoke-live:

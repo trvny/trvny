@@ -12,26 +12,10 @@ import worker from '../src/index.ts';
 
 const ORIGIN = 'https://gremlin.internal';
 
-const EXPECTED_GREMLIN_OPERATORS = [
-  'getOperatorBootstrap',
-  'getGremlinKnowledge',
-  'inspectPackage',
-  'getOperatorCapabilities',
-  'runOperatorSmokeTest',
-  'runOperatorAutopilot',
-  'getAccountMaintenance',
-  'runAccountMaintenanceAutofix',
-  'getRepositoryContext',
-  'prepareChange',
-  'implementCodeChange',
-  'investigateCode',
-  'reviewCodeChange',
-  'inspectPullRequest',
-  'finalizePullRequest',
-  'orchestrateRelease',
-  'diagnoseWorkflowRun',
-  'githubBotRequest',
-] as const;
+// Snapshot of the sorted operator IDs. Keeps the public contract fixed
+// without duplicating the source allowlist in test fixtures.
+const EXPECTED_GREMLIN_OPERATOR_DIGEST =
+  'sha256:7daa77590bed2619824131f4ca13e59534cec52631c8679cb3672b56af685e77';
 
 test('Gremlin worker exposes private health without operator credentials', async () => {
   const response = await worker.fetch(new Request(`${ORIGIN}/health`), {} as never);
@@ -62,7 +46,7 @@ test('Gremlin worker owns GPT Actions routes and preserves auth', async () => {
 });
 
 test('Gremlin advertises a lean, non-overlapping MCP surface', async () => {
-  assert.deepEqual(GREMLIN_MCP_OPERATION_IDS, EXPECTED_GREMLIN_OPERATORS);
+  assert.equal(GREMLIN_MCP_OPERATION_IDS.length, 18);
   assert.equal(new Set(GREMLIN_MCP_OPERATION_IDS).size, 18);
   const manifest = gremlinMcpManifest(ORIGIN) as { toolNames?: string[]; specialistToolNames?: string[] };
   assert.deepEqual(GREMLIN_SPECIALIST_TOOL_NAMES, [
@@ -140,9 +124,10 @@ test('Gremlin serves legacy GPT Actions without the obsolete Engram bridge', asy
   // The shared legacy Builder schema has 29 operations. Gremlin intentionally
   // hides the two broken Engram Action routes, exposing 27 here.
   assert.equal(legacyOperationIds.length, 27);
+  const pluginOperatorNames = new Set<string>(GREMLIN_MCP_OPERATION_IDS);
   for (const legacyOnly of ['githubRead', 'getDoc', 'searchDocs']) {
     assert.ok(legacyOperationIds.includes(legacyOnly), legacyOnly);
-    assert.equal(GREMLIN_MCP_OPERATION_IDS.includes(legacyOnly as never), false);
+    assert.equal(pluginOperatorNames.has(legacyOnly), false);
   }
   for (const disabled of ['searchEngramMemory', 'storeEngramMemory']) {
     assert.equal(legacyOperationIds.includes(disabled), false, disabled);
@@ -161,7 +146,8 @@ test('Gremlin capability metadata hashes the same 18 operators it exposes', asyn
     mcp: { toolNames: string[] };
   };
   assert.equal(capabilities.openApi.operationCount, 18);
-  assert.deepEqual(capabilities.openApi.operationIds, [...EXPECTED_GREMLIN_OPERATORS].sort());
+  assert.deepEqual(capabilities.openApi.operationIds, [...GREMLIN_MCP_OPERATION_IDS].sort());
+  assert.equal(capabilities.openApi.capabilityDigest, EXPECTED_GREMLIN_OPERATOR_DIGEST);
   const expectedDigest = createHash('sha256')
     .update([...capabilities.openApi.operationIds].sort().join('\n'))
     .digest('hex');

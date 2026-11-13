@@ -17,7 +17,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Teksty](https://travny.pages.dev/teksty/) · [Markdown guide](https://travny.pages.dev/teksty/index.md): unified publication directory including CoCzyDziennik and Reactor
 - [CoCzyDziennik archive](https://travny.pages.dev/przeglad/): dated issue permalinks; publication feed remains under Teksty
 - [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): token-count comparison for equivalent text in 27 languages using `o200k_base`
-- [GitHubowa Kraina](https://travny.pages.dev/teksty/githubowa-kraina/) · [Markdown](https://travny.pages.dev/teksty/githubowa-kraina/index.md): interactive atlas of the public `trvny` and `travnie` project landscape
+- [GitHubowa Kraina](https://travny.pages.dev/teksty/githubowa-kraina/) · [Markdown](https://travny.pages.dev/teksty/githubowa-kraina/index.md): explore regions and their projects; [structured data](https://travny.pages.dev/teksty/githubowa-kraina/atlas.json) · [infrastructure map](https://travny.pages.dev/teksty/githubowa-kraina/universe.html)
 - [Grass Mud Horse (English / Polish)](https://travny.pages.dev/teksty/grass-mud-horse/): one bilingual article about Chinese internet slang and censorship; switch PL / EN in-page
 
 - [Main Atom feed](https://travny.pages.dev/teksty/feed.xml): articles, CoCzyDziennik issues and Reactor entries, live-aggregated

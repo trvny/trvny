@@ -13,7 +13,7 @@
 ## Existing articles
 
 - [Alpaka, krab i Wielki Harmonizator / The Alpaca, the Crab and the Censor](https://travny.pages.dev/teksty/grass-mud-horse/): one bilingual article (PL / EN) on Mandarin profanity, mythical internet animals and censorship. Switch language on the page; legacy Polish links redirect to `?lang=pl`.
-- [GitHubowa Kraina](https://travny.pages.dev/teksty/githubowa-kraina/): interactive atlas of the 12 public repositories split between `trvny` and `travnie`, with project regions, the shared tool district and infrastructure.
+- [GitHubowa Kraina](https://travny.pages.dev/teksty/githubowa-kraina/): interactive atlas of `trvny` and `travnie` projects, with explorable regions, the shared tool district and infrastructure.
 - [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): equivalent natural text in 27 languages with OpenAI and Claude tokenization comparisons.
 
 ## Feed

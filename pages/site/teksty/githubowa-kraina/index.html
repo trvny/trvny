@@ -10,7 +10,7 @@
   <meta property="og:locale" content="pl_PL">
   <meta property="og:site_name" content="TRAVNY">
   <meta property="og:title" content="GitHubowa Kraina · TRAVNY">
-  <meta property="og:description" content="Interaktywny atlas 12 publicznych repozytoriów trvny i travnie: główne projekty, dzielnica narzędziowa i infrastruktura.">
+  <meta property="og:description" content="An interactive atlas of trvny and travnie projects, workshops and infrastructure.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://travny.pages.dev/teksty/githubowa-kraina/">
   <meta property="og:image" content="https://travny.pages.dev/assets/og.png">
@@ -35,6 +35,13 @@
 @media(max-width:560px){.workshop-hub{grid-template-columns:auto 1fr}.workshop-hub-arrow{display:none}.shell{width:min(calc(100% - 22px),var(--max))}.hero{padding-top:16px}.topbar{align-items:flex-start}.brand span:last-child{display:none}.profiles{gap:4px}.profile-chip span{display:none}.hero-grid{padding-top:55px}.hero h1{font-size:clamp(2.7rem,15vw,4.4rem)}.hero-actions{flex-direction:column}.button{text-align:center;width:100%}.atlas{grid-template-columns:1fr}.region{min-height:285px}.road-list,.tool-grid{grid-template-columns:1fr}.realm-stat{margin-top:50px}.gates{padding-bottom:58px}.gate{grid-template-columns:auto 1fr}.gate-arrow{display:none}.footer{flex-direction:column;gap:7px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
+
+.region[data-region],.workshop-hub[data-region]{cursor:pointer}
+.workshop-hub .explore-hint{grid-column:2 / -1;margin:0}.explore-hint{display:block;color:#c7d0df;font-size:.8rem;margin-top:12px}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}
+.atlas-dialog{width:min(640px,calc(100% - 24px));max-height:min(80vh,760px);padding:0;border:1px solid #47536a;border-radius:18px;background:#101722;color:var(--ink);box-shadow:0 24px 100px #000b}
+.atlas-dialog::backdrop{background:#05070bd9}
+.dialog-inner{padding:clamp(20px,5vw,34px)}.dialog-head{display:flex;justify-content:space-between;align-items:start;gap:16px}.dialog-head h2{font-size:clamp(1.7rem,5vw,2.5rem);line-height:1.1;margin:0;letter-spacing:-.04em}.dialog-close,.dialog-back{background:#1a2331;border:1px solid #47536a;color:var(--ink);border-radius:9px;padding:10px 13px;cursor:pointer}.dialog-close{font-size:1.2rem;line-height:1}.dialog-intro{color:#bbc5d3}.dialog-list{display:grid;gap:8px;margin:22px 0}.dialog-place{display:flex;justify-content:space-between;gap:16px;width:100%;text-align:left;color:var(--ink);background:#151e2a;border:1px solid #303d50;border-radius:10px;padding:15px;font:inherit;cursor:pointer}.dialog-place:hover{border-color:var(--cyan)}.dialog-place span{color:var(--cyan)}.dialog-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px}.dialog-link{display:inline-block;color:#101722;background:var(--ink);padding:10px 14px;border-radius:9px;font-weight:700;text-decoration:none}
 </style>
 </head>
 <body>
@@ -60,9 +67,10 @@
       <section class="hero-copy">
         <p class="eyebrow">ATLAS / BUILD 2026.09</p>
         <h1>Tu projekty nie leżą w repozytoriach.<br><em>Mają własne dzielnice.</em></h1>
-        <p class="lede">Dwie bramy, dwanaście publicznych repozytoriów i sporo kabli biegnących pod brukiem. Oto mapa krainy, w której RSS spotyka IPTV, foobar rozmawia z głośnikiem, a modele AI siedzą przy jednym stole.</p>
+        <p class="lede">Dwie bramy, publiczne projekty i sporo kabli biegnących pod brukiem. Oto mapa krainy, w której RSS spotyka IPTV, foobar rozmawia z głośnikiem, a modele AI siedzą przy jednym stole.</p>
         <div class="hero-actions">
-          <a class="button primary" href="https://github.com/trvny/trvny" target="_blank" rel="noopener">Wejdź do centrum dowodzenia ↗</a>
+          <a class="button primary" href="#map">Explore the map</a>
+          <a class="button ghost" href="https://github.com/trvny/trvny" target="_blank" rel="noopener">Command center ↗</a>
           <a class="button ghost" href="/teksty/githubowa-kraina/universe.html">Infrastructure map</a>
           <button class="button ghost" id="shuffleLore" type="button">Rzuć kostką lore</button>
         </div>
@@ -71,58 +79,58 @@
       <aside class="realm-card" aria-label="Stan krainy">
         <div class="realm-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
         <p class="realm-label">STAN KRÓLESTWA</p>
-        <div class="realm-stat"><strong>12</strong><span>publicznych repo</span></div>
-        <div class="realm-split"><span><b>6</b> / trvny</span><span><b>6</b> / travnie</span></div>
+        <div class="realm-stat"><strong>7</strong><span>regions to explore</span></div>
+        <div class="realm-split"><span>trvny</span><span>travnie</span></div>
         <p class="realm-note" id="lore">Konsolidacja ponad fragmentacją. Małe narzędzia dostają wspólny warsztat, duże projekty własne forty.</p>
       </aside>
     </div>
   </header>
 
   <main>
-    <section class="shell atlas-section">
+    <section class="shell atlas-section" id="map">
       <div class="section-heading">
         <div><p class="eyebrow">GŁÓWNE REGIONY</p><h2>Mapa właściwa</h2>
 </div>
-        <p>Największe osady. Kliknięcie teleportuje prosto do repo.</p>
+        <p>Choose a region, then select a place to see what it does.</p>
       </div>
 
       <div class="atlas" aria-label="Najważniejsze projekty">
-        <a class="region feedseek" href="https://github.com/trvny/feedseek" target="_blank" rel="noopener">
+        <a class="region feedseek" data-region="feedseek" href="https://github.com/trvny/feedseek" target="_blank" rel="noopener">
           <span class="region-icon">📡</span><span class="region-kicker">OBSERWATORIUM</span>
           <h3>Feedseek</h3>
 <p>RSS, Atom i JSON Feed. Buduje brakujące feedy, poprawia istniejące i pilnuje, żeby jeden trup nie przewrócił całej anteny.</p>
           <span class="tagline">Python · feeds · publishing</span>
         </a>
 
-        <a class="region kanarek" href="https://github.com/travnie/Kanarek" target="_blank" rel="noopener">
+        <a class="region kanarek" data-region="kanarek" href="https://github.com/travnie/Kanarek" target="_blank" rel="noopener">
           <span class="region-icon">🐤</span><span class="region-kicker">WIEŻA SYGNAŁOWA</span>
           <h3>Kanarek</h3>
 <p>Androidowy czytnik RSS z widgetami, radiem i IPTV. Żółty ptak, zaskakująco dużo infrastruktury.</p>
           <span class="tagline">Kotlin · Media3 · Worker</span>
         </a>
 
-        <a class="region wam" href="https://github.com/travnie/wambridge" target="_blank" rel="noopener">
+        <a class="region wam" data-region="wam" href="https://github.com/travnie/wambridge" target="_blank" rel="noopener">
           <span class="region-icon">🔊</span><span class="region-kicker">WARSZTAT AUDIO</span>
           <h3>WAM Bridge</h3>
 <p>Most między Windowsem, foobarem i Samsungiem Shape M5. Tu protokoły audio dostają smar, FLAC i drugi żywot.</p>
           <span class="tagline">Python · foobar2000 · Wi-Fi audio</span>
         </a>
 
-        <a class="region llm" href="https://github.com/travnie/llmbench" target="_blank" rel="noopener">
+        <a class="region llm" data-region="llm" href="https://github.com/travnie/aistee" target="_blank" rel="noopener">
           <span class="region-icon">🧠</span><span class="region-kicker">LABORATORIUM AI</span>
-          <h3>LlmBench</h3>
+          <h3>Aistee</h3>
 <p>Jedna klientownia dla wielu usług AI: WebView, natywne providery, porównywanie modeli i wspólny rdzeń KMP.</p>
           <span class="tagline">Kotlin Multiplatform · LLMs · WebView</span>
         </a>
 
-        <a class="region autka" href="https://github.com/travnie/Autka" target="_blank" rel="noopener">
+        <a class="region autka" data-region="autka" href="https://github.com/travnie/Autka" target="_blank" rel="noopener">
           <span class="region-icon">🚗</span><span class="region-kicker">GARAŻ GRANICZNY</span>
           <h3>Autka</h3>
 <p>Zakupy aut PL, EU i USA w jednym miejscu, z kalkulatorem importu. Bez „scrapuj wszystko i módl się do regulaminu”.</p>
           <span class="tagline">Android · marketplace hand-off · NBP</span>
         </a>
 
-        <a class="region tvpi" href="https://github.com/trvny/tvpi" target="_blank" rel="noopener">
+        <a class="region tvpi" data-region="tvpi" href="https://github.com/trvny/tvpi" target="_blank" rel="noopener">
           <span class="region-icon">📺</span><span class="region-kicker">STACJA NADAWCZA</span>
           <h3>TVPI</h3>
 <p>Stabilne wejścia IPTV dla kanałów TVP, Worker i domowy polski runner odświeżający krótkowieczne HLS-y.</p>
@@ -137,7 +145,7 @@
 </div>
         <p>Mniejsze rzeczy nie muszą udawać imperiów. Mogą po prostu działać razem.</p>
       </div>
-      <a class="workshop-hub" href="https://github.com/travnie/twojstar" target="_blank" rel="noopener">
+      <a class="workshop-hub" data-region="workshop" href="https://github.com/travnie/twojstar" target="_blank" rel="noopener">
         <span class="workshop-hub-icon">🛠️</span>
         <span><b>travnie/twojstar</b><small>Wspólny warsztat i główna ulica dzielnicy: Benches, weather, Feedboard, Xiaomi ADB, pluginy i eksperymenty.</small></span>
         <span class="workshop-hub-arrow">↗</span>
@@ -178,6 +186,13 @@
     <span>zero korpo-wydm, dużo kabli</span>
   </footer>
 
+  <dialog class="atlas-dialog" id="atlas-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-inner">
+      <div class="dialog-head"><h2 id="dialog-title" aria-live="polite"></h2><button class="dialog-close" type="button" aria-label="Close">×</button></div>
+      <div id="dialog-content"></div>
+    </div>
+  </dialog>
+  <script src="/teksty/githubowa-kraina/explore.js" defer></script>
   <script>
 const lore = [
   'Konsolidacja ponad fragmentacją. Małe narzędzia dostają wspólny warsztat, duże projekty własne forty.',

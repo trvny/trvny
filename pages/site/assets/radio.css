@@ -1,5 +1,6 @@
 .radio { --pink:var(--m); --fg:var(--w); --muted:var(--dim); --line:var(--faint); --yellow:var(--y); --cyan:var(--c); margin-top:28px; }
   .panel.radio { border-top-color: var(--pink); }
+  .feature-rail > .panel.radio { margin-top:0; }
   .radio-head, .radio-station, .radio-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .radio-head h2 { margin:0; }
   .radio-live, .radio-kicker, .radio-station, .radio-footer, .radio-volume { font-family:'Silkscreen',monospace; font-size:10px; letter-spacing:.04em; }

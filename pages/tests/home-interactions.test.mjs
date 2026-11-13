@@ -15,7 +15,7 @@ test("mobile rails retain direct card links and accessible slide controls", () =
   for (const [name, host] of [['stream', 'streambench'], ['code', 'codebench'], ['doc', 'docbench']]) {
     assert.ok(bench.includes(`<a class="bench ${name}" href="https://${host}.travny.workers.dev/"`));
   }
-  assert.equal([...home.matchAll(/data-slide="[012]" aria-label=/g)].length, 2);
+  assert.equal([...home.matchAll(/data-slide="[012]" aria-label=/g)].length, 3);
   assert.equal([...bench.matchAll(/data-slide="[012]" aria-label=/g)].length, 3);
   assert.match(home, /scroll-snap-type:x mandatory/);
   assert.match(home, /prefers-reduced-motion:reduce/);
@@ -41,12 +41,14 @@ test("home inline script remains parseable", () => {
 
 test("Weather is the default mobile feature and auto-rotation resumes after interaction", () => {
   assert.ok(home.indexOf('class="panel wx"') < home.indexOf('class="panel tv"'));
-  assert.match(home, /@media \(min-width:641px\)\{\.feature-rail>\.panel\.tv\{order:-1\}\}/);
+  assert.match(home, /@media \(min-width:641px\)\{\.feature-rail>\.panel\.tv\{order:-1\}/);
   assert.match(home, /data-slide="0" aria-label="Weather" aria-pressed="true"/);
   assert.match(home, /data-slide="1" aria-label="TV status" aria-pressed="false"/);
+  assert.match(home, /data-slide="2" aria-label="Radio" aria-pressed="false"/);
+  assert.ok(home.indexOf("data-radio aria-labelledby") < home.indexOf('id="featureDots"'));
 
   const events = {};
-  const dots = Array.from({ length: 2 }, () => ({
+  const dots = Array.from({ length: 3 }, () => ({
     state: null,
     setAttribute(name, value) {
       if (name === "aria-pressed") this.state = value;
@@ -54,7 +56,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     addEventListener(name, callback) { this[name] = callback; },
   }));
   const track = {
-    children: [{ offsetLeft: 0 }, { offsetLeft: 360 }],
+    children: [{ offsetLeft: 0 }, { offsetLeft: 360 }, { offsetLeft: 720 }],
     scrollLeft: 0,
     contains(node) { return this.children.includes(node); },
     addEventListener(name, callback) { events[name] = callback; },
@@ -98,6 +100,8 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   assert.equal(track.scrollLeft, 360);
   clock = 22_000;
   cycle();
+  assert.equal(track.scrollLeft, 720);
+  cycle();
   assert.equal(track.scrollLeft, 0);
   assert.equal(dots[0].state, "true");
 
@@ -133,6 +137,18 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   onVisibility([{ isIntersecting: true, intersectionRatio: 0.5 }]);
   cycle();
   assert.equal(track.scrollLeft, 360, "visible rail resumes rotating");
+
+  track.scrollLeft = 720;
+  const target = { closest: () => null };
+  events.touchstart({ touches: [{ clientX: 280, clientY: 50 }], target });
+  events.touchend({ changedTouches: [{ clientX: 120, clientY: 55 }] });
+  assert.equal(track.scrollLeft, 0, "forward swipe wraps from radio to weather");
+  events.touchstart({ touches: [{ clientX: 100, clientY: 50 }], target });
+  events.touchend({ changedTouches: [{ clientX: 260, clientY: 55 }] });
+  assert.equal(track.scrollLeft, 720, "backward swipe wraps from weather to radio");
+  events.touchstart({ touches: [{ clientX: 280, clientY: 50 }], target: { closest: () => ({}) } });
+  events.touchend({ changedTouches: [{ clientX: 120, clientY: 55 }] });
+  assert.equal(track.scrollLeft, 720, "radio controls do not trigger swipe wrapping");
 });
 
 test("home hosts radio and Lab hosts the shared workbench rail", () => {

@@ -37,7 +37,12 @@ test('Gremlin worker owns GPT Actions routes and preserves auth', async () => {
 
 test('Gremlin advertises a lean, non-overlapping MCP surface', async () => {
   const manifest = gremlinMcpManifest(ORIGIN) as { toolNames?: string[]; specialistToolNames?: string[] };
-  assert.deepEqual(manifest.specialistToolNames, [...GREMLIN_SPECIALIST_TOOL_NAMES].sort());
+  assert.deepEqual(GREMLIN_SPECIALIST_TOOL_NAMES, [
+    'feedseek_search', 'feedseek_fetch', 'feedseek_recent',
+  ]);
+  assert.deepEqual(manifest.specialistToolNames, [
+    'feedseek_fetch', 'feedseek_recent', 'feedseek_search',
+  ]);
   assert.equal(manifest.toolNames?.length, 21);
   assert.equal(manifest.toolNames?.includes('getDocsIndex'), false);
   assert.ok(manifest.toolNames?.includes('implementCodeChange'));

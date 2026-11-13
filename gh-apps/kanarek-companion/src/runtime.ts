@@ -71,6 +71,7 @@ export {
 } from './specialists/mcp-adapter.ts';
 export type { ActionInvoke } from './action-auth.ts';
 export type { JsonObject } from './tools/common.ts';
+export type { SpecialistToolName } from './tools/registry.ts';
 
 async function manifest(request: Request, env: RuntimeEnv): Promise<JsonObject> {
   return gatewayManifest(

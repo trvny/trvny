@@ -16,6 +16,8 @@ const trails = {
   "/teksty/grass-mud-horse/": [...texts, { name: "Alpaka, krab i Wielki Harmonizator", path: "/teksty/grass-mud-horse/" }],
 };
 
+const NOINDEX = new Set(["/teksty/token-worldcup/effort-matrix"]);
+
 function canonicalPath(pathname) {
   if (pathname === "/teksty/token-worldcup/token-worldcup.html" || pathname === "/teksty/token-worldcup/token-worldcup") {
     return "/teksty/token-worldcup/";
@@ -42,8 +44,7 @@ export function pageSeoHead(pathname) {
     })),
   };
   const breadcrumb = `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
-  if (path !== "/teksty/token-worldcup/effort-matrix") return breadcrumb;
-  // The Quarto page has no canonical metadata; its URL is distinct from the report.
-  const canonical = ORIGIN + path;
-  return `<link rel="canonical" href="${canonical}"><meta property="og:url" content="${canonical}">${breadcrumb}`;
+  // Working pages: reachable from their parent, kept out of search; no canonical.
+  if (NOINDEX.has(path)) return `<meta name="robots" content="noindex,follow">${breadcrumb}`;
+  return breadcrumb;
 }

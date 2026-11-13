@@ -62,16 +62,22 @@ test("canonicalized route aliases share one trail", () => {
   assert.equal(pageSeoHead("/does-not-exist"), "");
 });
 
-test("effort matrix gets a self canonical and distinct breadcrumb", () => {
+test("effort matrix is noindex with a distinct breadcrumb", async () => {
   const url = "https://travny.pages.dev/teksty/token-worldcup/effort-matrix";
   const tags = pageSeoHead("/teksty/token-worldcup/effort-matrix");
   assert.equal(tags, pageSeoHead("/teksty/token-worldcup/effort-matrix.html"));
-  assert.ok(tags.includes(`<link rel="canonical" href="${url}">`));
-  assert.ok(tags.includes(`<meta property="og:url" content="${url}">`));
+  assert.ok(tags.includes('<meta name="robots" content="noindex,follow">'));
+  assert.ok(!tags.includes('rel="canonical"'), "noindex page must not declare a canonical");
   const schema = crumbs("/teksty/token-worldcup/effort-matrix");
   assert.equal(schema.itemListElement.length, 4);
   assert.equal(schema.itemListElement.at(-1).item, url);
-  assert.ok(!tags.includes("noindex"));
+  assert.ok(!pageSeoHead("/teksty/token-worldcup/").includes("noindex"));
+  const sitemap = await readFile(new URL("../site/sitemap.xml", import.meta.url), "utf8");
+  assert.ok(!sitemap.includes("effort-matrix"), "noindex page listed in sitemap");
+  for (const name of ["llms.txt", "llms-full.txt"]) {
+    const guide = await readFile(new URL(`../site/${name}`, import.meta.url), "utf8");
+    assert.ok(!guide.includes("effort-matrix"), `noindex page listed in ${name}`);
+  }
   assert.deepEqual(crumbs("/teksty/githubowa-kraina/universe"), crumbs("/teksty/githubowa-kraina/universe.html"));
 });
 

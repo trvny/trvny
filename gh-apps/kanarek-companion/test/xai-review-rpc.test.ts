@@ -78,3 +78,64 @@ test('Grok RPC distinguishes timed-out calls without leaking upstream data', asy
   assert.equal(timedOut.status, 502);
   assert.equal((timedOut.payload.error as { code: string }).code, 'xai_timeout');
 });
+
+test('Grok tool-mode 403 falls back once to ordinary paid review', async () => {
+  const sha = 'a'.repeat(40);
+  const scoped = {
+    ...review,
+    messages: [
+      review.messages[0],
+      { role: 'user', content: JSON.stringify({
+        review_scope: { repository: 'trvny/trvny', head_sha: sha },
+        pull_request: { number: 17 }, diff: 'changed line',
+      }) },
+    ],
+  };
+  const calls: Record<string, unknown>[] = [];
+  const fetcher = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+    calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    if (calls.length === 1) return new Response(null, { status: 403 });
+    return Response.json({
+      status: 'completed',
+      model: 'grok-4.7',
+      output: [{ content: [{ type: 'output_text',
+        text: '{"summary":"","findings":[]}' }] }],
+    });
+  }) as typeof fetch;
+  const result = await requestGrokReview(
+    scoped, 'dummy', fetcher, Date.now() + 60_000,
+    async () => ({
+      read: async (path: string) => path.includes('/files?')
+        ? [] : { state: 'open', head: { sha }, changed_files: 0 },
+    }),
+  );
+  assert.equal(result.status, 200);
+  assert.equal(calls.length, 2);
+  assert.ok(Array.isArray(calls[0].tools));
+  assert.equal(calls[1].tools, undefined);
+  assert.equal(calls[1].model, 'grok-4.7');
+});
+
+test('Grok does not double-charge or retry an agent result that may be billed', async () => {
+  const sha = 'a'.repeat(40);
+  const scoped = {
+    ...review,
+    messages: [review.messages[0], { role: 'user', content: JSON.stringify({
+      review_scope: { repository: 'trvny/trvny', head_sha: sha },
+      pull_request: { number: 17 },
+    }) }],
+  };
+  let calls = 0;
+  const result = await requestGrokReview(
+    scoped, 'dummy', (async () => {
+      calls++;
+      return Response.json({ status: 'incomplete', output: [] });
+    }) as typeof fetch, Date.now() + 60_000,
+    async () => ({
+      read: async (path: string) => path.includes('/files?')
+        ? [] : { state: 'open', head: { sha }, changed_files: 0 },
+    }),
+  );
+  assert.equal(result.status, 502);
+  assert.equal(calls, 1);
+});

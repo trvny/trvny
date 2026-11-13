@@ -119,6 +119,10 @@
           "shitpost": [
             "coding-minimax-m3-free",
             "coding-glm-5.3-free",
+            "nemotron-3-ultra-550b-a55b-free",
+            "nemotron-3.5-lightning-free",
+            "nemotron-3.5-super-vl-free",
+            "xiaomi-mimo-v2.6-flash-free",
             "coding-kimi-k3-free",
             "xiaomi-mimo-v2.6-pro-free",
             "ernie-5.5-flash-preview-free"
@@ -293,6 +297,6 @@
     "KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS": "131072",
     "KANAREK_REVIEW_GEMINI_MODEL": "gemini-3.8-flash",
     "KANAREK_REVIEW_GEMINI_SERVICE_TIER": "standard",
-    "KANAREK_REVIEW_GEMINI_THINKING_LEVEL": "high"
+    "KANAREK_REVIEW_GEMINI_THINKING_LEVEL": "medium"
   }
 }

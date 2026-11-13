@@ -22,7 +22,7 @@
 
 ### Ja i moje ziomki
 
-<p align="center"><a href="https://github.com/trvny/.github/blob/main/assets/profile/contributors.svg"><img src="https://raw.githubusercontent.com/trvny/.github/main/assets/profile/contributors.svg" alt="Contributors across trvny and travnie" width="320"></a></p>
+<p align="center"><a href="https://github.com/trvny/.github"><img src="https://raw.githubusercontent.com/trvny/.github/main/assets/profile/contributors.svg" alt="Contributors across trvny and travnie" width="320"></a></p>
 <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Micro+5&size=23&letterSpacing=-150%25&duration=500&pause=100&color=F70EE1&center=true&vCenter=true&random=true&width=350&height=150&lines=cos+sie+popsulo;makaron;7312;AAAWRUUUK;%F0%9F%90%A4;%F0%9F%91%BE;%F0%9F%A6%80;%F0%9F%98%8E&groups=4%2C4" alt="Typing-SVG" /></a>
 
 ## 🔀 Open pull requests

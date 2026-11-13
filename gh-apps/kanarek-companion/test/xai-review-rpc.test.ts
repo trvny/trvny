@@ -114,6 +114,7 @@ test('Grok tool-mode 403 falls back once to ordinary paid review', async () => {
   assert.ok(Array.isArray(calls[0].tools));
   assert.equal(calls[1].tools, undefined);
   assert.equal(calls[1].model, 'grok-4.7');
+  assert.deepEqual(calls[1].input, scoped.messages);
 });
 
 test('Grok does not double-charge or retry an agent result that may be billed', async () => {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { wranglerVars } from './wrangler-config.ts';
 import test from 'node:test';
 
 import {
@@ -34,9 +34,6 @@ function request(
 }
 
 // Defaults drawn from the exact Wrangler config, not a second model catalog.
-const wranglerVars = (JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')) as {
-  vars: Record<string, unknown>;
-}).vars;
 const routing = wranglerVars.KANAREK_REVIEW_ROUTING as {
   providerOrders: Record<string, string[]>;
   taskModels: Record<string, Record<string, string[]>>;
@@ -3574,8 +3571,6 @@ test('missing task route inherits the explicit general provider and model queues
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orcarouter-key',
-    KANAREK_REVIEW_OPENROUTER_MODELS: undefined,
-    KANAREK_OPENROUTER_MODELS: undefined,
     KANAREK_REVIEW_ROUTING: {
       providerOrders: { general: ['openrouter'] },
       taskModels: { openrouter: { general: ['general-only/free'] } },

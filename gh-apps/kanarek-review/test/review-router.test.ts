@@ -3541,3 +3541,136 @@ test('configured general priorities apply when task overrides are missing', asyn
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(chosenModel, 'tencent/hy4-preview-free');
 });
+test('task model list is exact and does not append general or legacy models', async () => {
+  const models: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'legacy/free',
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter'] },
+      taskModels: { openrouter: { general: ['general/free'],
+        review: ['review-a/free', 'review-b/free'] } },
+    },
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    models.push((JSON.parse(String(init?.body)) as { model: string }).model);
+    return Promise.resolve(new Response('missing', { status: 404 }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 502);
+  assert.deepEqual(models, ['review-a/free', 'review-b/free']);
+});
+
+test('missing task route inherits the explicit general provider and model queues', async () => {
+  const models: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orcarouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: undefined,
+    KANAREK_OPENROUTER_MODELS: undefined,
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { general: ['openrouter'] },
+      taskModels: { openrouter: { general: ['general-only/free'] } },
+    },
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    models.push((JSON.parse(String(init?.body)) as { model: string }).model);
+    return Promise.resolve(Response.json({
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.deepEqual(models, ['general-only/free']);
+});
+
+test('single-model 404 enters model cooldown without disabling unrelated provider models', async () => {
+  const models: string[] = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter'] },
+      taskModels: { openrouter: { review: ['retired/free'] } },
+    },
+  };
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    models.push((JSON.parse(String(init?.body)) as { model: string }).model);
+    return Promise.resolve(new Response('missing', { status: 404 }));
+  }) as typeof fetch;
+  const call = () => handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), env, fetcher);
+  assert.equal((await call())?.status, 502);
+  assert.equal((await call())?.status, 502);
+  assert.deepEqual(models, ['retired/free']);
+});
+
+test('Workers AI runs at its configured position ahead of HTTP providers', async () => {
+  let httpCalls = 0;
+  let aiCalls = 0;
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    AI: workersAiBinding(async (model) => {
+      aiCalls += 1;
+      return { model, choices: [] };
+    }),
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { general: ['workers-ai', 'openrouter'] },
+    },
+  }, (() => {
+    httpCalls += 1;
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'workers-ai');
+  assert.equal(aiCalls, 1);
+  assert.equal(httpCalls, 0);
+});
+
+test('Workers AI configured only for review is visible to pool health', async () => {
+  const health = await reviewProviderPoolHealth({
+    ...auth,
+    AI: workersAiBinding(async () => ({})),
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { general: [], review: ['workers-ai'] },
+    },
+  });
+  assert.equal(health.configured, 1);
+  assert.equal(health.available, 1);
+  assert.deepEqual(health.taskOrders.review, ['workers-ai']);
+  assert.deepEqual(health.taskOrders.general, []);
+});
+
+test('Workers AI without a configured model cannot run', async () => {
+  let runs = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    AI: workersAiBinding(async () => {
+      runs += 1;
+      return {};
+    }),
+    KANAREK_REVIEW_WORKERS_AI_MODEL: '',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    KANAREK_REVIEW_ROUTING: { providerOrders: { general: ['workers-ai'] } },
+  });
+  assert.equal(response?.status, 503);
+  assert.equal(runs, 0);
+});

@@ -38,7 +38,7 @@ test('Workers AI is disabled outside SpaceMolt', () => {
 
 test('operator routing is a single structured JSON variable', () => {
   for (const name of [
-    'KANAREK_REVIEW_PROVIDER_ORDER', 'KANAREK_REVIEW_PAID_PROVIDER_ORDER',
+    'KANAREK_REVIEW_PAID_PROVIDER_ORDER',
     'KANAREK_REVIEW_DECISION_PROVIDER_ORDER', 'KANAREK_REVIEW_ROUTER_TIMEOUT_MS',
     'KANAREK_REVIEW_WORK_TIMEOUT_MS', 'KANAREK_REVIEW_REASONING_EFFORT',
   ]) {
@@ -49,6 +49,8 @@ test('operator routing is a single structured JSON variable', () => {
   const routing = config.vars.KANAREK_REVIEW_ROUTING as OperatorRouting;
   assert.ok(routing && typeof routing === 'object' && !Array.isArray(routing));
   assert.ok(routing.providerOrders && routing.taskModels && routing.decisionModels);
+  assertList(routing.providerOrders.general, 'general');
+  assert.equal(config.vars.KANAREK_REVIEW_PROVIDER_ORDER, undefined);
   for (const task of tasks) {
     const order = routing.providerOrders[task];
     assertList(order, task);
@@ -78,9 +80,13 @@ test('structured routing normalizes malformed and duplicate model preferences', 
 });
 
 test('OpenRouter free model list stays nonempty and deduplicated', () => {
-  const configured = config.vars.KANAREK_REVIEW_OPENROUTER_MODELS;
-  assert.equal(typeof configured, 'string');
-  const models = (configured as string).split(',');
+  const routing = config.vars.KANAREK_REVIEW_ROUTING as OperatorRouting;
+  assert.equal(config.vars.KANAREK_REVIEW_OPENROUTER_MODELS, undefined);
+  const models = routing.taskModels.openrouter.general as string[];
   assert.ok(models.length);
   assert.equal(new Set(models).size, models.length);
+  for (const provider of ['aihubmix', 'orcarouter', 'openrouter', 'ollama', 'vercel']) {
+    assertList(routing.taskModels[provider].general, `${provider}/general`);
+    assert.equal(config.vars[`KANAREK_REVIEW_${provider.toUpperCase()}_MODELS`], undefined);
+  }
 });

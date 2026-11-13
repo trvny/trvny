@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { wranglerConfig } from './wrangler-config.ts';
 import test from 'node:test';
 
-import { REVIEW_PROVIDER_IDS, configuredRoutingList } from '../src/review-router.ts';
+import { PAID_PROVIDER_IDS, REVIEW_PROVIDER_IDS, configuredRoutingList } from '../src/review-router.ts';
 
 const config = wranglerConfig;
 
@@ -98,8 +98,10 @@ test('every configured queue names known providers', () => {
       assert.ok(REVIEW_PROVIDER_IDS.has(provider) || provider === 'workers-ai', `${task}: ${provider}`);
     }
   }
-  for (const provider of String(config.vars.KANAREK_REVIEW_PAID_PROVIDER_ORDER).split(',')) {
-    assert.ok(REVIEW_PROVIDER_IDS.has(provider.trim()), `paid: ${provider}`);
+  const paidOrder = String(config.vars.KANAREK_REVIEW_PAID_PROVIDER_ORDER).split(',');
+  assertList(paidOrder, 'paid');
+  for (const provider of paidOrder) {
+    assert.ok((PAID_PROVIDER_IDS as readonly string[]).includes(provider), `paid: ${provider}`);
   }
   for (const provider of Object.keys(routing.taskModels)) {
     assert.ok(REVIEW_PROVIDER_IDS.has(provider), `taskModels: ${provider}`);

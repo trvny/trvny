@@ -210,7 +210,7 @@ function configuredTaskModels(
   return configuredModelList(legacy);
 }
 
-const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex'] as const;
+export const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex'] as const;
 type PaidReviewProviderId = (typeof PAID_PROVIDER_IDS)[number];
 export type ReviewProviderBudgetClass = 'free-quota' | 'monthly-free-credit' | 'daily-neurons' | 'paid-reserve';
 const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudgetClass> = {

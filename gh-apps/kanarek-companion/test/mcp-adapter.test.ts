@@ -3,18 +3,20 @@ import test from 'node:test';
 
 import {
   handleSpecialistMcp as handleSpecialistMcpGw,
-  handleGremlinMcp as handleGremlinMcpGw,
+  handleScopedMcp as handleScopedMcpGw,
+  scopedMcpManifest,
   MCP_PROTOCOL_VERSION,
 } from '../src/specialists/mcp-adapter.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
+import { scopedFeedseek } from './support/scoped-feedseek.ts';
 
 type Invoke = (request: Request) => Promise<Response>;
 // Gateway-taking handler, driven by the route-shaped fixture.
 const handleSpecialistMcp = (request: Request, env: Parameters<typeof handleSpecialistMcpGw>[1], invoke: Invoke, fetcher?: typeof fetch) =>
   handleSpecialistMcpGw(request, env, loopbackGateway(request, invoke), fetcher);
 // Gateway-taking handler, driven by the route-shaped fixture.
-const handleGremlinMcp = (request: Request, document: Parameters<typeof handleGremlinMcpGw>[1], env: Parameters<typeof handleGremlinMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
-  handleGremlinMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), fetcher);
+const handleGremlinMcp = (request: Request, document: Parameters<typeof handleScopedMcpGw>[1], env: Parameters<typeof handleScopedMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleScopedMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), scopedFeedseek, fetcher);
 
 const origin = 'https://example.workers.dev';
 
@@ -286,4 +288,28 @@ test('Gremlin MCP exposes only Feedseek without changing the shared specialist g
   const blockedBody = await blocked.json() as { error: { code: number; message: string } };
   assert.equal(blockedBody.error.code, -32602);
   assert.equal(blockedBody.error.message, 'Unknown tool');
+});
+
+test('scoped MCP only exposes requested specialist names', async () => {
+  const document = { paths: {} };
+  const manifest = scopedMcpManifest(document, ['feedseek_search', 'unused_name']) as {
+    specialistToolNames?: string[];
+    toolNames?: string[];
+  };
+  assert.deepEqual(manifest.specialistToolNames, ['feedseek_search']);
+  assert.deepEqual(manifest.toolNames, ['feedseek_search']);
+
+  const request = rpcRequest({ jsonrpc: '2.0', id: 150, method: 'tools/list' }, 'tools/list');
+  const invoke = authorizedInvoke();
+  const response = await handleScopedMcpGw(
+    request,
+    document,
+    {},
+    invoke,
+    loopbackGateway(request, invoke),
+    ['feedseek_search'],
+  );
+  assert.ok(response);
+  const payload = await response.json() as { result: { tools: Array<{ name: string }> } };
+  assert.deepEqual(payload.result.tools.map((tool) => tool.name), ['feedseek_search']);
 });

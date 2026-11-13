@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  handleGremlinMcp as handleGremlinMcpGw,
+  handleScopedMcp as handleScopedMcpGw,
   handleOperatorMcp as handleOperatorMcpGw,
   MCP_PROTOCOL_VERSION,
 } from '../src/specialists/mcp-adapter.ts';
@@ -12,11 +12,12 @@ import {
   runtimeOpenApi,
 } from '../src/runtime-openapi.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
+import { scopedFeedseek } from './support/scoped-feedseek.ts';
 
 type Invoke = (request: Request) => Promise<Response>;
 // Gateway-taking handler, driven by the route-shaped fixture.
-const handleGremlinMcp = (request: Request, document: Parameters<typeof handleGremlinMcpGw>[1], env: Parameters<typeof handleGremlinMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
-  handleGremlinMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), fetcher);
+const handleGremlinMcp = (request: Request, document: Parameters<typeof handleScopedMcpGw>[1], env: Parameters<typeof handleScopedMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleScopedMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), scopedFeedseek, fetcher);
 // Gateway-taking handler, driven by the route-shaped fixture.
 const handleOperatorMcp = (request: Request, document: Parameters<typeof handleOperatorMcpGw>[1], invoke: Invoke) =>
   handleOperatorMcpGw(request, document, invoke, loopbackGateway(request, invoke));

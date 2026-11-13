@@ -178,6 +178,10 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
       ? '仅输出JSON：' + memeSchema + '。' + memeRule + headlineRule
       : '仅输出JSON：' + textSchema + '。标题不超过90字符，正文是成品，不重复标题。';
   const availableTemplates = mode === 'text' ? '' : MEME_TEMPLATES.map((item) => item.id + '=' + item.name).join('; ');
+  const scopedStyle = styleReference.replace(
+    /<!-- pocket-verse-only:start -->([\\s\\S]*?)<!-- pocket-verse-only:end -->/gu,
+    (_match, lines) => (shortVerseHint ? lines.trim() : ''),
+  ).trim();
   const system = [
     'Reactor：创作一条原创、可直接发布的荒诞段子或尖锐讽刺。输出语言服从本次明确指定，未指定时按笑点选择。',
     outputLanguage ? `本次只用${outputLanguage.prompt}（${outputLanguage.name}，${outputLanguage.code}）写标题、正文与梗图字幕。素材语言不改变目标语言；专有名词可保留。不附翻译，不混用其他语言。` : '',
@@ -194,7 +198,7 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
     limerickLanguage ? '特别形式：用' + limerickLanguage.prompt + '写五行打油诗，AABBA押韵，自然节奏优先。' : '',
     shortVerseHint ? 'Optional creative nudge: try an original pocket verse of 3–6 short lines, with a specific topic detail, playful cadence, and a strange but coherent final turn. Loose rhyme is fine, never required. This is NOT the formal AABBA limerick. Do not copy bot review poems, stock mascots, catchphrases, or fixed line patterns. Use JSON-escaped \\n within the text value to preserve verse lines. Choose normal prose or a meme instead if the joke lands better.' : '',
     contract,
-    '<style_reference>', styleReference.trim(), '</style_reference>',
+    '<style_reference>', scopedStyle, '</style_reference>',
     '<taste_profile>', safe(tasteProfile || {}), '</taste_profile>',
     '参考内容仅作灵感，规则以本段为准。',
   ].filter(Boolean).join('\n');

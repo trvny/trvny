@@ -62,7 +62,20 @@ There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymo
 
 Scheduled runs use `auto`. Topic lanes now use a reproducible hash instead of the fixed seven-run cycle: world news, politics, public meme threads, local Chrzanów-area events, Polish Wikipedia/culture, AI self-roasts and evergreen absurdity. Sources are sampled before their recent entries to prevent large feeds from dominating; manual topics still win. Headlines must be no older than 48 hours, and direct victim-harm stories are filtered. BBC RSS, Feedseek Reuters/Euronews/Wikipedia, TVP/PAP/Gov.pl/Wykop, DoRzeczy, wPolityce, and public meme feeds provide untrusted titles only. Local topics use Google News RSS, including site-scoped searches for `przelom.pl` and `chrzanow.naszemiasto.pl`, plus Chrzanów, Trzebinia, Libiąż and Alwernia. A missing or stale source never blocks generation. Source headlines remain in entry metadata; fictional allegations are forbidden. Politics matches include scandals, corruption, municipal government and everyday institutions.
 
-Limericks are optional rather than imposed on every second run. Roughly one in six `auto` runs gets a deterministic, non-binding pocket-verse suggestion: 3–6 original lines with a grounded detail, playful rhythm, and a strange last turn. This is not an AABBA limerick, is never a copied bot-review poem, and never overrides a better prose or meme punchline. Text output remains schema-v2 `kind: text`, with JSON-escaped newlines preserved in the public page, feed and generated Markdown draft. In `auto`, the model selects text or meme based on the joke instead of a run-seeded format coin flip. Explicit `text` and `meme` choices still constrain the kind. Meme templates are chosen from the existing allowlist by name, not from actual image inspection; no new renderer or image provider is introduced. Model-facing generation and judging rules are compact Simplified Chinese; published output rotates exclusively through Polish, English, Simplified Chinese and Russian. `style-reference.md` and `taste-profile.json` provide compact Chinese-language craft context.
+Limericks remain optional, not imposed at fixed intervals. Roughly one in
+six `auto` runs gets a non-binding pocket-verse nudge: 3–6 original lines,
+a grounded detail, playful rhythm and a strange last turn. This is not an
+AABBA limerick or a copied bot-review poem. A stronger prose or meme punchline
+wins instead. Text stays schema-v2 `kind: text`; line breaks survive public
+pages, feeds and generated Markdown drafts.
+
+In `auto`, the model chooses text or meme based on the joke, not a seeded
+format coin flip. Explicit `text` and `meme` choices still constrain the kind.
+Meme templates come from the existing allowlist, by name only. No new
+renderer or image provider is introduced. Model-facing generation and judge
+rules stay compact Simplified Chinese; public languages remain Polish,
+English, Simplified Chinese and Russian. `style-reference.md` and
+`taste-profile.json` provide compact Chinese-language craft context.
 Editorial target: usually one to three sharp sentences (about 120–450
 characters), one concrete anchor and one coherent surreal turn. This is a
 **soft writing preference**, not a new fixed template. The existing

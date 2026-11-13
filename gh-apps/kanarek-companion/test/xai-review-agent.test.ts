@@ -42,6 +42,9 @@ test('Grok asks for source, receives evidence and returns structured findings', 
   assert.equal(result.status, 200);
   assert.deepEqual(calls, ['read_diff']);
   assert.equal(requests[0].tool_choice, 'required');
+  const initialTools = requests[0].tools as Array<{ type: string }>;
+  assert.ok(initialTools.length > 0);
+  assert.ok(initialTools.every((tool) => tool.type === 'function'));
   assert.equal(requests[0].store, false);
   assert.equal(requests[1].prompt_cache_key, requests[0].prompt_cache_key);
   const history = requests[1].input as Array<Record<string, unknown>>;

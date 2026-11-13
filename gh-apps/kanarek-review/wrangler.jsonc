@@ -45,10 +45,10 @@
       "providerOrders": {
         "quip": [
           "vercel",
+          "groq",
           "aihubmix",
           "ollama",
           "orcarouter",
-          "groq",
           "openrouter",
           "huggingface-publicai",
           "gemini-standard"
@@ -57,17 +57,17 @@
           "openrouter",
           "aihubmix",
           "orcarouter",
-          "groq",
           "vercel",
           "ollama",
           "huggingface-publicai",
+          "groq",
           "gemini-standard"
         ],
         "judge": [
           "orcarouter",
+          "groq",
           "openrouter",
           "vercel",
-          "groq",
           "aihubmix",
           "ollama",
           "huggingface-publicai",

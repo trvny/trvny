@@ -25,6 +25,7 @@ test("radio controls follow external pause and play events", async () => {
   class Image extends Element {}
   const audio = new Audio();
   const play = new Button();
+  play.setAttribute("aria-label", "Radio Paradise playback");
   const status = new Element();
   const controls = new Element();
   const elements = {
@@ -35,8 +36,7 @@ test("radio controls follow external pause and play events", async () => {
   const root = new Element();
   root.querySelector = (selector) => elements[selector];
   const document = { hidden: false, listeners: {}, querySelectorAll: () => [root], addEventListener(type, listener) { this.listeners[type] = listener; } };
-  const source = await readFile(new URL("../astro/src/components/RadioMini.astro", import.meta.url), "utf8");
-  const script = source.split("<script>")[1]?.split("</script>")[0];
+  const script = await readFile(new URL("../site/assets/radio.js", import.meta.url), "utf8");
   assert.ok(script);
   const pendingMetadata = Promise.race([]);
   runInNewContext(script, {
@@ -51,14 +51,14 @@ test("radio controls follow external pause and play events", async () => {
   assert.equal(status.textContent, "Playing live");
   audio.pause();
   assert.equal(status.textContent, "Paused");
-  assert.equal(play.getAttribute("aria-label"), "Play Radio Paradise");
+  assert.equal(play.getAttribute("aria-label"), "Radio Paradise playback");
   play.dispatch("click");
   assert.equal(audio.playCalls, 2);
-  assert.equal(play.getAttribute("aria-label"), "Pause Radio Paradise");
+  assert.equal(play.getAttribute("aria-label"), "Radio Paradise playback");
   audio.pause();
   await audio.play();
   assert.equal(status.textContent, "Connecting…");
-  assert.equal(play.getAttribute("aria-label"), "Pause Radio Paradise");
+  assert.equal(play.getAttribute("aria-label"), "Radio Paradise playback");
   audio.dispatch("error");
   assert.equal(status.textContent, "Stream unavailable. Try again.");
   const changesBeforeRetry = audio.sourceChanges;

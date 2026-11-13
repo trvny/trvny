@@ -25,6 +25,7 @@ The hub is a lightweight static/edge site. It links independent services rather 
 - Markdown representation: https://travny.pages.dev/index.md
 - Concise LLM guide: https://travny.pages.dev/llms.txt
 - This full guide: https://travny.pages.dev/llms-full.txt
+- Radio Paradise player: on the home page; track metadata at https://travny.pages.dev/api/radio-now
 
 ### TVPI
 
@@ -43,7 +44,7 @@ TVP upstream stream signatures are short-lived. Consumers should save the stable
 
 - Workshop: https://travny.pages.dev/lab/
 
-The Astro Lab is an English-language section of the existing Hub with experiments and a notebook of planned follow-ups. It shares the Hub deployment and is not a separate service.
+The Astro Lab is an English-language section of the existing Hub with the Bench Lab carousel, news, experiments and a notebook of planned follow-ups. It shares the Hub deployment and is not a separate service.
 
 ### Papagenerator
 

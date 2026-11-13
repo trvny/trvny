@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TRAVNY: IPTV, benche, pogoda, feedy i teksty</title>
-<meta name="description" content="Telegazetowy hub TRAVNY: TVP IPTV, Streambench, Codebench, Docbench, pogoda dla Chrzanowa i Kościelca, feedy RSS oraz krótkie teksty techniczne.">
+<title>TRAVNY: IPTV, radio, weather, feeds and tools</title>
+<meta name="description" content="TRAVNY hub: TVP IPTV, live radio, Chrzanów weather, RSS feeds and browser tools.">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:locale" content="pl_PL">
 <meta property="og:site_name" content="TRAVNY">
-<meta property="og:title" content="TRAVNY: IPTV, benche, pogoda, feedy i teksty">
-<meta property="og:description" content="TVP IPTV, browserowe benche, lokalna pogoda, feedy RSS i krótkie publikacje w jednym telegazetowym hubie.">
+<meta property="og:title" content="TRAVNY: IPTV, radio, weather, feeds and tools">
+<meta property="og:description" content="TVP IPTV, live radio, local weather, RSS feeds and browser tools.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://travny.pages.dev/">
 <meta property="og:image" content="https://travny.pages.dev/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="TRAVNY: IPTV, benche, pogoda, feedy i teksty">
-<meta name="twitter:description" content="TVP IPTV, trzy browserowe benche, pogoda, feedy RSS i krótkie teksty techniczne w jednym retro hubie.">
+<meta name="twitter:title" content="TRAVNY: IPTV, radio, weather, feeds and tools">
+<meta name="twitter:description" content="TVP IPTV, live radio, weather, RSS feeds and browser tools.">
 <meta name="twitter:image" content="https://travny.pages.dev/assets/og.png">
 <meta name="theme-color" content="#04060a">
 <meta name="google-site-verification" content="GNRW9My8O_IdeadkT_TDeq9zaNW8axruvvOdk3-aZ2I">
@@ -45,6 +45,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/radio.css">
+<script src="/assets/rails.js" defer></script>
+<script src="/assets/radio.js" defer></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://travny.pages.dev/#creator","name":"TRAVNY","alternateName":["trvny","travny","trfny","trafny"],"url":"https://travny.pages.dev/","sameAs":["https://github.com/trvny"]},{"@type":"Organization","@id":"https://travny.pages.dev/#travnie","name":"travnie","alternateName":"TWÓJ STARY INCORPORATED","url":"https://github.com/travnie","member":{"@id":"https://travny.pages.dev/#creator"}},{"@type":"WebSite","@id":"https://travny.pages.dev/#website","name":"TRAVNY","alternateName":["trvny","travny","trfny","trafny"],"url":"https://travny.pages.dev/","inLanguage":"pl-PL","description":"Telegazetowy hub TRAVNY: TVP IPTV, browserowe benche, pogoda dla Chrzanowa i Kościelca, feedy RSS oraz krótkie teksty techniczne.","creator":{"@id":"https://travny.pages.dev/#creator"},"about":[{"@type":"SoftwareSourceCode","name":"TRAVNY hub","url":"https://travny.pages.dev/","codeRepository":"https://github.com/trvny/trvny/tree/main/pages"},{"@type":"SoftwareSourceCode","name":"TVPI","url":"https://travny.pages.dev/tv/","codeRepository":"https://github.com/trvny/tvpi"},{"@type":"SoftwareSourceCode","name":"Feedseek","url":"https://trvny.github.io/feedseek/","codeRepository":"https://github.com/trvny/feedseek"},{"@type":"SoftwareSourceCode","name":"Twojstar tools and benches","url":"https://github.com/travnie/twojstar","codeRepository":"https://github.com/travnie/twojstar"},{"@type":"SoftwareSourceCode","name":"GitHub automation and bots","url":"https://github.com/trvny/trvny","codeRepository":"https://github.com/trvny/trvny"},{"@type":"SoftwareSourceCode","name":"Kanarek Android reader","url":"https://github.com/travnie/Kanarek","codeRepository":"https://github.com/travnie/Kanarek"},{"@type":"SoftwareSourceCode","name":"Aistee AI workspace","url":"https://github.com/travnie/aistee","codeRepository":"https://github.com/travnie/aistee"},{"@type":"SoftwareSourceCode","name":"Autka car listings","url":"https://github.com/travnie/Autka","codeRepository":"https://github.com/travnie/Autka"},{"@type":"SoftwareSourceCode","name":"WAM Bridge audio","url":"https://github.com/travnie/wambridge","codeRepository":"https://github.com/travnie/wambridge"}]}]}</script>
 <style>
   :root{
@@ -169,36 +172,14 @@
   .pgo:hover{color:var(--w)}
   .go{position:absolute; right:14px; bottom:12px; font-family:"Silkscreen"; font-size:11px;
     text-shadow:none; color:var(--dim)}
-  a.panel:hover .go,.bench:hover .go{color:var(--w)}
-  .lab{margin-top:28px}
-  .labhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;
-    border-bottom:1px solid var(--faint);padding-bottom:7px;color:var(--m)}
-  .labhead h2{font-family:"Silkscreen";font-size:17px;letter-spacing:.04em}
-  .labhead span{color:var(--dim);font-size:19px}
-  .benchgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  a.panel:hover .go{color:var(--w)}
   .rail-controls{display:none}
   .rail-hint{font-family:"Silkscreen";font-size:10px;color:var(--dim);letter-spacing:.08em}
   .rail-dots{display:flex;gap:7px}
-  .rail-dots button{min-width:42px;min-height:32px;border:1px solid var(--faint);background:#0b0f16;
+  .rail-pause,.rail-dots button{min-width:42px;min-height:32px;border:1px solid var(--faint);background:#0b0f16;
     color:var(--dim);font-family:"Silkscreen";font-size:10px;cursor:pointer;
     transition:background .15s,border-color .15s,color .15s}
   .rail-dots button[aria-pressed="true"]{border-color:var(--c);background:#17303a;color:var(--c)}
-  .bench-controls .rail-dots button[aria-pressed="true"]{border-color:var(--m);background:#2a1930;color:var(--m)}
-  .bench{position:relative;min-width:0;min-height:186px;padding:15px 16px 38px;border-top:6px solid;
-    background:#0b0f16;color:var(--w);text-decoration:none;transition:background .12s,transform .12s}
-  .bench:hover,.bench:focus-visible{background:#111826;transform:translateY(-1px)}
-  .bench:focus-visible{outline:3px solid var(--c);outline-offset:3px}
-  .bench.stream{border-color:var(--c)} .bench.code{border-color:var(--b)} .bench.doc{border-color:var(--o)}
-  .benchtop{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .benchno{font-family:"Silkscreen";font-size:11px;text-shadow:none;padding:3px 7px;color:var(--k)}
-  .stream .benchno{background:var(--c)} .code .benchno{background:var(--b)} .doc .benchno{background:var(--o)}
-  .benchicon{font-family:"Silkscreen";font-size:30px;line-height:1;text-shadow:0 0 12px}
-  .stream .benchicon,.stream h3{color:var(--c)} .code .benchicon,.code h3{color:var(--b)} .doc .benchicon,.doc h3{color:var(--o)}
-  .bench h3{font-family:"Silkscreen";font-size:20px;margin-top:13px;letter-spacing:.025em}
-  .bench p{font-size:22px;color:var(--w);margin-top:9px;line-height:1.3}
-  .benchtags{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
-  .benchtags span{font-family:"Silkscreen";font-size:9px;text-shadow:none;border:1px solid var(--faint);
-    color:var(--dim);padding:3px 5px;background:#070b12}
   .fastext{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:24px}
   .ft{font-family:"Silkscreen"; font-size:12px; text-shadow:none; color:var(--w); min-width:0;
     border-top:6px solid; padding:11px 8px 9px; text-align:center; cursor:pointer;
@@ -224,18 +205,16 @@
     body{padding:8px}
     .crt::after{animation:none}
     .grid{grid-template-columns:minmax(0,1fr);row-gap:8px}
-    .feature-rail,.benchgrid{position:relative;display:flex;gap:12px;overflow-x:auto;
+    .feature-rail{position:relative;display:flex;gap:12px;overflow-x:auto;
       scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;
       -webkit-overflow-scrolling:touch}
-    .feature-rail::-webkit-scrollbar,.benchgrid::-webkit-scrollbar{display:none}
-    .feature-rail>.panel,.benchgrid>.bench{scroll-snap-align:start;scroll-snap-stop:always;min-width:0}
+    .feature-rail::-webkit-scrollbar{display:none}
+    .feature-rail>.panel{scroll-snap-align:start;scroll-snap-stop:always;min-width:0}
     .feature-rail>.panel{flex:0 0 94%}
-    .benchgrid>.bench{flex:0 0 86%;min-height:220px}
     .rail-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 1px}
     .grid>.panel.fd{margin-top:12px}
     .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
     .fastext{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .labhead{align-items:flex-start;flex-direction:column;gap:3px}
     .feedlist .ttl{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .feedlist .ago{font-size:15px}
     .feedpic{flex-basis:44px;width:44px;height:44px}
@@ -243,7 +222,7 @@
   @media (prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
     *,*::before,*::after{animation:none!important;transition:none!important}
-    a.panel:hover,.bench:hover,.bench:focus-visible{transform:none!important}
+    a.panel:hover{transform:none!important}
   }
 </style>
 </head>
@@ -255,7 +234,7 @@
     <span class="clk" id="clk">--:--:--</span>
   </div>
   <div class="masthead">
-    <h1>TRAVNY<small class="h1seo">IPTV · POGODA · FEEDY · BENCH LAB</small></h1>
+    <h1>TRAVNY<small class="h1seo">IPTV · RADIO · WEATHER · FEEDS</small></h1>
     <div>
       <div class="sub">STREAMS <b>✕</b> SKIES <b>✕</b> TOOLS</div>
       <div class="live">NADAJE NA ŻYWO · LIVE</div>
@@ -297,6 +276,7 @@
         <button type="button" data-slide="0" aria-label="Weather" aria-pressed="true">200</button>
         <button type="button" data-slide="1" aria-label="TV status" aria-pressed="false">101</button>
       </div>
+      <button class="rail-pause" lang="en" type="button" data-rail-toggle aria-label="Pause automatic rotation" hidden>Pause</button>
     </div>
     <section class="panel fd">
       <a class="phead" href="https://trvny.github.io/feedseek/">
@@ -306,48 +286,45 @@
       <a class="pgo" href="https://trvny.github.io/feedseek/reader/">▶ OTWÓRZ CZYTNIK</a>
     </section>
   </div>
-  <section class="lab" aria-labelledby="labHeading">
-    <div class="labhead">
-      <h2 id="labHeading">P400 · BENCH LAB</h2>
-      <span>trzy wyspecjalizowane warsztaty</span>
+<section class="panel radio" lang="en" data-radio aria-labelledby="radio-heading">
+  <div class="radio-head">
+    <h2 id="radio-heading">Radio</h2>
+    <span class="radio-live"><span aria-hidden="true"></span> LIVE</span>
+  </div>
+  <div class="radio-station"><span>RADIO PARADISE</span><span>MAIN MIX</span></div>
+  <div class="radio-now">
+    <div class="radio-art" aria-hidden="true">
+      <span class="radio-fallback"><b>RP</b><small>RADIO<br>PARADISE</small></span>
+      <img data-cover alt="" hidden>
     </div>
-    <div class="benchgrid" id="benchRail" aria-label="Benchmark tools">
-      <a class="bench stream" href="https://streambench.travny.workers.dev/">
-        <div class="benchtop"><span class="benchno">P401</span><span class="benchicon" aria-hidden="true">▶⌁</span></div>
-        <h3>STREAMBENCH</h3>
-        <p>Odtwarzacz i laboratorium IPTV, radia, HLS, M3U, XMLTV oraz diagnostyki streamów.</p>
-        <div class="benchtags"><span>IPTV</span><span>HLS</span><span>M3U</span><span>EPG</span></div>
-        <span class="go">URUCHOM ›</span>
-      </a>
-      <a class="bench code" href="https://codebench.travny.workers.dev/">
-        <div class="benchtop"><span class="benchno">P402</span><span class="benchicon" aria-hidden="true">▦+</span></div>
-        <h3>CODEBENCH</h3>
-        <p>Warsztat kodów QR i kreskowych: generowanie, podgląd, eksport i praca na własnych danych.</p>
-        <div class="benchtags"><span>QR</span><span>BARCODE</span><span>EXPORT</span><span>LOCAL</span></div>
-        <span class="go">URUCHOM ›</span>
-      </a>
-      <a class="bench doc" href="https://docbench.travny.workers.dev/">
-        <div class="benchtop"><span class="benchno">P403</span><span class="benchicon" aria-hidden="true">▤✎</span></div>
-        <h3>DOCBENCH</h3>
-        <p>Lokalny warsztat dokumentów i PDF: edycja, podgląd, walidacja, merge, strony i zakładki.</p>
-        <div class="benchtags"><span>TXT</span><span>PDF</span><span>MARKDOWN</span><span>LOCAL</span></div>
-        <span class="go">URUCHOM ›</span>
-      </a>
+    <div class="radio-track">
+      <span class="radio-kicker">ON AIR</span>
+      <p class="radio-title" data-title>Radio Paradise</p>
+      <p class="radio-artist" data-artist>Main mix · live stream</p>
+      <p class="radio-album" data-album></p>
     </div>
-    <div class="rail-controls bench-controls" id="benchDots">
-      <span class="rail-hint">SWIPE ↔</span>
-      <div class="rail-dots" role="group" aria-label="Choose a benchmark">
-        <button type="button" data-slide="0" aria-label="Streambench" aria-pressed="true">401</button>
-        <button type="button" data-slide="1" aria-label="Codebench" aria-pressed="false">402</button>
-        <button type="button" data-slide="2" aria-label="Docbench" aria-pressed="false">403</button>
-      </div>
+  </div>
+  <audio data-audio controls preload="none" src="https://stream.radioparadise.com/aac-320">
+    <a href="https://streambench.travny.workers.dev/">Open Streambench</a>
+  </audio>
+  <div class="radio-controls" data-controls hidden>
+    <button class="radio-play" data-play type="button" aria-label="Radio Paradise playback" aria-pressed="false">
+      <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15L19 12z"></path></svg>
+      <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"></path></svg>
+    </button>
+    <div class="radio-control-main">
+      <span class="radio-status" data-status role="status">Ready to play</span>
+      <label class="radio-volume"><span>VOLUME</span><input data-volume aria-label="Radio volume" type="range" min="0" max="1" step="0.05" value="0.8"></label>
     </div>
-  </section>
+  </div>
+  <div class="radio-footer"><span>320K AAC</span><a href="https://streambench.travny.workers.dev/">More stations ↗</a></div>
+</section>
   <nav class="fastext" aria-label="Skróty do narzędzi TRAVNY">
     <a class="ft cyan" href="/tv/">TVP IPTV<small>9 kanałów</small></a>
     <a class="ft yellow" href="https://weather.travny.workers.dev/">POGODA<small>Chrzanów</small></a>
     <a class="ft green" href="https://trvny.github.io/feedseek/">FEEDY<small>wszystkie źródła</small></a>
     <a class="ft red" href="https://trvny.github.io/feedseek/reader/">READER<small>czytnik</small></a>
+    <a class="ft cyan" lang="en" href="/lab/">LAB<small>workbenches and experiments</small></a>
     <a class="ft magenta" href="https://streambench.travny.workers.dev/">STREAMBENCH<small>streamy i playlisty</small></a>
     <a class="ft blue" href="https://codebench.travny.workers.dev/">CODEBENCH<small>QR i kody</small></a>
     <a class="ft orange" href="https://docbench.travny.workers.dev/">DOCBENCH<small>dokumenty i PDF</small></a>
@@ -366,50 +343,6 @@ const pad = n => String(n).padStart(2,"0");
     `${pad(d.getDate())}.${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   setTimeout(tick, 1000);
 })();
-// Native scroll snapping; no carousel dependencies or offscreen animation.
-function setupRail(trackId, dotsId, delay) {
-  const track=document.getElementById(trackId);
-  const nav=document.getElementById(dotsId);
-  if(!track||!nav)return;
-  const slides=[...track.children],buttons=[...nav.querySelectorAll("button[data-slide]")];
-  const mobile=matchMedia("(max-width:640px)");
-  const reduced=matchMedia("(prefers-reduced-motion:reduce)");
-  let visible=false,pauseUntil=0,frame=0;
-  const select=index=>buttons.forEach((button,i)=>button.setAttribute("aria-pressed",String(i===index)));
-  function current(){
-    const first=slides[0].offsetLeft;
-    let best=0,distance=Infinity;
-    slides.forEach((slide,i)=>{
-      const delta=Math.abs(slide.offsetLeft-first-track.scrollLeft);
-      if(delta<distance){best=i;distance=delta;}
-    });
-    return best;
-  }
-  function show(index){
-    track.scrollTo({left:slides[index].offsetLeft-slides[0].offsetLeft,
-      behavior:reduced.matches?"auto":"smooth"});
-    select(index);
-  }
-  buttons.forEach((button,i)=>button.addEventListener("click",()=>{pauseUntil=Date.now()+delay*2;show(i);}));
-  ["pointerdown","touchstart","wheel","keydown"].forEach(type=>
-    track.addEventListener(type,()=>{pauseUntil=Date.now()+delay*2;},{passive:true}));
-  track.addEventListener("scroll",()=>{
-    if(frame)return;
-    frame=requestAnimationFrame(()=>{frame=0;if(mobile.matches)select(current());});
-  },{passive:true});
-  if("IntersectionObserver" in window){
-    const observer=new IntersectionObserver(entries=>{
-      visible=entries.some(entry=>entry.isIntersecting&&entry.intersectionRatio>=.35);
-    },{threshold:[0,.35]});
-    observer.observe(track);
-  }else{visible=true;}
-  setInterval(()=>{
-    if(!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||track.contains(document.activeElement)||nav.contains(document.activeElement))return;
-    show((current()+1)%slides.length);
-  },delay);
-}
-setupRail("featureRail","featureDots",10000);
-setupRail("benchRail","benchDots",19000);
 const WORKER = "https://tvpi.travny.workers.dev";
 const CH = [
   {no:"101", slug:"tvp1",        tag:"TVP1"},

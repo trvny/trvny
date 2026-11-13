@@ -4,16 +4,22 @@ import { readFile } from "node:fs/promises";
 import { Script } from "node:vm";
 
 const home = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+const rail = await readFile(new URL("../site/assets/rails.js", import.meta.url), "utf8");
+const bench = await readFile(new URL("../astro/dist/lab/index.html", import.meta.url), "utf8");
+const lab = await readFile(new URL("../astro/src/pages/lab/index.astro", import.meta.url), "utf8");
 
 test("mobile rails retain direct card links and accessible slide controls", () => {
   assert.match(home, /class="feature-rail" id="featureRail"/);
-  assert.match(home, /class="benchgrid" id="benchRail"/);
+  assert.match(bench, /class="benchgrid" id="benchRail"/);
   assert.equal([...home.matchAll(/class="panel (?:tv|wx)"/g)].length, 2);
-  assert.equal([...home.matchAll(/class="bench (?:stream|code|doc)"/g)].length, 3);
-  assert.equal([...home.matchAll(/data-slide="[012]" aria-label=/g)].length, 5);
+  for (const [name, host] of [['stream', 'streambench'], ['code', 'codebench'], ['doc', 'docbench']]) {
+    assert.ok(bench.includes(`<a class="bench ${name}" href="https://${host}.travny.workers.dev/"`));
+  }
+  assert.equal([...home.matchAll(/data-slide="[012]" aria-label=/g)].length, 2);
+  assert.equal([...bench.matchAll(/data-slide="[012]" aria-label=/g)].length, 3);
   assert.match(home, /scroll-snap-type:x mandatory/);
   assert.match(home, /prefers-reduced-motion:reduce/);
-  assert.match(home, /pauseUntil=Date\.now\(\)\+delay\*2/);
+  assert.match(rail, /pauseUntil=Date\.now\(\)\+delay\*2/);
 });
 
 test("Feedseek uses its existing XML media and icons with lazy image fallback", () => {
@@ -39,10 +45,6 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   assert.match(home, /data-slide="0" aria-label="Weather" aria-pressed="true"/);
   assert.match(home, /data-slide="1" aria-label="TV status" aria-pressed="false"/);
 
-  const begin = home.indexOf("function setupRail(");
-  const end = home.indexOf('\nsetupRail("featureRail"', begin);
-  assert.ok(begin > 0 && end > begin);
-  const script = home.slice(begin, end);
   const events = {};
   const dots = Array.from({ length: 2 }, () => ({
     state: null,
@@ -58,7 +60,9 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     addEventListener(name, callback) { events[name] = callback; },
     scrollTo({ left }) { this.scrollLeft = left; },
   };
-  const nav = { querySelectorAll: () => dots, contains: (node) => dots.includes(node) };
+  const toggle = { hidden: true, textContent: "Pause", setAttribute(name, value) { this[name] = value; },
+    addEventListener(name, callback) { this[name] = callback; } };
+  const nav = { querySelectorAll: () => dots, querySelector: () => toggle, contains: (node) => dots.includes(node) };
   let clock = 0;
   let cycle = null;
   const context = {
@@ -75,12 +79,18 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     },
     requestAnimationFrame: (callback) => callback(),
   };
-  new Script(script).runInNewContext(context);
-  context.setupRail("featureRail", "featureDots", 10_000);
+  new Script(rail).runInNewContext(context);
   assert.equal(dots[0].state, null);
   cycle();
   assert.equal(track.scrollLeft, 360);
   assert.equal(dots[1].state, "true");
+  assert.equal(toggle.hidden, false);
+  toggle.click();
+  cycle();
+  assert.equal(track.scrollLeft, 360, "paused rail must not rotate");
+  assert.equal(toggle.textContent, "Resume");
+  toggle.click();
+  assert.equal(toggle.textContent, "Pause");
 
   clock = 1_000;
   events.pointerdown();
@@ -123,4 +133,41 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   onVisibility([{ isIntersecting: true, intersectionRatio: 0.5 }]);
   cycle();
   assert.equal(track.scrollLeft, 360, "visible rail resumes rotating");
+});
+
+test("home hosts radio and Lab hosts the shared workbench rail", () => {
+  assert.match(home, /data-radio aria-labelledby="radio-heading"/);
+  assert.match(home, /src="\/assets\/radio\.js"/);
+  assert.ok(!home.includes('id="benchRail"'));
+  assert.match(home, /href="\/lab\/">LAB/);
+  assert.match(lab, /<BenchLab\s*\/>/);
+  assert.ok(!lab.includes('<RadioMini'));
+  assert.match(bench, /<script type="module">[\s\S]*benchRail/);
+  assert.match(home, /src="\/assets\/rails\.js"/);
+});
+
+test("Lab rail initializes and advances through all three benches", () => {
+  const dots = Array.from({ length: 3 }, () => ({
+    setAttribute(name, value) { this[name] = value; },
+    addEventListener(name, callback) { this[name] = callback; },
+  }));
+  const track = {
+    children: [{ offsetLeft: 0 }, { offsetLeft: 300 }, { offsetLeft: 600 }], scrollLeft: 0,
+    contains: () => false, addEventListener() {},
+    scrollTo({ left }) { this.scrollLeft = left; },
+  };
+  const toggle = { hidden: true, addEventListener() {} };
+  const nav = { querySelectorAll: () => dots, querySelector: () => toggle, contains: () => false };
+  let cycle;
+  const context = {
+    window: {}, document: { hidden: false, getElementById: id => ({ benchRail: track, benchDots: nav })[id] },
+    matchMedia: query => ({ matches: query.includes("max-width") }),
+    setInterval: (fn, delay) => { assert.equal(delay, 19_000); cycle = fn; },
+    requestAnimationFrame: fn => fn(), Date,
+  };
+  new Script(rail).runInNewContext(context);
+  assert.equal(typeof cycle, "function");
+  cycle(); assert.equal(track.scrollLeft, 300); assert.equal(dots[1]["aria-pressed"], "true");
+  cycle(); assert.equal(track.scrollLeft, 600); assert.equal(dots[2]["aria-pressed"], "true");
+  cycle(); assert.equal(track.scrollLeft, 0);
 });

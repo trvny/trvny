@@ -2144,10 +2144,11 @@ function shouldTryNextAttempt(
   category: string,
   attemptIndex: number,
   attemptCount: number,
+  task: FreeTaskProfileId,
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
   if (provider.id === 'openrouter') {
-    if ([404, 410, 502, 503, 504].includes(status)) return true;
+    if (status === 404 || (task === 'review' && [410, 502, 503, 504].includes(status))) return true;
     if (status !== 400) return false;
     if (attemptIndex === 0) return true;
     return category === 'http_400_invalid_model';
@@ -2604,6 +2605,7 @@ export async function handleReviewRouterRequest(
           providerFailureCategory,
           attemptIndex,
           attempts.length,
+          task,
         )) {
           modelFault = providerFailureCategory;
           continue;

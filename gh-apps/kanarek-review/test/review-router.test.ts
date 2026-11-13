@@ -1173,7 +1173,7 @@ test('task timeout policy is patient only where latency is acceptable', () => {
   assert.equal(taskProviderTimeoutMs(10_000, 'general'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'quip'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'review'), 120_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 360_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 120_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 120_000);
   assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);

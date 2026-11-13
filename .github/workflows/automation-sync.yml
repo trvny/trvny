@@ -374,9 +374,20 @@ jobs:
           PY
           chmod 600 "$secrets_file"
 
-          npx --no-install wrangler secret bulk "$secrets_file" --name gremlin
+          # npx in a workspace can pick the hoisted Wrangler from the root.
+          # Prefer Gremlin's pinned nested binary while versions differ.
+          wrangler_bin=./node_modules/.bin/wrangler
+          if [[ ! -x "$wrangler_bin" ]]; then
+            wrangler_bin=../node_modules/.bin/wrangler
+          fi
+          pinned_wrangler=$(node -p "require('./package.json').devDependencies.wrangler")
+          if [[ "$("$wrangler_bin" --version)" != *"$pinned_wrangler"* ]]; then
+            echo "::error::Gremlin Wrangler does not match pinned version $pinned_wrangler."
+            exit 1
+          fi
+          "$wrangler_bin" secret bulk "$secrets_file" --name gremlin
 
-          secrets_json=$(npx --no-install wrangler secret list --name gremlin --format json)
+          secrets_json=$("$wrangler_bin" secret list --name gremlin --format json)
           if ! jq -e '([.[].name] | sort) as $names | ["GREMLIN_OAUTH_CLIENT_ID","GREMLIN_OAUTH_CLIENT_SECRET"] | all(. as $required | $names | index($required))' <<<"$secrets_json" >/dev/null; then
             echo "::error::Gremlin OAuth secrets missing after synchronization."
             exit 1

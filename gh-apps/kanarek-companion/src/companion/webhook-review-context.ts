@@ -175,12 +175,14 @@ export function containsHan(value: string): boolean {
   return /[\u3400-\u9fff]/u.test(value);
 }
 
+// Whole-answer gate: rejects only output with findings but none in Chinese.
+// Single non-Chinese findings are dropped by verifyReviewFindings, a non-Chinese
+// summary is replaced; neither discards the rest of a usable review.
 export function reviewTextIsChinese(review: ParsedReview): boolean {
-  if (review.summary && !containsHan(review.summary)) return false;
-  return review.findings.every((finding) => {
+  return !review.findings.length || review.findings.some((finding) => {
     const title = typeof finding.title === 'string' ? finding.title : '';
     const body = typeof finding.body === 'string' ? finding.body : '';
-    return containsHan(title) && containsHan(body);
+    return containsHan(`${title}${body}`);
   });
 }
 

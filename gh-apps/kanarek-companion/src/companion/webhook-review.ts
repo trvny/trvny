@@ -20,6 +20,7 @@ import {
   type RawFinding,
   type ParsedReview,
   objectValue,
+  containsHan,
   reviewTextIsChinese,
   selectReviewFiles,
   selectReviewEvidenceFiles,
@@ -61,7 +62,7 @@ const DEFAULT_MAX_DIFF_CHARS = 60_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
 const DEFAULT_PAID_MAX_DIFF_CHARS = 250_000;
 const DEFAULT_PAID_MAX_CONTEXT_CHARS = 500_000;
-const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 36_864;
+const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 65_536;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
 const PAID_MAX_PATCH_CHARS = 48_000;
@@ -72,6 +73,13 @@ const REVIEW_SWEEP_MAX_ATTEMPTS = 8;
 // 15-minute Durable Object alarm wall-time limit.
 const DEFAULT_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
 const MAX_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
+// L2 needs room for System One (25s router budget) plus a generative judge pass.
+const L2_MIN_BUDGET_MS = 90_000;
+
+/** Time left for provider calls before the 90s publication margin of the alarm. */
+function alarmBudgetLeftMs(alarmStartedAt: number): number {
+  return Math.max(0, MAX_REVIEW_SWEEP_BUDGET_MS - (Date.now() - alarmStartedAt));
+}
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const REVIEW_OUTCOME_KEY = 'review_outcome';
@@ -497,6 +505,8 @@ async function askReviewRouter(
     );
     return { kind: 'invalid', provider };
   }
+  // Publication falls back to the stock Chinese summary.
+  if (parsed.summary && !containsHan(parsed.summary)) parsed.summary = '';
   const model =
     typeof payload.model === 'string' && payload.model.trim()
       ? payload.model.trim().slice(0, 200)
@@ -900,14 +910,13 @@ export async function runWebhookReview(
     verifiableFiles,
     {
       maxAttempts: reviewSweepMaxAttempts(paidPhase ? 'paid' : 'free'),
-      ...(paidPhase
-        ? {}
-        : {
-            budgetMs: Math.min(
-              reviewFreeSweepBudgetMs(env.KANAREK_WEBHOOK_REVIEW_FREE_SWEEP_BUDGET_MS),
-              Math.max(0, MAX_REVIEW_SWEEP_BUDGET_MS - (Date.now() - alarmStartedAt)),
-            ),
-          }),
+      // Both phases stay inside the alarm's wall time; context fetch already used some.
+      budgetMs: Math.min(
+        paidPhase
+          ? MAX_REVIEW_SWEEP_BUDGET_MS
+          : reviewFreeSweepBudgetMs(env.KANAREK_WEBHOOK_REVIEW_FREE_SWEEP_BUDGET_MS),
+        alarmBudgetLeftMs(alarmStartedAt),
+      ),
     },
   );
   const generated = sweep.generated;
@@ -929,7 +938,10 @@ export async function runWebhookReview(
       reviewed: false,
       provider: null,
       findingCount: 0,
-      skipped: paidPhase ? 'providers_failed' : 'paid_escalation_needed',
+      // A paid provider that answered unusably was billed: retrying would bill again.
+      skipped: paidPhase
+        ? sweep.excluded.length ? 'invalid_output' : 'providers_failed'
+        : 'paid_escalation_needed',
     };
   }
 
@@ -989,7 +1001,7 @@ export async function runWebhookReview(
   let judged: JudgedFindings | null = null;
   let decisionMarker: string | null = null;
   // Skip expensive L2 when the 15-minute alarm needs its publication margin.
-  if (disposition === 'publish' && !paidPhase && Date.now() - alarmStartedAt < 12 * 60_000) {
+  if (disposition === 'publish' && !paidPhase && alarmBudgetLeftMs(alarmStartedAt) > L2_MIN_BUDGET_MS) {
     const judgeContext = focusedReviewJudgeContext(reviewInput, findings);
     const decisionAttempt = await askDecisionJudge(
       findings,
@@ -1007,6 +1019,7 @@ export async function runWebhookReview(
         generated.model,
         judgeContext,
         reviewEnv,
+        AbortSignal.timeout(alarmBudgetLeftMs(alarmStartedAt)),
       );
     }
   }

@@ -54,7 +54,7 @@ a fake or incompatible stream.
 
 Paid review requests get their initial output budget from
 `../kanarek-companion/wrangler.jsonc` via
-`KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS` (currently `36864`,
+`KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS` (currently `65536`,
 accepted 512–65536). Grok uses that requested budget directly, bounded by
 its adapter's 8192-token floor and 131072-token ceiling.
 Other paid providers may override the request: DeepSeek uses
@@ -174,12 +174,21 @@ normal pass; if that judge also fails, verified L1 findings are published
 unchanged. Paid review skips L2 because its larger context can exceed the
 decision runtimes' input windows.
 
-Latency is task policy too. Quips keep short deadlines, reviews and judges
-allow longer completions, and Kanarek Companion separately bounds its free
-review sweep. OpenRouter code review sends **one request per configured model**,
-with a 35-second per-model cap and a 120-second provider budget, rather than
-a hidden upstream `models` chain. Other task lanes retain their supported
-provider-side fallback behavior.
+Latency is task policy too. Quips keep short deadlines; judges get 60 s per
+provider. Free code review uses one rule for every provider: a 180-second
+provider budget, and a 120-second cap per model while another model of that
+provider remains (the last model gets the rest). Review sends **one request per
+configured model**, never a hidden upstream `models` chain. Paid review
+providers (Grok, DeepSeek) get 300 s each. Kanarek Companion bounds the whole
+free sweep, the paid pass and L2 by its 15-minute alarm wall time.
+
+Free first, then paid: Companion sweeps the free queue (each provider excluded
+after an unusable answer; a clean verdict needs two free providers), and only
+an exhausted free sweep or rejected findings escalate to `kanarek-review-paid`.
+The paid pass makes one router call: the paid queue fails over on HTTP errors,
+but an unusable billed answer is final (`invalid_output`/`invalid_findings`)
+and is never retried. Only a paid pass where no provider answered retries
+with backoff.
 
 The router moves to the next listed model/provider on unusable responses,
 request rejections, quota exhaustion, authentication failures, or upstream
@@ -229,7 +238,8 @@ rotates out until it recovers. Spend limits and routing policy
 must remain enforced in OrcaRouter itself.
 
 DeepSeek uses the official OpenAI-compatible endpoint with `deepseek-flash`.
-Both paid contracts enable high-effort thinking with a 128K generation ceiling.
+Both paid contracts enable high-effort thinking with a 128K generation ceiling;
+paid review allows 300 s per request.
 The review contract additionally forces JSON output and uses the expanded
 review context profile; the work contract deliberately does not force JSON so
 native tool calls remain available and allows a longer model-turn timeout.

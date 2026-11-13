@@ -21,11 +21,12 @@ const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
 const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
-// Give slow free models time to complete without starving the other providers.
-const OPENROUTER_REVIEW_TIMEOUT_MS = 120_000;
-const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 35_000;
-const AIHUBMIX_REVIEW_TIMEOUT_MS = 120_000;
-const AIHUBMIX_REVIEW_ATTEMPT_CAP_MS = 35_000;
+// One review policy for every free provider: reasoning reviews need minutes, not
+// seconds. Multi-model providers give a model 120s before trying the next one.
+const REVIEW_PROVIDER_TIMEOUT_MS = 180_000;
+const REVIEW_MODEL_ATTEMPT_CAP_MS = 120_000;
+// Paid review: large context + high reasoning; same ceiling for every paid provider.
+const PAID_REVIEW_PROVIDER_TIMEOUT_MS = 300_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
 const SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS = 25 * 60_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
@@ -460,9 +461,7 @@ export function taskProviderTimeoutMs(
     baseMs,
     provider === 'aihubmix' ? SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS : SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS,
   );
-  if (task === 'review') return Math.max(
-    baseMs, provider === 'aihubmix' ? AIHUBMIX_REVIEW_TIMEOUT_MS : 120_000,
-  );
+  if (task === 'review') return Math.max(baseMs, REVIEW_PROVIDER_TIMEOUT_MS);
   if (task === 'judge') return Math.max(baseMs, REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS);
   return baseMs;
 }
@@ -627,7 +626,7 @@ function deepSeekPaidProvider(
     url: 'https://api.deepseek.com/chat/completions',
     model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || '',
     apiKey: (providerEnv) => providerEnv.DEEPSEEK_API_KEY,
-    timeoutMs: mode === 'work' ? workProviderTimeoutMs(env) : MAX_TIMEOUT_MS,
+    timeoutMs: mode === 'work' ? workProviderTimeoutMs(env) : PAID_REVIEW_PROVIDER_TIMEOUT_MS,
     requestFields: {
       thinking: {
         type: configuredText(
@@ -681,7 +680,7 @@ function xaiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
     url: 'https://api.x.ai/v1/responses',
     model,
     apiKey: (providerEnv) => providerEnv.XAI_REVIEW_RPC ? 'rpc' : undefined,
-    timeoutMs: 300_000,
+    timeoutMs: PAID_REVIEW_PROVIDER_TIMEOUT_MS,
     requestFields: { reasoning: { effort } },
   };
 }
@@ -1155,8 +1154,9 @@ export function modelAttemptTimeoutMs(
   hasNextModel: boolean,
   provider: ReviewProviderId,
 ): number {
-  if (remainingProviderMs <= 0 || !hasNextModel || task === 'general' ||
-      provider === 'openrouter') return remainingProviderMs;
+  if (remainingProviderMs <= 0 || !hasNextModel || task === 'general') return remainingProviderMs;
+  if (task === 'review') return Math.min(remainingProviderMs, REVIEW_MODEL_ATTEMPT_CAP_MS);
+  if (provider === 'openrouter') return remainingProviderMs;
   return remainingProviderMs - Math.min(15_000, Math.floor(remainingProviderMs / 4));
 }
 
@@ -2274,9 +2274,7 @@ export async function handleReviewRouterRequest(
       task,
       provider.id,
     );
-    const providerDeadlineAt = Date.now() + (provider.id === 'openrouter' && task === 'review'
-      ? Math.max(providerTimeoutMs, OPENROUTER_REVIEW_TIMEOUT_MS)
-      : providerTimeoutMs);
+    const providerDeadlineAt = Date.now() + providerTimeoutMs;
     const attempts = providerAttempts(provider, env, task);
     // Multi-model providers keep per-model cooldowns so one dead model is skipped
     // instead of failing (or cooling down) the whole provider.
@@ -2324,22 +2322,10 @@ export async function handleReviewRouterRequest(
         if (singleModel) await clearProviderCooldown(modelKey, env);
       };
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
-      // Reserve time for every configured OpenRouter model instead of letting one
-      // stalled free model exhaust the whole provider-level deadline.
-      const attemptTimeoutMs = provider.id === 'aihubmix' && task === 'review'
-        ? Math.min(remainingProviderMs, AIHUBMIX_REVIEW_ATTEMPT_CAP_MS)
-        : provider.id === 'openrouter' && task === 'review'
-        ? Math.min(remainingProviderMs, Math.max(
-            12_000,
-            Math.min(
-              OPENROUTER_REVIEW_ATTEMPT_CAP_MS,
-              Math.floor(remainingProviderMs / (attempts.length - attemptIndex)),
-            ),
-          ))
-        : modelAttemptTimeoutMs(
-            remainingProviderMs, task, multiModel && attemptIndex + 1 < attempts.length,
-            provider.id,
-          );
+      const attemptTimeoutMs = modelAttemptTimeoutMs(
+        remainingProviderMs, task, multiModel && attemptIndex + 1 < attempts.length,
+        provider.id,
+      );
       if (attemptTimeoutMs <= 0) {
         providerFailureCategory = 'timeout';
         providerInvalidRequest = false;

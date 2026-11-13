@@ -1203,9 +1203,10 @@ test('paid review contract uses the review task profile while work stays separat
 test('task timeout policy is patient only where latency is acceptable', () => {
   assert.equal(taskProviderTimeoutMs(10_000, 'general'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'quip'), 10_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 120_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 120_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 120_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 180_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 180_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 180_000);
+  assert.equal(taskProviderTimeoutMs(300_000, 'review', 'deepseek'), 300_000);
   assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost', 'aihubmix'), 1_500_000);
@@ -3305,7 +3306,9 @@ test('a model that failed is skipped next time while its provider keeps serving'
 });
 
 test('task model deadline reserves one more attempt', () => {
-  assert.equal(modelAttemptTimeoutMs(60_000, 'review', true, 'aihubmix'), 45_000);
+  assert.equal(modelAttemptTimeoutMs(60_000, 'review', true, 'aihubmix'), 60_000);
+  assert.equal(modelAttemptTimeoutMs(180_000, 'review', true, 'aihubmix'), 120_000);
+  assert.equal(modelAttemptTimeoutMs(180_000, 'review', true, 'openrouter'), 120_000);
   assert.equal(modelAttemptTimeoutMs(120_000, 'shitpost', true, 'aihubmix'), 105_000);
   assert.equal(modelAttemptTimeoutMs(10_000, 'quip', true, 'aihubmix'), 7_500);
   assert.equal(modelAttemptTimeoutMs(60_000, 'general', true, 'aihubmix'), 60_000);

@@ -699,6 +699,7 @@ export async function askReviewJudge(
   reviewerModel: string | null,
   reviewContext: string,
   env: WebhookReviewEnv,
+  signal?: AbortSignal,
 ): Promise<JudgedFindings | null> {
   if (
     !findings.length ||
@@ -727,6 +728,7 @@ export async function askReviewJudge(
         'Content-Type': 'application/json',
         [REVIEW_PROVIDER_EXCLUDE_HEADER]: reviewerProvider,
       },
+      signal,
       body: JSON.stringify({
         model: REVIEW_ROUTER_JUDGE_MODEL,
         stream: false,

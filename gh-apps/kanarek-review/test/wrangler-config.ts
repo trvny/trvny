@@ -10,5 +10,7 @@ const json = withoutComments.replace(
   /"(?:\\.|[^"\\])*"|,(?=\s*[}\]])/g,
   (match) => match.startsWith('"') ? match : '',
 );
-export const wranglerConfig = JSON.parse(json) as { vars: Record<string, unknown> };
+export const wranglerConfig = JSON.parse(json) as Record<string, unknown> & {
+  vars: Record<string, unknown>;
+};
 export const wranglerVars = wranglerConfig.vars;

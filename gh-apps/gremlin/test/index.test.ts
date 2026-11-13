@@ -123,7 +123,7 @@ test('Gremlin does not expose the wrong Engram Action routes or advertise them',
   );
 });
 
-test('Gremlin worker serves the full runtime action surface', async () => {
+test('Gremlin serves legacy GPT Actions without the obsolete Engram bridge', async () => {
   const response = await worker.fetch(new Request(`${ORIGIN}/gpt-actions/openapi.json`), {} as never);
   assert.equal(response.status, 200);
   const document = await response.json() as { servers?: Array<{ url?: string }>; paths?: Record<string, unknown> };
@@ -137,10 +137,15 @@ test('Gremlin worker serves the full runtime action surface', async () => {
         ? [String(operation.operationId)]
         : []);
   });
-  assert.equal(legacyOperationIds.length, 29);
-  for (const legacyOnly of ['githubRead', 'getDoc', 'searchEngramMemory']) {
+  // The shared legacy Builder schema has 29 operations. Gremlin intentionally
+  // hides the two broken Engram Action routes, exposing 27 here.
+  assert.equal(legacyOperationIds.length, 27);
+  for (const legacyOnly of ['githubRead', 'getDoc', 'searchDocs']) {
     assert.ok(legacyOperationIds.includes(legacyOnly), legacyOnly);
     assert.equal(GREMLIN_MCP_OPERATION_IDS.includes(legacyOnly as never), false);
+  }
+  for (const disabled of ['searchEngramMemory', 'storeEngramMemory']) {
+    assert.equal(legacyOperationIds.includes(disabled), false, disabled);
   }
 });
 

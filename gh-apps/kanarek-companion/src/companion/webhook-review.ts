@@ -1627,7 +1627,13 @@ export class WebhookReviewJob {
       }
       // Billed paid outcomes are settled too: a redelivered webhook for this head
       // must not start (and pay for) the same review again.
-      if (result.reviewed || (result.skipped && SETTLED_SKIPS.has(result.skipped))) {
+      // A paid answer that went stale (draft/close/label flip on the same head+base)
+      // was still billed; free ones may run again after reopening.
+      if (
+        result.reviewed ||
+        (result.skipped && SETTLED_SKIPS.has(result.skipped)) ||
+        (result.skipped === 'stale_after_generation' && continuation.phase === 'paid')
+      ) {
         await transaction.put(COMPLETED_TARGET_KEY, reviewTargetKey(continuation.target));
       }
       await transaction.put<ReviewOutcome>(REVIEW_OUTCOME_KEY, {

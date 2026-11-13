@@ -2315,6 +2315,8 @@ test('OpenRouter quips use the quip lane with low reasoning and model limits', a
   }), {
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_ROUTING: { ...auth.KANAREK_REVIEW_ROUTING,
+      taskModels: { openrouter: { quip: routing.taskModels.openrouter.quip } } },
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     bodies.push(body);
@@ -2323,8 +2325,8 @@ test('OpenRouter quips use the quip lane with low reasoning and model limits', a
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(bodies[0]?.model, 'nvidia/nemotron-3.5-lightning:free');
-  assert.deepEqual(bodies[0]?.models, ['thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'thinkingmachines/inkling:free']);
+  assert.equal(bodies[0]?.model, routing.taskModels.openrouter.quip[0]);
+  assert.deepEqual(bodies[0]?.models, routing.taskModels.openrouter.quip.slice(1));
   assert.deepEqual(bodies[1]?.reasoning, { effort: 'low' });
   assert.equal(bodies[1]?.max_tokens, 16_384);
 });
@@ -2428,7 +2430,7 @@ test('review router falls through after the OpenRouter chain and individual mode
   assert.equal(calls, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.length + 2);
 });
 
-test('review router follows configured free provider order and appends omitted providers', async () => {
+test('review router obeys exact configured provider order without additions', async () => {
   const urls: string[] = [];
   const env = {
     ...auth,
@@ -2436,6 +2438,7 @@ test('review router follows configured free provider order and appends omitted p
     ORCAROUTER_API_KEY: 'orca-key',
     AIHUBMIX_API_KEY: 'aihubmix-key',
     KANAREK_REVIEW_PROVIDER_ORDER: 'orcarouter,openrouter,orcarouter,unknown',
+    KANAREK_REVIEW_ROUTING: undefined,
   };
   const response = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
     urls.push(String(input));
@@ -2447,17 +2450,7 @@ test('review router follows configured free provider order and appends omitted p
   assert.deepEqual(urls, ['https://api.orcarouter.ai/v1/chat/completions']);
 
   const health = await reviewProviderPoolHealth(env);
-  assert.deepEqual(health.freeOrder, [
-    'orcarouter',
-    'openrouter',
-    'aihubmix',
-    'ollama',
-    'groq',
-    'vercel',
-    'huggingface-publicai',
-    'gemini-standard',
-    'workers-ai',
-  ]);
+  assert.deepEqual(health.freeOrder, ['orcarouter', 'openrouter']);
 });
 
 test('review router reaches OrcaRouter as the last resort after AIHubMix fails', async () => {
@@ -2988,6 +2981,7 @@ test('router falls through inactive providers even on unexpected client HTTP sta
       ...auth,
       OPENROUTER_API_KEY: 'openrouter-key',
       ORCAROUTER_API_KEY: 'orca-key',
+      KANAREK_REVIEW_ROUTING: { providerOrders: { general: ['openrouter', 'orcarouter'] } },
     }, ((input: RequestInfo | URL) => {
       const url = String(input);
       calls.push(url);
@@ -3012,6 +3006,7 @@ test('unavailable providers enter cooldown while healthy fallbacks still answer'
     OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orca-key',
     KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    KANAREK_REVIEW_ROUTING: { providerOrders: { general: ['openrouter', 'orcarouter'] } },
   };
   const fetcher = ((input: RequestInfo | URL) => {
     const url = String(input);
@@ -3034,7 +3029,8 @@ test('request-specific HTTP 422 does not disable a provider for unrelated calls'
   const cooldowns = cooldownNamespace();
   let openRouterCalls = 0;
   const env = { ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
-    KANAREK_REVIEW_COOLDOWNS: cooldowns };
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    KANAREK_REVIEW_ROUTING: { providerOrders: { general: ['openrouter', 'orcarouter'] } } };
   const fetcher = ((input: RequestInfo | URL) => {
     if (String(input).includes('openrouter.ai')) {
       openRouterCalls += 1;
@@ -3116,7 +3112,7 @@ test('review router reports bounded provider diagnostics without upstream bodies
   assert.equal(payload.error?.code, 'review_router_exhausted');
   assert.equal(
     payload.error?.message,
-    'Review providers unavailable (aihubmix:soft_quota, openrouter:http_429, orcarouter:http_503)',
+    'Review providers unavailable (aihubmix:soft_quota, orcarouter:http_503, openrouter:http_429)',
   );
   assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
   assert.equal(JSON.stringify(payload).includes('accounts that have not been recharged'), false);
@@ -3535,6 +3531,7 @@ test('configured general priorities apply when task overrides are missing', asyn
     OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orca-key',
     KANAREK_REVIEW_PROVIDER_ORDER: 'orcarouter,openrouter',
+    KANAREK_REVIEW_ROUTING: undefined,
     KANAREK_REVIEW_ORCAROUTER_MODELS: 'tencent/hy4-preview-free,deepseek/deepseek-v4.1-flash-free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     chosenModel = String((JSON.parse(String(init?.body)) as { model?: string }).model);

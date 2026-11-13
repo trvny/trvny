@@ -64,7 +64,7 @@ export type RuntimeEnv = GatewayEnv &
 // Gremlin consumes existing guarded services through this package boundary.
 // Operator and specialist dispatch remain here until the staged cutover.
 export { gatewayManifest, githubGateway };
-export { pluginMcpOpenApi } from './runtime-openapi.ts';
+export { scopedRuntimeOpenApi } from './runtime-openapi.ts';
 export {
   scopedMcpManifest,
   handleScopedMcp,

@@ -13,29 +13,6 @@ import { addReleaseReplaceOpenApi } from './operator/release-replace-action.ts';
 import { addSymbolInvestigationOpenApi } from './investigation/symbol-investigation.ts';
 import { addTargetedTestsOpenApi } from './investigation/test-discovery.ts';
 
-// Gremlin plugin: high-value operator capabilities only. The legacy Custom GPT
-// keeps its broader Action list; ordinary providers use their own connectors.
-export const PLUGIN_MCP_OPERATION_IDS = [
-  'getOperatorBootstrap',
-  'getGremlinKnowledge',
-  'inspectPackage',
-  'getOperatorCapabilities',
-  'runOperatorSmokeTest',
-  'runOperatorAutopilot',
-  'getAccountMaintenance',
-  'runAccountMaintenanceAutofix',
-  'getRepositoryContext',
-  'prepareChange',
-  'implementCodeChange',
-  'investigateCode',
-  'reviewCodeChange',
-  'inspectPullRequest',
-  'finalizePullRequest',
-  'orchestrateRelease',
-  'diagnoseWorkflowRun',
-  'githubBotRequest',
-] as const;
-
 function fullRuntimeOpenApi(origin: string): Record<string, unknown> {
   const document = gatewayOpenApi(origin);
   addReleaseEntryOpenApi(document);
@@ -54,10 +31,14 @@ export function runtimeOpenApi(origin: string): Record<string, unknown> {
   return curateCustomGptOpenApi(fullRuntimeOpenApi(origin));
 }
 
-export function pluginMcpOpenApi(origin: string): Record<string, unknown> {
+export function scopedRuntimeOpenApi(
+  origin: string,
+  operationIds: readonly string[],
+  missingErrorPrefix = 'scoped_runtime_operations_missing',
+): Record<string, unknown> {
   return curateOpenApiOperations(
     fullRuntimeOpenApi(origin),
-    PLUGIN_MCP_OPERATION_IDS,
-    'plugin_mcp_operations_missing',
+    operationIds,
+    missingErrorPrefix,
   );
 }

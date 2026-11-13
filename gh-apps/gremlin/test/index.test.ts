@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { gremlinGatewayManifest, gremlinMcpManifest } from '../src/mcp-runtime.ts';
@@ -110,7 +111,10 @@ test('Gremlin capability metadata hashes the same 18 operators it exposes', asyn
   };
   assert.equal(capabilities.openApi.operationCount, 18);
   assert.equal(capabilities.openApi.operationIds.length, 18);
-  assert.ok(capabilities.openApi.capabilityDigest.startsWith('sha256:'));
+  const expectedDigest = createHash('sha256')
+    .update([...capabilities.openApi.operationIds].sort().join('\n'))
+    .digest('hex');
+  assert.equal(capabilities.openApi.capabilityDigest, `sha256:${expectedDigest}`);
   assert.equal(capabilities.mcp.toolNames.length, 21);
   for (const name of ['searchEngramMemory', 'storeEngramMemory']) {
     assert.equal(capabilities.openApi.operationIds.includes(name), false);

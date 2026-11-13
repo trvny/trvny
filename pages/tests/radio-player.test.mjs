@@ -56,12 +56,14 @@ async function player({ deferredPause = false } = {}) {
   const document = { hidden: false, querySelectorAll: () => [root], addEventListener() {} };
   const instances = [];
   class Hls {
-    static Events = { ERROR: "error" };
+    static Events = { ERROR: "error", MEDIA_ATTACHED: "attached" };
     static isSupported() { return true; }
     constructor() { instances.push(this); }
-    on(_event, callback) { this.onError = callback; }
+    on(event, callback) { if (event === "error") this.onError = callback; else this.onAttached = callback; }
     loadSource(url) { this.url = url; }
-    attachMedia(media) { this.media = media; }
+    attachMedia(media) { this.media = media; this.onAttached(); }
+    stopLoad() { this.stopped = true; }
+    startLoad() { this.stopped = false; }
     destroy() { this.destroyed = true; }
   }
   let resolveMetadata;
@@ -133,4 +135,18 @@ test("a queued pause from the old stream cannot cancel a station change", async 
   await p.flush();
   assert.equal(p.instances[0].url, "trojka.m3u8");
   assert.equal(p.audio.playCalls, 2);
+});
+
+
+test("external pause and resume preserve the source", async () => {
+  const p = await player();
+  p.select("trojka");
+  p.play.dispatch("click");
+  await p.flush();
+  p.audio.pause();
+  assert.equal(p.instances[0].stopped, true);
+  assert.equal(p.instances[0].destroyed, undefined);
+  await p.audio.play();
+  assert.equal(p.instances[0].stopped, false);
+  assert.equal(p.status.textContent, "Connecting…");
 });

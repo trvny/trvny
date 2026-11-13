@@ -66,6 +66,7 @@
     async function start() {
       wantsPlaying = true;
       const attempt = ++playbackAttempt;
+      if (hls) { hls.destroy(); hls = undefined; }
       const option = station.selectedOptions[0];
       showPlayback(true, 'Connecting…');
       try {
@@ -75,8 +76,11 @@
           if (!Hls.isSupported()) throw new Error('HLS unsupported');
           hls = new Hls({ enableWorker: false });
           hls.on(Hls.Events.ERROR, (_event, data) => { if (data.fatal) fail(attempt); });
+          const attached = new Promise((resolve) => hls.on(Hls.Events.MEDIA_ATTACHED, resolve));
           hls.loadSource(option.dataset.url);
           hls.attachMedia(audio);
+          await attached;
+          if (!wantsPlaying || attempt !== playbackAttempt) return;
         } else {
           audio.src = option.dataset.url;
         }
@@ -104,11 +108,21 @@
       if (resume) void start();
     });
     audio.addEventListener('play', () => {
-      if (!wantsPlaying) { wantsPlaying = true; playbackAttempt += 1; showPlayback(true, 'Connecting…'); }
+      if (!wantsPlaying) {
+        wantsPlaying = true;
+        playbackAttempt += 1;
+        if (hls) hls.startLoad();
+        showPlayback(true, 'Connecting…');
+      }
     });
     audio.addEventListener('pause', () => {
       if (internalPauses) { internalPauses -= 1; return; }
-      if (audio.paused && wantsPlaying) stop();
+      if (audio.paused && wantsPlaying) {
+        wantsPlaying = false;
+        playbackAttempt += 1;
+        if (hls) hls.stopLoad();
+        showPlayback(false, 'Paused');
+      }
     });
     audio.addEventListener('playing', () => { if (wantsPlaying) showPlayback(true, 'Playing live'); });
     audio.addEventListener('waiting', () => { if (wantsPlaying) showPlayback(true, 'Buffering…'); });
@@ -120,7 +134,7 @@
 
     async function refresh() {
       if (document.hidden || station.value !== 'paradise') return;
-      const version = metadataVersion;
+      const version = ++metadataVersion;
       try {
         const response = await fetch('/api/radio-now', { cache:'no-store', signal:AbortSignal.timeout(8000) });
         if (!response.ok) throw new Error('metadata unavailable');
@@ -146,6 +160,7 @@
       }
     }
     document.addEventListener('visibilitychange', () => {
+      metadataVersion += 1;
       clearTimeout(timer);
       if (!document.hidden) void refresh();
     });

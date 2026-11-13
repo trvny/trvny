@@ -59,7 +59,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
 } as const;
 const VERCEL_HY3_MODEL = 'tencent/hy3';
 // Known provider IDs; not a fallback queue.
-const FREE_PROVIDER_IDS = [
+export const FREE_PROVIDER_IDS = [
   'aihubmix',
   'openrouter',
   'ollama',

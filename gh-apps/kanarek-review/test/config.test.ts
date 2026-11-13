@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { wranglerConfig } from './wrangler-config.ts';
 import test from 'node:test';
 
-import { PAID_PROVIDER_IDS, REVIEW_PROVIDER_IDS, configuredRoutingList } from '../src/review-router.ts';
+import { FREE_PROVIDER_IDS, PAID_PROVIDER_IDS, REVIEW_PROVIDER_IDS, configuredRoutingList } from '../src/review-router.ts';
+import { DECISION_PROVIDERS } from '../src/decision-model.ts';
 
 const config = wranglerConfig;
 
@@ -89,14 +90,14 @@ test('OpenRouter free model list stays nonempty and deduplicated', () => {
   }
 });
 
-// Validity only: operators may reorder queues and swap models freely.
-test('every configured queue names known providers', () => {
+// Validity only: operators may reorder queues and swap models freely, but every
+// entry must be one the runtime would actually use (it silently drops others).
+test('every configured queue names providers its router accepts', () => {
   const routing = config.vars.KANAREK_REVIEW_ROUTING as OperatorRouting;
+  const free = new Set<string>([...FREE_PROVIDER_IDS, 'workers-ai']);
   for (const [task, order] of Object.entries(routing.providerOrders)) {
     assertList(order, task);
-    for (const provider of order) {
-      assert.ok(REVIEW_PROVIDER_IDS.has(provider) || provider === 'workers-ai', `${task}: ${provider}`);
-    }
+    for (const provider of order) assert.ok(free.has(provider), `${task}: ${provider}`);
   }
   const paidOrder = String(config.vars.KANAREK_REVIEW_PAID_PROVIDER_ORDER).split(',');
   assertList(paidOrder, 'paid');
@@ -105,5 +106,12 @@ test('every configured queue names known providers', () => {
   }
   for (const provider of Object.keys(routing.taskModels)) {
     assert.ok(REVIEW_PROVIDER_IDS.has(provider), `taskModels: ${provider}`);
+  }
+  const decision = new Set(Object.keys(DECISION_PROVIDERS));
+  const decisionOrder = String(config.vars.KANAREK_REVIEW_DECISION_PROVIDER_ORDER).split(',');
+  assertList(decisionOrder, 'decision');
+  for (const provider of decisionOrder) assert.ok(decision.has(provider), `decision: ${provider}`);
+  for (const provider of Object.keys(routing.decisionModels)) {
+    assert.ok(decision.has(provider), `decisionModels: ${provider}`);
   }
 });

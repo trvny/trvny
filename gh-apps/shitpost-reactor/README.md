@@ -63,7 +63,13 @@ There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymo
 Scheduled runs use `auto`. Topic lanes now use a reproducible hash instead of the fixed seven-run cycle: world news, politics, public meme threads, local Chrzanów-area events, Polish Wikipedia/culture, AI self-roasts and evergreen absurdity. Sources are sampled before their recent entries to prevent large feeds from dominating; manual topics still win. Headlines must be no older than 48 hours, and direct victim-harm stories are filtered. BBC RSS, Feedseek Reuters/Euronews/Wikipedia, TVP/PAP/Gov.pl/Wykop, DoRzeczy, wPolityce, and public meme feeds provide untrusted titles only. Local topics use Google News RSS, including site-scoped searches for `przelom.pl` and `chrzanow.naszemiasto.pl`, plus Chrzanów, Trzebinia, Libiąż and Alwernia. A missing or stale source never blocks generation. Source headlines remain in entry metadata; fictional allegations are forbidden. Politics matches include scandals, corruption, municipal government and everyday institutions.
 
 Limericks are optional rather than imposed on every second run. In `auto`, the model selects text or meme based on the joke instead of a run-seeded format coin flip. Explicit `text` and `meme` choices still constrain the kind. Meme templates are chosen from the existing allowlist by name, not from actual image inspection; no new renderer or image provider is introduced. Model-facing generation and judging rules are compact Simplified Chinese; published output rotates exclusively through Polish, English, Simplified Chinese and Russian. `style-reference.md` and `taste-profile.json` provide compact Chinese-language craft context.
-Editorial target: usually one to three sharp sentences (about 120–450 characters), one concrete anchor and one coherent surreal turn. This is a **soft writing preference**, not a new fixed template. New text validation has a 1,400-character safety ceiling; longer but relevant concepts should be condensed during generation or judging. News and community lanes, source freshness, language rotation, provider routing, published archives and fallback semantics are unchanged.
+Editorial target: usually one to three sharp sentences (about 120–450
+characters), one concrete anchor and one coherent surreal turn. This is a
+**soft writing preference**, not a new fixed template. New text validation has
+a 1,400-character safety ceiling; longer but relevant concepts should be
+condensed during generation or judging. News and community lanes, source
+freshness, language rotation, provider routing, published archives and fallback
+semantics are unchanged.
 
 ## Bacon Ipsum emergency mode
 

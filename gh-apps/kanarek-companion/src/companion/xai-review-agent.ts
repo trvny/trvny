@@ -99,9 +99,19 @@ export async function runGrokAgentSession(
   let cumulativeInput = 0;
   let cumulativeOutput = 0;
   let cachedInput = 0;
+  let roundsUsed = 0;
+  let forceFinal = false;
+  const abort = (code: string, status = 502): AgentResult => {
+    console.warn(JSON.stringify({ kanarekXaiReview: 'agent_failed_usage', code,
+      rounds: roundsUsed, toolCalls: totalToolCalls, inputTokens: cumulativeInput,
+      cachedTokens: cachedInput, outputTokens: cumulativeOutput }));
+    return fail(code, status);
+  };
   for (let round = 0; round < MAX_ROUNDS; round++) {
+    roundsUsed = round + 1;
+    const finalize = forceFinal || round === MAX_ROUNDS - 1;
     const remaining = deadlineAt - Date.now() - 8_000;
-    if (remaining <= 0) return fail('agent_deadline', 504);
+    if (remaining <= 0) return abort('agent_deadline', 504);
     let response: Response;
     try {
       response = await fetcher('https://api.x.ai/v1/responses', {
@@ -114,27 +124,28 @@ export async function runGrokAgentSession(
           prompt_cache_key: cacheKey,
           reasoning: request.reasoning,
           max_output_tokens: request.max_output_tokens,
+          parallel_tool_calls: false,
           input: history,
-          tools: round === MAX_ROUNDS - 1 ? [] : [...TOOL_DEFS, { type: 'web_search' }],
-          tool_choice: round === MAX_ROUNDS - 1 ? 'none' : round === 0 ? 'required' : 'auto',
+          tools: finalize ? [] : [...TOOL_DEFS, { type: 'web_search' }],
+          tool_choice: finalize ? 'none' : round === 0 ? 'required' : 'auto',
           text: { format: { type: 'json_schema', name: 'kanarek_code_review',
             strict: true, schema: GROK_REVIEW_SCHEMA } },
         }),
         signal: AbortSignal.timeout(Math.min(remaining, 120_000)),
       });
     } catch (cause) {
-      return fail(cause instanceof Error && (cause.name === 'AbortError' || cause.name === 'TimeoutError')
+      return abort(cause instanceof Error && (cause.name === 'AbortError' || cause.name === 'TimeoutError')
         ? 'agent_timeout' : 'agent_network');
     }
     if (!response.ok) {
       const retryAfter = response.headers.get('retry-after') || undefined;
       await response.body?.cancel();
-      const result = fail('xai_http_' + response.status, response.status);
+      const result = abort('xai_http_' + response.status, response.status);
       return retryAfter ? { ...result, retryAfter } : result;
     }
     let result: Json;
-    try { result = obj(await response.json()); } catch { return fail('agent_bad_response'); }
-    if (result.status !== 'completed' || !Array.isArray(result.output)) return fail('agent_incomplete');
+    try { result = obj(await response.json()); } catch { return abort('agent_bad_response'); }
+    if (result.status !== 'completed' || !Array.isArray(result.output)) return abort('agent_incomplete');
     const usage = obj(result.usage);
     const inputDetails = obj(usage.input_tokens_details);
     cumulativeInput += Number(usage.input_tokens || 0);
@@ -147,7 +158,7 @@ export async function runGrokAgentSession(
       const text = outputs.flatMap((item) => Array.isArray(item.content) ? item.content : [])
         .map(obj).filter((part) => part.type === 'output_text' && typeof part.text === 'string')
         .map((part) => part.text as string).join('\n');
-      if (!text.trim()) return fail('agent_empty_response');
+      if (!text.trim()) return abort('agent_empty_response');
       console.info(JSON.stringify({ kanarekXaiReview: 'agent_complete', model: request.model,
         rounds: round + 1, toolCalls: totalToolCalls, inputTokens: cumulativeInput,
         cachedTokens: cachedInput, outputTokens: cumulativeOutput }));
@@ -157,10 +168,15 @@ export async function runGrokAgentSession(
         usage: { prompt_tokens: cumulativeInput, completion_tokens: cumulativeOutput },
       } };
     }
-    if (totalToolCalls + calls.length > MAX_TOOL_CALLS) return fail('agent_tool_budget', 504);
+    if (totalToolCalls + calls.length > MAX_TOOL_CALLS) {
+      // Avoid discarding billed work when a tool batch exceeds the budget.
+      forceFinal = true;
+      history.push({ role: 'user', content: 'Tool budget reached. Return final review JSON from collected evidence. No more tools.' });
+      continue;
+    }
     history.push(...outputs);
     for (const call of calls) {
-      if (deadlineAt - Date.now() <= 8_000) return fail('agent_deadline', 504);
+      if (deadlineAt - Date.now() <= 8_000) return abort('agent_deadline', 504);
       totalToolCalls++;
       let toolResult: unknown;
       try { toolResult = await executeTool(call.name, toolArgs(call.arguments)); }
@@ -169,10 +185,7 @@ export async function runGrokAgentSession(
         output: JSON.stringify(toolResult).slice(0, 50_000) });
     }
   }
-  console.warn(JSON.stringify({ kanarekXaiReview: 'agent_budget_exhausted',
-    rounds: MAX_ROUNDS, toolCalls: totalToolCalls, inputTokens: cumulativeInput,
-    cachedTokens: cachedInput, outputTokens: cumulativeOutput }));
-  return fail('agent_rounds_exhausted', 504);
+  return abort('agent_rounds_exhausted', 504);
 }
 
 export async function requestAgenticGrokReview(

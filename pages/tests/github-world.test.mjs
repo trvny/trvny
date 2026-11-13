@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../site/teksty/githubowa-kraina/', import.meta.url);
 
@@ -11,7 +12,7 @@ test('atlas regions, cards and generated guide stay in sync', async () => {
   const html = await readFile(new URL('index.html', root), 'utf8');
   assert.equal(new Set(data.regions.map(region => region.id)).size, data.regions.length);
   for (const region of data.regions) {
-    assert.match(html, new RegExp(`data-region="${region.id}"`));
+    assert.ok(html.includes(`data-region="${region.id}"`));
     assert.ok(region.name && region.description && region.items.length);
     for (const item of region.items) {
       assert.ok(item.name && item.description);
@@ -21,5 +22,5 @@ test('atlas regions, cards and generated guide stay in sync', async () => {
   }
   const cards = [...html.matchAll(/data-region="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(cards.sort(), data.regions.map(region => region.id).sort());
-  execFileSync(process.execPath, [new URL('../scripts/github-world-guide.mjs', import.meta.url).pathname, '--check']);
+  execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/github-world-guide.mjs', import.meta.url)), '--check']);
 });

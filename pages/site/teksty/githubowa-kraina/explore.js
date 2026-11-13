@@ -56,7 +56,9 @@
         const card = document.querySelector(`[data-region="${region.id}"]`);
         if (!card) continue;
         card.setAttribute('aria-haspopup', 'dialog');
-        card.append(text('span', 'Explore region', 'explore-hint'));
+        const hint = text('span', 'Explore region', 'explore-hint');
+        hint.lang = 'en';
+        card.append(hint);
         card.addEventListener('click', event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
           event.preventDefault();

@@ -9,6 +9,7 @@ import {
   providerCooldownDurationMs,
   retryAfterCooldownMs,
   modelAttemptTimeoutMs,
+  billedPaidProvider,
   nearestReasoningEffort,
   reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
@@ -3671,4 +3672,11 @@ test('Workers AI without a configured model cannot run', async () => {
   });
   assert.equal(response?.status, 503);
   assert.equal(runs, 0);
+});
+
+test('exhausted paid response names a provider that likely billed', () => {
+  assert.equal(billedPaidProvider(['xai:invalid_response', 'deepseek:http_503']), 'xai');
+  assert.equal(billedPaidProvider(['xai:http_429', 'deepseek:timeout']), 'deepseek');
+  assert.equal(billedPaidProvider(['xai:http_429', 'deepseek:network']), null);
+  assert.equal(billedPaidProvider(['vercel:invalid_response']), null);
 });

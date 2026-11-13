@@ -1,6 +1,7 @@
 import { createInstallationClient } from '../../../core/github-app.ts';
 import { isGptomekFallbackPullRequest } from '../gptomek/gptomek-control.ts';
 import {
+  REVIEW_BILLED_PROVIDER_HEADER,
   REVIEW_PROVIDER_EXCLUDE_HEADER,
   REVIEW_ROUTER_CODE_REVIEW_MODEL,
   REVIEW_ROUTER_PATH,
@@ -468,16 +469,19 @@ async function askReviewRouter(
     env,
   );
   if (!response || !response.ok) {
+    const billed = response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER)?.trim() || null;
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'providers_unavailable',
         routerModel,
         excludedProviders,
         status: response?.status ?? 500,
+        billedProvider: billed,
       }),
     );
     await response?.body?.cancel();
-    return { kind: 'unavailable' };
+    // A paid provider generated but the router discarded it: an answer, not an outage.
+    return billed ? { kind: 'invalid', provider: billed } : { kind: 'unavailable' };
   }
 
   const provider = response.headers.get('x-kanarek-review-provider') ?? 'free-router';
@@ -528,6 +532,19 @@ export interface ReviewSweepResult {
  */
 export function reviewSweepMaxAttempts(phase: ReviewPhase): number {
   return phase === 'paid' ? 1 : REVIEW_SWEEP_MAX_ATTEMPTS;
+}
+
+/**
+ * Outcome when a sweep produced no usable review. Free → escalate to paid.
+ * Paid: a provider that answered (excluded) was billed, so the result is final;
+ * only a pass where nobody answered is retryable.
+ */
+export function emptySweepSkip(
+  phase: ReviewPhase,
+  sweep: Pick<ReviewSweepResult, 'excluded'>,
+): 'paid_escalation_needed' | 'invalid_output' | 'providers_failed' {
+  if (phase === 'free') return 'paid_escalation_needed';
+  return sweep.excluded.length ? 'invalid_output' : 'providers_failed';
 }
 
 export function reviewFreeSweepBudgetMs(raw: string | undefined): number {
@@ -938,10 +955,7 @@ export async function runWebhookReview(
       reviewed: false,
       provider: null,
       findingCount: 0,
-      // A paid provider that answered unusably was billed: retrying would bill again.
-      skipped: paidPhase
-        ? sweep.excluded.length ? 'invalid_output' : 'providers_failed'
-        : 'paid_escalation_needed',
+      skipped: emptySweepSkip(paidPhase ? 'paid' : 'free', sweep),
     };
   }
 
@@ -1143,7 +1157,22 @@ export async function runWebhookReview(
     };
   };
 
-  return submitGate ? submitGate(target, submit) : submit();
+  if (!paidPhase) return submitGate ? submitGate(target, submit) : submit();
+  // The paid completion is already billed: a publication failure must not become
+  // job_failed, whose retry would run (and bill) the paid pass again.
+  try {
+    return await (submitGate ? submitGate(target, submit) : submit());
+  } catch (error) {
+    console.error(JSON.stringify({ // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      kanarekWebhookReview: 'paid_publish_failed',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      headSha: target.headSha,
+      provider: generated.provider,
+      error: error instanceof Error ? error.message : 'unknown_error',
+    }));
+    return { reviewed: false, provider: generated.provider, findingCount: 0, skipped: 'publish_failed' };
+  }
 
 }
 

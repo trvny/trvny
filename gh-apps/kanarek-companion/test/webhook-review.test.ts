@@ -29,6 +29,7 @@ import {
   reviewContinuationJob,
   reviewMarker,
   reviewRetryDelayMs,
+  emptySweepSkip,
   reviewRouterEnvForAttempt,
   reviewSourceLabel,
   submittedReviewMatches,
@@ -1286,4 +1287,13 @@ test('language gate drops only non-Chinese findings, not the whole review', () =
   assert.equal(reviewTextIsChinese({ summary: 'English summary', findings: [] }), true);
   assert.equal(reviewTextIsChinese({ summary: '', findings: [zh, en] }), true);
   assert.equal(reviewTextIsChinese({ summary: '', findings: [en] }), false);
+  assert.equal(reviewTextIsChinese({ summary: '', findings: [{ ...zh, title: 'English' }] }), false);
+});
+
+test('paid sweep that got any answer is final; only a silent pass retries', () => {
+  assert.equal(emptySweepSkip('free', { excluded: ['vercel'] }), 'paid_escalation_needed');
+  assert.equal(emptySweepSkip('paid', { excluded: ['xai'] }), 'invalid_output');
+  assert.equal(emptySweepSkip('paid', { excluded: [] }), 'providers_failed');
+  const base = { findingCount: 0, provider: 'xai', reviewed: false };
+  assert.equal(reviewRetryDelayMs({ ...base, skipped: 'publish_failed' }, 0), null);
 });

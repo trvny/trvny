@@ -13,6 +13,7 @@ import {
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
   REVIEW_ROUTER_WORK_MODEL,
+  REVIEW_BILLED_PROVIDER_HEADER,
 } from '../../core/review-service-protocol.ts';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -2564,11 +2565,25 @@ export async function handleReviewRouterRequest(
   if (invalidRequests === configured) {
     return jsonError(diagnosticMessage('Invalid review request', failures), 'invalid_request', 400);
   }
-  return jsonError(
+  const exhausted = jsonError(
     diagnosticMessage('Review providers unavailable', failures),
     'review_router_exhausted',
     failures.length > 0 && failures.every((failure) => isQuotaFailure(failure.split(':', 2)[1] ?? ''))
       ? 429
       : 502,
   );
+  const billed = billedPaidProvider(failures);
+  if (billed) exhausted.headers.set(REVIEW_BILLED_PROVIDER_HEADER, billed);
+  return exhausted;
+}
+
+// Paid provider that generated (unusable 200) or was cut off mid-generation:
+// the caller must not retry it, or the same review is billed twice.
+export function billedPaidProvider(failures: readonly string[]): string | null {
+  for (const failure of failures) {
+    const [id, category] = failure.split(':', 2);
+    if (PAID_PROVIDER_IDS.some((paid) => paid === id) &&
+        (category === 'invalid_response' || category === 'timeout')) return id;
+  }
+  return null;
 }

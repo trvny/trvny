@@ -182,7 +182,7 @@ export function reviewTextIsChinese(review: ParsedReview): boolean {
   return !review.findings.length || review.findings.some((finding) => {
     const title = typeof finding.title === 'string' ? finding.title : '';
     const body = typeof finding.body === 'string' ? finding.body : '';
-    return containsHan(`${title}${body}`);
+    return containsHan(title) && containsHan(body);
   });
 }
 

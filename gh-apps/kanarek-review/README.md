@@ -186,9 +186,12 @@ Free first, then paid: Companion sweeps the free queue (each provider excluded
 after an unusable answer; a clean verdict needs two free providers), and only
 an exhausted free sweep or rejected findings escalate to `kanarek-review-paid`.
 The paid pass makes one router call: the paid queue fails over on HTTP errors,
-but an unusable billed answer is final (`invalid_output`/`invalid_findings`)
-and is never retried. Only a paid pass where no provider answered retries
-with backoff.
+but anything billed is final and never retried — an unusable answer
+(`invalid_output`/`invalid_findings`, also when the router discarded it or the
+provider timed out mid-generation; the router names it in
+`x-kanarek-review-billed-provider`) or a failed GitHub publication
+(`publish_failed`). Only a paid pass where no provider answered retries with
+backoff.
 
 The router moves to the next listed model/provider on unusable responses,
 request rejections, quota exhaustion, authentication failures, or upstream

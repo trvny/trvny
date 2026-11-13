@@ -229,7 +229,7 @@ export function verifyReviewFindings(
       typeof raw.title === 'string' ? raw.title.trim().slice(0, 140) : '';
     const findingBody =
       typeof raw.body === 'string' ? raw.body.trim().slice(0, 1_400) : '';
-    if (!title || !findingBody || !containsHan(`${title}${findingBody}`)) continue;
+    if (!containsHan(title) || !containsHan(findingBody)) continue;
 
     const key = `${selected.path}:${selected.anchorLine}:${existingCode.replace(/\s+/g, ' ').trim()}`;
     if (seen.has(key)) continue;

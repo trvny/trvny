@@ -92,6 +92,7 @@ test("switching stations stops the old stream and respects pause", async () => {
   p.audio.dispatch("playing");
   assert.equal(p.status.textContent, "Playing live");
   p.select("bbc1");
+  p.audio.dispatch("error");
   await p.flush();
   assert.equal(p.instances[0].destroyed, true);
   assert.equal(p.instances[1].url, "bbc.m3u8");

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { wranglerVars } from './wrangler-config.ts';
+import { testRouting, testVars as wranglerVars } from './routing-fixture.ts';
 import test from 'node:test';
 
 import {
@@ -34,11 +34,7 @@ function request(
   });
 }
 
-// Defaults drawn from the exact Wrangler config, not a second model catalog.
-const routing = wranglerVars.KANAREK_REVIEW_ROUTING as {
-  providerOrders: Record<string, string[]>;
-  taskModels: Record<string, Record<string, string[]>>;
-};
+const routing = testRouting;
 const generalModels = (provider: string): string[] => routing.taskModels[provider]?.general ?? [];
 const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_OPENROUTER_MODELS: generalModels('openrouter'),

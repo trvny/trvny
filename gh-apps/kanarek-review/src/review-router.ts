@@ -311,7 +311,7 @@ export type ProviderCooldownId =
   // One model of a multi-model provider.
   | `${ReviewProviderId}#${string}`;
 
-const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
+export const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
   'aihubmix',
   'openrouter',
   'orcarouter',

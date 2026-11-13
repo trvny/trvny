@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { wranglerConfig } from './wrangler-config.ts';
 import test from 'node:test';
 
-import { configuredRoutingList } from '../src/review-router.ts';
+import { REVIEW_PROVIDER_IDS, configuredRoutingList } from '../src/review-router.ts';
 
 const config = wranglerConfig;
 
@@ -86,5 +86,22 @@ test('OpenRouter free model list stays nonempty and deduplicated', () => {
   for (const provider of ['aihubmix', 'orcarouter', 'openrouter', 'ollama', 'vercel']) {
     assertList(routing.taskModels[provider].general, `${provider}/general`);
     assert.equal(config.vars[`KANAREK_REVIEW_${provider.toUpperCase()}_MODELS`], undefined);
+  }
+});
+
+// Validity only: operators may reorder queues and swap models freely.
+test('every configured queue names known providers', () => {
+  const routing = config.vars.KANAREK_REVIEW_ROUTING as OperatorRouting;
+  for (const [task, order] of Object.entries(routing.providerOrders)) {
+    assertList(order, task);
+    for (const provider of order) {
+      assert.ok(REVIEW_PROVIDER_IDS.has(provider) || provider === 'workers-ai', `${task}: ${provider}`);
+    }
+  }
+  for (const provider of String(config.vars.KANAREK_REVIEW_PAID_PROVIDER_ORDER).split(',')) {
+    assert.ok(REVIEW_PROVIDER_IDS.has(provider.trim()), `paid: ${provider}`);
+  }
+  for (const provider of Object.keys(routing.taskModels)) {
+    assert.ok(REVIEW_PROVIDER_IDS.has(provider), `taskModels: ${provider}`);
   }
 });

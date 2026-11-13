@@ -2340,7 +2340,7 @@ test('code-review OpenRouter fallback preserves high reasoning', async () => {
   }), {
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
-    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,xingchen-agi/xing4.0-29b-a4b:free',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,recursive/flint-v1.0:free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     bodies.push(body);
@@ -2355,7 +2355,7 @@ test('code-review OpenRouter fallback preserves high reasoning', async () => {
 
   assert.equal(response?.status, 200);
   assert.deepEqual(bodies.map((body) => body.model), [
-    'dead/free', 'xingchen-agi/xing4.0-29b-a4b:free',
+    'dead/free', 'recursive/flint-v1.0:free',
   ]);
   assert.deepEqual(bodies[1]?.reasoning, { effort: 'high' });
   assert.equal(bodies[1]?.max_tokens, 36_864);

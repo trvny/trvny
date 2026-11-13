@@ -152,7 +152,8 @@ The private System One routeThe private System One route is intentionally separa
 chat router. It forwards at most 16 typed `choice` / `noul` / `score`
 questions through a rotating decision-only pool:
 
-1. AIHubMix `decision-model-preview`, then `mammoth-1-free` (27B) and `elephant-1-free` (9B), both with 16K context
+1. AIHubMix `decision-model-preview`, then `mammoth-1-free` (27B),
+   `elephant-1-free` (9B), both with 16K context, and `span-01-lite-free`
 2. OpenRouter Decisions: `inception/mercury-decide:free`, then free fallbacks `baseten/mammoth-1:free` (27B, 16K context), `baseten/elephant-1:free` (9B), `respan/span-01-lite:free`
 3. QwenCloud `decision-model-preview`
 4. Vercel AI Gateway `convaiinnovations/laya-free` through its TypeSafe-compatible System One API

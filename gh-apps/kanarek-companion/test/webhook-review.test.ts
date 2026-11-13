@@ -1294,6 +1294,8 @@ test('paid sweep that got any answer is final; only a silent pass retries', () =
   assert.equal(emptySweepSkip('free', { excluded: ['vercel'] }), 'paid_escalation_needed');
   assert.equal(emptySweepSkip('paid', { excluded: ['xai'] }), 'invalid_output');
   assert.equal(emptySweepSkip('paid', { excluded: [] }), 'providers_failed');
+  assert.equal(emptySweepSkip('paid', { excluded: [], aborted: true }), 'paid_timeout');
+  assert.equal(reviewRetryDelayMs({ findingCount: 0, provider: null, reviewed: false, skipped: 'paid_timeout' }, 0), null);
   const base = { findingCount: 0, provider: 'xai', reviewed: false };
   assert.equal(reviewRetryDelayMs({ ...base, skipped: 'publish_failed' }, 0), null);
 });

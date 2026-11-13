@@ -81,6 +81,9 @@ const L2_MIN_BUDGET_MS = 90_000;
 function alarmBudgetLeftMs(alarmStartedAt: number): number {
   return Math.max(0, MAX_REVIEW_SWEEP_BUDGET_MS - (Date.now() - alarmStartedAt));
 }
+const SETTLED_SKIPS = new Set([
+  'no_code_diff', 'invalid_output', 'invalid_findings', 'paid_timeout', 'publish_failed',
+]);
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const REVIEW_OUTCOME_KEY = 'review_outcome';
@@ -519,6 +522,7 @@ async function askReviewRouter(
 }
 
 export interface ReviewSweepResult {
+  aborted?: boolean;
   attempts: number;
   disposition: 'clean' | 'invalid_findings' | 'publish' | null;
   excluded: string[];
@@ -541,10 +545,12 @@ export function reviewSweepMaxAttempts(phase: ReviewPhase): number {
  */
 export function emptySweepSkip(
   phase: ReviewPhase,
-  sweep: Pick<ReviewSweepResult, 'excluded'>,
-): 'paid_escalation_needed' | 'invalid_output' | 'providers_failed' {
+  sweep: Pick<ReviewSweepResult, 'aborted' | 'excluded'>,
+): 'paid_escalation_needed' | 'invalid_output' | 'paid_timeout' | 'providers_failed' {
   if (phase === 'free') return 'paid_escalation_needed';
-  return sweep.excluded.length ? 'invalid_output' : 'providers_failed';
+  if (sweep.excluded.length) return 'invalid_output';
+  // Budget ran out while a paid call was in flight: it may have billed.
+  return sweep.aborted ? 'paid_timeout' : 'providers_failed';
 }
 
 export function reviewFreeSweepBudgetMs(raw: string | undefined): number {
@@ -575,6 +581,7 @@ export async function sweepReviewProviders(
   const startedAt = now();
   const excluded: string[] = [];
   let attempts = 0;
+  let aborted = false;
   let last: ReviewSweepResult | null = null;
 
   while (attempts < maxAttempts) {
@@ -590,7 +597,13 @@ export async function sweepReviewProviders(
     } finally {
       clearTimeout(timer);
     }
-    if (outcome.kind === 'unavailable' || deadline.signal.aborted) break;
+    if (deadline.signal.aborted) {
+      // Cut off mid-call: a paid provider may have billed. Callers see it via `aborted`.
+      aborted = true;
+      if (outcome.kind === 'invalid') excluded.push(outcome.provider);
+      break;
+    }
+    if (outcome.kind === 'unavailable') break;
     const provider = outcome.kind === 'ok' ? outcome.review.provider : outcome.provider;
     if (outcome.kind === 'ok') {
       const findings = verifyReviewFindings(outcome.review.parsed, files);
@@ -615,8 +628,8 @@ export async function sweepReviewProviders(
   }
 
   return last
-    ? { ...last, attempts, excluded }
-    : { attempts, disposition: null, excluded, findings: [], generated: null };
+    ? { ...last, aborted, attempts, excluded }
+    : { aborted, attempts, disposition: null, excluded, findings: [], generated: null };
 }
 
 const REVIEW_PROVIDER_DISPLAY: Record<string, { domain: string; label: string }> = {
@@ -1609,7 +1622,9 @@ export class WebhookReviewJob {
           reviewTargetKey(active.target) !== reviewTargetKey(continuation.target)) {
         return false;
       }
-      if (result.reviewed || result.skipped === 'no_code_diff') {
+      // Billed paid outcomes are settled too: a redelivered webhook for this head
+      // must not start (and pay for) the same review again.
+      if (result.reviewed || (result.skipped && SETTLED_SKIPS.has(result.skipped))) {
         await transaction.put(COMPLETED_TARGET_KEY, reviewTargetKey(continuation.target));
       }
       await transaction.put<ReviewOutcome>(REVIEW_OUTCOME_KEY, {

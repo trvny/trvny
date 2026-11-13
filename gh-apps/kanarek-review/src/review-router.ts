@@ -219,6 +219,7 @@ const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudge
   'workers-ai': 'daily-neurons',
 };
 const GROQ_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
+const GEMINI_MAX_OUTPUT_TOKENS = 65_536;
 const GEMINI_THINKING_LEVELS = new Set(['minimal', 'low', 'medium', 'high']);
 // Retired promotional IDs return model_retired even if a stale config lists them.
 const AIHUBMIX_RETIRED_FREE_MODELS = new Set([
@@ -604,6 +605,14 @@ function providers(
   return [...freeProviders, ...paidProviders(env)];
 }
 
+// RPC failures after xAI started generating (timeout, truncated/empty/garbled output).
+const XAI_BILLED_FAILURE_CODES = new Set([
+  'xai_timeout', 'xai_invalid_response', 'xai_incomplete', 'xai_empty_response', 'xai_agent_failed',
+  'agent_timeout', 'agent_bad_response', 'agent_incomplete', 'agent_empty_response',
+  'agent_deadline', 'agent_rounds_exhausted',
+]);
+const XAI_BILLED_HEADER = 'x-kanarek-xai-billed';
+
 export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObject): Promise<Response> {
   if (!env.XAI_REVIEW_RPC) {
     return Response.json({ error: { message: 'xai_rpc_unavailable' } }, { status: 503 });
@@ -615,6 +624,8 @@ export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObje
   if (typeof result?.retryAfter === 'string' && /^[0-9]{1,6}$/.test(result.retryAfter)) {
     headers.set('retry-after', result.retryAfter);
   }
+  const code = isObject(result?.payload) && isObject(result.payload.error) ? result.payload.error.code : null;
+  if (typeof code === 'string' && XAI_BILLED_FAILURE_CODES.has(code)) headers.set(XAI_BILLED_HEADER, code);
   return Response.json(result?.payload || { error: { message: 'xai_rpc_invalid' } }, { status, headers });
 }
 
@@ -1942,14 +1953,17 @@ function providerAttempts(
     });
   }
   if (provider.id === 'gemini-standard') {
+    // Thinking counts against max_output_tokens. Free tier limits requests and
+    // tokens per minute, not output length: use the model's 64K output ceiling and
+    // the shared reasoning floor so thinking cannot starve the answer.
+    const thinking = task === 'quip' ? 'low' : task === 'shitpost' ? 'medium'
+      : configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL);
     return [{
       model: provider.model,
       label: 'default',
-      minimumMaxTokens: 2_048,
-      maximumMaxTokens: 8_192,
-      // Creative candidates use medium thinking; other tasks retain defaults.
-      requestFields: { thinking_level: task === 'shitpost' ? 'medium'
-        : configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL) },
+      minimumMaxTokens: task === 'quip' ? 2_048 : configuredReasoningMinimumMaxTokens(env),
+      maximumMaxTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      requestFields: { thinking_level: thinking },
     }];
   }
   if (provider.id === 'gemini-flex') {
@@ -2491,6 +2505,10 @@ export async function handleReviewRouterRequest(
             : provider.id === 'aihubmix'
               ? classifyAIHubMixError(status, preview)
               : `http_${status}`;
+        // xAI RPC reports a billed failure as 502/504; keep it distinguishable from an outage.
+        if (provider.id === 'xai' && response.headers.has(XAI_BILLED_HEADER)) {
+          providerFailureCategory = 'invalid_response';
+        }
         if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
         if (singleModel && ['http_404', 'http_404_model_retired', 'http_410', 'http_400_invalid_model']
           .includes(providerFailureCategory)) modelFault = providerFailureCategory;

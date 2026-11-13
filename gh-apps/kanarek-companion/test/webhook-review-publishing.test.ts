@@ -723,3 +723,13 @@ test('provider sweep bounds the first and follow-up attempts with the phase dead
   assert.equal(signals[1]?.aborted, true);
   assert.equal(result.generated, null);
 });
+
+test('deadline abort keeps a billed paid provider and flags the sweep as aborted', async () => {
+  const result = await sweepReviewProviders((_excluded, signal) =>
+    new Promise<ReviewRouterOutcome>((resolve) => {
+      signal?.addEventListener('abort', () => resolve({ kind: 'invalid', provider: 'xai' }));
+    }), sweepFiles, { budgetMs: 20, maxAttempts: 1 });
+  assert.equal(result.aborted, true);
+  assert.deepEqual(result.excluded, ['xai']);
+  assert.equal(result.generated, null);
+});

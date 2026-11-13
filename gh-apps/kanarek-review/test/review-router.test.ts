@@ -712,7 +712,7 @@ test('unbilled Gemini Standard is a free review provider and never a paid fallba
   assert.equal(requestBody.model, 'gemini-3.8-flash');
   assert.equal(requestBody.service_tier, undefined);
   assert.equal(requestBody.store, false);
-  assert.deepEqual(requestBody.generation_config, { max_output_tokens: 8_192, thinking_level: 'high' });
+  assert.deepEqual(requestBody.generation_config, { max_output_tokens: 16_384, thinking_level: 'high' });
   assert.equal(requests, 1);
 
   const health = await reviewProviderPoolHealth(env);

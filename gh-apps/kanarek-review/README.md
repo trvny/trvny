@@ -187,11 +187,13 @@ after an unusable answer; a clean verdict needs two free providers), and only
 an exhausted free sweep or rejected findings escalate to `kanarek-review-paid`.
 The paid pass makes one router call: the paid queue fails over on HTTP errors,
 but anything billed is final and never retried — an unusable answer
-(`invalid_output`/`invalid_findings`, also when the router discarded it or the
-provider timed out mid-generation; the router names it in
-`x-kanarek-review-billed-provider`) or a failed GitHub publication
-(`publish_failed`). Only a paid pass where no provider answered retries with
-backoff.
+(`invalid_output`/`invalid_findings`, also when the router discarded it, Grok
+returned truncated/empty output, or a provider timed out mid-generation; the
+router names it in `x-kanarek-review-billed-provider`), a paid call cut off by
+the alarm budget (`paid_timeout`), or a failed GitHub publication
+(`publish_failed`). These outcomes also settle the head, so a redelivered
+webhook does not pay again. Only a paid pass where no provider answered
+retries with backoff.
 
 The router moves to the next listed model/provider on unusable responses,
 request rejections, quota exhaustion, authentication failures, or upstream
@@ -252,10 +254,13 @@ cooldown/fallback path.
 
 Gemini uses the native Interactions endpoint. When
 `KANAREK_REVIEW_GEMINI_SERVICE_TIER=standard`, the request omits `service_tier`
-(Standard is Google's default), joins the free pool and caps output at 8K tokens.
+(Standard is Google's default) and joins the free pool. The free tier limits
+requests and tokens per minute, not output length, and thinking counts against
+`max_output_tokens`, so non-quip tasks get the 16K reasoning floor up to the
+model's 64K ceiling (quips: low thinking, 2K floor).
 The `gemini-flex` paid fallback is omitted in this mode to avoid retrying the
 same unbilled key after free attempts.
-Reactor candidates use `thinking_level: medium` with the existing 8K free-tier output ceiling; judges and review tasks keep their configured reasoning level. Provider keys stay in the shared private router. Switching this setting back to `flex`
+Reactor candidates use `thinking_level: medium`; judges and review tasks keep their configured reasoning level. Provider keys stay in the shared private router. Switching this setting back to `flex`
 restores the old paid reserve instead; neither mode overrides the project's
 actual Google billing status. Quota 429s continue through shared cooldowns.
 

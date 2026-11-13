@@ -43,6 +43,9 @@ test('model contract uses compact Chinese instructions and preserves output sche
   const messages = buildMessages('# style', 'Teams o 07:59', '123.1', 'text');
   assert.equal(messages.length, 2);
   assert.match(messages[0].content, /原创/);
+  assert.match(messages[0].content, /1–3句/);
+  assert.match(messages[0].content, /自洽/);
+  assert.match(messages[0].content, /120–450字符/);
   assert.match(messages[0].content, /不可信/);
   assert.match(messages[0].content, /"kind":"text"/);
   assert.doesNotMatch(messages[0].content, /Wymyśl sam konkretny temat/);
@@ -73,6 +76,8 @@ test('generation and judge enforce the selected language independent of source',
   assert.match(messages[1].content, /强制输出语言: Simplified Chinese \(zh-Hans\)/);
   const judge = judgeMessages([{ content: { kind: 'text', text: '中文' } }], {}, outputLanguage);
   assert.match(judge[0].content, /指定语言简体中文/);
+  assert.match(judge[0].content, /短而有力/);
+  assert.match(judge[0].content, /随机词堆砌/);
 });
 
 test('optional limerick instructions are Chinese but never scheduled by cadence', () => {
@@ -210,7 +215,7 @@ test('validateContent treats text length as a soft writing target with a roomy s
     1_200,
   );
   assert.throws(
-    () => validateContent({ kind: 'text', text: 'x'.repeat(2_401) }, { mode: 'text' }),
+    () => validateContent({ kind: 'text', text: 'x'.repeat(1_401) }, { mode: 'text' }),
     /content_invalid_text_length/,
   );
 });

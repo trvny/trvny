@@ -1,0 +1,234 @@
+# TRAVNY full guide
+
+Source: https://travny.pages.dev/
+
+> Complete machine-readable map of the public TRAVNY hub, related services, stable endpoints and published texts.
+
+## Identity and hosts
+
+- Canonical hub: https://travny.pages.dev/
+- Retiring custom domain: https://trfny.com/ — redirects to the canonical Pages host while the domain remains active.
+- Legacy Pages host: https://tvpi.pages.dev/ — permanently redirects to the canonical host while preserving path and query.
+- Repository: https://github.com/trvny/trvny/tree/main/pages
+- TVPI Worker repository: https://github.com/trvny/tvpi
+- Creator identity: TRAVNY; aliases trvny, travny, trfny, trafny.
+- GitHub identity: https://github.com/trvny ; related organization travnie: https://github.com/travnie
+- Project source maps: https://github.com/trvny/trvny ; https://github.com/travnie/twojstar ; https://github.com/trvny/feedseek
+
+The hub is a lightweight static/edge site. It links independent services rather than hiding them behind one application runtime.
+
+## Hub routes
+
+### Home
+
+- Human page: https://travny.pages.dev/
+- Markdown representation: https://travny.pages.dev/index.md
+- Concise LLM guide: https://travny.pages.dev/llms.txt
+- This full guide: https://travny.pages.dev/llms-full.txt
+
+### TVPI
+
+- Human TV page: https://travny.pages.dev/tv/
+- Markdown page: https://travny.pages.dev/tv/index.md
+- Streaming Worker: https://tvpi.travny.workers.dev/
+- Worker overview: https://tvpi.travny.workers.dev/index.md
+- Worker LLM guide: https://tvpi.travny.workers.dev/llms.txt
+- Worker full guide: https://tvpi.travny.workers.dev/llms-full.txt
+- Stable combined playlist: https://tvpi.travny.workers.dev/playlist.m3u
+- Raw GitHub playlist fallback: https://raw.githubusercontent.com/trvny/tvpi/main/streams/playlist.m3u
+
+TVP upstream stream signatures are short-lived. Consumers should save the stable Worker URLs. Per-channel `.m3u8` endpoints resolve or serve fresh HLS data behind a durable URL.
+
+### Lab
+
+- Workshop: https://travny.pages.dev/lab/
+- Field notes: https://travny.pages.dev/lab/field-notes/
+
+The Astro Lab is an English-language section of the existing Hub with experiments and a notebook of planned follow-ups. It shares the Hub deployment and is not a separate service.
+
+### Papagenerator
+
+- Browser editor: https://travny.pages.dev/papagenerator/
+- Source of truth: https://github.com/travnie/twojstar/tree/main/papagenerator
+
+Papagenerator adds meme stickers to local images and exports PNG in the browser. The Pages build publishes a pinned version of its HTML and JavaScript under this route; photos stay in the user's browser.
+
+### Teksty
+
+- Human index: https://travny.pages.dev/teksty/
+- Markdown index: https://travny.pages.dev/teksty/index.md
+- Tokenowy Mundial AI: https://travny.pages.dev/teksty/token-worldcup/
+- GitHubowa Kraina: https://travny.pages.dev/teksty/githubowa-kraina/
+- Grass Mud Horse (English / Polish in one article): https://travny.pages.dev/teksty/grass-mud-horse/
+- Main Atom feed (articles, CoCzyDziennik and Reactor entries): https://travny.pages.dev/teksty/feed.xml
+- CoCzyDziennik issue archive (not a separate feed): https://travny.pages.dev/przeglad/
+- GitHubowa Kraina Markdown (region and place descriptions): https://travny.pages.dev/teksty/githubowa-kraina/index.md
+- GitHubowa Kraina structured atlas data: https://travny.pages.dev/teksty/githubowa-kraina/atlas.json
+- Infrastructure map: https://travny.pages.dev/teksty/githubowa-kraina/universe.html
+- Maintained Quarto source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.qmd
+- Verified generated HTML source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.html
+
+TRAVNY publishes the generated Token Cup artifact at build time from `pages/token-worldcup/` rather than maintaining a second copy; the model x effort cost matrix is at https://travny.pages.dev/teksty/token-worldcup/effort-matrix.html. The article compares token counts for equivalent natural text in 27 languages using `o200k_base`; English is the normalized index baseline (`EN = 100`) while the measured English sample is 95 tokens. GitHubowa Kraina is maintained directly in `trvny/trvny` (`pages/site/teksty/githubowa-kraina/`) as an interactive atlas: select a region, then a place for its description and destination. The region catalogue lives in `atlas.json`; its Markdown guide is generated with `node pages/scripts/github-world-guide.mjs`. Repository and service documentation remains authoritative for current details. The Chinese internet slang essay is one bilingual document at `pages/site/teksty/grass-mud-horse/index.html`, with PL / EN switched in-page and one canonical URL. The old Polish path redirects to the same article with `?lang=pl`. The main Atom feed aggregates existing articles from `pages/site/teksty/posts.json`, published CoCzyDziennik issues from Astro `pages/astro/src/content/digests/*.md` and live entries from Reactor JSON Feed. It stores no second copy of digests or editorial notes. `posts.json` is the legacy article catalog, not the complete unified index; the Markdown index is a static guide.
+
+## GitHubowa Kraina: atlas details
+
+Generated from the atlas catalogue. Project documentation is authoritative.
+
+### Feedseek
+
+The observatory for generated and enhanced feeds.
+
+Project: https://github.com/trvny/feedseek
+
+- Feed directory: Browse the published RSS, Atom and JSON feeds. https://trvny.github.io/feedseek/
+- Web reader: Read entries from the Feedseek catalogue in a browser. https://trvny.github.io/feedseek/reader/
+- Source registry: The configuration that lists feed sources and generators. https://github.com/trvny/feedseek/blob/main/feeds.yaml
+- Model feeds: Machine-readable feed output and guidance for agents. https://github.com/trvny/feedseek/blob/main/docs/model-feeds.md
+
+### Kanarek
+
+Android news, widgets and streaming in one app.
+
+Project: https://github.com/travnie/Kanarek
+
+- News reader: Follow RSS and Atom sources, save articles and use offline content. https://github.com/travnie/Kanarek#news
+- Home-screen widget: A configurable news slideshow with navigation and source settings. https://github.com/travnie/Kanarek
+- Radio and TV: Background radio and IPTV playback with playlists and Cast. https://github.com/travnie/Kanarek
+- Optional Worker: An optional Cloudflare backend for fetching and network features. The app can parse feeds directly. https://github.com/travnie/Kanarek
+
+### WAM Bridge
+
+Windows audio crosses the Wi-Fi bridge to Samsung speakers.
+
+Project: https://github.com/travnie/wambridge
+
+- Audio bridge: A local stream and Samsung playback API send audio to supported speakers. https://github.com/travnie/wambridge
+- foobar2000 output: A component streams audio playing in foobar2000, including internet radio. https://github.com/travnie/wambridge
+- Speaker compatibility: Shape M5 WAM550 was tested; other models remain candidates. https://github.com/travnie/wambridge#speaker-compatibility
+
+### Aistee
+
+An Android-first AI workbench with shared Kotlin Multiplatform logic.
+
+Project: https://github.com/travnie/aistee
+
+- Android app: The first client for a workbench bringing multiple AI providers together. https://github.com/travnie/aistee
+- Provider connections: Use native providers and web-based services from one workbench. https://github.com/travnie/aistee
+- Shared core: Kotlin Multiplatform hosts shared provider and domain logic. Desktop and iOS are planned. https://github.com/travnie/aistee
+- Rolling APK: The current rolling Android build, published by the project. https://github.com/travnie/aistee/releases
+
+### Autka
+
+A car-shopping project spanning Poland, Europe and US imports.
+
+Project: https://github.com/travnie/Autka
+
+- Car shopping: Brings marketplace routes and car-shopping tools together. Reliable licensed listings remain a project constraint. https://github.com/travnie/Autka
+- Import calculator: Estimates the cost of bringing a car from the USA to Poland. https://github.com/travnie/Autka
+- Android app: The Android-first open-source project and its current development status. https://github.com/travnie/Autka
+
+### TVPI
+
+Stable entry points for TVP IPTV streams.
+
+Project: https://github.com/trvny/tvpi
+
+- TV player: Open the TVP channels from the TRAVNY hub. https://travny.pages.dev/tv/
+- Stable playlist: A saveable M3U with Worker endpoints for each channel. https://tvpi.travny.workers.dev/playlist.m3u
+- Residential refresh: A Polish home connection can refresh upstream manifests. Continuous availability is not guaranteed. https://github.com/trvny/tvpi
+
+### twojstar workshop
+
+A shared home for tools, utilities and experiments.
+
+Project: https://github.com/travnie/twojstar
+
+- Codebench: Generate, scan and export QR codes and barcodes in the browser. https://codebench.travny.workers.dev/
+- Streambench: A local-first workshop for IPTV, radio, playlists and streams. https://streambench.travny.workers.dev/
+- Docbench: Work with documents and PDFs locally in the browser. https://docbench.travny.workers.dev/
+- Weather Feed: Local weather, air quality and alerts for Kościelec and Chrzanów. https://weather.travny.workers.dev/
+- Feedboard: Windows 11 feed widget and settings application. https://github.com/travnie/twojstar/tree/main/feedboard
+- Paint.NET plugins: Image tools including ICO and AI Restore plugins. https://github.com/travnie/twojstar/tree/main/paintdotnet
+- Audacity plugin: Auto Declip VST3 for audio restoration. https://github.com/travnie/twojstar/tree/main/audacity
+- Intent Keyboard: An experiment turning rough intent into natural text. https://github.com/travnie/twojstar/tree/main/intent-keyboard
+
+## Related services
+
+### Weather
+
+- Dashboard: https://weather.travny.workers.dev/
+- LLM guide: https://weather.travny.workers.dev/llms.txt
+- Full guide: https://weather.travny.workers.dev/llms-full.txt
+- Current ensemble JSON: https://weather.travny.workers.dev/state.json
+- Weather changes Atom feed: https://weather.travny.workers.dev/feed.atom
+- IMGW warnings Atom feed: https://weather.travny.workers.dev/warnings.atom
+
+The service combines multiple sources for Kościelec in Chrzanów and includes temperature, wind, humidity, air quality, pollen and IMGW warnings.
+
+### Feedseek
+
+- Directory: https://trvny.github.io/feedseek/
+- LLM guide: https://trvny.github.io/feedseek/llms.txt
+- Full guide: https://trvny.github.io/feedseek/llms-full.txt
+- Markdown directory: https://trvny.github.io/feedseek/index.md
+- OPML bundle: https://trvny.github.io/feedseek/subscriptions.opml
+- Sitemap: https://trvny.github.io/feedseek/sitemap.xml
+- Source: https://github.com/trvny/feedseek
+
+Feedseek publishes self-updating Atom/RSS feeds, JSON Feed sidecars, OPML and a browser Reader. Its own guides are the source of truth for the current feed inventory and supported WebMCP tools.
+
+### Streambench
+
+- Application: https://streambench.travny.workers.dev/
+- Markdown page: https://streambench.travny.workers.dev/index.md
+- LLM guide: https://streambench.travny.workers.dev/llms.txt
+- Full guide: https://streambench.travny.workers.dev/llms-full.txt
+- Health JSON: https://streambench.travny.workers.dev/health
+- Provider manifest: https://streambench.travny.workers.dev/api/providers
+
+Streambench is a local-first IPTV, internet-radio, HLS, M3U/M3U8 and XMLTV workshop. Local files, edits, favorites and history remain in the browser.
+
+### Code Bench
+
+- Application: https://codebench.travny.workers.dev/
+- Markdown page: https://codebench.travny.workers.dev/index.md
+- LLM guide: https://codebench.travny.workers.dev/llms.txt
+- Full guide: https://codebench.travny.workers.dev/llms-full.txt
+
+Code Bench creates, styles, scans and exports QR codes and barcodes. User payloads are processed in browser state.
+
+### Doc Bench
+
+- Application: https://docbench.travny.workers.dev/
+- Markdown page: https://docbench.travny.workers.dev/index.md
+- LLM guide: https://docbench.travny.workers.dev/llms.txt
+- Full guide: https://docbench.travny.workers.dev/llms-full.txt
+
+Doc Bench edits text and structured documents and performs PDF maintenance locally in the browser. Its own guide documents which WebMCP tools can expose current editor state to an agent.
+
+## Discovery files
+
+- Sitemap: https://travny.pages.dev/sitemap.xml
+- Robots policy: https://travny.pages.dev/robots.txt
+- Web manifest: https://travny.pages.dev/site.webmanifest
+- Hub Markdown: https://travny.pages.dev/index.md
+- TVPI Markdown: https://travny.pages.dev/tv/index.md
+- Teksty Markdown: https://travny.pages.dev/teksty/index.md
+- GitHubowa Kraina Markdown: https://travny.pages.dev/teksty/githubowa-kraina/index.md
+- Teksty Atom (articles, CoCzyDziennik and editorial notes): https://travny.pages.dev/teksty/feed.xml
+
+The sitemap contains public human-facing hub routes. Service-specific machine-readable resources live on their owning service and are linked here rather than duplicated.
+
+## Source-of-truth rules
+
+- `trvny/trvny/pages/` owns the TRAVNY hub; `trvny/tvpi` owns the TVPI streaming Worker.
+- Each linked service owns its detailed capability and agent-access documentation in its own `llms.txt` / `llms-full.txt`.
+- Tokenowy Mundial AI is maintained in `trvny/trvny/pages/token-worldcup/`; the Pages build copies the rendered HTML to the article route.
+- GitHubowa Kraina is maintained directly in `trvny/trvny/pages/site/teksty/githubowa-kraina/`.
+- Papagenerator is maintained exclusively in `travnie/twojstar/papagenerator/`; the Pages build fetches its pinned release rather than keeping a separate copy.
+- Generated or proxied artifacts are not separate maintained sources.
+
+
+## Agent access
+
+On browser hosts implementing WebMCP, TRAVNY pages with the shared navigation expose `open_travny_destination`. It only starts navigation to destinations already present in the visible TRAVNY menu and does not accept arbitrary URLs.

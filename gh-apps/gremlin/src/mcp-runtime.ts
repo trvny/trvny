@@ -20,10 +20,11 @@ export async function gremlinGatewayManifest(
   origin: string,
   metadata?: RuntimeEnv['CF_VERSION_METADATA'],
 ): Promise<JsonObject> {
+  const openApi = pluginMcpOpenApi(origin);
   return {
-    ...await gatewayManifest(pluginMcpOpenApi(origin), metadata),
+    ...await gatewayManifest(openApi, metadata),
     service: 'gremlin',
-    mcp: gremlinMcpManifest(origin),
+    mcp: combinedGremlinMcpManifest(openApi),
   };
 }
 

@@ -73,6 +73,7 @@ import type {
 
 const COMMENT_STATE_RE = /<!-- kanarek-state:([a-f0-9]{16}) -->/;
 const QUIP_SCOPE_RE = /<!-- kanarek-quip-scope:(\d+) -->/;
+const QUIP_HEAD_RE = /<!-- kanarek-quip-head:([a-f0-9]{40}) -->/;
 
 type QuipFacts = {
   scopeVersion: 2;
@@ -137,6 +138,22 @@ export function isCompanionDisabled(pr: Pick<PullRequest, 'labels'>): boolean {
   return Boolean(
     pr.labels?.some((label) => label.name?.trim().toLowerCase() === 'no-goblin'),
   );
+}
+
+// A new PR head gets a new rollout opportunity; repeated webhook events do not.
+export function reuseQuipForHead(
+  previousKey: string | undefined,
+  quipKey: string,
+  previousHead: string | undefined,
+  currentHead: string,
+  previousQuip: string,
+): boolean {
+  return previousKey === quipKey && previousHead === currentHead && Boolean(previousQuip);
+}
+
+// Keep the existing adaptive percentage, but roll per revision, not per PR lifetime.
+export async function quipRolloutNumber(prNumber: number, head: string): Promise<number> {
+  return Number.parseInt((await hash(`${prNumber}:${head}`)).slice(0, 8), 16);
 }
 
 export function shouldCheckPaidReceipt(
@@ -303,6 +320,7 @@ export async function refreshCompanion(
   const receiptHash = await hash({ state: stateHash, head: stateInput.head });
   const previous = oldComments[0];
   const previousKey = previous?.body?.match(QUIP_KEY_RE)?.[1];
+  const previousQuipHead = previous?.body?.match(QUIP_HEAD_RE)?.[1];
   const previousStateHash = previous?.body?.match(COMMENT_STATE_RE)?.[1];
   const previousSource = previous?.body?.match(SOURCE_RE)?.[1] ?? 'preset';
   const previousQuip = sanitize(
@@ -319,8 +337,13 @@ export async function refreshCompanion(
     previousSource,
     language,
   );
-  const sameQuipState =
-    previousKey === quipKey && Boolean(previousLearnedQuip);
+  const sameQuipState = reuseQuipForHead(
+    previousKey,
+    quipKey,
+    previousQuipHead,
+    pr.head.sha,
+    previousLearnedQuip,
+  );
   let quip = sameQuipState ? previousLearnedQuip : '';
   let source: 'ai' | 'pool' | 'preset' =
     sameQuipState && ['ai', 'pool', 'preset'].includes(previousSource)
@@ -386,8 +409,9 @@ export async function refreshCompanion(
 
   let aiSelected = false;
   if (!quip && !recoveredSpecific) {
+    const rolloutNumber = await quipRolloutNumber(target.pullRequestNumber, pr.head.sha);
     const baseAiSelected = await shouldAskAi(
-      target.pullRequestNumber,
+      rolloutNumber,
       quipKey,
       current.key,
       env,
@@ -395,7 +419,7 @@ export async function refreshCompanion(
     if (baseAiSelected) {
       measuredBank = await bankContext(env, quipKey);
       aiSelected = await shouldAskAiForBank(
-        target.pullRequestNumber,
+        rolloutNumber,
         quipKey,
         current.key,
         env,

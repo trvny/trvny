@@ -1,0 +1,74 @@
+  <section class="bench-lab" aria-labelledby="labHeading">
+    <div class="labhead">
+      <h2 id="labHeading">P400 · BENCH LAB</h2>
+      <span>Three browser workshops</span>
+    </div>
+    <div class="benchgrid" id="benchRail" role="group" aria-label="Browser workbenches">
+      <a class="bench stream" href="https://streambench.travny.workers.dev/">
+        <div class="benchtop"><span class="benchno">P401</span><span class="benchicon" aria-hidden="true">▶⌁</span></div>
+        <h3>STREAMBENCH</h3>
+        <p>Play and inspect IPTV, radio, HLS streams, M3U playlists and XMLTV.</p>
+        <div class="benchtags"><span>IPTV</span><span>HLS</span><span>M3U</span><span>EPG</span></div>
+        <span class="bench-go">OPEN ›</span>
+      </a>
+      <a class="bench code" href="https://codebench.travny.workers.dev/">
+        <div class="benchtop"><span class="benchno">P402</span><span class="benchicon" aria-hidden="true">▦+</span></div>
+        <h3>CODEBENCH</h3>
+        <p>Create, preview and export QR codes and barcodes in your browser.</p>
+        <div class="benchtags"><span>QR</span><span>BARCODE</span><span>EXPORT</span><span>LOCAL</span></div>
+        <span class="bench-go">OPEN ›</span>
+      </a>
+      <a class="bench doc" href="https://docbench.travny.workers.dev/">
+        <div class="benchtop"><span class="benchno">P403</span><span class="benchicon" aria-hidden="true">▤✎</span></div>
+        <h3>DOCBENCH</h3>
+        <p>Edit, preview and manage documents and PDFs locally.</p>
+        <div class="benchtags"><span>TXT</span><span>PDF</span><span>MARKDOWN</span><span>LOCAL</span></div>
+        <span class="bench-go">OPEN ›</span>
+      </a>
+    </div>
+    <div class="rail-controls bench-controls" id="benchDots">
+      <span class="rail-hint">SWIPE ↔</span>
+      <div class="rail-dots" role="group" aria-label="Choose a workbench">
+        <button type="button" data-slide="0" aria-label="401 Streambench" aria-pressed="true">401</button>
+        <button type="button" data-slide="1" aria-label="402 Codebench" aria-pressed="false">402</button>
+        <button type="button" data-slide="2" aria-label="403 Docbench" aria-pressed="false">403</button>
+      </div>
+      <button class="rail-pause" type="button" data-rail-toggle aria-label="Pause automatic rotation" hidden>Pause</button>
+    </div>
+  </section>
+
+<style>
+  .bench-lab { margin-top:32px; }
+  .labhead { display:flex; align-items:baseline; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:7px; margin-bottom:14px; }
+  .labhead h2 { color:var(--pink); margin:0; }
+  .labhead span { color:var(--muted); font-size:19px; }
+  .benchgrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+  .bench { position:relative; min-width:0; min-height:190px; padding:16px 16px 38px; border-top:6px solid; background:var(--panel); color:var(--fg); text-decoration:none; }
+  .bench:hover { background:#111826; }
+  .bench.stream { border-color:var(--cyan); } .bench.code { border-color:#6f8cff; } .bench.doc { border-color:#ff9f43; }
+  .benchtop { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .benchno { font:11px 'Silkscreen',monospace; padding:3px 7px; color:var(--bg); }
+  .stream .benchno { background:var(--cyan); } .code .benchno { background:#6f8cff; } .doc .benchno { background:#ff9f43; }
+  .benchicon { font:30px/1 'Silkscreen',monospace; }
+  .stream .benchicon,.stream h3 { color:var(--cyan); } .code .benchicon,.code h3 { color:#8da2ff; } .doc .benchicon,.doc h3 { color:#ff9f43; }
+  .bench h3 { font:20px 'Silkscreen',monospace; margin:13px 0 0; overflow-wrap:anywhere; }
+  .bench p { font-size:22px; line-height:1.3; margin:9px 0 0; }
+  .benchtags { display:flex; flex-wrap:wrap; gap:5px; margin-top:12px; }
+  .benchtags span { font:9px 'Silkscreen',monospace; border:1px solid var(--line); color:var(--muted); padding:3px 5px; }
+  .bench-go { position:absolute; right:14px; bottom:12px; font:11px 'Silkscreen',monospace; color:var(--muted); }
+  .rail-controls { display:none; }
+  .rail-hint { font:10px 'Silkscreen',monospace; color:var(--muted); }
+  .rail-dots { display:flex; gap:7px; }
+  .rail-pause,.rail-dots button { min-width:42px; min-height:32px; border:1px solid var(--line); background:#0b0f16; color:var(--muted); font:10px 'Silkscreen',monospace; }
+  .rail-dots button[aria-pressed="true"] { border-color:var(--pink); background:#2a1930; color:var(--pink); }
+  @media (max-width:640px) {
+    .labhead { align-items:flex-start; flex-direction:column; gap:3px; }
+    .benchgrid { display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory; overscroll-behavior-x:contain; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .benchgrid::-webkit-scrollbar { display:none; }
+    .benchgrid>.bench { flex:0 0 86%; scroll-snap-align:start; scroll-snap-stop:always; }
+    .rail-controls { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 1px 0; }
+  }
+</style>
+<script>
+  import '../../../site/assets/rails.js';
+</script>

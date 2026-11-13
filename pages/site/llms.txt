@@ -11,7 +11,6 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Hub](https://travny.pages.dev/) · [Markdown](https://travny.pages.dev/index.md)
 - [TVPI](https://travny.pages.dev/tv/) · [Markdown](https://travny.pages.dev/tv/index.md)
 - [TRAVNY Lab](https://travny.pages.dev/lab/): experiments and live widgets
-- [Lab field notes](https://travny.pages.dev/lab/field-notes/): roadmap and experiments
 - [Papagenerator](https://travny.pages.dev/papagenerator/): browser-only meme and sticker editor; images stay on the device
 - [Badges](https://travny.pages.dev/badges/): ecosystem, bot, AI and live status/counter SVG badges with copyable Markdown/HTML; catalogue JSON at `/badge/index.json`
 - [Teksty](https://travny.pages.dev/teksty/) · [Markdown guide](https://travny.pages.dev/teksty/index.md): unified publication directory including CoCzyDziennik and Reactor
@@ -32,6 +31,8 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Doc Bench](https://docbench.travny.workers.dev/) · [LLM guide](https://docbench.travny.workers.dev/llms.txt) · [full guide](https://docbench.travny.workers.dev/llms-full.txt)
 
 ## Usage notes
+- The home page includes the Radio Paradise player; track metadata: `/api/radio-now`.
+- Lab hosts the Streambench, Codebench and Docbench carousel.
 
 - TVPI upstream HLS signatures are short-lived. Prefer maintained TVPI Worker endpoints over short-lived tokenized upstream URLs.
 - Weather is a multi-source local ensemble for Kościelec in Chrzanów with air quality, pollen and IMGW warnings.

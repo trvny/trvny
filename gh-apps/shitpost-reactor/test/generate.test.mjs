@@ -78,6 +78,7 @@ test('generation and judge enforce the selected language independent of source',
   assert.match(judge[0].content, /指定语言简体中文/);
   assert.match(judge[0].content, /短而有力/);
   assert.match(judge[0].content, /随机词堆砌/);
+  assert.match(judge[0].content, /只在确实更好时才精修获胜候选/);
 });
 
 test('optional limerick instructions are Chinese but never scheduled by cadence', () => {

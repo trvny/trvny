@@ -313,3 +313,53 @@ test('scoped MCP only exposes requested specialist names', async () => {
   const payload = await response.json() as { result: { tools: Array<{ name: string }> } };
   assert.deepEqual(payload.result.tools.map((tool) => tool.name), ['feedseek_search']);
 });
+
+test('scoped MCP dispatches selected Feedseek and rejects unselected tools', async () => {
+  let upstreamCalls = 0;
+  const fetcher: typeof fetch = async (input, init) => {
+    upstreamCalls += 1;
+    assert.equal(String(input), 'https://feeds.trfny.com/mcp');
+    const body = JSON.parse(String(init?.body)) as {
+      params: { name: string; arguments: { limit?: number } };
+    };
+    assert.equal(body.params.name, 'recent');
+    assert.equal(body.params.arguments.limit, 1);
+    return Response.json({
+      jsonrpc: '2.0',
+      result: {
+        structuredContent: { count: 1, entries: [{ id: 'entry:1' }] },
+      },
+    });
+  };
+
+  const document = { paths: {} };
+  const invoke = authorizedInvoke();
+  const selected = rpcRequest({
+    jsonrpc: '2.0', id: 151, method: 'tools/call',
+    params: { name: 'feedseek_recent', arguments: { limit: 1 } },
+  }, 'tools/call', 'feedseek_recent');
+  const permitted = await handleScopedMcpGw(
+    selected, document, {}, invoke, loopbackGateway(selected, invoke), ['feedseek_recent'], fetcher,
+  );
+  assert.ok(permitted);
+  const result = await permitted.json() as {
+    result: { isError: boolean; structuredContent: { ok: boolean; count: number } };
+  };
+  assert.equal(result.result.isError, false);
+  assert.equal(result.result.structuredContent.ok, true);
+  assert.equal(result.result.structuredContent.count, 1);
+  assert.equal(upstreamCalls, 1);
+
+  const unselected = rpcRequest({
+    jsonrpc: '2.0', id: 152, method: 'tools/call',
+    params: { name: 'feedseek_search', arguments: { query: 'test' } },
+  }, 'tools/call', 'feedseek_search');
+  const denied = await handleScopedMcpGw(
+    unselected, document, {}, invoke, loopbackGateway(unselected, invoke), ['feedseek_recent'], fetcher,
+  );
+  assert.ok(denied);
+  const failure = await denied.json() as { error: { code: number; message: string } };
+  assert.equal(failure.error.code, -32602);
+  assert.equal(failure.error.message, 'Unknown tool');
+  assert.equal(upstreamCalls, 1);
+});

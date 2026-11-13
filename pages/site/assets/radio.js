@@ -126,7 +126,7 @@
     });
     audio.addEventListener('playing', () => { if (wantsPlaying) showPlayback(true, 'Playing live'); });
     audio.addEventListener('waiting', () => { if (wantsPlaying) showPlayback(true, 'Buffering…'); });
-    audio.addEventListener('error', () => { if (wantsPlaying) fail(playbackAttempt); });
+    audio.addEventListener('error', () => { if (wantsPlaying && audio.error) fail(playbackAttempt); });
     cover.addEventListener('error', () => { cover.hidden = true; cover.removeAttribute('src'); });
     audio.hidden = true;
     controls.hidden = false;

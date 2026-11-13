@@ -126,6 +126,10 @@ const AIHUBMIX_MODEL_PROFILES = new Map<string, ModelProfile>([
     efforts: ['low', 'high', 'max'],
   }],
   ['nemotron-3-ultra-550b-a55b-free', { contextTokens: 1_048_576, thinks: true }],
+  // AIHubMix lists no limits for these; context from the model's OpenRouter listing.
+  ['ernie-5.5-flash-preview-free', { contextTokens: 1_024_000, thinks: true }],
+  ['particle-1-free', { contextTokens: 1_048_576, thinks: true }],
+  ['flint-v1.0-free', { contextTokens: 262_144, thinks: true }],
   ['nemotron-3.5-super-vl-free', { contextTokens: 1_000_000, thinks: true }],
   ['nemotron-3.5-lightning-free', { contextTokens: 1_048_576, thinks: true }],
   ['xiaomi-mimo-v2.6-flash-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],

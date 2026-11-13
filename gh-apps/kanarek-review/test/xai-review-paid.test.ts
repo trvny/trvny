@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { wranglerVars } from './wrangler-config.ts';
 
 import { handleReviewRouterRequest } from '../src/review-router.ts';
 
 const endpoint = 'https://kanarek-review.example/review-router/v1/chat/completions';
-const paidSettings = { KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai,deepseek,gemini-flex',
-  KANAREK_REVIEW_DEEPSEEK_MODEL: 'deepseek-flash' } as const;
+const paidSettings = {
+  KANAREK_REVIEW_PAID_PROVIDER_ORDER: wranglerVars.KANAREK_REVIEW_PAID_PROVIDER_ORDER as string,
+  KANAREK_REVIEW_DEEPSEEK_MODEL: wranglerVars.KANAREK_REVIEW_DEEPSEEK_MODEL as string,
+} as const;
 
 function req(model: string): Request {
   return new Request(endpoint, {

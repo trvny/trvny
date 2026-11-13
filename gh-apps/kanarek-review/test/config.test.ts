@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { wranglerConfig } from './wrangler-config.ts';
 import test from 'node:test';
 
 import { configuredRoutingList } from '../src/review-router.ts';
 
-const config = JSON.parse(
-  readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'),
-) as Record<string, unknown> & { vars: Record<string, unknown> };
+const config = wranglerConfig;
 
 const tasks = ['quip', 'review', 'judge', 'shitpost'];
 const providers = ['aihubmix', 'orcarouter', 'openrouter', 'vercel'];

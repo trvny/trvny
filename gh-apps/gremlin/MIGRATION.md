@@ -83,7 +83,7 @@ separately authenticated Anchor action occupied the remaining Custom GPT action
 slot. The missing web operation was `getDocsIndex`.
 
 The legacy Custom GPT retains its Action inventory. The current plugin MCP
-uses a separate 18-operation allowlist in `PLUGIN_MCP_OPERATION_IDS`, rather
+uses a separate 18-operation allowlist in `src/mcp-runtime.ts` (`GREMLIN_MCP_OPERATION_IDS`), rather
 than exposing the whole legacy Action surface. Each operator still dispatches
 to the same guarded runtime without copying mutation policy.
 

@@ -7,11 +7,7 @@ import {
   CUSTOM_GPT_OPERATION_IDS,
   CUSTOM_GPT_OPERATION_LIMIT,
 } from '../src/custom-gpt-surface.ts';
-import {
-  PLUGIN_MCP_OPERATION_IDS,
-  pluginMcpOpenApi,
-  runtimeOpenApi,
-} from '../src/runtime-openapi.ts';
+import { scopedRuntimeOpenApi, runtimeOpenApi } from '../src/runtime-openapi.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -70,23 +66,18 @@ test('combined Custom GPT actions stay at the 30-operation limit', () => {
   assert.equal(main.length + anchor.length, CUSTOM_GPT_OPERATION_LIMIT);
 });
 
-test('plugin MCP exposes only unique Gremlin operations', () => {
-  const ids = operationIds(pluginMcpOpenApi('https://example.workers.dev'));
-  const expected = [...PLUGIN_MCP_OPERATION_IDS].sort();
-
-  assert.equal(PLUGIN_MCP_OPERATION_IDS.length, 18);
-  assert.equal(new Set(PLUGIN_MCP_OPERATION_IDS).size, PLUGIN_MCP_OPERATION_IDS.length);
-  assert.equal(ids.length, 18);
-  assert.deepEqual(ids, expected);
-  assert.ok(ids.includes('implementCodeChange'));
-  for (const excluded of [
-    'searchEngramMemory', 'storeEngramMemory', 'githubRead', 'getDoc', 'getDocsIndex',
-    'searchDocs', 'searchContext7Docs', 'getCloudflareOverview', 'createPullRequestAsTrvny',
-    'searchFeedseek', 'getRecentFeedseekEntries', 'fetchFeedseekEntry',
-  ]) {
-    assert.equal(ids.includes(excluded), false, excluded);
-  }
-  assert.ok(!ids.includes('useGremlinStorage'));
+test('scoped runtime OpenAPI curates explicit operations without changing legacy GPT', () => {
+  const origin = 'https://example.workers.dev';
+  const scoped = operationIds(scopedRuntimeOpenApi(origin, [
+    'getOperatorBootstrap',
+    'implementCodeChange',
+  ]));
+  assert.deepEqual(scoped, ['getOperatorBootstrap', 'implementCodeChange']);
+  assert.throws(
+    () => scopedRuntimeOpenApi(origin, ['notAnOperation'], 'test_operations_missing'),
+    /test_operations_missing:notAnOperation/,
+  );
+  assert.equal(operationIds(runtimeOpenApi(origin)).length, CUSTOM_GPT_OPERATION_LIMIT - 1);
 });
 
 test('runtime OpenAPI satisfies Builder description and object-schema constraints', () => {

@@ -105,11 +105,15 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   assert.equal(track.scrollLeft, 0);
   assert.equal(dots[0].state, "true");
 
-  track.children[0].matches = selector => selector === ":focus-visible";
+  track.children[0].matches = selector => selector.includes(":focus-visible");
   context.document.activeElement = track.children[0];
   cycle();
   assert.equal(track.scrollLeft, 0, "focused link must stay visible");
   dots[0].matches = () => true;
+  track.children[1].matches = selector => selector.includes("select");
+  context.document.activeElement = track.children[1];
+  cycle();
+  assert.equal(track.scrollLeft, 0, "open station selector stays visible");
   context.document.activeElement = dots[0];
   cycle();
   assert.equal(track.scrollLeft, 0, "focused selector must stay on the selected slide");

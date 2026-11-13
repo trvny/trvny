@@ -41,7 +41,6 @@
     "KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS": "10000",
     "KANAREK_REVIEW_QUOTA_COOLDOWN_MS": "600000",
     "KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS": "30000",
-    "KANAREK_REVIEW_PROVIDER_ORDER": "aihubmix,orcarouter,openrouter,ollama,groq,vercel,huggingface-publicai",
     "KANAREK_REVIEW_ROUTING": {
       "providerOrders": {
         "quip": [
@@ -55,25 +54,25 @@
           "gemini-standard"
         ],
         "review": [
-            "openrouter",
-            "groq",
-            "orcarouter",
-            "vercel",
-            "ollama",
-            "aihubmix",
-            "huggingface-publicai",
-            "gemini-standard"
-          ],
+          "openrouter",
+          "groq",
+          "orcarouter",
+          "vercel",
+          "ollama",
+          "aihubmix",
+          "huggingface-publicai",
+          "gemini-standard"
+        ],
         "judge": [
-            "orcarouter",
-            "openrouter",
-            "vercel",
-            "groq",
-            "aihubmix",
-            "ollama",
-            "huggingface-publicai",
-            "gemini-standard"
-          ],
+          "orcarouter",
+          "openrouter",
+          "vercel",
+          "groq",
+          "aihubmix",
+          "ollama",
+          "huggingface-publicai",
+          "gemini-standard"
+        ],
         "shitpost": [
           "aihubmix",
           "openrouter",
@@ -83,6 +82,16 @@
           "groq",
           "ollama",
           "huggingface-publicai"
+        ],
+        "general": [
+          "aihubmix",
+          "orcarouter",
+          "openrouter",
+          "ollama",
+          "groq",
+          "vercel",
+          "huggingface-publicai",
+          "gemini-standard"
         ]
       },
       "taskModels": {
@@ -112,6 +121,21 @@
             "coding-kimi-k3-free",
             "xiaomi-mimo-v2.6-pro-free",
             "crouton-alpha-free"
+          ],
+          "general": [
+            "coding-kimi-k3-free",
+            "coding-glm-5.3-free",
+            "xiaomi-mimo-v2.6-pro-free",
+            "coding-minimax-m3-free",
+            "nemotron-3.5-super-vl-free",
+            "nemotron-3.5-lightning-free",
+            "xiaomi-mimo-v2.6-flash-free",
+            "gemma-4-31b-it-free",
+            "laguna-s-2.1-free",
+            "agents-a1-free",
+            "dots-3-note-preview-free",
+            "lfm-2.5-2.6b-free",
+            "crouton-alpha-free"
           ]
         },
         "orcarouter": {
@@ -134,6 +158,12 @@
             "tencent/hy4-preview-free",
             "deepseek/deepseek-v4.1-flash-free",
             "z-ai/glm-5.3-flash-free"
+          ],
+          "general": [
+            "deepseek/deepseek-v4.1-flash-free",
+            "z-ai/glm-5.3-flash-free",
+            "tencent/hy4-preview-free",
+            "tencent/hy3-free"
           ]
         },
         "openrouter": {
@@ -156,6 +186,12 @@
             "nvidia/nemotron-3-ultra-550b-a55b:free",
             "openrouter/free",
             "cohere/north-mini-code:free"
+          ],
+          "general": [
+            "cohere/north-mini-code:free",
+            "nvidia/nemotron-3.5-lightning:free",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "openrouter/free"
           ]
         },
         "vercel": {
@@ -180,6 +216,20 @@
             "alibaba/qwen3.8-omni-flash",
             "inclusionai/ling-3.1-flash-free",
             "tencent/hy3"
+          ],
+          "general": [
+            "tencent/hy3",
+            "alibaba/qwen3.8-omni-flash",
+            "alibaba/qwen3-coder-30b-a3b",
+            "inclusionai/ling-3.1-flash-free",
+            "poolside/laguna-s-2.1-free",
+            "nvidia/nemotron-3.5-lightning-free"
+          ]
+        },
+        "ollama": {
+          "general": [
+            "gpt-oss:120b",
+            "gpt-oss:20b"
           ]
         }
       },
@@ -205,13 +255,8 @@
     },
     "KANAREK_REVIEW_DECISION_PROVIDER_ORDER": "aihubmix,openrouter,qwencloud,vercel",
     "KANAREK_REVIEW_DECISION_TIMEOUT_MS": "25000",
-    "KANAREK_REVIEW_AIHUBMIX_MODELS": "coding-kimi-k3-free,coding-glm-5.3-free,xiaomi-mimo-v2.6-pro-free,coding-minimax-m3-free,nemotron-3.5-super-vl-free,nemotron-3.5-lightning-free,xiaomi-mimo-v2.6-flash-free,gemma-4-31b-it-free,laguna-s-2.1-free,agents-a1-free,dots-3-note-preview-free,lfm-2.5-2.6b-free,crouton-alpha-free",
-    "KANAREK_REVIEW_ORCAROUTER_MODELS": "deepseek/deepseek-v4.1-flash-free,z-ai/glm-5.3-flash-free,tencent/hy4-preview-free,tencent/hy3-free",
-    "KANAREK_REVIEW_OPENROUTER_MODELS": "cohere/north-mini-code:free,nvidia/nemotron-3.5-lightning:free,nvidia/nemotron-3-ultra-550b-a55b:free,openrouter/free",
-    "KANAREK_REVIEW_OLLAMA_MODELS": "gpt-oss:120b,gpt-oss:20b",
     "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
     "KANAREK_REVIEW_GROQ_REASONING_EFFORT": "medium",
-    "KANAREK_REVIEW_VERCEL_MODELS": "tencent/hy3,alibaba/qwen3.8-omni-flash,alibaba/qwen3-coder-30b-a3b,inclusionai/ling-3.1-flash-free,poolside/laguna-s-2.1-free,nvidia/nemotron-3.5-lightning-free",
     "KANAREK_REVIEW_REASONING_MIN_MAX_TOKENS": "16384",
     "KANAREK_REVIEW_REASONING_EFFORT": "high",
     "KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE": "0.9",

@@ -512,8 +512,8 @@ test('decision pool falls through a failed primary to the next rotated provider'
   assert.equal(calls.at(-1)?.url, expected[secondary].endpoint);
   assert.equal(
     calls.filter(({ url }) => url === expected[primary].endpoint).length,
-    // OpenRouter walks its whole free decision model list first.
-    primary === 'openrouter' ? 4 : 3,
+    // The primary walks its whole free decision model list first (4 models each).
+    4,
   );
   assert.equal(
     response?.headers.get('x-kanarek-review-provider'),

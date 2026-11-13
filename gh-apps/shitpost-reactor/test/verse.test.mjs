@@ -31,6 +31,7 @@ test('verse nudge has its own loose form without replacing regular prose or meme
   const normal = buildMessages('# style', 'headline', 'seed', 'auto');
   assert.doesNotMatch(normal[0].content, /pocket verse of 3–6/);
   assert.match(normal[0].content, /1–3句/);
+  assert.match(hinted[0].content, /"kind":"text"/);
   assert.match(hinted[0].content, /"kind":"meme"/);
   const judge = judgeMessages([{ content: { kind: 'text', text: 'line' } }], {});
   assert.match(judge[0].content, /保留有意义的换行与节奏/);
@@ -50,7 +51,7 @@ test('text drafts retain poem line breaks across JSON and Markdown', () => {
 test('the actual style reference only invites verses when a rollout nudge is present', async () => {
   const { loadStyleReference } = await import('../generate.mjs');
   const style = await loadStyleReference();
-  assert.match(style, /only to an explicit creative nudge/);
+  assert.match(style, /pocket-verse-only:start/);
   const plans = Array.from({ length: 120 }, (_, index) =>
     resolveGenerationPlan('auto', 'seed', String(index + 1)));
   const selected = plans.find((plan) => plan.shortVerseHint);
@@ -59,7 +60,10 @@ test('the actual style reference only invites verses when a rollout nudge is pre
   const toPrompt = (plan) => buildMessages(style, 'local headline', 'seed', plan.mode,
     null, { shortVerseHint: plan.shortVerseHint })[0].content;
   assert.match(toPrompt(selected), /Optional creative nudge/);
+  assert.match(toPrompt(selected), /Original pocket verse: 3–6 brief lines/);
   assert.doesNotMatch(toPrompt(unselected), /Optional creative nudge/);
+  assert.doesNotMatch(toPrompt(unselected), /Original pocket verse/);
+  assert.doesNotMatch(toPrompt(unselected), /pocket-verse-only/);
   const explicit = resolveGenerationPlan('meme', 'seed', '42');
   assert.doesNotMatch(toPrompt(explicit), /Optional creative nudge/);
 });

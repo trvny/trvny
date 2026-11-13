@@ -1,19 +1,25 @@
 import {
   actionFetch,
-  combinedGremlinMcpManifest,
+  scopedMcpManifest,
   gatewayManifest,
   githubGateway,
-  handleCombinedGremlinMcp,
+  handleScopedMcp,
   pluginMcpOpenApi,
   type ActionInvoke,
   type JsonObject,
   type RuntimeEnv,
 } from 'kanarek-companion/runtime';
 
-// Gremlin owns its MCP entry wiring and capability metadata.
-// The shared adapter still implements operator and specialist dispatch.
+// Gremlin owns its MCP specialist selection; the shared adapter only
+// enforces the selected surface and preserves guarded Action dispatch.
+export const GREMLIN_SPECIALIST_TOOL_NAMES = [
+  'feedseek_search',
+  'feedseek_fetch',
+  'feedseek_recent',
+] as const;
+
 export function gremlinMcpManifest(origin: string): JsonObject {
-  return combinedGremlinMcpManifest(pluginMcpOpenApi(origin));
+  return scopedMcpManifest(pluginMcpOpenApi(origin), GREMLIN_SPECIALIST_TOOL_NAMES);
 }
 
 export async function gremlinGatewayManifest(
@@ -24,7 +30,7 @@ export async function gremlinGatewayManifest(
   return {
     ...await gatewayManifest(openApi, metadata),
     service: 'gremlin',
-    mcp: combinedGremlinMcpManifest(openApi),
+    mcp: scopedMcpManifest(openApi, GREMLIN_SPECIALIST_TOOL_NAMES),
   };
 }
 
@@ -33,12 +39,13 @@ export function handleGremlinMcp(
   env: RuntimeEnv,
   invoke: ActionInvoke,
 ): Promise<Response | null> {
-  return handleCombinedGremlinMcp(
+  return handleScopedMcp(
     request,
     pluginMcpOpenApi(new URL(request.url).origin),
     env,
     invoke,
     githubGateway(request, env, actionFetch),
+    GREMLIN_SPECIALIST_TOOL_NAMES,
     actionFetch,
   );
 }

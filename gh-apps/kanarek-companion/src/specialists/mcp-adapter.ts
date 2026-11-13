@@ -14,12 +14,6 @@ export const MCP_PROTOCOL_VERSION = '2026-07-28';
 const LEGACY_PROTOCOL_VERSION = '2025-11-25';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([MCP_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION]);
 const MAX_REQUEST_BYTES = 64_000;
-// Only Feedseek remains unique to Gremlin's MCP. Keep the shared gateway intact.
-const GREMLIN_SPECIALISTS = new Set<string>([
-  'feedseek_search',
-  'feedseek_fetch',
-  'feedseek_recent',
-]);
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 
 const SPECIALIST_SERVER_INFO: JsonObject = {
@@ -531,19 +525,20 @@ async function operatorToolResult(
   };
 }
 
-function gremlinSpecialistSurface(
+function selectedSpecialistSurface(
   env: SpecialistToolEnv,
   fetcher: typeof fetch,
+  allowed: ReadonlySet<string>,
 ): McpSurface {
   const source = specialistSurface(env, fetcher);
   return {
     ...source,
     tools: () => source.tools().filter(
-      (tool) => GREMLIN_SPECIALISTS.has(String(tool.name)),
+      (tool) => allowed.has(String(tool.name)),
     ),
-    hasTool: (name) => GREMLIN_SPECIALISTS.has(name) && source.hasTool(name),
+    hasTool: (name) => allowed.has(name) && source.hasTool(name),
     callTool(name, args) {
-      if (!GREMLIN_SPECIALISTS.has(name)) {
+      if (!allowed.has(name)) {
         throw new InvalidToolArgumentsError(name);
       }
       return source.callTool(name, args);
@@ -620,10 +615,14 @@ export function operatorMcpManifest(document: JsonObject): JsonObject {
   };
 }
 
-export function gremlinMcpManifest(document: JsonObject): JsonObject {
+export function scopedMcpManifest(
+  document: JsonObject,
+  selectedSpecialistNames: readonly string[],
+): JsonObject {
+  const allowed = new Set(selectedSpecialistNames);
   const operatorToolNames = [...operatorRoutes(document).keys()].sort();
   const specialistNames = specialistToolNames()
-    .filter((name) => GREMLIN_SPECIALISTS.has(name))
+    .filter((name) => allowed.has(name))
     .sort();
   return {
     path: MCP_PATH,
@@ -654,12 +653,13 @@ export async function handleOperatorMcp(
   return handleMcp(request, github, operatorSurface(request, document, invoke));
 }
 
-export async function handleGremlinMcp(
+export async function handleScopedMcp(
   request: Request,
   document: JsonObject,
   env: SpecialistToolEnv,
   invoke: ActionInvoke,
   github: GithubGateway,
+  selectedSpecialistNames: readonly string[],
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   return handleMcp(
@@ -667,7 +667,7 @@ export async function handleGremlinMcp(
     github,
     combinedSurface(
       operatorSurface(request, document, invoke),
-      gremlinSpecialistSurface(env, fetcher),
+      selectedSpecialistSurface(env, fetcher, new Set(selectedSpecialistNames)),
     ),
   );
 }

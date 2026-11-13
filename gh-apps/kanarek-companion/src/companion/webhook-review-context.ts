@@ -220,6 +220,7 @@ export function reviewablePath(path: string): boolean {
     lower.endsWith('.min.js') ||
     lower.endsWith('.min.css') ||
     lower.endsWith('package-lock.json') ||
+    lower.endsWith('npm-shrinkwrap.json') ||
     lower.endsWith('pnpm-lock.yaml') ||
     lower.endsWith('yarn.lock')
   ) {
@@ -237,6 +238,7 @@ function contextEligiblePath(path: string): boolean {
     lower.endsWith('.map') ||
     lower.endsWith('.lock') ||
     lower.endsWith('package-lock.json') ||
+    lower.endsWith('npm-shrinkwrap.json') ||
     lower.endsWith('pnpm-lock.yaml') ||
     lower.endsWith('yarn.lock')
   ) {

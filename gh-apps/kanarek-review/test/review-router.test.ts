@@ -267,8 +267,8 @@ test('review router prefers OpenRouter before the paid review reserves', async (
   assert.equal(call.authorization, 'Bearer openrouter-key');
 });
 
-test('heterogeneous OpenRouter fallback chains avoid optional reasoning without shrinking caller output', async () => {
-  let body: Record<string, unknown> = {};
+test('code review tries OpenRouter models sequentially without a fallback chain', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
     stream: false,
@@ -277,60 +277,51 @@ test('heterogeneous OpenRouter fallback chains avoid optional reasoning without 
   }), {
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,live/free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
-    body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    bodies.push(body);
+    if (body.model === 'dead/free') {
+      return Promise.resolve(new Response('model not found', { status: 404 }));
+    }
     return Promise.resolve(Response.json({
       model: body.model,
-      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+      choices: [{ message: { role: 'assistant', content: 'review complete' } }],
     }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(body.model, 'thinkingmachines/inkling:free');
-  // Review-ordered, capped at OpenRouter's 3-entry fallback limit.
-  assert.deepEqual(body.models, [
-    'minimax/minimax-m3.1-flash:free',
-    'nvidia/nemotron-3.5-super-vl:free',
-    'cohere/north-mini-code:free',
-  ]);
-  assert.equal(body.reasoning, undefined);
-  assert.equal(body.max_tokens, 36_864);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.deepEqual(bodies.map((body) => body.model), ['dead/free', 'live/free']);
+  assert.ok(bodies.every((body) => body.models === undefined), 'each model called separately');
+  assert.ok(bodies.every((body) => body.max_tokens === 36_864));
 });
 
-test('OpenRouter primary retry preserves high reasoning after fallback-chain 400', async () => {
+test('code review moves to the next OpenRouter model after an empty completion', async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
     stream: false,
-    max_tokens: 65_536,
+    max_tokens: 16_384,
     messages: [{ role: 'user', content: 'review carefully' }],
   }), {
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'empty/free,working/free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     bodies.push(body);
-    if (bodies.length === 1) {
-      return Promise.resolve(Response.json({
-        error: { message: 'models list invalid' },
-      }, { status: 400 }));
-    }
     return Promise.resolve(Response.json({
       model: body.model,
-      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+      choices: [{ message: { role: 'assistant',
+        content: body.model === 'empty/free' ? '' : 'review complete' } }],
     }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(bodies.length, 2);
-  // Shared fallback fits Cohere's 64K ceiling; direct primary keeps 65K.
-  assert.equal(bodies[0]?.max_tokens, 64_000);
-  assert.equal(bodies[0]?.reasoning, undefined);
-  assert.deepEqual(bodies[1]?.reasoning, { effort: 'high' });
-  assert.equal(bodies[1]?.max_tokens, 65_536);
-  assert.equal(bodies[1]?.models, undefined);
+  assert.deepEqual(bodies.map((body) => body.model), ['empty/free', 'working/free']);
+  assert.ok(bodies.every((body) => body.models === undefined));
 });
-
 test('provider context fitting shrinks Groq output headroom before a 413 and skips impossible requests', () => {
   const fits = fitProviderAttemptTokenBudget({
     max_tokens: 36_864,
@@ -2300,7 +2291,7 @@ test('OpenRouter quips use the quip lane with low reasoning and model limits', a
   assert.equal(bodies[1]?.max_tokens, 16_384);
 });
 
-test('reasoning-capable OpenRouter fallback preserves high reasoning', async () => {
+test('code-review OpenRouter fallback preserves high reasoning', async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
@@ -2314,10 +2305,7 @@ test('reasoning-capable OpenRouter fallback preserves high reasoning', async () 
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     bodies.push(body);
-    if (bodies.length === 1) {
-      return Promise.resolve(new Response('models list invalid', { status: 400 }));
-    }
-    if (bodies.length === 2) {
+    if (body.model === 'dead/free') {
       return Promise.resolve(new Response('model not found', { status: 404 }));
     }
     return Promise.resolve(Response.json({
@@ -2327,12 +2315,13 @@ test('reasoning-capable OpenRouter fallback preserves high reasoning', async () 
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(bodies.length, 3);
-  assert.equal(bodies[2]?.model, 'xingchen-agi/xing4.0-29b-a4b:free');
-  assert.deepEqual(bodies[2]?.reasoning, { effort: 'high' });
-  assert.equal(bodies[2]?.max_tokens, 36_864);
+  assert.deepEqual(bodies.map((body) => body.model), [
+    'dead/free', 'xingchen-agi/xing4.0-29b-a4b:free',
+  ]);
+  assert.deepEqual(bodies[1]?.reasoning, { effort: 'high' });
+  assert.equal(bodies[1]?.max_tokens, 36_864);
+  assert.ok(bodies.every((body) => body.models === undefined));
 });
-
 test('review router does not fan out model retries for a request-wide OpenRouter 400', async () => {
   const bodies: Array<{ model?: unknown; models?: unknown }> = [];
   const response = await handleReviewRouterRequest(request(), {

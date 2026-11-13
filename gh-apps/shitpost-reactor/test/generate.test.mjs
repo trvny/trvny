@@ -215,11 +215,11 @@ test('validateContent treats text length as a soft writing target with a roomy s
     1_200,
   );
   assert.equal(
-    validateContent({ kind: 'text', text: 'x'.repeat(1_400) }, { mode: 'text' }).text.length,
-    1_400,
+    validateContent({ kind: 'text', text: 'x'.repeat(2_400) }, { mode: 'text' }).text.length,
+    2_400,
   );
   assert.throws(
-    () => validateContent({ kind: 'text', text: 'x'.repeat(1_401) }, { mode: 'text' }),
+    () => validateContent({ kind: 'text', text: 'x'.repeat(2_401) }, { mode: 'text' }),
     /content_invalid_text_length/,
   );
 });

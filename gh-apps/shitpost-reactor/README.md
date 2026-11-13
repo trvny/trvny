@@ -65,9 +65,9 @@ Scheduled runs use `auto`. Topic lanes now use a reproducible hash instead of th
 Limericks are optional rather than imposed on every second run. In `auto`, the model selects text or meme based on the joke instead of a run-seeded format coin flip. Explicit `text` and `meme` choices still constrain the kind. Meme templates are chosen from the existing allowlist by name, not from actual image inspection; no new renderer or image provider is introduced. Model-facing generation and judging rules are compact Simplified Chinese; published output rotates exclusively through Polish, English, Simplified Chinese and Russian. `style-reference.md` and `taste-profile.json` provide compact Chinese-language craft context.
 Editorial target: usually one to three sharp sentences (about 120–450
 characters), one concrete anchor and one coherent surreal turn. This is a
-**soft writing preference**, not a new fixed template. New text validation has
-a 1,400-character safety ceiling; longer but relevant concepts should be
-condensed during generation or judging. News and community lanes, source
+**soft writing preference**, not a new fixed template. The existing
+2,400-character validation ceiling stays compatible with older drafts and
+retries; generation and judging should trim filler. News and community lanes, source
 freshness, language rotation, provider routing, published archives and fallback
 semantics are unchanged.
 

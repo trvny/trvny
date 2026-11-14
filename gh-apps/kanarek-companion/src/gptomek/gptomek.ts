@@ -2708,6 +2708,7 @@ export async function handleGptomekCommentCommand(
   body: string,
   env: CompanionEnv,
   fetcher: typeof fetch = fetch,
+  audit?: { commentId: number; wireFormat: string; bodyChars: number },
 ): Promise<GptomekControlResult> {
   const command = commandFromComment(body);
   const startedAt = Date.now();
@@ -2752,6 +2753,7 @@ export async function handleGptomekCommentCommand(
     console.log(
       JSON.stringify({
         gptomek: 'comment_command_completed',
+        ...audit,
         commandId: command.id,
         operation: command.op,
         repository: command.repository,
@@ -2783,6 +2785,7 @@ export async function handleGptomekCommentCommand(
         gptomek: gptomekMailboxFailureIsTerminal(command.op, errorValue)
           ? 'comment_command_rejected'
           : 'comment_command_failed',
+        ...audit,
         commandId: command.id,
         operation: command.op,
         repository: command.repository,

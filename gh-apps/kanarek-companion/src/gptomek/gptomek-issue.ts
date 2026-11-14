@@ -210,13 +210,18 @@ export async function handleGptomekCommentControl(
   try {
     const comment = await currentIssueComment(target.commentId, env, fetcher);
     const commentBodyHash = await commentBodySha256(comment.body);
+    const opening = /^\s*```gptomek[ \t]*\r?\n/.exec(comment.body);
+    const wireFormat = !opening ? 'unknown'
+      : comment.body.slice(opening[0].length).startsWith('raw-v1') ? 'raw-v1' : 'legacy-json';
+    const audit = { commentId: comment.id, wireFormat, bodyChars: comment.body.length };
     let result;
     try {
-      result = await handleGptomekCommentCommand(comment.body, env, fetcher);
+      result = await handleGptomekCommentCommand(comment.body, env, fetcher, audit);
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'unknown_error';
       // Parser errors precede the command checkpoint; surface them as failures.
       if (/^(invalid_|unsupported_operation$|file_content_too_large$|duplicate_|nested_batch_not_allowed$|batch_command_id_too_long$|repository_not_allowed$)/.test(reason)) {
+        console.warn(JSON.stringify({ gptomek: 'comment_validation_rejected', ...audit, error: reason }));
         return {
           changed: false,
           commentBodySha256: commentBodyHash,

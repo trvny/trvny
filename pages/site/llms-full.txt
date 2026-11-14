@@ -25,7 +25,7 @@ The hub is a lightweight static/edge site. It links independent services rather 
 - Markdown representation: https://travny.pages.dev/index.md
 - Concise LLM guide: https://travny.pages.dev/llms.txt
 - This full guide: https://travny.pages.dev/llms-full.txt
-- Home weather/TV/radio carousel on mobile; radio: Radio Paradise, Trójka, Czwórka and BBC Radio 1. Paradise track metadata: https://travny.pages.dev/api/radio-now. Other station metadata: https://travny.pages.dev/api/radio-station?station=bbc1 (also `trojka`, `czworka`). Track and programme availability varies; station logos are used when cover art is unavailable.
+- Standalone home radio with swipe and looping station controls: Radio Paradise, Trójka, Czwórka and BBC Radio 1. Paradise track metadata: https://travny.pages.dev/api/radio-now. Other station metadata: https://travny.pages.dev/api/radio-station?station=bbc1 (also `trojka`, `czworka`). Track and programme availability varies; station logos are used when cover art is unavailable.
 
 ### TVPI
 

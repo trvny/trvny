@@ -66,7 +66,7 @@ function setupRail(trackId, dotsId, delay) {
     const focused=document.activeElement;
     const keyboardFocus=focused&&((track.contains(focused)&&focused.matches("input, select, :focus-visible"))||
       (nav.contains(focused)&&focused.matches(":focus-visible")));
-    if(paused||!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||keyboardFocus||slides.some(slide=>slide.matches?.('[data-radio][data-playing="true"]')))return;
+    if(paused||!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||keyboardFocus)return;
     show((current()+1)%slides.length);
   },delay);
 }

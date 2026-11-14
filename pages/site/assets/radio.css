@@ -1,6 +1,5 @@
 .radio { --pink:var(--m); --fg:var(--w); --muted:var(--dim); --line:var(--faint); --yellow:var(--y); --cyan:var(--c); margin-top:28px; }
   .panel.radio { border-top-color: var(--pink); }
-  .feature-rail > .panel.radio { margin-top:0; }
   .radio-head, .radio-station, .radio-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .radio-head h2 { margin:0; }
   .radio-live, .radio-kicker, .radio-station, .radio-footer, .radio-volume { font-family:'Silkscreen',monospace; font-size:10px; letter-spacing:.04em; }
@@ -11,7 +10,13 @@
   .radio-station[hidden] { display:none; }
   .radio-station select { max-width:75%; min-height:44px; padding:8px 32px 8px 12px; color:var(--fg); background:#111a25; border:1px solid var(--line); font:14px system-ui,sans-serif; cursor:pointer; }
   .radio-station select:focus-visible { outline:3px solid var(--yellow); outline-offset:3px; }
-  .radio-now { display:grid; grid-template-columns:112px minmax(0,1fr); gap:17px; align-items:center; padding:19px 0; }
+  .radio-station-nav { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; }
+  .radio-station-nav[hidden] { display:none; }
+  .radio-station-nav button { width:44px; height:44px; border:1px solid var(--line); background:#111a25; color:var(--cyan); font:28px/1 system-ui,sans-serif; cursor:pointer; }
+  .radio-station-nav button:hover { color:var(--yellow); border-color:var(--cyan); }
+  .radio-swipe-hint { color:var(--muted); font:10px 'Silkscreen',monospace; letter-spacing:.04em; }
+  .radio-swipe-hint span { color:var(--fg); margin-left:10px; }
+  .radio-now { touch-action:pan-y; display:grid; grid-template-columns:112px minmax(0,1fr); gap:17px; align-items:center; padding:19px 0; }
   .radio-art { width:112px; aspect-ratio:1; position:relative; overflow:hidden; background:#2e1840; border:1px solid #62466d; }
   .radio-fallback { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; color:var(--yellow); background:linear-gradient(145deg,#301746,#15283d); }
   .radio-fallback b { font:700 39px/1 'Silkscreen',monospace; }

@@ -31,7 +31,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Doc Bench](https://docbench.travny.workers.dev/) · [LLM guide](https://docbench.travny.workers.dev/llms.txt) · [full guide](https://docbench.travny.workers.dev/llms-full.txt)
 
 ## Usage notes
-- The home weather/TV/radio carousel on mobile includes Radio Paradise, Trójka, Czwórka and BBC Radio 1. Station metadata: `/api/radio-now` (Paradise), `/api/radio-station?station=bbc1` (also `trojka`, `czworka`). Station logos appear when cover art is unavailable.
+- The standalone home radio supports swiping and cycling through Radio Paradise, Trójka, Czwórka and BBC Radio 1. Station metadata: `/api/radio-now` (Paradise), `/api/radio-station?station=bbc1` (also `trojka`, `czworka`). Station logos appear when cover art is unavailable.
 - Lab hosts the Streambench, Codebench and Docbench carousel.
 
 - TVPI upstream HLS signatures are short-lived. Prefer maintained TVPI Worker endpoints over short-lived tokenized upstream URLs.

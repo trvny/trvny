@@ -11,6 +11,11 @@
     const artist = root.querySelector('[data-artist]');
     const album = root.querySelector('[data-album]');
     const picker = root.querySelector('[data-station-picker]');
+    const stationNav = root.querySelector('[data-station-nav]');
+    const previous = root.querySelector('[data-previous]');
+    const next = root.querySelector('[data-next]');
+    const position = root.querySelector('[data-position]');
+    const swipeArea = root.querySelector('[data-swipe-area]');
     const station = root.querySelector('[data-station]');
     const mark = root.querySelector('.radio-fallback [data-mark]');
     const markLabel = root.querySelector('[data-mark-label]');
@@ -21,6 +26,8 @@
         !(logo instanceof HTMLImageElement) || !(kicker instanceof HTMLElement) ||
         !(title instanceof HTMLElement) || !(artist instanceof HTMLElement) || !(album instanceof HTMLElement) ||
         !(picker instanceof HTMLElement) || !(station instanceof HTMLSelectElement) ||
+        !(stationNav instanceof HTMLElement) || !(previous instanceof HTMLButtonElement) ||
+        !(next instanceof HTMLButtonElement) || !(position instanceof HTMLElement) || !(swipeArea instanceof HTMLElement) ||
         !(mark instanceof HTMLElement) || !(markLabel instanceof HTMLElement) || !(quality instanceof HTMLElement)) return;
 
     let wantsPlaying = false;
@@ -103,12 +110,14 @@
     }
     play.addEventListener('click', () => { if (wantsPlaying) stop(); else void start(); });
     volume.addEventListener('input', () => { audio.volume = Number(volume.value); });
-    station.addEventListener('change', () => {
+    function applyStation() {
       const resume = wantsPlaying;
       stop();
       metadataVersion += 1;
       clearTimeout(timer);
       const option = station.selectedOptions[0];
+      position.textContent = `${station.selectedIndex + 1} / ${station.options.length}`;
+      position.setAttribute('aria-label', `Station ${station.selectedIndex + 1} of ${station.options.length}: ${option.textContent}`);
       mark.textContent = option.dataset.mark;
       markLabel.textContent = option.textContent;
       showStationLogo(option);
@@ -122,7 +131,33 @@
       void refresh();
       if (station.value !== 'paradise' && !audio.canPlayType('application/vnd.apple.mpegurl')) void loadHls().catch(() => {});
       if (resume) void start();
-    });
+    }
+    station.addEventListener('change', applyStation);
+    function moveStation(direction) {
+      const count = station.options.length;
+      if (count < 2) return;
+      station.selectedIndex = (station.selectedIndex + direction + count) % count;
+      applyStation();
+      if (typeof swipeArea.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        swipeArea.animate([{ transform:`translateX(${direction * 18}px)`, opacity:0.55 }, { transform:'translateX(0)', opacity:1 }],
+          { duration:180, easing:'ease-out' });
+      }
+    }
+    previous.addEventListener('click', () => moveStation(-1));
+    next.addEventListener('click', () => moveStation(1));
+    let touchStart;
+    swipeArea.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) { touchStart = undefined; return; }
+      touchStart = { x:event.touches[0].clientX, y:event.touches[0].clientY };
+    }, { passive:true });
+    swipeArea.addEventListener('touchend', (event) => {
+      const touch = event.changedTouches[0], start = touchStart;
+      touchStart = undefined;
+      if (!touch || !start) return;
+      const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
+      if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.2) moveStation(dx < 0 ? 1 : -1);
+    }, { passive:true });
+    swipeArea.addEventListener('touchcancel', () => { touchStart = undefined; }, { passive:true });
     audio.addEventListener('play', () => {
       awaitingPlayback = false;
       if (!wantsPlaying) {
@@ -147,6 +182,7 @@
     audio.hidden = true;
     controls.hidden = false;
     picker.hidden = false;
+    stationNav.hidden = false;
 
     async function refresh() {
       if (document.hidden) return;

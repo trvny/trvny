@@ -30,8 +30,9 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/WiFi-Automatic | [#64](https://github.com/trvny/WiFi-Automatic/pull/64) | ci: bump step-security/harden-runner from 2.22.3 to 2.22.4 in the actions group | @dependabot[bot] | ready | 2026-11-09 |
-| trvny/WiFi-Automatic | [#65](https://github.com/trvny/WiFi-Automatic/pull/65) | deps: bump the gradle group with 2 updates | @dependabot[bot] | ready | 2026-11-09 |
+| trvny/.ai | [#32](https://github.com/trvny/.ai/pull/32) | chore(deps): bump anthropics/claude-code-action from 1.0.268 to 1.0.271 in the actions group | @dependabot[bot] | ready | 2026-11-13 |
+| trvny/.ai | [#33](https://github.com/trvny/.ai/pull/33) | deps: bump the wiki group in /wiki with 2 updates | @dependabot[bot] | ready | 2026-11-13 |
+| trvny/tvpi | [#144](https://github.com/trvny/tvpi/pull/144) | chore(deps-dev): bump wrangler from 4.156.0 to 4.159.0 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-11-12 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

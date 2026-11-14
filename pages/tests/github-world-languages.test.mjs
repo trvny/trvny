@@ -34,7 +34,7 @@ function createPage(savedLanguage = null) {
   const dialog = get('#atlas-dialog');
   const close = new Element('button');
   dialog.querySelector = selector => selector === '.dialog-close' ? close : null;
-  const buttons = ['pl', 'en', 'ru', 'zh'].map(language => {
+  const buttons = ['pl', 'en', 'ru', 'zh', 'pl', 'en', 'ru', 'zh'].map(language => {
     const button = new Element('button'); button.dataset.language = language; return button;
   });
   const cards = atlas.regions.map(region => {
@@ -83,7 +83,8 @@ test('language switching updates page, open atlas and stored preference', async 
   assert.equal(itemButton.textContent, atlas.regions[0].items[0].translations.zh.name);
   await itemButton.fire('click');
   assert.equal(body.children[0].textContent, atlas.regions[0].items[0].translations.zh.description);
-  await page.buttons[2].fire('click');
+  await page.buttons[6].fire('click');
+  assert.equal(page.buttons[2].attrs['aria-pressed'], 'true');
   assert.equal(body.children[0].textContent, atlas.regions[0].items[0].translations.ru.description);
   assert.equal(body.children[1].children[1].href, atlas.regions[0].items[0].url);
   const restored = createPage('en');

@@ -47,6 +47,7 @@ async function player({ deferredPause = false, nativeHls = false } = {}) {
   const elements = {
     "[data-audio]": audio, "[data-controls]": new Element(), "[data-play]": play,
     "[data-volume]": new Input(), "[data-status]": status, "[data-cover]": new Image(),
+    "[data-station-logo]": new Image(), "[data-kicker]": new Element(),
     "[data-title]": new Element(), "[data-artist]": new Element(), "[data-album]": new Element(),
     "[data-station-picker]": new Element(), "[data-station]": station, ".radio-fallback [data-mark]": new Element(),
     "[data-mark-label]": new Element(), ".radio-footer [data-quality]": new Element(),
@@ -72,7 +73,7 @@ async function player({ deferredPause = false, nativeHls = false } = {}) {
   runInNewContext(script, {
     document, window: { Hls }, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
     HTMLInputElement: Input, HTMLImageElement: Image, HTMLSelectElement: Select, AbortSignal,
-    fetch: () => metadata, setTimeout, clearTimeout,
+    fetch: (url) => url === "/api/radio-now" ? metadata : Promise.resolve({ ok: true, json: async () => ({ kind: "station" }) }), setTimeout: () => 0, clearTimeout: () => {},
   });
   const flush = () => new Promise((resolve) => setImmediate(resolve));
   const select = (value) => { station.value = value; station.dispatch("change"); };
@@ -191,4 +192,17 @@ test("fatal stream errors stop playback and allow retry", async () => {
   p.audio.error = { code: 2 };
   p.audio.dispatch("error");
   assert.equal(p.status.textContent, "Stream unavailable. Try again.");
+});
+
+
+test("station logo falls back to text if the image fails", async () => {
+  const p = await player();
+  const logo = p.elements["[data-station-logo]"];
+  const mark = p.elements[".radio-fallback [data-mark]"];
+  logo.dispatch("load");
+  assert.equal(logo.hidden, false);
+  assert.equal(mark.hidden, true);
+  logo.dispatch("error");
+  assert.equal(logo.hidden, true);
+  assert.equal(mark.hidden, false);
 });

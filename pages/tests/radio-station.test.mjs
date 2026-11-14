@@ -5,11 +5,14 @@ import { onRequestGet } from '../functions/api/radio-station.js';
 const request = station => ({ request:new Request(`https://travny.pages.dev/api/radio-station?station=${station}`) });
 
 test('BBC returns a verified current track and safe artwork', async t => {
-  t.mock.method(globalThis, 'fetch', () => Promise.resolve(Response.json({data:[{
+  let sentHeaders;
+  t.mock.method(globalThis, 'fetch', (_url, options) => { sentHeaders=options.headers; return Promise.resolve(Response.json({data:[{
     titles:{primary:'Artist',secondary:'Track'}, offset:{now_playing:true},
     image_url:'https://ichef.bbci.co.uk/images/ic/{recipe}/abc.jpg',
-  }]})));
+  }]})); });
   const response=await onRequestGet(request('bbc1'));
+  assert.equal(sentHeaders.accept,'application/json');
+  assert.match(sentHeaders['user-agent'],/TRAVNY Radio/);
   assert.deepEqual(await response.json(),{title:'Track',artist:'Artist',album:'',cover:'https://ichef.bbci.co.uk/images/ic/400x400/abc.jpg',kind:'track'});
 });
 

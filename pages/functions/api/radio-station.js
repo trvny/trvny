@@ -82,7 +82,8 @@ export async function onRequestGet({ request }) {
   const urlFor = date => station==='bbc1'?BBC:station==='trojka'?`https://trojka.polskieradio.pl/playlist?date=${date}`:`https://apipr.polskieradio.pl/api/playlist?date=${date}&antenneId=4`;
   const signal=AbortSignal.timeout(6000);
   async function fetchStation(date) {
-    const upstream=await fetch(urlFor(date),{signal,cf:{cacheEverything:true,cacheTtlByStatus:{'200-299':20,'400-599':0}}});
+    const headers={'accept':'application/json','user-agent':'Mozilla/5.0 (compatible; TRAVNY Radio/1.0; +https://travny.pages.dev/)'};
+    const upstream=await fetch(urlFor(date),{signal,headers,cf:{cacheEverything:true,cacheTtlByStatus:{'200-299':20,'400-599':0}}});
     if(!upstream.ok)throw new Error('upstream unavailable');
     return readJson(upstream,MAX_BYTES);
   }

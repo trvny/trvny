@@ -13,8 +13,8 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
    Validated exact-base `git diff` → patch; otherwise `commit_files` (≤48,000
    chars/file, ≤32 files). Larger files/payloads → upload blobs, `commit_tree`.
    Create new branches from the live base before committing.
-3. **Send:** read the current guide, not cached command examples. One new comment on [#203](https://github.com/trvny/trvny/issues/203)
-   as `trvny`. Use `raw-v1` for **every** operation; copy the relevant example.
+3. **Send:** one new comment on [#203](https://github.com/trvny/trvny/issues/203)
+   as `trvny`. Use `raw-v1` for **every** operation; copy current examples, not cached ones.
 
    ````text
    ```gptomek
@@ -52,7 +52,9 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 
 ## Guards
 
-- Fresh unique `id` per new command. Identical retry only within 7 days.
+- Fresh unique `id` (1–100 ASCII letters/digits, `.`, `_`, `-`; no `/`).
+  Use e.g. `feat-docbench-20261114-1`, not a branch name. Identical retry
+  only within 7 days.
   `command_outcome_uncertain`: never blindly replay; inspect live state.
   See [replay rules](docs/REFERENCE.md#command-model).
 - Existing branch: fresh `expectedHeadSha` before **each** write. New branch

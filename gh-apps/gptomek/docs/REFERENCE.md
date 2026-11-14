@@ -9,8 +9,9 @@ Implementation truth:
 ## Command model
 
 Post the entire `raw-v1` command as a new comment on `trvny/trvny#203`.
-Common keys: `id` (unique string), `op`, `repository` (`trvny/*` or
-`travnie/*`). Examples are complete comment bodies; replace placeholder SHAs.
+Common keys: `id` (unique, 1–100 ASCII letters/digits, `.`, `_`, `-`; no `/`),
+`op`, `repository` (`trvny/*` or `travnie/*`). Example ID: `feat-docbench-1`.
+For batches, leave room for step suffixes. Examples use placeholder SHAs.
 
 - Mutating an **existing branch**: specify `branch` + **fresh**
   `expectedHeadSha`. Never trust a previous command response as the next head;
@@ -46,7 +47,7 @@ One wire format for every operation, including batches:
    CRLF); preserve the raw text exactly. The EOL immediately before a marker
    is framing, not content: extra blank line for a final EOL or empty block.
 4. Close the fence. Send exact source, not rendered Markdown; no escaping,
-   trimming or indentation of raw text. `invalid_comment_raw_*`: fix framing
+   trimming or indentation of raw text. `invalid_comment_raw_*`: fix framing,
    header or references; no execution occurred.
 
 ## Operation examples
@@ -396,7 +397,8 @@ raw-v1 example123
 
 Upload final bytes with GitHub `create_blob` (UTF-8/base64), then send
 `commit_tree` with the returned blob SHA per path. Blob upload is not a commit;
-GPTomek owns the guarded tree/commit/ref write. Max **512 unique paths**. New entries require `mode`: `100644` file, `100755` executable,
+GPTomek owns the guarded tree/commit/ref write. Max **512 unique paths**.
+New entries require `mode`: `100644` file, `100755` executable,
 `120000` symlink, `160000` gitlink. Existing paths may omit mode. Delete with
 `sha: null` and **no mode**. Final tree must be free of file/directory
 collisions.
@@ -478,6 +480,8 @@ raw-v1 example123
   Retry identical payload only when safe and within retention. For a failed
   batch, inspect completed steps before building a changed command with a new
   ID.
+- **`invalid_command_id`:** branch names contain `/`; use a unique ID matching
+  `[A-Za-z0-9._-]+` (max 100 chars), not the branch path.
 - **`file_content_too_large`:** use `commit_tree` with uploaded blobs, not a
   second oversized `commit_files` command.
 - **`command_outcome_uncertain`:** inspect live GitHub state; never

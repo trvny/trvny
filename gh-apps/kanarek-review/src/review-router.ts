@@ -1280,7 +1280,7 @@ export function providerCooldownDurationMs(
     if (category === 'http_429') return 60_000;
   }
   if (provider === 'openrouter') {
-    if (['timeout', 'network', 'http_403'].includes(category)) return null;
+    if (['timeout', 'network', 'http_403', 'http_429_model_busy'].includes(category)) return null;
     if (category === 'http_429') return 60_000;
   }
   if (provider === 'ollama' && category === 'http_429') return 60_000;
@@ -1606,7 +1606,7 @@ export async function rememberProviderCooldown(
 function modelCooldownDurationMs(
   env: ReviewRouterEnv, category: string, provider: ReviewProviderId,
 ): number | null {
-  if (provider === 'aihubmix' && category === 'http_429_model_busy') return 30_000;
+  if (['aihubmix', 'openrouter'].includes(provider) && category === 'http_429_model_busy') return 30_000;
   if (provider === 'aihubmix' && category === 'http_404_model_retired') return MAX_COOLDOWN_MS;
   // Request-shape 400s (context length, parameters, messages) blame this request, not the model.
   if (isClientBadRequestCategory(category)) return null;
@@ -2003,6 +2003,25 @@ export function classifyAIHubMixError(status: number, preview: string | null): s
   return `http_${status}`;
 }
 
+// Account quota and upstream capacity require different fallback scopes.
+function classifyOpenRouterRateLimit(preview: string | null, headers: Headers): string {
+  if (headers.has('x-ratelimit-limit') || headers.has('x-ratelimit-reset')) return 'http_429';
+  if (preview) {
+    try {
+      const body: unknown = JSON.parse(preview);
+      if (isObject(body) && isObject(body.error) && isObject(body.error.metadata)) {
+        const source = body.error.metadata.limit_source;
+        if (source === 'upstream_provider_shared_pool') return 'http_429_model_busy';
+        if (typeof source === 'string' && source.startsWith('openrouter_')) return 'http_429';
+      }
+    } catch {
+      // Bounded preview may be truncated.
+    }
+    if (/temporarily rate.limited upstream/i.test(badRequestText(preview))) return 'http_429_model_busy';
+  }
+  return 'http_429';
+}
+
 function shouldTryNextAttempt(
   provider: ReviewProvider,
   status: number,
@@ -2013,6 +2032,7 @@ function shouldTryNextAttempt(
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
   if (provider.id === 'openrouter') {
+    if (task === 'review' && category === 'http_429_model_busy') return true;
     if (status === 404 || (task === 'review' && [410, 502, 503, 504].includes(status))) return true;
     if (status !== 400) return false;
     if (attemptIndex === 0) return true;
@@ -2508,6 +2528,8 @@ export async function handleReviewRouterRequest(
           ? retryAfterCooldownMs(response.headers.get('retry-after'))
           : null;
         const preview = status === 400 || (
+          provider.id === 'openrouter' && task === 'review' && status === 429
+        ) || (
           provider.id === 'aihubmix' && [403, 404, 410, 429].includes(status)
         ) || (
           provider.protocol === 'gemini-interactions' && (status === 401 || status === 403 || status === 429)
@@ -2520,14 +2542,19 @@ export async function handleReviewRouterRequest(
             ? classifyBadRequest(preview)
             : provider.id === 'aihubmix'
               ? classifyAIHubMixError(status, preview)
-              : `http_${status}`;
+              : provider.id === 'openrouter' && task === 'review' && status === 429
+                ? classifyOpenRouterRateLimit(preview, response.headers)
+                : `http_${status}`;
         // xAI RPC reports a billed failure as 502/504; keep it distinguishable from an outage.
         if (provider.id === 'xai' && response.headers.has(XAI_BILLED_HEADER)) {
           providerFailureCategory = 'invalid_response';
         }
         if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
-        if (singleModel && ['http_404', 'http_404_model_retired', 'http_410', 'http_400_invalid_model']
-          .includes(providerFailureCategory)) modelFault = providerFailureCategory;
+        if (singleModel && (['http_404', 'http_404_model_retired', 'http_410', 'http_400_invalid_model',
+          'http_429_model_busy'].includes(providerFailureCategory) ||
+          (provider.id === 'orcarouter' && providerFailureCategory === 'http_403'))) {
+          modelFault = providerFailureCategory;
+        }
         await discard(response);
         console.warn(JSON.stringify({
           kanarekReviewRouter: 'provider_failed',

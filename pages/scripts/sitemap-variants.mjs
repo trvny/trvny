@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { argv } from "node:process";
 
 const base = "https://travny.pages.dev/";
-const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+export const escapeXml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 const decode = (s) => s.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/gi, (entity) => {
   const name = entity.slice(1, -1);
   if (name.startsWith("#x")) return String.fromCodePoint(parseInt(name.slice(2), 16));
@@ -11,9 +11,6 @@ const decode = (s) => s.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/gi, (
   return { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[name];
 });
 const declaration = '<?xml version="1.0" encoding="UTF-8"?>\n';
-// Atom requires updated even for undated pages. Date of the sitemap entry,
-// not an asserted page lastmod. Preserve actual digest dates when available.
-const listingDate = "2026-11-14T00:00:00Z";
 
 export function sitemapEntries(...documents) {
   const entries = new Map();
@@ -32,16 +29,17 @@ export function sitemapEntries(...documents) {
   return [...entries.values()];
 }
 
-export function sitemapVariants(entries) {
+// Undated pages use the directory snapshot time, not a verified page lastmod.
+export function sitemapVariants(entries, listingDate = new Date().toISOString()) {
   const updated = (entry) => entry.lastmod ? new Date(entry.lastmod).toISOString() : listingDate;
   const feedUpdated = [listingDate, ...entries.map(updated)].sort().at(-1);
   const atom = entries.map((entry) => {
-    const url = escape(entry.url);
-    return `  <entry><id>${url}</id><title>${url}</title><link href="${url}"/><updated>${updated(entry)}</updated></entry>`;
+    const url = escapeXml(entry.url);
+    return `  <entry><id>${url}</id><title>${url}</title><link href="${url}"/><updated>${updated(entry)}</updated><summary>${url}</summary></entry>`;
   }).join("\n");
   const rss = entries.map((entry) => {
-    const url = escape(entry.url);
-    return `  <item><title>${url}</title><link>${url}</link><guid isPermaLink="true">${url}</guid></item>`;
+    const url = escapeXml(entry.url);
+    return `  <item><title>${url}</title><link>${url}</link><guid isPermaLink="true">${url}</guid>${entry.lastmod ? `<pubDate>${new Date(entry.lastmod).toUTCString()}</pubDate>` : ""}</item>`;
   }).join("\n");
   return {
     "sitemap.txt": entries.map(({ url }) => url).join("\n") + "\n",
@@ -64,10 +62,13 @@ ${rss}
   };
 }
 
-if (argv[1] && import.meta.url === pathToFileURL(argv[1]).href) {
-  const dir = new URL("../site/", import.meta.url);
+export async function writeSitemapVariants(dir) {
   const documents = await Promise.all(["sitemap.xml", "przeglad/sitemap.xml"].map(name => readFile(new URL(name, dir), "utf8")));
   for (const [name, content] of Object.entries(sitemapVariants(sitemapEntries(...documents)))) {
     await writeFile(new URL(name, dir), content);
   }
+}
+
+if (argv[1] && import.meta.url === pathToFileURL(argv[1]).href) {
+  await writeSitemapVariants(new URL("../site/", import.meta.url));
 }

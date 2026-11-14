@@ -11,6 +11,7 @@ on: # yamllint disable-line rule:truthy
       - "pages/tests/**"
       - "pages/eslint.config.mjs"
       - "pages/scripts/waf_allow_chatgpt.py"
+      - "pages/scripts/sitemap-variants.mjs"
       - ".github/workflows/travny-pages.yml"
   pull_request:
     branches: [main]
@@ -22,6 +23,7 @@ on: # yamllint disable-line rule:truthy
       - "pages/tests/**"
       - "pages/eslint.config.mjs"
       - "pages/scripts/waf_allow_chatgpt.py"
+      - "pages/scripts/sitemap-variants.mjs"
       - ".github/workflows/travny-pages.yml"
   workflow_dispatch:
     inputs:
@@ -82,7 +84,7 @@ jobs:
             echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
           else
             changed="$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")"
-            if grep -Eq '^pages/(astro/|site/|functions/|build\.sh$)' <<<"$changed"; then
+            if grep -Eq '^pages/(astro/|site/|functions/|scripts/sitemap-variants\.mjs$|build\.sh$)' <<<"$changed"; then
               echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
             else
               echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"

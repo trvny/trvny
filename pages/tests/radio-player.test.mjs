@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { setImmediate } from "node:timers";
 
-async function player({ deferredPause = false, nativeHls = false } = {}) {
+async function player({ deferredPause = false, nativeHls = false, stationMetadata = { kind: "station" } } = {}) {
   const pauseEvents = [];
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
@@ -42,7 +42,7 @@ async function player({ deferredPause = false, nativeHls = false } = {}) {
   station.options = {
     paradise: { textContent: "Radio Paradise", dataset: { url: "paradise.aac", kind: "direct", mark: "RP", quality: "320K AAC" } },
     trojka: { textContent: "Trójka", dataset: { url: "trojka.m3u8", kind: "hls", mark: "3", quality: "LIVE HLS" } },
-    bbc1: { textContent: "BBC Radio 1", dataset: { url: "bbc.m3u8", kind: "hls", mark: "1", quality: "320K HLS" } },
+    bbc1: { textContent: "BBC Radio 1", dataset: { url: "bbc.m3u8", kind: "hls", mark: "1", quality: "320K HLS", logo: "bbc-logo.png" } },
   };
   const elements = {
     "[data-audio]": audio, "[data-controls]": new Element(), "[data-play]": play,
@@ -73,7 +73,7 @@ async function player({ deferredPause = false, nativeHls = false } = {}) {
   runInNewContext(script, {
     document, window: { Hls }, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
     HTMLInputElement: Input, HTMLImageElement: Image, HTMLSelectElement: Select, AbortSignal,
-    fetch: (url) => url === "/api/radio-now" ? metadata : Promise.resolve({ ok: true, json: async () => ({ kind: "station" }) }), setTimeout: () => 0, clearTimeout: () => {},
+    fetch: (url) => url === "/api/radio-now" ? metadata : Promise.resolve({ ok: true, json: async () => stationMetadata }), setTimeout: () => 0, clearTimeout: () => {},
   });
   const flush = () => new Promise((resolve) => setImmediate(resolve));
   const select = (value) => { station.value = value; station.dispatch("change"); };
@@ -205,4 +205,15 @@ test("station logo falls back to text if the image fails", async () => {
   logo.dispatch("error");
   assert.equal(logo.hidden, true);
   assert.equal(mark.hidden, false);
+});
+
+
+test("station metadata updates the track while retaining the station logo", async () => {
+  const p = await player({ stationMetadata: { title: "New track", artist: "New artist", cover: "https://ichef.bbci.co.uk/images/ic/400x400/a.jpg", kind: "track" } });
+  p.select("bbc1");
+  await p.flush();
+  assert.equal(p.elements["[data-title]"].textContent, "New track");
+  assert.equal(p.elements["[data-artist]"].textContent, "New artist");
+  assert.equal(p.elements["[data-cover]"].hidden, false);
+  assert.equal(p.elements["[data-station-logo]"].src, "bbc-logo.png");
 });

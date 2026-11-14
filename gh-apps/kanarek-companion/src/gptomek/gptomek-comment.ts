@@ -1,6 +1,6 @@
 // Transport decoding only. Command validation and checkpointing stay downstream.
 const COMMENT_COMMAND_RE = /^\s*```gptomek[ \t]*\r?\n([\s\S]*?)\r?\n```\s*$/;
-const RAW_PREAMBLE_RE = /^raw-v1 ([A-Za-z0-9_-]{8,64})\n/;
+const RAW_PREAMBLE_RE = /^raw-v1 ([A-Za-z0-9_-]{8,64})(\r?\n)/;
 const MAX_RAW_BLOCKS = 320; // 10 batch steps × 32 file slots
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -16,11 +16,13 @@ function decodeJson(value: string): unknown {
 }
 
 function decodeRaw(payload: string, preamble: RegExpMatchArray): unknown {
-  const delimiter = `\n--${preamble[1]}--\n`;
-  // Add only the framing LF; never normalize or trim raw strings.
-  const parts = (payload.slice(preamble[0].length) + '\n').split(delimiter);
+  const eol = preamble[2];
+  const delimiter = `${eol}--${preamble[1]}--${eol}`;
+  // Match the framing EOL exactly; never normalize raw strings.
+  const parts = (payload.slice(preamble[0].length) + eol).split(delimiter);
   const header = parts.shift();
-  if (header === undefined || parts.pop() !== '' || !parts.length || parts.length > MAX_RAW_BLOCKS) {
+  if (header === undefined || (parts.length > 0 &&
+    (parts.pop() !== '' || !parts.length || parts.length > MAX_RAW_BLOCKS))) {
     throw new Error('invalid_comment_raw_framing');
   }
   const command = decodeJson(header);
@@ -64,7 +66,7 @@ function decodeRaw(payload: string, preamble: RegExpMatchArray): unknown {
   } else {
     hydrate(command);
   }
-  if (used.size !== parts.length) throw new Error('unused_comment_raw_block');
+  if (used.size !== parts.length) throw new Error('invalid_comment_raw_unused_block');
   return command;
 }
 
@@ -73,5 +75,7 @@ export function decodeGptomekComment(body: string): unknown {
   if (!match) throw new Error('invalid_comment_command');
   const payload = match[1];
   const preamble = payload.match(RAW_PREAMBLE_RE);
-  return preamble ? decodeRaw(payload, preamble) : decodeJson(payload);
+  if (preamble) return decodeRaw(payload, preamble);
+  if (payload.startsWith('raw-v1')) throw new Error('invalid_comment_raw_framing');
+  return decodeJson(payload);
 }

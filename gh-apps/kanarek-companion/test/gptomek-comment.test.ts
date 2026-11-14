@@ -6,7 +6,7 @@ const envelope = (value: unknown) => '```gptomek\n' + JSON.stringify(value) + '\
 const boundary = 'example_123';
 const marker = `\n--${boundary}--\n`;
 const raw = (header: unknown, ...blocks: string[]) =>
-  `\`\`\`gptomek\nraw-v1 ${boundary}\n${JSON.stringify(header)}${marker}${blocks.join(marker)}${marker.slice(0, -1)}\n\`\`\``;
+  `\`\`\`gptomek\nraw-v1 ${boundary}\n${JSON.stringify(header)}${blocks.length ? marker + blocks.join(marker) + marker.slice(0, -1) : ''}\n\`\`\``;
 const common = { id: 'example', repository: 'trvny/trvny', branch: 'feat/test', expectedHeadSha: 'a'.repeat(40), message: 'test' };
 
 test('legacy JSON and raw multi-file commands decode identically', () => {
@@ -37,10 +37,40 @@ test('bad references, unused slots, collision and extra text fail closed', () =>
   for (const ref of [{ raw: 0 }, { raw: 2 }, { raw: 1.5 }, { raw: '1' }, { raw: 1, other: true }]) {
     assert.throws(() => decodeGptomekComment(raw(patch(ref), 'text')), /invalid_comment_raw_reference/);
   }
-  assert.throws(() => decodeGptomekComment(raw(patch('inline'), 'extra')), /unused_comment_raw_block/);
-  assert.throws(() => decodeGptomekComment(raw(patch({ raw: 1 }), `a${marker}b`)), /unused_comment_raw_block/);
+  assert.throws(() => decodeGptomekComment(raw(patch('inline'), 'extra')), /invalid_comment_raw_unused_block/);
+  assert.throws(() => decodeGptomekComment(raw(patch({ raw: 1 }), `a${marker}b`)), /invalid_comment_raw_unused_block/);
   assert.throws(() => decodeGptomekComment(raw({ ...common, op: 'commit_files', files: [{ content: { raw: 1 } }, { content: { raw: 1 } }] }, 'text')), /invalid_comment_raw_reference/);
   assert.throws(() => decodeGptomekComment(raw(patch({ raw: 1 }), 'text').replace(marker.slice(0, -1) + '\n```', '\n```')), /invalid_comment_raw_framing/);
   assert.throws(() => decodeGptomekComment(raw(patch({ raw: 1 }), 'text') + '\nextra'), /invalid_comment_command/);
   assert.throws(() => decodeGptomekComment('```gptomek\nnot JSON\n```'), /invalid_comment_command_json/);
+});
+
+test('header-only commands and deletion-only files use the same raw-v1 format', () => {
+  for (const command of [
+    { ...common, op: 'react_issue_comment', commentId: 123, reaction: 'eyes' },
+    { ...common, op: 'delete_branch' },
+    { ...common, op: 'commit_files', files: [{ path: 'old', content: null }] },
+    { ...common, op: 'operator_action', body: { raw: 42 } },
+    { ...common, op: 'batch', steps: [{ op: 'react_review_comment', commentId: 123, reaction: '+1' }] },
+  ]) {
+    assert.deepEqual(decodeGptomekComment(raw(command)), decodeGptomekComment(envelope(command)));
+  }
+  assert.throws(() => decodeGptomekComment(raw({ ...common, op: 'apply_patch', patch: { raw: 1 } })), /invalid_comment_raw_reference/);
+});
+
+test('CRLF framing preserves arbitrary block endings without normalizing content', () => {
+  const content = ['mixed\nline\r\n', 'ends in CR\r', '', 'no newline'];
+  const header = { ...common, op: 'commit_files', files: content.map((_, i) => ({ path: 'file-' + i, content: { raw: i + 1 } })) };
+  const crMarker = '\r\n--' + boundary + '--\r\n';
+  const framed = '```gptomek\r\nraw-v1 ' + boundary + '\r\n' + JSON.stringify(header) + crMarker + content.join(crMarker) + crMarker + '```';
+  assert.deepEqual(decodeGptomekComment(framed), decodeGptomekComment(raw(header, ...content)));
+  assert.deepEqual(decodeGptomekComment(raw(common).replaceAll('\n', '\r\n')), common);
+});
+
+test('bounds and dangling delimiters are rejected before execution', () => {
+  for (const invalid of ['short', 'a'.repeat(65), 'bad boundary']) {
+    assert.throws(() => decodeGptomekComment(raw(common).replace(boundary, invalid)), /invalid_comment_raw_framing/);
+  }
+  assert.throws(() => decodeGptomekComment(raw(common, ...Array(321).fill('x'))), /invalid_comment_raw_framing/);
+  assert.throws(() => decodeGptomekComment(raw(common).replace('\n```', marker + '```')), /invalid_comment_raw_framing/);
 });

@@ -8,11 +8,9 @@ Implementation truth:
 
 ## Command model
 
-Each command is posted as the **entire body** of a new `trvny/trvny#203`
-comment, inside one `gptomek` fenced command (plain JSON or `raw-v1`). Required common keys: `id` (new
-unique string), `op`, `repository` (`trvny/*` or `travnie/*`). The examples
-below are complete payloads; sample SHAs are **placeholders**, not usable branch
-heads.
+Post the entire `raw-v1` command as a new comment on `trvny/trvny#203`.
+Common keys: `id` (unique string), `op`, `repository` (`trvny/*` or
+`travnie/*`). Examples are complete comment bodies; replace placeholder SHAs.
 
 - Mutating an **existing branch**: specify `branch` + **fresh**
   `expectedHeadSha`. Never trust a previous command response as the next head;
@@ -33,32 +31,25 @@ heads.
 
 ## Raw text blocks
 
-Prefer `raw-v1` for multiline file contents, validated patches and long replies.
-Keep plain JSON for short commands. Both forms decode to the same command and
-use the same validation, authorization, limits and checkpoints. No new endpoint.
+One wire format for every operation, including batches:
 
-- Inside the usual `gptomek` fence, start with `raw-v1 <boundary>` on its own
-  line, then the JSON command header. Boundary: 8–64 ASCII letters, digits,
-  underscores or hyphens. Choose one absent from the raw text as a marker line.
-- Replace a string slot with `{"raw": 1}`; subsequent blocks are numbered from
-  1 in physical order. Each must be referenced exactly once. Supported slots:
-  `commit_files.files[].content`, `apply_patch.patch`, `branch_from_patch.patch`,
-  `review_fix.patch` / `replyBody`, and `comment` / `reply_review` body.
-  These slots also work inside `batch.steps`; other fields stay JSON.
-- Put `--<boundary>--` on a separate line before the first raw block, between
-  blocks and after the last block. Use LF for framing. The framing LF directly
-  before each marker is not content: leave an extra blank line to preserve a
-  final LF, or one blank line for empty content. Never escape, trim or indent
-  the raw text. Keep `content: null` for deletion; ordinary strings still work.
-- Send the exact comment source, not rendered Markdown. Embedded backticks are
-  preserved by the decoder even when GitHub's preview looks different.
-- `invalid_comment_raw_*` or `unused_comment_raw_block`: correct framing or
-  references before submitting a new command. No execution on decode failure.
+1. Open the `gptomek` fence. Next line: `raw-v1 <boundary>` (8–64 ASCII
+   letters, digits, `_` or `-`). Then the JSON header.
+2. Put file contents, patches and comment/reply bodies in raw blocks. Use
+   `{"raw":1}` for the first block, `{"raw":2}` for the next, etc. Applies to
+   `files[].content`, `patch`, `replyBody`, `comment`/`reply_review` `body`, also
+   inside `steps`. Keep `content:null` for deletion and structured metadata
+   (including `operator_action.body`) in JSON. Each block referenced once.
+3. Put `--<boundary>--` on its own line before, between and after blocks.
+   Choose a boundary absent from the content as a marker line. With no blocks,
+   close the fence directly after the JSON. Use consistent framing EOL (LF or
+   CRLF); preserve the raw text exactly. The EOL immediately before a marker
+   is framing, not content: extra blank line for a final EOL or empty block.
+4. Close the fence. Send exact source, not rendered Markdown; no escaping,
+   trimming or indentation of raw text. `invalid_comment_raw_*`: fix framing
+   or references; no execution occurred.
 
 ## Operation examples
-
-Plain `json` examples below must be wrapped in the usual `gptomek` fence; raw
-examples show the complete comment body.
 
 ### Commit files
 
@@ -185,7 +176,9 @@ raw-v1 example123
   "patch": {
     "raw": 1
   },
-  "replyBody": "Fixed on the updated head."
+  "replyBody": {
+    "raw": 2
+  }
 }
 --example123--
 diff --git a/x b/x
@@ -195,6 +188,8 @@ diff --git a/x b/x
 -a
 +b
 
+--example123--
+Fixed on the updated head.
 --example123--
 ```
 ````
@@ -212,7 +207,9 @@ feature head as `baseSha` (ancestor of the head, not equal to it). Pause other
 writers: `expectedHeadSha` is a guard, **not an atomic lock**. Recheck CI after
 the rewrite; use **rebase merge** to preserve attribution.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "adopt-example-1",
   "op": "adopt_branch",
@@ -223,6 +220,7 @@ the rewrite; use **rebase merge** to preserve attribution.
   "message": "feat: final change"
 }
 ```
+````
 
 ### Comments and reactions
 
@@ -230,28 +228,46 @@ For a PR conversation comment use `comment`; for an inline review reply use
 `reply_review`; react to **review** vs **issue/PR conversation** comments with
 the matching `react_*` operation.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "comment-example-1",
   "op": "comment",
   "repository": "trvny/trvny",
   "pullRequestNumber": 123,
-  "body": "Docs updated."
+  "body": {
+    "raw": 1
+  }
 }
+--example123--
+Docs updated.
+--example123--
 ```
+````
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "reply-example-1",
   "op": "reply_review",
   "repository": "trvny/trvny",
   "pullRequestNumber": 123,
   "commentId": 456789,
-  "body": "Fixed."
+  "body": {
+    "raw": 1
+  }
 }
+--example123--
+Fixed.
+--example123--
 ```
+````
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "react-example-1",
   "op": "react_review_comment",
@@ -260,6 +276,7 @@ the matching `react_*` operation.
   "reaction": "+1"
 }
 ```
+````
 
 Use `react_issue_comment` for top-level issue/PR conversation comments. Allowed
 reactions: `+1`, `-1`, `laugh`, `confused`, `heart`, `hooray`, `rocket`, `eyes`.
@@ -274,7 +291,9 @@ rollback**. Step checkpoints avoid repeating completed writes on identical
 replay. If a later step fails and you need a **new ID/payload**, inspect live
 state and omit any steps already applied, especially comments/reactions.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "batch-example-1",
   "op": "batch",
@@ -283,7 +302,9 @@ state and omit any steps already applied, especially comments/reactions.
     {
       "op": "comment",
       "pullRequestNumber": 123,
-      "body": "Applied."
+      "body": {
+        "raw": 1
+      }
     },
     {
       "op": "react_review_comment",
@@ -292,7 +313,11 @@ state and omit any steps already applied, especially comments/reactions.
     }
   ]
 }
+--example123--
+Applied.
+--example123--
 ```
+````
 
 ### Generic allowed write
 
@@ -301,7 +326,9 @@ labels, statuses, deployments and `repository_dispatch`; REST path must match
 `repository`. **Not** a raw file/ref editor, PR creator or bypass for secrets,
 hooks, rulesets, workflows, releases or sensitive administration.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "label-example-1",
   "op": "operator_action",
@@ -316,6 +343,7 @@ hooks, rulesets, workflows, releases or sensitive administration.
   "expect": "json"
 }
 ```
+````
 
 ## Advanced Git operations
 
@@ -325,7 +353,9 @@ hooks, rulesets, workflows, releases or sensitive administration.
 new bot-authored commit with the parent's tree; does not undo arbitrary older
 commits.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "revert-example-1",
   "op": "revert_commit",
@@ -336,6 +366,7 @@ commits.
   "message": "revert: bad change"
 }
 ```
+````
 
 ### Cherry-pick an existing commit
 
@@ -345,7 +376,9 @@ merge). Reuses Git objects, including binaries/modes/symlinks/submodules; max
 **512 file changes**. File/directory transitions rejected. `message` optional
 (defaults to source message).
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "pick-example-1",
   "op": "cherry_pick",
@@ -355,6 +388,7 @@ merge). Reuses Git objects, including binaries/modes/symlinks/submodules; max
   "commitSha": "89abcdef0123456789abcdef0123456789abcdef"
 }
 ```
+````
 
 ### Commit existing Git objects
 
@@ -364,7 +398,9 @@ paths**. New entries require `mode`: `100644` file, `100755` executable,
 `sha: null` and **no mode**. Final tree must be free of file/directory
 collisions.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "tree-example-1",
   "op": "commit_tree",
@@ -385,6 +421,7 @@ collisions.
   ]
 }
 ```
+````
 
 ### Move or swap files
 
@@ -392,7 +429,9 @@ collisions.
 without downloading; supports swaps/rotations. Unmoved occupied destinations and
 namespace collisions fail. Max **256 moves**.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "move-example-1",
   "op": "move_files",
@@ -408,6 +447,7 @@ namespace collisions fail. Max **256 moves**.
   ]
 }
 ```
+````
 
 ### Delete a branch
 
@@ -415,7 +455,9 @@ Uses live `expectedHeadSha`; `main`, repo default branch and `gptomek/control`
 are protected. Missing target is success. GitHub ref deletion has a narrow
 **check/delete race** (not atomic); avoid concurrent writers.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "delete-example-1",
   "op": "delete_branch",
@@ -424,6 +466,7 @@ are protected. Missing target is success. GitHub ref deletion has a narrow
   "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
+````
 
 ## Troubleshooting
 
@@ -451,7 +494,7 @@ comment is not evidence of execution.
 
 ## Transport internals and recovery
 
-**Normal:** `trvny` posts one fenced command (JSON or `raw-v1`) to
+**Normal:** `trvny` posts one fenced `raw-v1` command to
 [Issue #203](https://github.com/trvny/trvny/issues/203).
 [Workflow](../../../.github/workflows/gptomek-comment-command.yml) sends its
 **comment ID** to authenticated `POST /gptomek/wake`. Worker independently
@@ -467,7 +510,8 @@ earlier. Cleanup has an unavoidable GitHub GET/DELETE race; cleanup warnings do
 **not** undo side effects. Result envelope is `<!-- gptomek-result:... -->`;
 bot-authored comments/replies carry command markers for replay guards.
 
-**Legacy fallback only:** Issue-body encoded `<!-- gptomek-command:... -->`
+**Compatibility/recovery only:** Older fenced JSON comments still decode to
+identical commands. Do not choose them for routine writes. Issue-body encoded `<!-- gptomek-command:... -->`
 markers and closed [PR #176](https://github.com/trvny/trvny/pull/176)
 still work through the older relay. An unrecorded
 primary wake failure may fail over; a recorded command error is **not** a

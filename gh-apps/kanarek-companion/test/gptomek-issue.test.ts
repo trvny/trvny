@@ -277,106 +277,109 @@ test('executes and clears the issue mailbox without the legacy PR shim', async (
 });
 
 
-test('executes a fenced JSON control comment without staging a base64 mailbox marker', async () => {
-  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
-    .privateKey.export({ type: 'pkcs8', format: 'pem' })
-    .toString();
-  const commentId = 777;
-  const command = {
-    id: 'comment-native-1',
-    op: 'react_issue_comment',
-    repository: 'trvny/trvny',
-    commentId: 12345,
-    reaction: 'eyes',
-  };
-  const commentBody = '```gptomek\n' + JSON.stringify(command, null, 2) + '\n```';
-  const calls: Array<{ method: string; path: string; body: string | null }> = [];
-  const json = (value: unknown) =>
-    new Response(JSON.stringify(value), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
-  const fetcher: typeof fetch = async (input, init = {}) => {
-    const url = new URL(
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url,
+for (const format of ['legacy', 'raw-v1']) {
+  test(`executes a ${format} control comment without staging a base64 mailbox marker`, async () => {
+    const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .privateKey.export({ type: 'pkcs8', format: 'pem' })
+      .toString();
+    const commentId = 777;
+    const command = {
+      id: 'comment-native-1',
+      op: 'react_issue_comment',
+      repository: 'trvny/trvny',
+      commentId: 12345,
+      reaction: 'eyes',
+    };
+    const commentBody = '```gptomek\n' + (format === 'raw-v1' ? 'raw-v1 example123\n' : '') + JSON.stringify(command, null, 2) + '\n```';
+    const calls: Array<{ method: string; path: string; body: string | null }> = [];
+    const json = (value: unknown) =>
+      new Response(JSON.stringify(value), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    const fetcher: typeof fetch = async (input, init = {}) => {
+      const url = new URL(
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url,
+      );
+      const method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+      const body = typeof init.body === 'string' ? init.body : null;
+      calls.push({ method, path: url.pathname, body });
+
+      if (method === 'POST' && url.pathname === '/app/installations/152126523/access_tokens') {
+        return json({
+          token: 'installation-token',
+          expires_at: '2099-01-01T00:00:00Z',
+          permissions: { issues: 'write', pull_requests: 'write', contents: 'write' },
+        });
+      }
+      if (
+        method === 'GET' &&
+        url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`
+      ) {
+        return json({
+          id: commentId,
+          body: commentBody,
+          issue_url: 'https://api.github.com/repos/trvny/trvny/issues/203',
+          user: { login: 'trvny' },
+          created_at: '2026-10-17T10:00:00Z',
+          updated_at: '2026-10-17T10:00:00Z',
+        });
+      }
+      if (method === 'DELETE' && url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`) {
+        return new Response(null, { status: 204 });
+      }
+      if (method === 'GET' && url.pathname === '/repos/trvny/trvny/installation') {
+        return json({ id: 152126523 });
+      }
+      if (
+        method === 'POST' &&
+        url.pathname === '/repos/trvny/trvny/issues/comments/12345/reactions'
+      ) {
+        return json({ id: 1, content: 'eyes' });
+      }
+      return new Response('unexpected request', { status: 500 });
+    };
+    const target: CompanionTarget = {
+      delivery: `gptomek-comment:${commentId}`,
+      installationId: 152126523,
+      pullRequestNumber: 203,
+      repository: 'trvny/trvny',
+      sourceEvent: 'gptomek_comment',
+      commentId,
+    };
+    const env = {
+      GPTOMEK_APP_ID: '4524407',
+      GPTOMEK_INSTALLATION_ID: '152126523',
+      GPTOMEK_PRIVATE_KEY: privateKey,
+      OPERATOR_CHECKPOINTS: checkpointNamespace(),
+    } as CompanionEnv & { OPERATOR_CHECKPOINTS: DurableObjectNamespace };
+
+    assert.equal(shouldCoalesceTarget(target), false);
+    const result = await handleGptomekCommentControl(target, env, fetcher);
+
+    assert.equal(result.changed, true);
+    assert.equal(result.state, 'gptomek-comment-ok');
+    assert.equal(result.commentCleanup, null);
+    const cleaned = await handleGptomekCommentControl(
+      { ...target, cleanupComment: true }, env, fetcher,
     );
-    const method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
-    const body = typeof init.body === 'string' ? init.body : null;
-    calls.push({ method, path: url.pathname, body });
-
-    if (method === 'POST' && url.pathname === '/app/installations/152126523/access_tokens') {
-      return json({
-        token: 'installation-token',
-        expires_at: '2099-01-01T00:00:00Z',
-        permissions: { issues: 'write', pull_requests: 'write', contents: 'write' },
-      });
-    }
-    if (
-      method === 'GET' &&
-      url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`
-    ) {
-      return json({
-        id: commentId,
-        body: commentBody,
-        issue_url: 'https://api.github.com/repos/trvny/trvny/issues/203',
-        user: { login: 'trvny' },
-        created_at: '2026-10-17T10:00:00Z',
-        updated_at: '2026-10-17T10:00:00Z',
-      });
-    }
-    if (method === 'DELETE' && url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`) {
-      return new Response(null, { status: 204 });
-    }
-    if (method === 'GET' && url.pathname === '/repos/trvny/trvny/installation') {
-      return json({ id: 152126523 });
-    }
-    if (
-      method === 'POST' &&
-      url.pathname === '/repos/trvny/trvny/issues/comments/12345/reactions'
-    ) {
-      return json({ id: 1, content: 'eyes' });
-    }
-    return new Response('unexpected request', { status: 500 });
-  };
-  const target: CompanionTarget = {
-    delivery: `gptomek-comment:${commentId}`,
-    installationId: 152126523,
-    pullRequestNumber: 203,
-    repository: 'trvny/trvny',
-    sourceEvent: 'gptomek_comment',
-    commentId,
-  };
-  const env = {
-    GPTOMEK_APP_ID: '4524407',
-    GPTOMEK_INSTALLATION_ID: '152126523',
-    GPTOMEK_PRIVATE_KEY: privateKey,
-    OPERATOR_CHECKPOINTS: checkpointNamespace(),
-  } as CompanionEnv & { OPERATOR_CHECKPOINTS: DurableObjectNamespace };
-
-  assert.equal(shouldCoalesceTarget(target), false);
-  const result = await handleGptomekCommentControl(target, env, fetcher);
-
-  assert.equal(result.changed, true);
-  assert.equal(result.state, 'gptomek-comment-ok');
-  assert.equal(result.commentCleanup, null);
-  const cleaned = await handleGptomekCommentControl(
-    { ...target, cleanupComment: true }, env, fetcher,
-  );
-  assert.equal(cleaned.state, 'gptomek-comment-ok');
-  assert.equal(cleaned.commentCleanup, 'deleted');
-  assert.equal(result.commentId, commentId);
-  assert.equal(
-    result.commentBodySha256,
-    createHash('sha256').update(commentBody).digest('hex'),
-  );
-  assert.equal(calls.some((call) => call.method === 'PATCH'), false);
-  assert.equal(calls.filter((call) => call.method === 'DELETE').length, 1);
-  assert.equal(calls.some((call) => call.path.includes('/pulls/176')), false);
-});
+    assert.equal(cleaned.state, 'gptomek-comment-ok');
+    assert.equal(cleaned.commentCleanup, 'deleted');
+    assert.equal(result.commentId, commentId);
+    assert.equal(
+      result.commentBodySha256,
+      createHash('sha256').update(commentBody).digest('hex'),
+    );
+    assert.equal(calls.some((call) => call.method === 'PATCH'), false);
+    assert.equal(calls.filter((call) => call.method === 'DELETE').length, 1);
+    assert.equal(calls.some((call) => call.path.includes('/pulls/176')), false);
+    assert.equal(calls.filter((call) => call.method === 'POST' && call.path.endsWith('/reactions')).length, 1);
+  });
+}
 
 test('reports invalid JSON from source comment as actionable failure', async () => {
   const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })

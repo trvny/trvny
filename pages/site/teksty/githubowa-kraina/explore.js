@@ -89,10 +89,12 @@
       '.tool-grid a:nth-child(5) span':'toolFeeds', '.tool-grid a:nth-child(8) span':'toolIntent',
     };
     for (const [selector, key] of Object.entries(fields)) set(selector, d[key]);
-    document.querySelectorAll('.atlas .region').forEach((card, index) => {
-      card.querySelector('.region-kicker').textContent = d.cards[index][0];
-      card.querySelector('p').textContent = d.cards[index][1];
-      card.querySelector('.tagline').textContent = d.tags[index];
+    document.querySelectorAll('.atlas .region').forEach(card => {
+      const translation = d.cards[card.dataset.region];
+      if (!translation) return;
+      card.querySelector('.region-kicker').textContent = translation[0];
+      card.querySelector('p').textContent = translation[1];
+      card.querySelector('.tagline').textContent = d.tags[card.dataset.region];
     });
     set('#lore', d.lore[loreIndex]);
     setAttr('.topbar', 'aria-label', d.navigation);

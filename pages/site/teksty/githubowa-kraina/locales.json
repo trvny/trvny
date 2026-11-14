@@ -48,40 +48,40 @@
       "Jeżeli urządzenie ma działający protokół z 2014 roku, istnieje niezerowa szansa, że ktoś tu właśnie pisze do niego most.",
       "RSS nie umarł. Po prostu wyniósł się z centrum i zbudował własne obserwatorium."
     ],
-    "cards": [
-      [
+    "cards": {
+      "feedseek": [
         "OBSERWATORIUM",
         "RSS, Atom i JSON Feed. Buduje brakujące feedy, poprawia istniejące i pilnuje, żeby jeden trup nie przewrócił całej anteny."
       ],
-      [
+      "kanarek": [
         "WIEŻA SYGNAŁOWA",
         "Androidowy czytnik RSS z widgetami, radiem i IPTV. Żółty ptak, zaskakująco dużo infrastruktury."
       ],
-      [
+      "wam": [
         "WARSZTAT AUDIO",
         "Most między Windowsem, foobarem i Samsungiem Shape M5. Tu protokoły audio dostają smar, FLAC i drugi żywot."
       ],
-      [
+      "llm": [
         "LABORATORIUM AI",
         "Jedna klientownia dla wielu usług AI: WebView, natywne providery, porównywanie modeli i wspólny rdzeń KMP."
       ],
-      [
+      "autka": [
         "GARAŻ GRANICZNY",
         "Zakupy aut PL, EU i USA w jednym miejscu, z kalkulatorem importu. Bez „scrapuj wszystko i módl się do regulaminu”."
       ],
-      [
+      "tvpi": [
         "STACJA NADAWCZA",
         "Stabilne wejścia IPTV dla kanałów TVP, Worker i domowy polski runner odświeżający krótkowieczne HLS-y."
       ]
-    ],
-    "tags": [
-      "Python · feedy · publikacja",
-      "Kotlin · Media3 · Worker",
-      "Python · foobar2000 · audio Wi-Fi",
-      "Kotlin Multiplatform · LLM · WebView",
-      "Android · ogłoszenia · NBP",
-      "Python · Cloudflare · HLS"
-    ],
+    },
+    "tags": {
+      "feedseek": "Python · feedy · publikacja",
+      "kanarek": "Kotlin · Media3 · Worker",
+      "wam": "Python · foobar2000 · audio Wi-Fi",
+      "llm": "Kotlin Multiplatform · LLM · WebView",
+      "autka": "Android · ogłoszenia · NBP",
+      "tvpi": "Python · Cloudflare · HLS"
+    },
     "nav": [
       "Otwórz menu",
       "Zamknij menu",
@@ -150,40 +150,40 @@
       "If a device still speaks a protocol from 2014, someone here is probably building a bridge to it.",
       "RSS did not die. It left downtown and built its own observatory."
     ],
-    "cards": [
-      [
+    "cards": {
+      "feedseek": [
         "OBSERVATORY",
         "RSS, Atom and JSON Feed. Builds missing feeds, improves existing ones and keeps one dead source from toppling the antenna."
       ],
-      [
+      "kanarek": [
         "SIGNAL TOWER",
         "An Android RSS reader with widgets, radio and IPTV. A yellow bird with a surprising amount of infrastructure."
       ],
-      [
+      "wam": [
         "AUDIO WORKSHOP",
         "A bridge between Windows, foobar2000 and Samsung Shape M5. Audio protocols get oil, FLAC and a second life."
       ],
-      [
+      "llm": [
         "AI LAB",
         "One workbench for AI services: WebView, native providers, model comparison and a shared KMP core."
       ],
-      [
+      "autka": [
         "BORDER GARAGE",
         "Car shopping across Poland, Europe and the US, with an import calculator. No scraping everything and praying to the terms of service."
       ],
-      [
+      "tvpi": [
         "BROADCAST STATION",
         "Stable IPTV entry points for TVP channels, a Worker and a Polish home runner refreshing short-lived HLS streams."
       ]
-    ],
-    "tags": [
-      "Python · feeds · publishing",
-      "Kotlin · Media3 · Worker",
-      "Python · foobar2000 · Wi-Fi audio",
-      "Kotlin Multiplatform · LLMs · WebView",
-      "Android · marketplace hand-off · NBP",
-      "Python · Cloudflare · HLS"
-    ],
+    },
+    "tags": {
+      "feedseek": "Python · feeds · publishing",
+      "kanarek": "Kotlin · Media3 · Worker",
+      "wam": "Python · foobar2000 · Wi-Fi audio",
+      "llm": "Kotlin Multiplatform · LLMs · WebView",
+      "autka": "Android · marketplace hand-off · NBP",
+      "tvpi": "Python · Cloudflare · HLS"
+    },
     "nav": [
       "Open menu",
       "Close menu",
@@ -252,40 +252,40 @@
       "Если устройство всё ещё говорит на протоколе 2014 года, кто-то здесь, скорее всего, уже строит к нему мост.",
       "RSS не умер. Он просто покинул центр города и построил собственную обсерваторию."
     ],
-    "cards": [
-      [
+    "cards": {
+      "feedseek": [
         "ОБСЕРВАТОРИЯ",
         "RSS, Atom и JSON Feed. Создаёт недостающие ленты, улучшает существующие и не даёт одному мёртвому источнику уронить всю антенну."
       ],
-      [
+      "kanarek": [
         "СИГНАЛЬНАЯ БАШНЯ",
         "RSS-читалка для Android с виджетами, радио и IPTV. Жёлтая птица и неожиданно много инфраструктуры."
       ],
-      [
+      "wam": [
         "АУДИОМАСТЕРСКАЯ",
         "Мост между Windows, foobar2000 и Samsung Shape M5. Аудиопротоколы получают смазку, FLAC и вторую жизнь."
       ],
-      [
+      "llm": [
         "ЛАБОРАТОРИЯ ИИ",
         "Одна мастерская для ИИ-сервисов: WebView, нативные провайдеры, сравнение моделей и общее ядро KMP."
       ],
-      [
+      "autka": [
         "ПОГРАНИЧНЫЙ ГАРАЖ",
         "Поиск авто в Польше, Европе и США с калькулятором импорта. Без тотального скрапинга и молитв правилам сайтов."
       ],
-      [
+      "tvpi": [
         "ВЕЩАТЕЛЬНАЯ СТАНЦИЯ",
         "Стабильные IPTV-адреса каналов TVP, Worker и домашний польский раннер для обновления короткоживущих HLS-потоков."
       ]
-    ],
-    "tags": [
-      "Python · ленты · публикация",
-      "Kotlin · Media3 · Worker",
-      "Python · foobar2000 · аудио Wi-Fi",
-      "Kotlin Multiplatform · LLM · WebView",
-      "Android · объявления · NBP",
-      "Python · Cloudflare · HLS"
-    ],
+    },
+    "tags": {
+      "feedseek": "Python · ленты · публикация",
+      "kanarek": "Kotlin · Media3 · Worker",
+      "wam": "Python · foobar2000 · аудио Wi-Fi",
+      "llm": "Kotlin Multiplatform · LLM · WebView",
+      "autka": "Android · объявления · NBP",
+      "tvpi": "Python · Cloudflare · HLS"
+    },
     "nav": [
       "Открыть меню",
       "Закрыть меню",
@@ -354,40 +354,40 @@
       "如果设备还会说 2014 年的协议，这里很可能有人正在为它搭桥。",
       "RSS 没死，只是搬离市中心，建了自己的天文台。"
     ],
-    "cards": [
-      [
+    "cards": {
+      "feedseek": [
         "天文台",
         "RSS、Atom 和 JSON Feed：补全缺失订阅源，改进现有订阅源，不让一个失效源拖垮整座天线。"
       ],
-      [
+      "kanarek": [
         "信号塔",
         "带小组件、广播和 IPTV 的 Android RSS 阅读器。一只黄色小鸟，背后却有大量基础设施。"
       ],
-      [
+      "wam": [
         "音频工坊",
         "连接 Windows、foobar2000 与 Samsung Shape M5。让音频协议获得润滑、FLAC 和第二次生命。"
       ],
-      [
+      "llm": [
         "AI 实验室",
         "一个工作台连接多个 AI 服务：WebView、原生提供商、模型比较和共享 KMP 核心。"
       ],
-      [
+      "autka": [
         "边境车库",
         "汇集波兰、欧洲和美国的购车入口，附进口计算器。不靠无差别抓取和祈祷网站条款。"
       ],
-      [
+      "tvpi": [
         "广播站",
         "为 TVP 频道提供稳定 IPTV 入口，Worker 与波兰家庭运行器负责刷新短时 HLS 流。"
       ]
-    ],
-    "tags": [
-      "Python · 订阅源 · 发布",
-      "Kotlin · Media3 · Worker",
-      "Python · foobar2000 · Wi-Fi 音频",
-      "Kotlin Multiplatform · LLM · WebView",
-      "Android · 市场入口 · NBP",
-      "Python · Cloudflare · HLS"
-    ],
+    },
+    "tags": {
+      "feedseek": "Python · 订阅源 · 发布",
+      "kanarek": "Kotlin · Media3 · Worker",
+      "wam": "Python · foobar2000 · Wi-Fi 音频",
+      "llm": "Kotlin Multiplatform · LLM · WebView",
+      "autka": "Android · 市场入口 · NBP",
+      "tvpi": "Python · Cloudflare · HLS"
+    },
     "nav": [
       "打开菜单",
       "关闭菜单",

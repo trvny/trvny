@@ -20,10 +20,12 @@ Kanarek Companion Worker; it is not a shell.
    patches only when built and checked against the exact base.
 3. **Send:** create a **new comment** on
    [trvny/trvny#203](https://github.com/trvny/trvny/issues/203) as `trvny`. Its
-   entire body must be **one** fenced `gptomek` JSON object:
+   entire body must be **one** fenced `gptomek` command. Prefer `raw-v1` for
+   multiline file contents and patches; use plain JSON for small commands:
 
    ````text
    ```gptomek
+   raw-v1 example123
    {
      "id": "docs-unique-1",
      "op": "commit_files",
@@ -34,15 +36,22 @@ Kanarek Companion Worker; it is not a shell.
      "files": [
        {
          "path": "README.md",
-         "content": "Complete new contents\n"
+         "content": {
+           "raw": 1
+         }
        }
      ]
    }
+   --example123--
+   Complete new contents
+
+   --example123--
    ```
    ````
 
    Replace the example values, especially the SHA, with **live** values. For
-   another operation, change the payload using the reference. Do not edit an old
+   another operation, use the [raw block rules](docs/REFERENCE.md#raw-text-blocks)
+   and operation examples. Do not edit an old
    command comment.
 4. **Verify:** posting is **not** execution. Check the Actions run, command
    result and live GitHub state before proceeding. Successful commands normally

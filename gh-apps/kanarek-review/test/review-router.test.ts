@@ -3611,6 +3611,56 @@ test('single-model 404 enters model cooldown without disabling unrelated provide
   assert.deepEqual(models, ['retired/free']);
 });
 
+test('terminal OrcaRouter 403 cools the model instead of the gateway', async () => {
+  const cooldowns = cooldownNamespace();
+  const models: string[] = [];
+  const env = {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['orcarouter'] },
+      taskModels: { orcarouter: { review: ['locked/free'] } },
+    },
+  };
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    models.push((JSON.parse(String(init?.body)) as { model: string }).model);
+    return Promise.resolve(new Response('forbidden', { status: 403 }));
+  }) as typeof fetch;
+  const call = () => handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free', stream: false, messages: [{ role: 'user', content: 'review' }],
+  }), env, fetcher);
+  assert.equal((await call())?.status, 502);
+  assert.equal((await call())?.status, 502);
+  assert.deepEqual(models, ['locked/free']);
+});
+
+test('OpenRouter upstream 429 falls through without cooling the gateway', async () => {
+  const models: string[] = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter'] },
+      taskModels: { openrouter: { review: ['busy/free', 'live/free'] } },
+    },
+  };
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const { model } = JSON.parse(String(init?.body)) as { model: string };
+    models.push(model);
+    return Promise.resolve(model === 'busy/free'
+      ? Response.json({ error: { metadata: { limit_source: 'upstream_provider_shared_pool' } } }, { status: 429 })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch;
+  const call = () => handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free', stream: false, messages: [{ role: 'user', content: 'review' }],
+  }), env, fetcher);
+  assert.equal((await call())?.status, 200);
+  assert.equal((await call())?.status, 200);
+  assert.deepEqual(models, ['busy/free', 'live/free', 'live/free']);
+});
+
 test('Workers AI runs at its configured position ahead of HTTP providers', async () => {
   let httpCalls = 0;
   let aiCalls = 0;

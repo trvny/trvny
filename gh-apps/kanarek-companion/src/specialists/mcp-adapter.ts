@@ -74,11 +74,12 @@ function specialistSelection(names: readonly SpecialistToolName[]): ReadonlySet<
   return allowed;
 }
 
-function selectedSpecialistSurface(
+export function selectedSpecialistSurface(
   env: SpecialistToolEnv,
   fetcher: typeof fetch,
-  allowed: ReadonlySet<string>,
+  names: readonly SpecialistToolName[],
 ): McpSurface {
+  const allowed = specialistSelection(names);
   const source = specialistSurface(env, fetcher);
   return {
     ...source,
@@ -91,37 +92,6 @@ function selectedSpecialistSurface(
         throw new InvalidToolArgumentsError(name);
       }
       return source.callTool(name, args);
-    },
-  };
-}
-
-function combinedSurface(
-  primary: McpSurface,
-  secondary: McpSurface,
-): McpSurface {
-  const primaryTools = primary.tools();
-  const secondaryTools = secondary.tools();
-  const names = new Set<string>();
-  for (const tool of [...primaryTools, ...secondaryTools]) {
-    if (typeof tool.name !== 'string') continue;
-    if (names.has(tool.name)) throw new Error(`duplicate_mcp_tool:${tool.name}`);
-    names.add(tool.name);
-  }
-  const specialistLabel = secondaryTools.length === 0
-    ? ''
-    : secondaryTools.every((tool) => typeof tool.name === 'string' && tool.name.startsWith('feedseek_'))
-      ? ' and Feedseek'
-      : ' and selected specialist tools';
-  return {
-    serverInfo: primary.serverInfo,
-    instructions: `Guarded GPTomek workflows${specialistLabel}. Use direct provider apps for ordinary calls.`,
-    serializeBatchToolCalls: true,
-    tools: () => [...primaryTools, ...secondaryTools].map((tool) => ({ ...tool })),
-    hasTool: (name) => primary.hasTool(name) || secondary.hasTool(name),
-    callTool(name, args) {
-      if (primary.hasTool(name)) return primary.callTool(name, args);
-      if (secondary.hasTool(name)) return secondary.callTool(name, args);
-      throw new InvalidToolArgumentsError(name);
     },
   };
 }
@@ -182,23 +152,4 @@ export async function handleOperatorMcp(
   github: GithubGateway,
 ): Promise<Response | null> {
   return handleMcp(request, github, operatorSurface(request, document, invoke));
-}
-
-export async function handleScopedMcp(
-  request: Request,
-  document: JsonObject,
-  env: SpecialistToolEnv,
-  invoke: ActionInvoke,
-  github: GithubGateway,
-  selectedSpecialistNames: readonly SpecialistToolName[],
-  fetcher: typeof fetch = fetch,
-): Promise<Response | null> {
-  return handleMcp(
-    request,
-    github,
-    combinedSurface(
-      operatorSurface(request, document, invoke),
-      selectedSpecialistSurface(env, fetcher, specialistSelection(selectedSpecialistNames)),
-    ),
-  );
 }

@@ -1,10 +1,13 @@
 import {
   actionFetch,
-  scopedMcpManifest,
+  combineMcpSurfaces,
   gatewayManifest,
   githubGateway,
-  handleScopedMcp,
+  handleMcp,
+  operatorSurface,
+  scopedMcpManifest,
   scopedRuntimeOpenApi,
+  selectedSpecialistSurface,
   type ActionInvoke,
   type JsonObject,
   type RuntimeEnv,
@@ -70,14 +73,13 @@ export function handleGremlinMcp(
   request: Request,
   env: RuntimeEnv,
   invoke: ActionInvoke,
+  fetcher: typeof fetch = actionFetch,
 ): Promise<Response | null> {
-  return handleScopedMcp(
-    request,
-    gremlinOperatorOpenApi(new URL(request.url).origin),
-    env,
-    invoke,
-    githubGateway(request, env, actionFetch),
-    GREMLIN_SPECIALIST_TOOL_NAMES,
-    actionFetch,
+  const document = gremlinOperatorOpenApi(new URL(request.url).origin);
+  const surface = combineMcpSurfaces(
+    operatorSurface(request, document, invoke),
+    selectedSpecialistSurface(env, fetcher, GREMLIN_SPECIALIST_TOOL_NAMES),
+    'Guarded GPTomek workflows and Feedseek. Use direct provider apps for ordinary calls.',
   );
+  return handleMcp(request, githubGateway(request, env, fetcher), surface);
 }

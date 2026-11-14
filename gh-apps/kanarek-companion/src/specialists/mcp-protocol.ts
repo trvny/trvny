@@ -242,3 +242,30 @@ export async function handleMcp(
   if (!response) return new Response(null, { status: 202, headers: headers(protocolVersion) });
   return json(response, 200, protocolVersion);
 }
+
+export function combineMcpSurfaces(
+  primary: McpSurface,
+  secondary: McpSurface,
+  instructions: string,
+): McpSurface {
+  const primaryTools = primary.tools();
+  const secondaryTools = secondary.tools();
+  const names = new Set<string>();
+  for (const tool of [...primaryTools, ...secondaryTools]) {
+    if (typeof tool.name !== 'string') continue;
+    if (names.has(tool.name)) throw new Error(`duplicate_mcp_tool:${tool.name}`);
+    names.add(tool.name);
+  }
+  return {
+    serverInfo: primary.serverInfo,
+    instructions,
+    serializeBatchToolCalls: true,
+    tools: () => [...primaryTools, ...secondaryTools].map((tool) => ({ ...tool })),
+    hasTool: (name) => primary.hasTool(name) || secondary.hasTool(name),
+    callTool(name, args) {
+      if (primary.hasTool(name)) return primary.callTool(name, args);
+      if (secondary.hasTool(name)) return secondary.callTool(name, args);
+      throw new InvalidToolArgumentsError(name);
+    },
+  };
+}

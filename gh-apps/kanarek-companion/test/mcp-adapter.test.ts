@@ -3,12 +3,12 @@ import test from 'node:test';
 
 import {
   handleSpecialistMcp as handleSpecialistMcpGw,
-  handleScopedMcp as handleScopedMcpGw,
   scopedMcpManifest,
   MCP_PROTOCOL_VERSION,
 } from '../src/specialists/mcp-adapter.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 import { scopedFeedseek } from './support/scoped-feedseek.ts';
+import { handleScopedMcp as handleScopedMcpGw } from './support/scoped-mcp.ts';
 
 type Invoke = (request: Request) => Promise<Response>;
 // Gateway-taking handler, driven by the route-shaped fixture.
@@ -318,7 +318,7 @@ test('scoped MCP only exposes requested specialist names', async () => {
   assert.deepEqual(payload.result.tools.map((tool) => tool.name), ['feedseek_search']);
 });
 
-test('empty specialist scope omits Feedseek from MCP instructions', async () => {
+test('empty specialist scope preserves caller-provided MCP instructions', async () => {
   const request = rpcRequest({
     jsonrpc: '2.0', id: 153, method: 'initialize',
     params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 'test', version: '1' } },
@@ -329,8 +329,7 @@ test('empty specialist scope omits Feedseek from MCP instructions', async () => 
   );
   assert.ok(response);
   const payload = await response.json() as { result: { instructions: string } };
-  assert.doesNotMatch(payload.result.instructions, /Feedseek/);
-  assert.match(payload.result.instructions, /Guarded GPTomek workflows/);
+  assert.equal(payload.result.instructions, 'Fixture scoped MCP surface.');
 });
 
 test('scoped MCP dispatches selected Feedseek and rejects unselected tools', async () => {

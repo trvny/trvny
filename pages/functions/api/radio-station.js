@@ -79,12 +79,20 @@ export async function onRequestGet({ request }) {
   if (!['trojka','czworka','bbc1'].includes(station)) return Response.json({error:'unknown_station'},{status:400,headers:{'cache-control':'no-store'}});
   const {day,wallTime:now,ambiguous}=localClock(new Date());
   if (ambiguous && station!=='bbc1') return Response.json({kind:'station'},{headers:{'cache-control':'no-store'}});
-  const url=station==='bbc1'?BBC:station==='trojka'?`https://trojka.polskieradio.pl/playlist?date=${day}`:`https://apipr.polskieradio.pl/api/playlist?date=${day}&antenneId=4`;
-  try {
-    const upstream=await fetch(url,{signal:AbortSignal.timeout(6000),cf:{cacheEverything:true,cacheTtlByStatus:{'200-299':20,'400-599':0}}});
+  const urlFor = date => station==='bbc1'?BBC:station==='trojka'?`https://trojka.polskieradio.pl/playlist?date=${date}`:`https://apipr.polskieradio.pl/api/playlist?date=${date}&antenneId=4`;
+  const signal=AbortSignal.timeout(6000);
+  async function fetchStation(date) {
+    const upstream=await fetch(urlFor(date),{signal,cf:{cacheEverything:true,cacheTtlByStatus:{'200-299':20,'400-599':0}}});
     if(!upstream.ok)throw new Error('upstream unavailable');
-    const data=await readJson(upstream,MAX_BYTES);
-    const result=station==='bbc1'?bbcTrack(data):polishTrack(data,station,now);
+    return readJson(upstream,MAX_BYTES);
+  }
+  try {
+    const data=await fetchStation(day);
+    let result=station==='bbc1'?bbcTrack(data):polishTrack(data,station,now);
+    if (!result && station!=='bbc1' && new Date(now).getUTCHours()<6) {
+      const previous=new Date(Date.parse(`${day}T00:00:00Z`)-86400000).toISOString().slice(0,10);
+      try { result=polishTrack(await fetchStation(previous),station,now); } catch { /* station fallback */ }
+    }
     return Response.json(result || {kind:'station'}, {headers:{'cache-control':'public, max-age=0, s-maxage=20'}});
   } catch {
     return Response.json({error:'metadata_unavailable'}, {status:502,headers:{'cache-control':'no-store'}});

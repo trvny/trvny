@@ -10,6 +10,7 @@ import {
   type AutopilotCheckpointEnv,
 } from '../operator/autopilot-checkpoint.ts';
 import { githubBotRequestAllowed } from './github-gateway.ts';
+import { decodeGptomekComment } from './gptomek-comment.ts';
 import {
   GPTOMEK_CONTROL_PULL_REQUEST,
   GPTOMEK_CONTROL_REPOSITORY,
@@ -27,7 +28,6 @@ const CONTROL_REPOSITORY = GPTOMEK_CONTROL_REPOSITORY;
 const CONTROL_PULL_REQUEST = GPTOMEK_CONTROL_PULL_REQUEST;
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9+/_-]+={0,2})\s*-->/;
 const COMMAND_PREFIX_RE = /<!--\s*gptomek-command:/;
-const COMMENT_COMMAND_RE = /^\s*```gptomek[ \t]*\r?\n([\s\S]*?)\r?\n```\s*$/;
 const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_BATCH_STEPS = 10;
@@ -767,15 +767,7 @@ function withoutCommand(body: string | null | undefined): string {
 }
 
 function commandFromComment(body: string): GptomekCommand {
-  const match = body.match(COMMENT_COMMAND_RE);
-  if (!match) throw new Error('invalid_comment_command');
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(match[1]);
-  } catch {
-    throw new Error('invalid_comment_command_json');
-  }
-  return parseCommand(decoded);
+  return parseCommand(decodeGptomekComment(body));
 }
 
 function bodyWithResult(

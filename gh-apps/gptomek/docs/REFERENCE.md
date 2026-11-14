@@ -9,7 +9,7 @@ Implementation truth:
 ## Command model
 
 Each command is posted as the **entire body** of a new `trvny/trvny#203`
-comment, inside one `gptomek` fenced JSON block. Required common keys: `id` (new
+comment, inside one `gptomek` fenced command (plain JSON or `raw-v1`). Required common keys: `id` (new
 unique string), `op`, `repository` (`trvny/*` or `travnie/*`). The examples
 below are complete payloads; sample SHAs are **placeholders**, not usable branch
 heads.
@@ -31,7 +31,34 @@ heads.
   transaction. A failed final ref update is re-read: intended SHA = success, old
   SHA = retryable, other/unknown SHA = uncertain.
 
+## Raw text blocks
+
+Prefer `raw-v1` for multiline file contents, validated patches and long replies.
+Keep plain JSON for short commands. Both forms decode to the same command and
+use the same validation, authorization, limits and checkpoints. No new endpoint.
+
+- Inside the usual `gptomek` fence, start with `raw-v1 <boundary>` on its own
+  line, then the JSON command header. Boundary: 8–64 ASCII letters, digits,
+  underscores or hyphens. Choose one absent from the raw text as a marker line.
+- Replace a string slot with `{"raw": 1}`; subsequent blocks are numbered from
+  1 in physical order. Each must be referenced exactly once. Supported slots:
+  `commit_files.files[].content`, `apply_patch.patch`, `branch_from_patch.patch`,
+  `review_fix.patch` / `replyBody`, and `comment` / `reply_review` body.
+  These slots also work inside `batch.steps`; other fields stay JSON.
+- Put `--<boundary>--` on a separate line before the first raw block, between
+  blocks and after the last block. Use LF for framing. The framing LF directly
+  before each marker is not content: leave an extra blank line to preserve a
+  final LF, or one blank line for empty content. Never escape, trim or indent
+  the raw text. Keep `content: null` for deletion; ordinary strings still work.
+- Send the exact comment source, not rendered Markdown. Embedded backticks are
+  preserved by the decoder even when GitHub's preview looks different.
+- `invalid_comment_raw_*` or `unused_comment_raw_block`: correct framing or
+  references before submitting a new command. No execution on decode failure.
+
 ## Operation examples
+
+Plain `json` examples below must be wrapped in the usual `gptomek` fence; raw
+examples show the complete comment body.
 
 ### Commit files
 
@@ -39,7 +66,9 @@ Use for **complete UTF-8 text** contents, including Markdown/docs. `content:
 null` deletes a file. Max **32 distinct paths**, **48,000 characters** per
 string content.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "docs-example-1",
   "op": "commit_files",
@@ -50,11 +79,18 @@ string content.
   "files": [
     {
       "path": "README.md",
-      "content": "Complete replacement\n"
+      "content": {
+        "raw": 1
+      }
     }
   ]
 }
+--example123--
+Complete replacement
+
+--example123--
 ```
+````
 
 ### Apply a unified patch
 
@@ -64,7 +100,9 @@ positional/context matching, no fuzz; preserves LF/CRLF, BOM and existing
 executable bits. Supports text create/delete and `100644`/`100755` creation;
 **no binary, renames/copies, mode-only changes**.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "patch-example-1",
   "op": "apply_patch",
@@ -72,9 +110,21 @@ executable bits. Supports text create/delete and `100644`/`100755` creation;
   "branch": "feat/example",
   "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
   "message": "fix: change text",
-  "patch": "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n"
+  "patch": {
+    "raw": 1
+  }
 }
+--example123--
+diff --git a/x b/x
+--- a/x
++++ b/x
+@@ -1 +1 @@
+-a
++b
+
+--example123--
 ```
+````
 
 Generate the diff with `git diff` and run `git apply --check` on the **exact
 guarded tree**. Preserve `\ No newline at end of file` where required; never
@@ -87,7 +137,9 @@ Same patch rules, but target branch must **not exist**. GPTomek creates the
 commit before creating the ref. Never use `main`, the repo default branch or
 `gptomek/control` as the target.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "new-branch-example-1",
   "op": "branch_from_patch",
@@ -95,9 +147,21 @@ commit before creating the ref. Never use `main`, the repo default branch or
   "branch": "feat/new",
   "baseSha": "0123456789abcdef0123456789abcdef01234567",
   "message": "feat: start branch",
-  "patch": "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n"
+  "patch": {
+    "raw": 1
+  }
 }
+--example123--
+diff --git a/x b/x
+--- a/x
++++ b/x
+@@ -1 +1 @@
+-a
++b
+
+--example123--
 ```
+````
 
 ### Apply a review fix
 
@@ -105,7 +169,9 @@ One guarded patch + review reply + 👍; optionally resolve the thread. PR head
 must be an **in-repo** branch matching `branch`; `commentId` must belong to that
 PR. Patch rules above apply.
 
-```json
+````text
+```gptomek
+raw-v1 example123
 {
   "id": "review-fix-example-1",
   "op": "review_fix",
@@ -116,10 +182,22 @@ PR. Patch rules above apply.
   "commentId": 456789,
   "reviewThreadId": "PRRT_example",
   "message": "fix: address review",
-  "patch": "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n",
+  "patch": {
+    "raw": 1
+  },
   "replyBody": "Fixed on the updated head."
 }
+--example123--
+diff --git a/x b/x
+--- a/x
++++ b/x
+@@ -1 +1 @@
+-a
++b
+
+--example123--
 ```
+````
 
 `reviewThreadId` and `replyBody` are optional (default reply: `Fixed in
 <short-sha>.`). Verify review thread ID before supplying it. Resolution needs
@@ -373,7 +451,7 @@ comment is not evidence of execution.
 
 ## Transport internals and recovery
 
-**Normal:** `trvny` posts one fenced JSON command to
+**Normal:** `trvny` posts one fenced command (JSON or `raw-v1`) to
 [Issue #203](https://github.com/trvny/trvny/issues/203).
 [Workflow](../../../.github/workflows/gptomek-comment-command.yml) sends its
 **comment ID** to authenticated `POST /gptomek/wake`. Worker independently

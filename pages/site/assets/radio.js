@@ -5,6 +5,8 @@
     const volume = root.querySelector('[data-volume]');
     const status = root.querySelector('[data-status]');
     const cover = root.querySelector('[data-cover]');
+    const logo = root.querySelector('[data-station-logo]');
+    const kicker = root.querySelector('[data-kicker]');
     const title = root.querySelector('[data-title]');
     const artist = root.querySelector('[data-artist]');
     const album = root.querySelector('[data-album]');
@@ -16,6 +18,7 @@
     if (!(audio instanceof HTMLAudioElement) || !(controls instanceof HTMLElement) ||
         !(play instanceof HTMLButtonElement) || !(volume instanceof HTMLInputElement) ||
         !(status instanceof HTMLElement) || !(cover instanceof HTMLImageElement) ||
+        !(logo instanceof HTMLImageElement) || !(kicker instanceof HTMLElement) ||
         !(title instanceof HTMLElement) || !(artist instanceof HTMLElement) || !(album instanceof HTMLElement) ||
         !(picker instanceof HTMLElement) || !(station instanceof HTMLSelectElement) ||
         !(mark instanceof HTMLElement) || !(markLabel instanceof HTMLElement) || !(quality instanceof HTMLElement)) return;
@@ -28,6 +31,16 @@
     let hls;
     let hlsLoading;
     audio.volume = Number(volume.value);
+
+    function showStationLogo(option) {
+      logo.hidden = true;
+      mark.hidden = false;
+      markLabel.hidden = false;
+      logo.src = option.dataset.logo || '';
+    }
+    logo.addEventListener('load', () => { logo.hidden = false; mark.hidden = true; markLabel.hidden = true; });
+    logo.addEventListener('error', () => { logo.hidden = true; mark.hidden = false; markLabel.hidden = false; });
+    showStationLogo(station.selectedOptions[0]);
 
     function loadHls() {
       if (window.Hls) return Promise.resolve(window.Hls);
@@ -98,14 +111,16 @@
       const option = station.selectedOptions[0];
       mark.textContent = option.dataset.mark;
       markLabel.textContent = option.textContent;
+      showStationLogo(option);
+      kicker.textContent = 'ON AIR';
       quality.textContent = option.dataset.quality;
       title.textContent = option.textContent;
       artist.textContent = station.value === 'paradise' ? 'Loading track details…' : 'Live radio';
       album.textContent = '';
       cover.hidden = true;
       cover.removeAttribute('src');
-      if (station.value === 'paradise') void refresh();
-      else if (!audio.canPlayType('application/vnd.apple.mpegurl')) void loadHls().catch(() => {});
+      void refresh();
+      if (station.value !== 'paradise' && !audio.canPlayType('application/vnd.apple.mpegurl')) void loadHls().catch(() => {});
       if (resume) void start();
     });
     audio.addEventListener('play', () => {
@@ -134,29 +149,33 @@
     picker.hidden = false;
 
     async function refresh() {
-      if (document.hidden || station.value !== 'paradise') return;
+      if (document.hidden) return;
       const version = ++metadataVersion;
       try {
-        const response = await fetch('/api/radio-now', { cache:'no-store', signal:AbortSignal.timeout(8000) });
+        const endpoint = station.value === 'paradise' ? '/api/radio-now' : `/api/radio-station?station=${encodeURIComponent(station.value)}`;
+        const response = await fetch(endpoint, { cache:'no-store', signal:AbortSignal.timeout(8000) });
         if (!response.ok) throw new Error('metadata unavailable');
         const track = await response.json();
         if (version !== metadataVersion) return;
-        title.textContent = track.title;
-        artist.textContent = track.artist;
+        const hasDetails = typeof track.title === 'string' && typeof track.artist === 'string';
+        title.textContent = hasDetails ? track.title : station.selectedOptions[0].textContent;
+        artist.textContent = hasDetails ? track.artist : 'Live radio';
+        kicker.textContent = track.kind === 'recent' ? 'RECENTLY PLAYED' : 'ON AIR';
         album.textContent = track.album || '';
         if (track.cover) { cover.src = track.cover; cover.hidden = false; }
         else { cover.hidden = true; cover.removeAttribute('src'); }
       } catch {
         if (version !== metadataVersion) return;
-        title.textContent = 'Radio Paradise';
-        artist.textContent = 'Track details unavailable';
+        title.textContent = station.selectedOptions[0].textContent;
+        artist.textContent = station.value === 'paradise' ? 'Track details unavailable' : 'Live radio';
+        kicker.textContent = 'ON AIR';
         album.textContent = '';
         cover.hidden = true;
         cover.removeAttribute('src');
       } finally {
         if (version === metadataVersion) {
           clearTimeout(timer);
-          if (!document.hidden && station.value === 'paradise') timer = setTimeout(refresh, 30000);
+          if (!document.hidden) timer = setTimeout(refresh, 30000);
         }
       }
     }

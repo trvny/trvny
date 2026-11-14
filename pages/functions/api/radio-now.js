@@ -2,7 +2,7 @@ const UPSTREAM = "https://api.radioparadise.com/api/now_playing?chan=0";
 const MAX_BYTES = 32768;
 const BOTEK_ORIGIN = "https://tg-assistant.travny.workers.dev";
 
-async function readJson(response) {
+export async function readJson(response, maxBytes = MAX_BYTES) {
   if (!response.body) throw new Error("empty response");
   const reader = response.body.getReader();
   const chunks = [];
@@ -12,7 +12,7 @@ async function readJson(response) {
       const { value, done } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_BYTES) throw new Error("response too large");
+      if (size > maxBytes) throw new Error("response too large");
       chunks.push(value);
     }
   } finally {

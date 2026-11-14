@@ -53,19 +53,19 @@ function polishTrack(data, station, now) {
   for (const programme of programmes) {
     const start=wallTime(modern?programme.startTime:programme.Start);
     const end=wallTime(modern?programme.stopTime:programme.Stop);
-    if (start<=now && end>now && (!active || start>active.start)) active={start,end,title:clean(modern?programme.title:programme.Title)};
+    if (start<=now && end>now && (!active || start>active.start)) active={start,programme,title:clean(modern?programme.title:programme.Title)};
     const songs=modern?programme.playlistItems:programme.Songs;
     if (!Array.isArray(songs)) continue;
     for (const song of songs) {
       const started=wallTime(modern?song.startTime:song.Start);
       const title=clean(modern?song.title:song.Title), artist=clean(modern?song.artist:song.Artist);
       if (!title || !artist || !Number.isFinite(started) || started>now || (best && started<=best.started)) continue;
-      best={started,title,artist,cover:modern?song.cover:song.Photo,duration:modern?song.duration:0};
+      best={started,title,artist,programme,cover:modern?song.cover:song.Photo,duration:modern?song.duration:0};
     }
   }
   if (best) {
     const age=(now-best.started)/1000;
-    if (modern && active && best.started>=active.start && best.started<active.end &&
+    if (modern && active && best.programme===active.programme &&
         Number.isFinite(best.duration) && best.duration>0 && best.duration<=1800 && age<best.duration)
       return {title:best.title,artist:best.artist,album:'',cover:safeImage(best.cover,['static.prsa.pl','cdn.polskieradio.pl']),kind:'track'};
     if (!modern && age<=900)

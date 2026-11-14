@@ -78,3 +78,11 @@ test('a previous programme track is not shown as current after a programme chang
   assert.equal(result.kind,'programme');
   assert.equal(result.title,'Next show');
 });
+
+
+test('a track assigned to the active programme can begin before its scheduled start', async t => {
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-13T23:56:23Z')});
+  const data={data:[{title:'Next show',startTime:'2026-11-14T00:55:00',stopTime:'2026-11-14T02:00:00',playlistItems:[{title:'Song',artist:'Artist',startTime:'2026-11-14T00:54:00',duration:300}]}]};
+  t.mock.method(globalThis,'fetch',()=>Promise.resolve(Response.json(data)));
+  assert.equal((await (await onRequestGet(request('trojka'))).json()).kind,'track');
+});

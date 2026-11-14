@@ -15,6 +15,7 @@
     const previous = root.querySelector('[data-previous]');
     const next = root.querySelector('[data-next]');
     const position = root.querySelector('[data-position]');
+    const announcement = root.querySelector('[data-announcement]');
     const swipeArea = root.querySelector('[data-swipe-area]');
     const station = root.querySelector('[data-station]');
     const mark = root.querySelector('.radio-fallback [data-mark]');
@@ -27,7 +28,8 @@
         !(title instanceof HTMLElement) || !(artist instanceof HTMLElement) || !(album instanceof HTMLElement) ||
         !(picker instanceof HTMLElement) || !(station instanceof HTMLSelectElement) ||
         !(stationNav instanceof HTMLElement) || !(previous instanceof HTMLButtonElement) ||
-        !(next instanceof HTMLButtonElement) || !(position instanceof HTMLElement) || !(swipeArea instanceof HTMLElement) ||
+        !(next instanceof HTMLButtonElement) || !(position instanceof HTMLElement) ||
+        !(announcement instanceof HTMLElement) || !(swipeArea instanceof HTMLElement) ||
         !(mark instanceof HTMLElement) || !(markLabel instanceof HTMLElement) || !(quality instanceof HTMLElement)) return;
 
     let wantsPlaying = false;
@@ -117,7 +119,7 @@
       clearTimeout(timer);
       const option = station.selectedOptions[0];
       position.textContent = `${station.selectedIndex + 1} / ${station.options.length}`;
-      position.setAttribute('aria-label', `Station ${station.selectedIndex + 1} of ${station.options.length}: ${option.textContent}`);
+      announcement.textContent = `Station ${station.selectedIndex + 1} of ${station.options.length}: ${option.textContent}`;
       mark.textContent = option.dataset.mark;
       markLabel.textContent = option.textContent;
       showStationLogo(option);

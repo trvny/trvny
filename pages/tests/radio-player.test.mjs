@@ -55,7 +55,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     "[data-title]": new Element(), "[data-artist]": new Element(), "[data-album]": new Element(),
     "[data-station-picker]": new Element(), "[data-station]": station,
     "[data-station-nav]": new Element(), "[data-previous]": new Button(), "[data-next]": new Button(),
-    "[data-position]": new Element(), "[data-swipe-area]": new Element(), ".radio-fallback [data-mark]": new Element(),
+    "[data-position]": new Element(), "[data-announcement]": new Element(), "[data-swipe-area]": new Element(), ".radio-fallback [data-mark]": new Element(),
     "[data-mark-label]": new Element(), ".radio-footer [data-quality]": new Element(),
   };
   const root = new Element();
@@ -252,6 +252,7 @@ test("station arrows and swipes wrap without starting paused radio", async () =>
   previous.dispatch("click");
   assert.equal(p.station.value, "bbc1");
   assert.equal(p.elements["[data-position]"].textContent, "4 / 4");
+  assert.equal(p.elements["[data-announcement]"].textContent, "Station 4 of 4: BBC Radio 1");
   next.dispatch("click");
   assert.equal(p.station.value, "paradise");
   area.dispatch("touchstart", { touches:[{ clientX:200, clientY:30 }] });

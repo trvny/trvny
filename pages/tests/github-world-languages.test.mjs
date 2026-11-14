@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { setImmediate } from 'node:timers';
 
 const root = new URL('../site/teksty/githubowa-kraina/', import.meta.url);
 const script = await readFile(new URL('explore.js', root), 'utf8');

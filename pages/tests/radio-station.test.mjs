@@ -40,6 +40,7 @@ test('Polish stations distinguish a current track, recent track and programme', 
 });
 
 test('rejects unknown stations and bounds upstream responses', async t => {
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-13T23:56:23Z')});
   assert.equal((await onRequestGet(request('other'))).status,400);
   t.mock.method(globalThis,'fetch',()=>Promise.resolve(new Response('x'.repeat(512*1024+1))));
   assert.equal((await onRequestGet(request('trojka'))).status,502);

@@ -217,3 +217,15 @@ test("station metadata updates the track while retaining the station logo", asyn
   assert.equal(p.elements["[data-cover]"].hidden, false);
   assert.equal(p.elements["[data-station-logo]"].src, "bbc-logo.png");
 });
+
+test("a broken cover reveals the station logo", async () => {
+  const p = await player({ stationMetadata: { title: "Track", artist: "Artist", cover: "https://ichef.bbci.co.uk/a.jpg", kind: "track" } });
+  p.select("bbc1");
+  await p.flush();
+  const logo = p.elements["[data-station-logo]"];
+  const cover = p.elements["[data-cover]"];
+  logo.dispatch("load");
+  cover.dispatch("error");
+  assert.equal(cover.hidden, true);
+  assert.equal(logo.hidden, false);
+});

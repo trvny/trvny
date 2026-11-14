@@ -40,3 +40,14 @@ test('rejects unknown stations and bounds upstream responses', async t => {
   t.mock.method(globalThis,'fetch',()=>Promise.resolve(new Response('x'.repeat(512*1024+1))));
   assert.equal((await onRequestGet(request('trojka'))).status,502);
 });
+
+
+test('Polish station metadata stays neutral during the repeated DST hour', async t => {
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-25T00:30:00Z')});
+  const fetchMock=t.mock.method(globalThis,'fetch',()=>Promise.reject(new Error('must not fetch')));
+  for (const instant of ['2026-10-25T00:30:00Z','2026-10-25T01:30:00Z']) {
+    t.mock.timers.setTime(Date.parse(instant));
+    assert.deepEqual(await (await onRequestGet(request('trojka'))).json(),{kind:'station'});
+  }
+  assert.equal(fetchMock.mock.callCount(),0);
+});

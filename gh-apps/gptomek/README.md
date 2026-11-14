@@ -50,13 +50,16 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 
 ## Guards
 
-- Fresh unique `id` per new command. Identical retry only within 7 days;
-  inspect live state first if uncertain. See [replay rules](docs/REFERENCE.md#command-model).
+- Fresh unique `id` per new command. Identical retry only within 7 days.
+  `command_outcome_uncertain`: never blindly replay; inspect live state.
+  See [replay rules](docs/REFERENCE.md#command-model).
 - Existing branch: fresh `expectedHeadSha` before **each** write. New branch
   from patch: immutable `baseSha`. Batch: `steps`, 1–10, no inner `id` or
   `repository`, no rollback. Omit completed steps before changing a retry.
-- Adopt temporary commits with `adopt_branch` using the PR merge base and
-  live head; pause other writers, recheck CI. Skip if already one bot commit.
+- [Adopt branch](docs/REFERENCE.md#adopt-a-prepared-branch): after `git`/`gh`
+  or non-GPTomek commits, consolidate the pushed final tree into one GPTomek
+  commit. Use PR merge base + live `expectedHeadSha`; pause other writers.
+  Skip only if already one correct GPTomek commit. Recheck CI and reviews.
 - `operator_action` cannot bypass guards or create PRs. Do not touch #176 or
   `gptomek/control` (recovery only).
 

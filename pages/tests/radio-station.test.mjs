@@ -65,3 +65,16 @@ test('untrusted artwork is not exposed', async t => {
   }]})));
   assert.equal((await (await onRequestGet(request('bbc1'))).json()).cover,'');
 });
+
+
+test('a previous programme track is not shown as current after a programme change', async t => {
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-13T23:56:23Z')});
+  const data={data:[
+    {title:'Previous',startTime:'2026-11-14T00:00:00',stopTime:'2026-11-14T00:55:00',playlistItems:[{title:'Old song',artist:'Artist',startTime:'2026-11-14T00:54:00',duration:300}]},
+    {title:'Next show',startTime:'2026-11-14T00:55:00',stopTime:'2026-11-14T02:00:00',playlistItems:[]},
+  ]};
+  t.mock.method(globalThis,'fetch',()=>Promise.resolve(Response.json(data)));
+  const result=await (await onRequestGet(request('trojka'))).json();
+  assert.equal(result.kind,'programme');
+  assert.equal(result.title,'Next show');
+});

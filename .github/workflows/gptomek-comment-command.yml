@@ -1,5 +1,6 @@
 name: Run GPTomek JSON comment
-run-name: ${{ github.event_name == 'issue_comment' && format('GPTomek #{0}', github.event.comment.id) || 'GPTomek mailbox cleanup' }}
+run-name: >-
+  ${{ github.event_name == 'issue_comment' && format('GPTomek #{0}', github.event.comment.id) || 'GPTomek mailbox cleanup' }}
 
 on: # yamllint disable-line rule:truthy
   issue_comment:
@@ -34,27 +35,33 @@ jobs:
         run: |
           set -euo pipefail
           : "${GPTOMEK_WAKE_TOKEN:?GPTOMEK_WAKE_TOKEN must be configured}"
-          if ! response="$(
-            curl --fail-with-body --silent --show-error --retry 2 \
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          # A seekable output file keeps only the final attempt's body.
+          curl_status=0
+          http_status="$(
+            curl --silent --show-error --retry 2 \
               --connect-timeout 5 --max-time 30 \
+              --output "$response_file" --write-out '%{http_code}' \
               -X POST \
               -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
               -H "Content-Type: application/json" \
               --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId}')" \
               https://automation.travny.workers.dev/gptomek/wake
-          )"; then
-            echo "::error::GPTomek wake unconfirmed for comment ${COMMENT_ID}; inspect the live target before retrying."
-            printf 'Comment: `%s`\n\nOutcome: wake unconfirmed (transport failure). Inspect live state.\n' \
-              "$COMMENT_ID" >>"$GITHUB_STEP_SUMMARY"
-            # Worker error codes only; never print an arbitrary HTTP error body.
-            jq -c '{ok, error}' <<<"$response" 2>/dev/null || true
+          )" || curl_status=$?
+          response="$(cat "$response_file")"
+          if [[ "$curl_status" != 0 || "$http_status" != 2[0-9][0-9] ]]; then
+            worker_error="$(jq -r '.error | strings | select(test("^[a-z0-9_]{1,100}$"))' <<<"$response" 2>/dev/null || true)"
+            echo "::error::GPTomek wake not confirmed; inspect live state before retrying."
+            printf 'Comment: %s\n\nOutcome: wake not confirmed. HTTP: %s; curl: %s; Worker error: %s.\n' \
+              "$COMMENT_ID" "${http_status:-none}" "$curl_status" "${worker_error:-none}" >>"$GITHUB_STEP_SUMMARY"
             exit 1
           fi
           printf '%s\n' "$response"
           state="$(jq -r '.state // empty' <<<"$response")"
           duplicate="$(jq -r '.duplicate // false' <<<"$response")"
           reason="$(jq -r '.commandError // empty' <<<"$response")"
-          printf 'Comment: `%s`\n\nState: `%s`\n\nDuplicate delivery: `%s`\n\nError: `%s`\n' \
+          printf 'Comment: %s\n\nState: %s\n\nDuplicate delivery: %s\n\nError: %s\n' \
             "$COMMENT_ID" "${state:-unknown}" "$duplicate" "${reason:-none}" >>"$GITHUB_STEP_SUMMARY"
           {
             echo "state=$state"

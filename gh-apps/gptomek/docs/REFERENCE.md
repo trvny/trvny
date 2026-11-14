@@ -55,8 +55,8 @@ One wire format for every operation, including batches:
 ### Commit files
 
 Use for **complete UTF-8 text** contents, including Markdown/docs. `content:
-null` deletes a file. Max **32 distinct paths**, **48,000 characters** per
-string content. Measure the decoded text, not escaped JSON. Larger files or
+null` deletes a file. Max **32 distinct paths**, **48,000 UTF-16 code units** per
+string content. Measure decoded string length, not escaped JSON. Larger files or
 large aggregate payloads: create blobs in the target repo, then `commit_tree`.
 
 ````text

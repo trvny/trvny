@@ -33,6 +33,10 @@ test('Polish stations distinguish a current track, recent track and programme', 
   result=await (await onRequestGet(request('czworka'))).json();
   assert.equal(result.kind,'recent');
   assert.equal(result.title,'Song');
+  data[0].Songs[0].Start='Sat, 14 Nov 2026 00:10:00';
+  result=await (await onRequestGet(request('czworka'))).json();
+  assert.equal(result.kind,'programme');
+  assert.equal(result.title,'Music');
 });
 
 test('rejects unknown stations and bounds upstream responses', async t => {
@@ -50,4 +54,13 @@ test('Polish station metadata stays neutral during the repeated DST hour', async
     assert.deepEqual(await (await onRequestGet(request('trojka'))).json(),{kind:'station'});
   }
   assert.equal(fetchMock.mock.callCount(),0);
+});
+
+
+test('untrusted artwork is not exposed', async t => {
+  t.mock.method(globalThis, 'fetch', () => Promise.resolve(Response.json({data:[{
+    titles:{primary:'Artist',secondary:'Track'}, offset:{now_playing:true},
+    image_url:'https://ichef.bbci.co.uk.evil.test/images/ic/{recipe}/abc.jpg',
+  }]})));
+  assert.equal((await (await onRequestGet(request('bbc1'))).json()).cover,'');
 });

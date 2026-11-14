@@ -32,3 +32,34 @@ test('atlas regions, cards and generated guide stay in sync', async () => {
   assert.ok(html.includes(`<strong>${data.regions.length}</strong><span>regions to explore</span>`));
   execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/github-world-guide.mjs', import.meta.url)), '--check']);
 });
+
+
+test('all language dictionaries cover the atlas without duplicating destinations', async () => {
+  const catalog = JSON.parse(await readFile(new URL('atlas.json', root), 'utf8'));
+  const locales = JSON.parse(await readFile(new URL('locales.json', root), 'utf8'));
+  const html = await readFile(new URL('index.html', root), 'utf8');
+  const languages = ['pl', 'en', 'ru', 'zh'];
+  assert.deepEqual(Object.keys(locales).sort(), [...languages].sort());
+  const keys = Object.keys(locales.en).sort();
+  for (const language of languages) {
+    assert.deepEqual(Object.keys(locales[language]).sort(), keys, `${language} UI keys`);
+    assert.equal(locales[language].cards.length, 6);
+    assert.equal(locales[language].tags.length, 6);
+    assert.equal(locales[language].lore.length, 5);
+    assert.equal(locales[language].nav.length, 16);
+    assert.match(html, new RegExp(`data-language="${language}"`));
+    for (const [key, value] of Object.entries(locales[language])) {
+      if (typeof value === 'string') assert.ok(value.trim(), `${language}.${key}`);
+    }
+  }
+  for (const region of catalog.regions) {
+    for (const language of ['pl', 'ru', 'zh']) {
+      assert.ok(region.translations?.[language]?.description, `${region.id}.${language}`);
+      for (const item of region.items) {
+        assert.ok(item.translations?.[language]?.name, `${region.id}.${language} item name`);
+        assert.ok(item.translations?.[language]?.description, `${region.id}.${language} item description`);
+        assert.equal(item.translations[language].url, undefined);
+      }
+    }
+  }
+});

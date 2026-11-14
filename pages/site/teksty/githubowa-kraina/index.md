@@ -4,6 +4,7 @@
 
 Page: <https://travny.pages.dev/teksty/githubowa-kraina/>
 Structured region data: <https://travny.pages.dev/teksty/githubowa-kraina/atlas.json>
+Languages: PL, EN, RU, ZH. The separate infrastructure map is English.
 Infrastructure map: <https://travny.pages.dev/teksty/githubowa-kraina/universe.html>
 
 Choose a region, then a place for its description and destination. Project repositories remain the authority for current details.

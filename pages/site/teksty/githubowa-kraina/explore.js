@@ -1,9 +1,19 @@
 (() => {
-  const dialog = document.querySelector('#atlas-dialog');
-  const title = document.querySelector('#dialog-title');
-  const content = document.querySelector('#dialog-content');
+  const $ = selector => document.querySelector(selector);
+  const dialog = $('#atlas-dialog');
+  const title = $('#dialog-title');
+  const content = $('#dialog-content');
   const close = dialog?.querySelector('.dialog-close');
-  if (!dialog || typeof dialog.showModal !== 'function') return;
+  const languages = ['pl', 'en', 'ru', 'zh'];
+  const buttons = [...document.querySelectorAll('[data-language]')];
+  buttons.forEach(button => { button.disabled = true; });
+  let language = 'pl';
+  let dictionaries = null;
+  let data = null;
+  let selection = 0;
+  let currentRegion = null;
+  let currentItem = null;
+  let loreIndex = 0;
 
   const text = (tag, value, className) => {
     const element = document.createElement(tag);
@@ -18,67 +28,145 @@
     element.rel = 'noopener noreferrer';
     return element;
   };
-  const showRegion = (region, focusItem = null) => {
-    title.textContent = region.name;
-    const intro = text('p', region.description, 'dialog-intro');
+  const translated = entry => ({ ...entry, ...(entry.translations?.[language] || {}) });
+  const fallback = { loadingTitle: 'Loading region', loading: 'Loading places…', unavailableTitle: 'Region unavailable', unavailable: 'The atlas could not be loaded. You can still open the project.', openProject: 'Open project ↗', openDestination: 'Open destination ↗', back: '← Back to ' };
+  const t = key => dictionaries?.[language]?.[key] || dictionaries?.en?.[key] || fallback[key] || key;
+  const set = (selector, value) => { const element = $(selector); if (element) element.textContent = value; };
+  const setAttr = (selector, attr, value) => { const element = $(selector); if (element) element.setAttribute(attr, value); };
+  const showRegion = (region, focusIndex = null) => {
+    currentRegion = region;
+    currentItem = null;
+    title.textContent = translated(region).name;
+    const intro = text('p', translated(region).description, 'dialog-intro');
     const list = document.createElement('div');
     list.className = 'dialog-list';
-    for (const item of region.items) {
-      const button = text('button', item.name, 'dialog-place');
+    region.items.forEach((item, index) => {
+      const button = text('button', translated(item).name, 'dialog-place');
       button.type = 'button';
-      button.dataset.name = item.name;
       const arrow = text('span', '›');
       arrow.setAttribute('aria-hidden', 'true');
       button.append(arrow);
-      button.addEventListener('click', () => showItem(region, item));
+      button.addEventListener('click', () => showItem(region, index));
       list.append(button);
-    }
-    content.replaceChildren(intro, list, link('Open project ↗', region.url));
-    if (focusItem) [...list.querySelectorAll('button')].find(button => button.dataset.name === focusItem)?.focus();
+    });
+    content.replaceChildren(intro, list, link(t('openProject'), region.url));
+    if (focusIndex !== null) list.querySelectorAll('button')[focusIndex]?.focus();
   };
-  const showItem = (region, item) => {
+  const showItem = (region, index, focus = true) => {
+    currentRegion = region;
+    currentItem = index;
+    const item = translated(region.items[index]);
     title.textContent = item.name;
-    const back = text('button', '← Back to ' + region.name, 'dialog-back');
+    const back = text('button', t('back') + translated(region).name, 'dialog-back');
     back.type = 'button';
-    back.addEventListener('click', () => showRegion(region, item.name));
+    back.addEventListener('click', () => showRegion(region, index));
     const actions = document.createElement('div');
     actions.className = 'dialog-actions';
-    actions.append(back, link('Open destination ↗', item.url));
+    actions.append(back, link(t('openDestination'), item.url));
     content.replaceChildren(text('p', item.description, 'dialog-intro'), actions);
-    back.focus();
+    if (focus) back.focus();
   };
-  close.addEventListener('click', () => dialog.close());
-  const atlas = fetch('/teksty/githubowa-kraina/atlas.json')
-    .then(response => {
-      if (!response.ok) throw new Error('Atlas unavailable');
-      return response.json();
-    })
-    .catch(error => {
-      console.warn('Atlas unavailable; project links remain accessible.', error);
-      return null;
+  const applyLanguage = next => {
+    if (!dictionaries?.[next]) return;
+    language = next;
+    const d = dictionaries[next];
+    document.documentElement.lang = next === 'zh' ? 'zh-Hans' : next;
+    buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.language === next)));
+    const fields = {
+      '#hero-heading':'heading', '.hero h1 em':'headingEm', '.lede':'lede',
+      '.hero-actions a:nth-child(1)':'explore', '.hero-actions a:nth-child(2)':'command',
+      '.hero-actions a:nth-child(3)':'infrastructure', '#shuffleLore':'shuffle',
+      '.realm-label':'realmLabel', '.realm-stat span':'regionsCount',
+      '.atlas-section .eyebrow':'mainRegions', '.atlas-section h2':'mapTitle',
+      '.atlas-section .section-heading > p':'mapIntro', '.workshop-section .eyebrow':'workshopLabel',
+      '.workshop-section h2':'workshopTitle', '.workshop-section .section-heading > p':'workshopIntro',
+      '.workshop-hub small':'workshopDescription', '.roads .eyebrow':'roadsLabel',
+      '.roads h2':'roadsTitle', '.road-card:nth-child(1) small':'aiDescription',
+      '.road-card:nth-child(2) small':'wifiDescription', '.gate:nth-child(1) small':'west',
+      '.gate:nth-child(1) p':'westDescription', '.gate:nth-child(2) small':'east',
+      '.gate:nth-child(2) p':'eastDescription', '.footer span:last-child':'footer',
+      '.tool-grid a:nth-child(1) span':'toolCode', '.tool-grid a:nth-child(3) span':'toolDoc',
+      '.tool-grid a:nth-child(5) span':'toolFeeds', '.tool-grid a:nth-child(8) span':'toolIntent',
+    };
+    for (const [selector, key] of Object.entries(fields)) set(selector, d[key]);
+    document.querySelectorAll('.atlas .region').forEach((card, index) => {
+      card.querySelector('.region-kicker').textContent = d.cards[index][0];
+      card.querySelector('p').textContent = d.cards[index][1];
+      card.querySelector('.tagline').textContent = d.tags[index];
     });
-  let selection = 0;
-  dialog.addEventListener('close', () => { selection += 1; });
+    set('#lore', d.lore[loreIndex]);
+    setAttr('.topbar', 'aria-label', d.navigation);
+    setAttr('.realm-card', 'aria-label', d.realmAria);
+    setAttr('.atlas', 'aria-label', d.mapAria);
+    setAttr('.dialog-close', 'aria-label', d.close);
+    const nav = d.nav;
+    setAttr('#trvny-nav-toggle', 'aria-label', nav[0]);
+    setAttr('#trvny-nav-close', 'aria-label', nav[1]);
+    setAttr('#trvny-nav-drawer', 'aria-label', nav[2]);
+    document.querySelectorAll('.trvny-nav-label').forEach((node, index) => { node.textContent = nav[index + 3]; });
+    const navText = (selector, value) => { const node = $(selector)?.firstChild; if (node && node.nodeType === Node.TEXT_NODE) node.textContent = value; };
+    navText('#trvny-nav-drawer a[href="/"]', nav[7]);
+    set('#trvny-nav-drawer a[href="/"] small', nav[8]);
+    set('#trvny-nav-drawer a[href="/tv/"] small', nav[9]);
+    navText('#trvny-nav-drawer a[href="https://weather.travny.workers.dev/"]', nav[10]);
+    navText('#trvny-nav-drawer a[href="https://trvny.github.io/feedseek/"]', nav[11]);
+    set('#trvny-nav-drawer a[href="/badges/"] small', nav[12]);
+    navText('#trvny-nav-drawer a[href="/teksty/"]', nav[13]);
+    set('#trvny-nav-drawer a[href="/teksty/githubowa-kraina/"] small', nav[14]);
+    navText('#trvny-nav-drawer a[href="/teksty/token-worldcup/"]', nav[15]);
+    document.querySelectorAll('.explore-hint').forEach(hint => { hint.textContent = d.exploreRegion; });
+    if (dialog?.open && currentRegion) {
+      if (currentItem === null) showRegion(currentRegion);
+      else showItem(currentRegion, currentItem, false);
+    }
+    try { localStorage.setItem('github-world-language', next); } catch { /* Storage is optional. */ }
+  };
+  buttons.forEach(button => button.addEventListener('click', () => applyLanguage(button.dataset.language)));
+  $('#shuffleLore')?.addEventListener('click', () => {
+    const options = dictionaries?.[language]?.lore;
+    if (!options?.length) return;
+    const offset = 1 + Math.floor(Math.random() * (options.length - 1));
+    loreIndex = (loreIndex + offset) % options.length;
+    set('#lore', options[loreIndex]);
+  });
+  fetch('/teksty/githubowa-kraina/locales.json')
+    .then(response => { if (!response.ok) throw new Error('Languages unavailable'); return response.json(); })
+    .then(result => {
+      dictionaries = result;
+      buttons.forEach(button => { button.disabled = false; });
+      let stored = null;
+      try { stored = localStorage.getItem('github-world-language'); } catch { /* Storage is optional. */ }
+      const browser = (navigator.language || '').toLowerCase().split('-')[0];
+      applyLanguage(languages.includes(stored) ? stored : languages.includes(browser) ? browser : 'pl');
+    })
+    .catch(error => { console.warn('Languages unavailable.', error); buttons.forEach(button => { button.disabled = true; }); });
+
+  if (!dialog || typeof dialog.showModal !== 'function') return;
+  close.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { selection += 1; currentRegion = null; currentItem = null; });
+  const atlas = fetch('/teksty/githubowa-kraina/atlas.json')
+    .then(response => { if (!response.ok) throw new Error('Atlas unavailable'); return response.json(); })
+    .then(result => { data = result; return data; })
+    .catch(error => { console.warn('Atlas unavailable; project links remain accessible.', error); return null; });
   for (const card of document.querySelectorAll('[data-region]')) {
     card.setAttribute('aria-haspopup', 'dialog');
-    const hint = text('span', 'Explore region', 'explore-hint');
-    hint.lang = 'en';
+    const hint = text('span', 'Odkryj region', 'explore-hint');
     card.append(hint);
     card.addEventListener('click', async event => {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
       const current = ++selection;
-      title.textContent = 'Loading region';
-      content.replaceChildren(text('p', 'Loading places…', 'dialog-intro'));
-      dialog.showModal();
+      title.textContent = t('loadingTitle');
+      content.replaceChildren(text('p', t('loading'), 'dialog-intro'));
+      if (!dialog.open) dialog.showModal();
       close.focus();
-      const data = await atlas;
+      const result = data || await atlas;
       if (current !== selection || !dialog.open) return;
-      const region = data?.regions.find(entry => entry.id === card.dataset.region);
+      const region = result?.regions.find(entry => entry.id === card.dataset.region);
       if (region) showRegion(region);
       else {
-        title.textContent = 'Region unavailable';
-        content.replaceChildren(text('p', 'The atlas could not be loaded. You can still open this project.', 'dialog-intro'), link('Open project ↗', card.href));
+        title.textContent = t('unavailableTitle');
+        content.replaceChildren(text('p', t('unavailable'), 'dialog-intro'), link(t('openProject'), card.href));
       }
     });
   }

@@ -212,6 +212,7 @@ That makes these modules the canonical implementation:
 
 - `gremlin-router.ts`: operator route composition, OAuth wiring, OpenAPI
   assembly, and low-level route restrictions.
+- `mcp-surface.ts`: OpenAPI-to-MCP operator descriptors and guarded Action dispatch.
 - `operator-actions.ts`: composed PR inspection/finalization.
 - `autopilot-actions.ts` and `autopilot-checkpoint.ts`: multi-step operator
   execution and resumability.
@@ -245,7 +246,8 @@ network proxies:
 - `feedseek-actions.ts`: bounded Feedseek access.
 - `agents-guidance*.ts`: repository instruction/guidance lookup.
 - `account-attention.ts`: bounded attention summaries.
-- `mcp-adapter.ts`: curated MCP surface for specialists.
+- `mcp-adapter.ts`: specialist and scoped MCP surface composition.
+- `mcp-protocol.ts`: shared authenticated MCP/JSON-RPC request handling.
 - `botek-specialists.ts`: same-account RPC adapter exposing only the Botek
   operations that are intentionally shared.
 

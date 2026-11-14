@@ -14,13 +14,21 @@ function safeImage(value, hosts) {
   } catch { return ''; }
 }
 function localClock(date) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone:'Europe/Warsaw', year:'numeric', month:'2-digit', day:'2-digit',
     hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23',
-  }).formatToParts(date);
-  const get = type => parts.find(part => part.type === type)?.value;
-  const day = `${get('year')}-${get('month')}-${get('day')}`;
-  return { day, wallTime: Date.parse(`${day}T${get('hour')}:${get('minute')}:${get('second')}Z`) };
+  });
+  function read(instant) {
+    const parts = formatter.formatToParts(instant);
+    const get = type => parts.find(part => part.type === type)?.value;
+    const day = `${get('year')}-${get('month')}-${get('day')}`;
+    return { day, wallTime:Date.parse(`${day}T${get('hour')}:${get('minute')}:${get('second')}Z`) };
+  }
+  const local=read(date);
+  const now=date.getTime();
+  const ambiguous=read(new Date(now-3600000)).wallTime===local.wallTime ||
+    read(new Date(now+3600000)).wallTime===local.wallTime;
+  return {...local,ambiguous};
 }
 function wallTime(value) {
   if (typeof value !== 'string') return NaN;
@@ -68,7 +76,8 @@ function polishTrack(data, station, now) {
 export async function onRequestGet({ request }) {
   const station=new URL(request.url).searchParams.get('station');
   if (!['trojka','czworka','bbc1'].includes(station)) return Response.json({error:'unknown_station'},{status:400,headers:{'cache-control':'no-store'}});
-  const {day,wallTime:now}=localClock(new Date());
+  const {day,wallTime:now,ambiguous}=localClock(new Date());
+  if (ambiguous && station!=='bbc1') return Response.json({kind:'station'},{headers:{'cache-control':'no-store'}});
   const url=station==='bbc1'?BBC:station==='trojka'?`https://trojka.polskieradio.pl/playlist?date=${day}`:`https://apipr.polskieradio.pl/api/playlist?date=${day}&antenneId=4`;
   try {
     const upstream=await fetch(url,{signal:AbortSignal.timeout(6000),cf:{cacheEverything:true,cacheTtlByStatus:{'200-299':20,'400-599':0}}});

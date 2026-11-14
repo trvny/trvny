@@ -55,7 +55,8 @@ One wire format for every operation, including batches:
 
 Use for **complete UTF-8 text** contents, including Markdown/docs. `content:
 null` deletes a file. Max **32 distinct paths**, **48,000 characters** per
-string content.
+string content. Measure the decoded text, not escaped JSON. Larger files or
+large aggregate payloads: create blobs in the target repo, then `commit_tree`.
 
 ````text
 ```gptomek
@@ -120,7 +121,8 @@ diff --git a/x b/x
 Generate the diff with `git diff` and run `git apply --check` on the **exact
 guarded tree**. Preserve `\ No newline at end of file` where required; never
 invent hunk counts or trailing context. For small or awkward files without local
-validation, use `commit_files`.
+validation, use `commit_files` within its limits, otherwise `commit_tree`.
+Never hand-adjust hunk counts to silence a mismatch.
 
 ### Create a branch from a patch
 
@@ -392,8 +394,9 @@ raw-v1 example123
 
 ### Commit existing Git objects
 
-`commit_tree` uses existing object SHAs (no content upload); max **512 unique
-paths**. New entries require `mode`: `100644` file, `100755` executable,
+Upload final bytes with GitHub `create_blob` (UTF-8/base64), then send
+`commit_tree` with the returned blob SHA per path. Blob upload is not a commit;
+GPTomek owns the guarded tree/commit/ref write. Max **512 unique paths**. New entries require `mode`: `100644` file, `100755` executable,
 `120000` symlink, `160000` gitlink. Existing paths may omit mode. Delete with
 `sha: null` and **no mode**. Final tree must be free of file/directory
 collisions.
@@ -470,14 +473,18 @@ raw-v1 example123
 
 ## Troubleshooting
 
-- **👎 on #203:** inspect workflow/result; fix invalid input or stale state.
+- **👎 on #203:** find `GPTomek #<comment ID>` in Actions; inspect the wake
+  result and live ref/PR. A transport failure may follow an applied write.
   Retry identical payload only when safe and within retention. For a failed
   batch, inspect completed steps before building a changed command with a new
   ID.
+- **`file_content_too_large`:** use `commit_tree` with uploaded blobs, not a
+  second oversized `commit_files` command.
 - **`command_outcome_uncertain`:** inspect live GitHub state; never
   blind-replay.
 - **`review_fix_head_changed` / head conflict:** fetch live SHA, rebuild
-  mutation.
+  mutation. If `branch_from_patch_branch_exists`, inspect the existing branch
+  and contents before switching to an existing-branch operation.
 - **Patch errors** (`invalid_patch_hunk_line`, `patch_hunk_count_mismatch`,
   `patch_context_mismatch`, `patch_old_eof_mismatch`): regenerate diff on exact
   base; preserve EOF.
@@ -488,9 +495,9 @@ raw-v1 example123
 - **Successful command, comment still present:** cleanup warning/edited comment;
   check commit first.
 
-Investigate in order: #203 command → `Run GPTomek JSON comment` Actions →
-`/gptomek/wake` response/Worker logs → **live ref/PR/review state**. A posted
-comment is not evidence of execution.
+Investigate in order: comment ID → `Run GPTomek JSON comment` Actions →
+run summary / Worker logs (`commentId`, `wireFormat`) → **live ref/PR/review
+state**. A posted comment is not evidence of execution.
 
 ## Transport internals and recovery
 

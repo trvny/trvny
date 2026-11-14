@@ -10,9 +10,10 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 
 1. **Read:** repo instructions, live branch/PR, recent changes and open PRs.
 2. **Choose:** [operation examples](docs/REFERENCE.md#operation-examples).
-   Use `commit_files` for full text; use patches only after `git apply --check`
-   on the exact base. Create new branches from the live base before committing.
-3. **Send:** one new comment on [#203](https://github.com/trvny/trvny/issues/203)
+   Validated exact-base `git diff` → patch; otherwise `commit_files` (≤48,000
+   chars/file, ≤32 files). Larger files/payloads → upload blobs, `commit_tree`.
+   Create new branches from the live base before committing.
+3. **Send:** read the current guide, not cached command examples. One new comment on [#203](https://github.com/trvny/trvny/issues/203)
    as `trvny`. Use `raw-v1` for **every** operation; copy the relevant example.
 
    ````text
@@ -43,8 +44,9 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 
    Replace placeholders with live values. Follow the [framing rules](docs/REFERENCE.md#raw-text-blocks).
    No raw blocks? Close the fence after the JSON header. Never edit old commands.
-4. **Verify:** check Actions, command result and live state. Success normally
-   deletes the source comment; failure may leave 👎. Posting is not execution.
+4. **Verify:** keep the comment ID. Check its Actions run and live state.
+   Success normally deletes the comment; 👎 means rejection or unconfirmed
+   transport, not proof that no write occurred. Do not resubmit blindly.
 5. **Finish:** open/update PR as `trvny`; fix valid reviews, resolve threads,
    recheck CI on final head. Rebase merge to preserve GPTomek attribution.
 
@@ -71,5 +73,5 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 - [Devbox](../../.devcontainer/README.md#gptomek-remote-power-and-diagnostics):
   scoped dispatch, not shell access.
 
-Failure check: #203 → `Run GPTomek JSON comment` Actions → `/gptomek/wake`
-logs → live repo/ref. GPTomek adds the Codex co-author trailer automatically.
+Failure check: comment ID → `Run GPTomek JSON comment` Actions → run summary
+/ Worker logs → live repo/ref. GPTomek adds the Codex co-author trailer automatically.

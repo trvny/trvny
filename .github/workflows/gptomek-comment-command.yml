@@ -1,4 +1,5 @@
 name: Run GPTomek JSON comment
+run-name: ${{ github.event_name == 'issue_comment' && format('GPTomek #{0}', github.event.comment.id) || 'GPTomek mailbox cleanup' }}
 
 on: # yamllint disable-line rule:truthy
   issue_comment:
@@ -23,7 +24,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
-      - name: Execute JSON command
+      - name: Execute mailbox command
         id: execute
         continue-on-error: true
         env:
@@ -33,19 +34,28 @@ jobs:
         run: |
           set -euo pipefail
           : "${GPTOMEK_WAKE_TOKEN:?GPTOMEK_WAKE_TOKEN must be configured}"
-          response="$(
-            curl --fail --silent --show-error --retry 2 \
+          if ! response="$(
+            curl --fail-with-body --silent --show-error --retry 2 \
               --connect-timeout 5 --max-time 30 \
               -X POST \
               -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
               -H "Content-Type: application/json" \
               --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId}')" \
               https://automation.travny.workers.dev/gptomek/wake
-          )"
+          )"; then
+            echo "::error::GPTomek wake unconfirmed for comment ${COMMENT_ID}; inspect the live target before retrying."
+            printf 'Comment: `%s`\n\nOutcome: wake unconfirmed (transport failure). Inspect live state.\n' \
+              "$COMMENT_ID" >>"$GITHUB_STEP_SUMMARY"
+            # Worker error codes only; never print an arbitrary HTTP error body.
+            jq -c '{ok, error}' <<<"$response" 2>/dev/null || true
+            exit 1
+          fi
           printf '%s\n' "$response"
           state="$(jq -r '.state // empty' <<<"$response")"
           duplicate="$(jq -r '.duplicate // false' <<<"$response")"
           reason="$(jq -r '.commandError // empty' <<<"$response")"
+          printf 'Comment: `%s`\n\nState: `%s`\n\nDuplicate delivery: `%s`\n\nError: `%s`\n' \
+            "$COMMENT_ID" "${state:-unknown}" "$duplicate" "${reason:-none}" >>"$GITHUB_STEP_SUMMARY"
           {
             echo "state=$state"
             echo "duplicate=$duplicate"

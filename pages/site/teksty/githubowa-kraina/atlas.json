@@ -9,24 +9,91 @@
         {
           "name": "Feed directory",
           "description": "Browse the published RSS, Atom and JSON feeds.",
-          "url": "https://trvny.github.io/feedseek/"
+          "url": "https://trvny.github.io/feedseek/",
+          "translations": {
+            "pl": {
+              "name": "Katalog feedów",
+              "description": "Przeglądaj opublikowane kanały RSS, Atom i JSON."
+            },
+            "ru": {
+              "name": "Каталог лент",
+              "description": "Просмотр опубликованных RSS, Atom и JSON-лент."
+            },
+            "zh": {
+              "name": "订阅源目录",
+              "description": "浏览已发布的 RSS、Atom 和 JSON 订阅源。"
+            }
+          }
         },
         {
           "name": "Web reader",
           "description": "Read entries from the Feedseek catalogue in a browser.",
-          "url": "https://trvny.github.io/feedseek/reader/"
+          "url": "https://trvny.github.io/feedseek/reader/",
+          "translations": {
+            "pl": {
+              "name": "Czytnik WWW",
+              "description": "Czytaj wpisy z katalogu Feedseek w przeglądarce."
+            },
+            "ru": {
+              "name": "Веб-читалка",
+              "description": "Чтение записей каталога Feedseek в браузере."
+            },
+            "zh": {
+              "name": "网页阅读器",
+              "description": "在浏览器中阅读 Feedseek 目录中的文章。"
+            }
+          }
         },
         {
           "name": "Source registry",
           "description": "The configuration that lists feed sources and generators.",
-          "url": "https://github.com/trvny/feedseek/blob/main/feeds.yaml"
+          "url": "https://github.com/trvny/feedseek/blob/main/feeds.yaml",
+          "translations": {
+            "pl": {
+              "name": "Rejestr źródeł",
+              "description": "Konfiguracja źródeł i generatorów feedów."
+            },
+            "ru": {
+              "name": "Реестр источников",
+              "description": "Конфигурация источников и генераторов лент."
+            },
+            "zh": {
+              "name": "来源注册表",
+              "description": "订阅来源与生成器的配置。"
+            }
+          }
         },
         {
           "name": "Model feeds",
           "description": "Machine-readable feed output and guidance for agents.",
-          "url": "https://github.com/trvny/feedseek/blob/main/docs/model-feeds.md"
+          "url": "https://github.com/trvny/feedseek/blob/main/docs/model-feeds.md",
+          "translations": {
+            "pl": {
+              "name": "Feedy dla modeli",
+              "description": "Dane feedów i wskazówki czytelne dla agentów."
+            },
+            "ru": {
+              "name": "Ленты для моделей",
+              "description": "Машиночитаемые данные и инструкции для агентов."
+            },
+            "zh": {
+              "name": "模型订阅源",
+              "description": "供智能体使用的机器可读数据与说明。"
+            }
+          }
         }
-      ]
+      ],
+      "translations": {
+        "pl": {
+          "description": "Obserwatorium tworzonych i ulepszanych feedów."
+        },
+        "ru": {
+          "description": "Обсерватория созданных и улучшенных лент."
+        },
+        "zh": {
+          "description": "生成和改进订阅源的天文台。"
+        }
+      }
     },
     {
       "id": "kanarek",
@@ -37,24 +104,91 @@
         {
           "name": "News reader",
           "description": "Follow RSS and Atom sources, save articles and use offline content.",
-          "url": "https://github.com/travnie/Kanarek#news"
+          "url": "https://github.com/travnie/Kanarek#news",
+          "translations": {
+            "pl": {
+              "name": "Czytnik wiadomości",
+              "description": "Śledź źródła RSS i Atom, zapisuj artykuły oraz korzystaj z treści offline."
+            },
+            "ru": {
+              "name": "Читалка новостей",
+              "description": "Читайте RSS и Atom, сохраняйте статьи и пользуйтесь ими офлайн."
+            },
+            "zh": {
+              "name": "新闻阅读器",
+              "description": "关注 RSS 和 Atom，保存文章并离线阅读。"
+            }
+          }
         },
         {
           "name": "Home-screen widget",
           "description": "A configurable news slideshow with navigation and source settings.",
-          "url": "https://github.com/travnie/Kanarek"
+          "url": "https://github.com/travnie/Kanarek",
+          "translations": {
+            "pl": {
+              "name": "Widget ekranu głównego",
+              "description": "Konfigurowalny pokaz wiadomości z nawigacją i ustawieniami źródeł."
+            },
+            "ru": {
+              "name": "Виджет главного экрана",
+              "description": "Настраиваемое слайд-шоу новостей с навигацией и выбором источников."
+            },
+            "zh": {
+              "name": "主屏幕小组件",
+              "description": "可配置的新闻轮播，支持导航和来源设置。"
+            }
+          }
         },
         {
           "name": "Radio and TV",
           "description": "Background radio and IPTV playback with playlists and Cast.",
-          "url": "https://github.com/travnie/Kanarek"
+          "url": "https://github.com/travnie/Kanarek",
+          "translations": {
+            "pl": {
+              "name": "Radio i telewizja",
+              "description": "Odtwarzanie radia w tle i IPTV z playlistami oraz Cast."
+            },
+            "ru": {
+              "name": "Радио и ТВ",
+              "description": "Фоновое радио и IPTV с плейлистами и Cast."
+            },
+            "zh": {
+              "name": "广播与电视",
+              "description": "后台播放广播和 IPTV，支持播放列表与 Cast。"
+            }
+          }
         },
         {
           "name": "Optional Worker",
           "description": "An optional Cloudflare backend for fetching and network features. The app can parse feeds directly.",
-          "url": "https://github.com/travnie/Kanarek"
+          "url": "https://github.com/travnie/Kanarek",
+          "translations": {
+            "pl": {
+              "name": "Opcjonalny Worker",
+              "description": "Opcjonalny backend Cloudflare do pobierania i funkcji sieciowych. Aplikacja potrafi też czytać feedy samodzielnie."
+            },
+            "ru": {
+              "name": "Необязательный Worker",
+              "description": "Дополнительный сервер Cloudflare для сетевых функций. Приложение умеет читать ленты и напрямую."
+            },
+            "zh": {
+              "name": "可选 Worker",
+              "description": "用于抓取和网络功能的可选 Cloudflare 后端；应用也可直接解析订阅源。"
+            }
+          }
         }
-      ]
+      ],
+      "translations": {
+        "pl": {
+          "description": "Wiadomości, widgety i streaming na Androidzie w jednej aplikacji."
+        },
+        "ru": {
+          "description": "Новости, виджеты и потоковое вещание в одном Android-приложении."
+        },
+        "zh": {
+          "description": "一个 Android 应用，集新闻、小组件与流媒体于一身。"
+        }
+      }
     },
     {
       "id": "wam",
@@ -65,19 +199,72 @@
         {
           "name": "Audio bridge",
           "description": "A local stream and Samsung playback API send audio to supported speakers.",
-          "url": "https://github.com/travnie/wambridge"
+          "url": "https://github.com/travnie/wambridge",
+          "translations": {
+            "pl": {
+              "name": "Most audio",
+              "description": "Lokalny strumień i API odtwarzania Samsunga przesyłają dźwięk do obsługiwanych głośników."
+            },
+            "ru": {
+              "name": "Аудиомост",
+              "description": "Локальный поток и API Samsung передают звук поддерживаемым колонкам."
+            },
+            "zh": {
+              "name": "音频桥",
+              "description": "通过本地流和三星播放 API 向支持的音箱传送音频。"
+            }
+          }
         },
         {
           "name": "foobar2000 output",
           "description": "A component streams audio playing in foobar2000, including internet radio.",
-          "url": "https://github.com/travnie/wambridge"
+          "url": "https://github.com/travnie/wambridge",
+          "translations": {
+            "pl": {
+              "name": "Wyjście foobar2000",
+              "description": "Komponent przesyła dźwięk odtwarzany w foobar2000, także radio internetowe."
+            },
+            "ru": {
+              "name": "Выход foobar2000",
+              "description": "Компонент передаёт звук foobar2000, включая интернет-радио."
+            },
+            "zh": {
+              "name": "foobar2000 输出",
+              "description": "传送 foobar2000 播放的音频，包括网络广播。"
+            }
+          }
         },
         {
           "name": "Speaker compatibility",
           "description": "Shape M5 WAM550 was tested; other models remain candidates.",
-          "url": "https://github.com/travnie/wambridge#speaker-compatibility"
+          "url": "https://github.com/travnie/wambridge#speaker-compatibility",
+          "translations": {
+            "pl": {
+              "name": "Zgodność głośników",
+              "description": "Przetestowano Shape M5 WAM550; inne modele są kandydatami."
+            },
+            "ru": {
+              "name": "Совместимость колонок",
+              "description": "Проверена Shape M5 WAM550; другие модели пока кандидаты."
+            },
+            "zh": {
+              "name": "音箱兼容性",
+              "description": "已测试 Shape M5 WAM550；其他型号仍待验证。"
+            }
+          }
         }
-      ]
+      ],
+      "translations": {
+        "pl": {
+          "description": "Dźwięk z Windowsa przekracza most Wi-Fi do głośników Samsunga."
+        },
+        "ru": {
+          "description": "Аудио Windows пересекает мост Wi-Fi к колонкам Samsung."
+        },
+        "zh": {
+          "description": "Windows 音频跨越 Wi-Fi 桥，抵达三星音箱。"
+        }
+      }
     },
     {
       "id": "llm",
@@ -88,24 +275,91 @@
         {
           "name": "Android app",
           "description": "The first client for a workbench bringing multiple AI providers together.",
-          "url": "https://github.com/travnie/aistee"
+          "url": "https://github.com/travnie/aistee",
+          "translations": {
+            "pl": {
+              "name": "Aplikacja Android",
+              "description": "Pierwszy klient warsztatu łączącego wielu dostawców AI."
+            },
+            "ru": {
+              "name": "Приложение Android",
+              "description": "Первый клиент мастерской для нескольких провайдеров ИИ."
+            },
+            "zh": {
+              "name": "Android 应用",
+              "description": "整合多个 AI 提供商的工作台首个客户端。"
+            }
+          }
         },
         {
           "name": "Provider connections",
           "description": "Use native providers and web-based services from one workbench.",
-          "url": "https://github.com/travnie/aistee"
+          "url": "https://github.com/travnie/aistee",
+          "translations": {
+            "pl": {
+              "name": "Połączenia z dostawcami",
+              "description": "Korzystaj z natywnych dostawców i usług WWW w jednym miejscu."
+            },
+            "ru": {
+              "name": "Подключения провайдеров",
+              "description": "Нативные провайдеры и веб-сервисы в одной мастерской."
+            },
+            "zh": {
+              "name": "提供商连接",
+              "description": "在同一工作台使用原生提供商与网页服务。"
+            }
+          }
         },
         {
           "name": "Shared core",
           "description": "Kotlin Multiplatform hosts shared provider and domain logic. Desktop and iOS are planned.",
-          "url": "https://github.com/travnie/aistee"
+          "url": "https://github.com/travnie/aistee",
+          "translations": {
+            "pl": {
+              "name": "Wspólny rdzeń",
+              "description": "Kotlin Multiplatform udostępnia logikę dostawców i domeny. Desktop i iOS są planowane."
+            },
+            "ru": {
+              "name": "Общее ядро",
+              "description": "Kotlin Multiplatform объединяет логику провайдеров и предметной области. Desktop и iOS планируются."
+            },
+            "zh": {
+              "name": "共享核心",
+              "description": "Kotlin Multiplatform 承载共享业务与提供商逻辑；桌面版和 iOS 版仍在计划中。"
+            }
+          }
         },
         {
           "name": "Rolling APK",
           "description": "The current rolling Android build, published by the project.",
-          "url": "https://github.com/travnie/aistee/releases"
+          "url": "https://github.com/travnie/aistee/releases",
+          "translations": {
+            "pl": {
+              "name": "Bieżący APK",
+              "description": "Aktualna kompilacja rozwojowa Androida publikowana przez projekt."
+            },
+            "ru": {
+              "name": "Текущий APK",
+              "description": "Актуальная развивающаяся сборка Android от проекта."
+            },
+            "zh": {
+              "name": "滚动版 APK",
+              "description": "项目发布的最新 Android 滚动构建。"
+            }
+          }
         }
-      ]
+      ],
+      "translations": {
+        "pl": {
+          "description": "Warsztat AI rozwijany najpierw na Androida, ze wspólną logiką Kotlin Multiplatform."
+        },
+        "ru": {
+          "description": "ИИ-мастерская с приоритетом Android и общей логикой Kotlin Multiplatform."
+        },
+        "zh": {
+          "description": "以 Android 为先、共享 Kotlin Multiplatform 逻辑的 AI 工作台。"
+        }
+      }
     },
     {
       "id": "autka",
@@ -116,19 +370,72 @@
         {
           "name": "Car shopping",
           "description": "Brings marketplace routes and car-shopping tools together. Reliable licensed listings remain a project constraint.",
-          "url": "https://github.com/travnie/Autka"
+          "url": "https://github.com/travnie/Autka",
+          "translations": {
+            "pl": {
+              "name": "Zakupy aut",
+              "description": "Łączy drogi do ogłoszeń i narzędzia zakupowe. Dostęp do wiarygodnych, licencjonowanych ofert pozostaje ograniczeniem."
+            },
+            "ru": {
+              "name": "Поиск авто",
+              "description": "Ссылки на площадки и инструменты покупки. Доступ к надёжным лицензированным объявлениям остаётся ограничением."
+            },
+            "zh": {
+              "name": "购车",
+              "description": "汇集市场入口与购车工具；可靠且获授权的车源仍是项目限制。"
+            }
+          }
         },
         {
           "name": "Import calculator",
           "description": "Estimates the cost of bringing a car from the USA to Poland.",
-          "url": "https://github.com/travnie/Autka"
+          "url": "https://github.com/travnie/Autka",
+          "translations": {
+            "pl": {
+              "name": "Kalkulator importu",
+              "description": "Szacuje koszt sprowadzenia samochodu z USA do Polski."
+            },
+            "ru": {
+              "name": "Калькулятор импорта",
+              "description": "Оценка стоимости ввоза автомобиля из США в Польшу."
+            },
+            "zh": {
+              "name": "进口计算器",
+              "description": "估算从美国进口汽车到波兰的费用。"
+            }
+          }
         },
         {
           "name": "Android app",
           "description": "The Android-first open-source project and its current development status.",
-          "url": "https://github.com/travnie/Autka"
+          "url": "https://github.com/travnie/Autka",
+          "translations": {
+            "pl": {
+              "name": "Aplikacja Android",
+              "description": "Otwarty projekt rozwijany najpierw na Androida i jego aktualny stan."
+            },
+            "ru": {
+              "name": "Приложение Android",
+              "description": "Открытый Android-first проект и его текущий статус."
+            },
+            "zh": {
+              "name": "Android 应用",
+              "description": "以 Android 为先的开源项目及其当前开发状态。"
+            }
+          }
         }
-      ]
+      ],
+      "translations": {
+        "pl": {
+          "description": "Projekt zakupów samochodowych obejmujący Polskę, Europę i import z USA."
+        },
+        "ru": {
+          "description": "Проект поиска автомобилей в Польше, Европе и для импорта из США."
+        },
+        "zh": {
+          "description": "覆盖波兰、欧洲和美国进口的购车项目。"
+        }
+      }
     },
     {
       "id": "tvpi",
@@ -139,19 +446,72 @@
         {
           "name": "TV player",
           "description": "Open the TVP channels from the TRAVNY hub.",
-          "url": "https://travny.pages.dev/tv/"
+          "url": "https://travny.pages.dev/tv/",
+          "translations": {
+            "pl": {
+              "name": "Odtwarzacz TV",
+              "description": "Otwórz kanały TVP z centrum TRAVNY."
+            },
+            "ru": {
+              "name": "ТВ-плеер",
+              "description": "Открывайте каналы TVP из центра TRAVNY."
+            },
+            "zh": {
+              "name": "电视播放器",
+              "description": "从 TRAVNY 中心打开 TVP 频道。"
+            }
+          }
         },
         {
           "name": "Stable playlist",
           "description": "A saveable M3U with Worker endpoints for each channel.",
-          "url": "https://tvpi.travny.workers.dev/playlist.m3u"
+          "url": "https://tvpi.travny.workers.dev/playlist.m3u",
+          "translations": {
+            "pl": {
+              "name": "Stabilna playlista",
+              "description": "M3U do zapisania z adresami Workera dla poszczególnych kanałów."
+            },
+            "ru": {
+              "name": "Стабильный плейлист",
+              "description": "M3U для сохранения с адресами Worker для каждого канала."
+            },
+            "zh": {
+              "name": "稳定播放列表",
+              "description": "可保存的 M3U，为每个频道提供 Worker 地址。"
+            }
+          }
         },
         {
           "name": "Residential refresh",
           "description": "A Polish home connection can refresh upstream manifests. Continuous availability is not guaranteed.",
-          "url": "https://github.com/trvny/tvpi"
+          "url": "https://github.com/trvny/tvpi",
+          "translations": {
+            "pl": {
+              "name": "Domowe odświeżanie",
+              "description": "Polskie domowe łącze może odświeżać manifesty źródłowe. Ciągła dostępność nie jest gwarantowana."
+            },
+            "ru": {
+              "name": "Домашнее обновление",
+              "description": "Домашнее польское соединение может обновлять исходные манифесты. Непрерывная доступность не гарантируется."
+            },
+            "zh": {
+              "name": "家庭网络刷新",
+              "description": "波兰家庭网络可刷新上游清单；不保证持续可用。"
+            }
+          }
         }
-      ]
+      ],
+      "translations": {
+        "pl": {
+          "description": "Stabilne wejścia do strumieni IPTV kanałów TVP."
+        },
+        "ru": {
+          "description": "Стабильные точки входа для IPTV-потоков TVP."
+        },
+        "zh": {
+          "description": "为 TVP IPTV 流提供稳定入口。"
+        }
+      }
     },
     {
       "id": "workshop",
@@ -162,44 +522,170 @@
         {
           "name": "Codebench",
           "description": "Generate, scan and export QR codes and barcodes in the browser.",
-          "url": "https://codebench.travny.workers.dev/"
+          "url": "https://codebench.travny.workers.dev/",
+          "translations": {
+            "pl": {
+              "name": "Codebench",
+              "description": "Twórz, skanuj i eksportuj kody QR oraz kreskowe w przeglądarce."
+            },
+            "ru": {
+              "name": "Codebench",
+              "description": "Создание, сканирование и экспорт QR- и штрихкодов в браузере."
+            },
+            "zh": {
+              "name": "Codebench",
+              "description": "在浏览器中生成、扫描和导出二维码与条形码。"
+            }
+          }
         },
         {
           "name": "Streambench",
           "description": "A local-first workshop for IPTV, radio, playlists and streams.",
-          "url": "https://streambench.travny.workers.dev/"
+          "url": "https://streambench.travny.workers.dev/",
+          "translations": {
+            "pl": {
+              "name": "Streambench",
+              "description": "Lokalny warsztat IPTV, radia, playlist i strumieni."
+            },
+            "ru": {
+              "name": "Streambench",
+              "description": "Локальная мастерская IPTV, радио, плейлистов и потоков."
+            },
+            "zh": {
+              "name": "Streambench",
+              "description": "本地优先的 IPTV、广播、播放列表和流媒体工坊。"
+            }
+          }
         },
         {
           "name": "Docbench",
           "description": "Work with documents and PDFs locally in the browser.",
-          "url": "https://docbench.travny.workers.dev/"
+          "url": "https://docbench.travny.workers.dev/",
+          "translations": {
+            "pl": {
+              "name": "Docbench",
+              "description": "Pracuj lokalnie z dokumentami i PDF-ami w przeglądarce."
+            },
+            "ru": {
+              "name": "Docbench",
+              "description": "Локальная работа с документами и PDF в браузере."
+            },
+            "zh": {
+              "name": "Docbench",
+              "description": "在浏览器中本地处理文档和 PDF。"
+            }
+          }
         },
         {
           "name": "Weather Feed",
           "description": "Local weather, air quality and alerts for Kościelec and Chrzanów.",
-          "url": "https://weather.travny.workers.dev/"
+          "url": "https://weather.travny.workers.dev/",
+          "translations": {
+            "pl": {
+              "name": "Weather Feed",
+              "description": "Lokalna pogoda, jakość powietrza i alerty dla Kościelca i Chrzanowa."
+            },
+            "ru": {
+              "name": "Weather Feed",
+              "description": "Погода, качество воздуха и предупреждения для Косцелец и Хшанува."
+            },
+            "zh": {
+              "name": "Weather Feed",
+              "description": "Kościelec 和 Chrzanów 的天气、空气质量与预警。"
+            }
+          }
         },
         {
           "name": "Feedboard",
           "description": "Windows 11 feed widget and settings application.",
-          "url": "https://github.com/travnie/twojstar/tree/main/feedboard"
+          "url": "https://github.com/travnie/twojstar/tree/main/feedboard",
+          "translations": {
+            "pl": {
+              "name": "Feedboard",
+              "description": "Widget feedów i aplikacja ustawień dla Windows 11."
+            },
+            "ru": {
+              "name": "Feedboard",
+              "description": "Виджет лент и приложение настроек для Windows 11."
+            },
+            "zh": {
+              "name": "Feedboard",
+              "description": "Windows 11 信息流小组件及设置应用。"
+            }
+          }
         },
         {
           "name": "Paint.NET plugins",
           "description": "Image tools including ICO and AI Restore plugins.",
-          "url": "https://github.com/travnie/twojstar/tree/main/paintdotnet"
+          "url": "https://github.com/travnie/twojstar/tree/main/paintdotnet",
+          "translations": {
+            "pl": {
+              "name": "Pluginy Paint.NET",
+              "description": "Narzędzia obrazu, w tym wtyczki ICO i AI Restore."
+            },
+            "ru": {
+              "name": "Плагины Paint.NET",
+              "description": "Инструменты изображений, включая ICO и AI Restore."
+            },
+            "zh": {
+              "name": "Paint.NET 插件",
+              "description": "图像工具，包括 ICO 和 AI Restore 插件。"
+            }
+          }
         },
         {
           "name": "Audacity plugin",
           "description": "Auto Declip VST3 for audio restoration.",
-          "url": "https://github.com/travnie/twojstar/tree/main/audacity"
+          "url": "https://github.com/travnie/twojstar/tree/main/audacity",
+          "translations": {
+            "pl": {
+              "name": "Wtyczka Audacity",
+              "description": "Auto Declip VST3 do przywracania dźwięku."
+            },
+            "ru": {
+              "name": "Плагин Audacity",
+              "description": "Auto Declip VST3 для восстановления звука."
+            },
+            "zh": {
+              "name": "Audacity 插件",
+              "description": "用于音频修复的 Auto Declip VST3。"
+            }
+          }
         },
         {
           "name": "Intent Keyboard",
           "description": "An experiment turning rough intent into natural text.",
-          "url": "https://github.com/travnie/twojstar/tree/main/intent-keyboard"
+          "url": "https://github.com/travnie/twojstar/tree/main/intent-keyboard",
+          "translations": {
+            "pl": {
+              "name": "Intent Keyboard",
+              "description": "Eksperyment zamieniający luźny zamiar w naturalny tekst."
+            },
+            "ru": {
+              "name": "Intent Keyboard",
+              "description": "Эксперимент по превращению намерения в естественный текст."
+            },
+            "zh": {
+              "name": "Intent Keyboard",
+              "description": "将粗略意图转为自然文本的实验。"
+            }
+          }
         }
-      ]
+      ],
+      "translations": {
+        "pl": {
+          "description": "Wspólny dom narzędzi, programów użytkowych i eksperymentów.",
+          "name": "Warsztat twojstar"
+        },
+        "ru": {
+          "description": "Общий дом инструментов, утилит и экспериментов.",
+          "name": "Мастерская twojstar"
+        },
+        "zh": {
+          "description": "工具、实用程序和实验项目的共同家园。",
+          "name": "twojstar 工坊"
+        }
+      }
     }
   ]
 }

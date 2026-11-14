@@ -1,0 +1,410 @@
+{
+  "pl": {
+    "heading": "Tu projekty nie leżą w repozytoriach.",
+    "headingEm": "Mają własne dzielnice.",
+    "lede": "Dwie bramy, publiczne projekty i sporo kabli biegnących pod brukiem. Oto mapa krainy, w której RSS spotyka IPTV, foobar rozmawia z głośnikiem, a modele AI siedzą przy jednym stole.",
+    "explore": "Odkryj mapę",
+    "command": "Centrum dowodzenia ↗",
+    "infrastructure": "Mapa infrastruktury (EN)",
+    "shuffle": "Rzuć kostką lore",
+    "realmLabel": "STAN KRÓLESTWA",
+    "regionsCount": "regionów do odkrycia",
+    "mainRegions": "GŁÓWNE REGIONY",
+    "mapTitle": "Mapa właściwa",
+    "mapIntro": "Wybierz region, a potem miejsce, aby dowiedzieć się więcej.",
+    "workshopLabel": "DZIELNICA NARZĘDZIOWA",
+    "workshopTitle": "Warsztat travnie",
+    "workshopIntro": "Mniejsze rzeczy nie muszą udawać imperiów. Mogą po prostu działać razem.",
+    "workshopDescription": "Wspólny warsztat i główna ulica dzielnicy: Benches, weather, Feedboard, Xiaomi ADB, pluginy i eksperymenty.",
+    "roadsLabel": "DROGI I PODZIEMIA",
+    "roadsTitle": "To, co spina mapę",
+    "aiDescription": "Przenośny rdzeń profili, instrukcji, adapterów i umiejętności.",
+    "wifiDescription": "Utrzymywany fork Androida, który wyłącza Wi-Fi, kiedy naprawdę nie jest potrzebne.",
+    "west": "BRAMA ZACHODNIA",
+    "westDescription": "Źródła, usługi, eksperymenty i centrum dowodzenia.",
+    "east": "BRAMA WSCHODNIA",
+    "eastDescription": "Organizacja, większe aplikacje i wspólny warsztat.",
+    "footer": "zero korpo-wydm, dużo kabli",
+    "exploreRegion": "Odkryj region",
+    "loadingTitle": "Wczytywanie regionu",
+    "loading": "Wczytywanie miejsc…",
+    "unavailableTitle": "Region niedostępny",
+    "unavailable": "Nie udało się wczytać atlasu. Możesz nadal otworzyć projekt.",
+    "openProject": "Otwórz projekt ↗",
+    "openDestination": "Otwórz stronę ↗",
+    "back": "← Wróć do: ",
+    "close": "Zamknij",
+    "navigation": "Nawigacja główna",
+    "realmAria": "Stan krainy",
+    "mapAria": "Najważniejsze projekty",
+    "toolIntent": "od zamiaru do tekstu",
+    "toolDoc": "PDF + dokumenty",
+    "toolCode": "QR + kody kreskowe",
+    "toolFeeds": "feedy Windows 11",
+    "lore": [
+      "Konsolidacja ponad fragmentacją. Małe narzędzia dostają wspólny warsztat, duże projekty własne forty.",
+      "Najkrótsza droga między dwoma projektami zwykle prowadzi przez kolejny skrypt, którego miało nie być.",
+      "W tej krainie „local-first” nie jest naklejką. To plan ewakuacyjny na wypadek, gdy chmura zacznie mieć pomysły.",
+      "Jeżeli urządzenie ma działający protokół z 2014 roku, istnieje niezerowa szansa, że ktoś tu właśnie pisze do niego most.",
+      "RSS nie umarł. Po prostu wyniósł się z centrum i zbudował własne obserwatorium."
+    ],
+    "cards": [
+      [
+        "OBSERWATORIUM",
+        "RSS, Atom i JSON Feed. Buduje brakujące feedy, poprawia istniejące i pilnuje, żeby jeden trup nie przewrócił całej anteny."
+      ],
+      [
+        "WIEŻA SYGNAŁOWA",
+        "Androidowy czytnik RSS z widgetami, radiem i IPTV. Żółty ptak, zaskakująco dużo infrastruktury."
+      ],
+      [
+        "WARSZTAT AUDIO",
+        "Most między Windowsem, foobarem i Samsungiem Shape M5. Tu protokoły audio dostają smar, FLAC i drugi żywot."
+      ],
+      [
+        "LABORATORIUM AI",
+        "Jedna klientownia dla wielu usług AI: WebView, natywne providery, porównywanie modeli i wspólny rdzeń KMP."
+      ],
+      [
+        "GARAŻ GRANICZNY",
+        "Zakupy aut PL, EU i USA w jednym miejscu, z kalkulatorem importu. Bez „scrapuj wszystko i módl się do regulaminu”."
+      ],
+      [
+        "STACJA NADAWCZA",
+        "Stabilne wejścia IPTV dla kanałów TVP, Worker i domowy polski runner odświeżający krótkowieczne HLS-y."
+      ]
+    ],
+    "tags": [
+      "Python · feedy · publikacja",
+      "Kotlin · Media3 · Worker",
+      "Python · foobar2000 · audio Wi-Fi",
+      "Kotlin Multiplatform · LLM · WebView",
+      "Android · ogłoszenia · NBP",
+      "Python · Cloudflare · HLS"
+    ],
+    "nav": [
+      "Otwórz menu",
+      "Zamknij menu",
+      "Nawigacja TRAVNY",
+      "START",
+      "USŁUGI",
+      "LAB",
+      "TEKSTY",
+      "Strona główna",
+      "hub TRAVNY",
+      "kanały i odtwarzacz",
+      "Pogoda",
+      "Feedy",
+      "znaki i liczniki",
+      "Wszystkie teksty",
+      "atlas projektów",
+      "Tokenowy Mundial AI"
+    ]
+  },
+  "en": {
+    "heading": "Projects do not just sit in repositories.",
+    "headingEm": "They have districts of their own.",
+    "lede": "Two gates, public projects and plenty of cables under the pavement. Welcome to a world where RSS meets IPTV, foobar talks to a speaker and AI models share a table.",
+    "explore": "Explore the map",
+    "command": "Command center ↗",
+    "infrastructure": "Infrastructure map (EN)",
+    "shuffle": "Roll the lore dice",
+    "realmLabel": "STATE OF THE REALM",
+    "regionsCount": "regions to explore",
+    "mainRegions": "MAIN REGIONS",
+    "mapTitle": "The map",
+    "mapIntro": "Choose a region, then select a place to see what it does.",
+    "workshopLabel": "TOOLS DISTRICT",
+    "workshopTitle": "The travnie workshop",
+    "workshopIntro": "Smaller things do not need to pretend to be empires. They can just work together.",
+    "workshopDescription": "Shared workshop and the district’s main street: Benches, weather, Feedboard, Xiaomi ADB, plugins and experiments.",
+    "roadsLabel": "ROADS AND UNDERGROUND",
+    "roadsTitle": "What holds the map together",
+    "aiDescription": "Portable core of profiles, instructions, adapters and skills.",
+    "wifiDescription": "Maintained Android fork that turns off Wi-Fi when it is not needed.",
+    "west": "WESTERN GATE",
+    "westDescription": "Sources, services, experiments and the command center.",
+    "east": "EASTERN GATE",
+    "eastDescription": "The organization, larger apps and a shared workshop.",
+    "footer": "no corporate dunes, plenty of cables",
+    "exploreRegion": "Explore region",
+    "loadingTitle": "Loading region",
+    "loading": "Loading places…",
+    "unavailableTitle": "Region unavailable",
+    "unavailable": "The atlas could not be loaded. You can still open the project.",
+    "openProject": "Open project ↗",
+    "openDestination": "Open destination ↗",
+    "back": "← Back to ",
+    "close": "Close",
+    "navigation": "Main navigation",
+    "realmAria": "State of the realm",
+    "mapAria": "Main projects",
+    "toolIntent": "rough intent → natural text",
+    "toolDoc": "PDF + documents",
+    "toolCode": "QR + barcodes",
+    "toolFeeds": "Windows 11 feeds",
+    "lore": [
+      "Consolidation over fragmentation. Small tools share a workshop; big projects get their own forts.",
+      "The shortest path between two projects usually runs through one more script that was never supposed to exist.",
+      "Here, local-first is not a sticker. It is an escape plan for when the cloud gets ideas.",
+      "If a device still speaks a protocol from 2014, someone here is probably building a bridge to it.",
+      "RSS did not die. It left downtown and built its own observatory."
+    ],
+    "cards": [
+      [
+        "OBSERVATORY",
+        "RSS, Atom and JSON Feed. Builds missing feeds, improves existing ones and keeps one dead source from toppling the antenna."
+      ],
+      [
+        "SIGNAL TOWER",
+        "An Android RSS reader with widgets, radio and IPTV. A yellow bird with a surprising amount of infrastructure."
+      ],
+      [
+        "AUDIO WORKSHOP",
+        "A bridge between Windows, foobar2000 and Samsung Shape M5. Audio protocols get oil, FLAC and a second life."
+      ],
+      [
+        "AI LAB",
+        "One workbench for AI services: WebView, native providers, model comparison and a shared KMP core."
+      ],
+      [
+        "BORDER GARAGE",
+        "Car shopping across Poland, Europe and the US, with an import calculator. No scraping everything and praying to the terms of service."
+      ],
+      [
+        "BROADCAST STATION",
+        "Stable IPTV entry points for TVP channels, a Worker and a Polish home runner refreshing short-lived HLS streams."
+      ]
+    ],
+    "tags": [
+      "Python · feeds · publishing",
+      "Kotlin · Media3 · Worker",
+      "Python · foobar2000 · Wi-Fi audio",
+      "Kotlin Multiplatform · LLMs · WebView",
+      "Android · marketplace hand-off · NBP",
+      "Python · Cloudflare · HLS"
+    ],
+    "nav": [
+      "Open menu",
+      "Close menu",
+      "TRAVNY navigation",
+      "START",
+      "SERVICES",
+      "LAB",
+      "STORIES",
+      "Home",
+      "TRAVNY hub",
+      "channels and player",
+      "Weather",
+      "Feeds",
+      "marks and counters",
+      "All stories",
+      "project atlas",
+      "AI Token World Cup"
+    ]
+  },
+  "ru": {
+    "heading": "Проекты здесь не лежат в репозиториях.",
+    "headingEm": "У них есть свои кварталы.",
+    "lede": "Двое ворот, публичные проекты и множество кабелей под мостовой. Здесь RSS встречает IPTV, foobar разговаривает с колонкой, а модели ИИ сидят за одним столом.",
+    "explore": "Открыть карту",
+    "command": "Центр управления ↗",
+    "infrastructure": "Карта инфраструктуры (EN)",
+    "shuffle": "Бросить кубик историй",
+    "realmLabel": "СОСТОЯНИЕ КОРОЛЕВСТВА",
+    "regionsCount": "регионов для изучения",
+    "mainRegions": "ГЛАВНЫЕ РЕГИОНЫ",
+    "mapTitle": "Карта",
+    "mapIntro": "Выберите регион, а затем место, чтобы узнать о нём больше.",
+    "workshopLabel": "КВАРТАЛ ИНСТРУМЕНТОВ",
+    "workshopTitle": "Мастерская travnie",
+    "workshopIntro": "Маленьким вещам не нужно притворяться империями. Они могут просто работать вместе.",
+    "workshopDescription": "Общая мастерская и главная улица квартала: Benches, погода, Feedboard, Xiaomi ADB, плагины и эксперименты.",
+    "roadsLabel": "ДОРОГИ И ПОДЗЕМЕЛЬЯ",
+    "roadsTitle": "Что связывает карту",
+    "aiDescription": "Переносимое ядро профилей, инструкций, адаптеров и навыков.",
+    "wifiDescription": "Поддерживаемый Android-форк, отключающий Wi-Fi, когда он не нужен.",
+    "west": "ЗАПАДНЫЕ ВОРОТА",
+    "westDescription": "Источники, сервисы, эксперименты и центр управления.",
+    "east": "ВОСТОЧНЫЕ ВОРОТА",
+    "eastDescription": "Организация, большие приложения и общая мастерская.",
+    "footer": "меньше корпораций, больше кабелей",
+    "exploreRegion": "Изучить регион",
+    "loadingTitle": "Загрузка региона",
+    "loading": "Загрузка мест…",
+    "unavailableTitle": "Регион недоступен",
+    "unavailable": "Не удалось загрузить атлас. Проект всё ещё можно открыть.",
+    "openProject": "Открыть проект ↗",
+    "openDestination": "Открыть страницу ↗",
+    "back": "← Назад: ",
+    "close": "Закрыть",
+    "navigation": "Главная навигация",
+    "realmAria": "Состояние королевства",
+    "mapAria": "Основные проекты",
+    "toolIntent": "от намерения к тексту",
+    "toolDoc": "PDF + документы",
+    "toolCode": "QR + штрихкоды",
+    "toolFeeds": "ленты Windows 11",
+    "lore": [
+      "Объединение вместо дробления. Маленьким инструментам — общая мастерская, большим проектам — собственные крепости.",
+      "Кратчайший путь между двумя проектами обычно проходит через ещё один незапланированный скрипт.",
+      "Здесь local-first — не наклейка, а план эвакуации на случай, если у облака появятся идеи.",
+      "Если устройство всё ещё говорит на протоколе 2014 года, кто-то здесь, скорее всего, уже строит к нему мост.",
+      "RSS не умер. Он просто покинул центр города и построил собственную обсерваторию."
+    ],
+    "cards": [
+      [
+        "ОБСЕРВАТОРИЯ",
+        "RSS, Atom и JSON Feed. Создаёт недостающие ленты, улучшает существующие и не даёт одному мёртвому источнику уронить всю антенну."
+      ],
+      [
+        "СИГНАЛЬНАЯ БАШНЯ",
+        "RSS-читалка для Android с виджетами, радио и IPTV. Жёлтая птица и неожиданно много инфраструктуры."
+      ],
+      [
+        "АУДИОМАСТЕРСКАЯ",
+        "Мост между Windows, foobar2000 и Samsung Shape M5. Аудиопротоколы получают смазку, FLAC и вторую жизнь."
+      ],
+      [
+        "ЛАБОРАТОРИЯ ИИ",
+        "Одна мастерская для ИИ-сервисов: WebView, нативные провайдеры, сравнение моделей и общее ядро KMP."
+      ],
+      [
+        "ПОГРАНИЧНЫЙ ГАРАЖ",
+        "Поиск авто в Польше, Европе и США с калькулятором импорта. Без тотального скрапинга и молитв правилам сайтов."
+      ],
+      [
+        "ВЕЩАТЕЛЬНАЯ СТАНЦИЯ",
+        "Стабильные IPTV-адреса каналов TVP, Worker и домашний польский раннер для обновления короткоживущих HLS-потоков."
+      ]
+    ],
+    "tags": [
+      "Python · ленты · публикация",
+      "Kotlin · Media3 · Worker",
+      "Python · foobar2000 · аудио Wi-Fi",
+      "Kotlin Multiplatform · LLM · WebView",
+      "Android · объявления · NBP",
+      "Python · Cloudflare · HLS"
+    ],
+    "nav": [
+      "Открыть меню",
+      "Закрыть меню",
+      "Навигация TRAVNY",
+      "НАЧАЛО",
+      "СЕРВИСЫ",
+      "ЛАБ",
+      "ТЕКСТЫ",
+      "Главная",
+      "центр TRAVNY",
+      "каналы и плеер",
+      "Погода",
+      "Ленты",
+      "значки и счётчики",
+      "Все тексты",
+      "атлас проектов",
+      "Чемпионат токенов ИИ"
+    ]
+  },
+  "zh": {
+    "heading": "项目不只是躺在代码仓库里。",
+    "headingEm": "它们各有自己的街区。",
+    "lede": "两扇大门、众多公开项目，地下还铺满了电缆。在这里，RSS 遇见 IPTV，foobar 与音箱对话，AI 模型共坐一桌。",
+    "explore": "探索地图",
+    "command": "指挥中心 ↗",
+    "infrastructure": "基础设施地图（英文）",
+    "shuffle": "掷骰子看故事",
+    "realmLabel": "王国概况",
+    "regionsCount": "个可探索区域",
+    "mainRegions": "主要区域",
+    "mapTitle": "地图",
+    "mapIntro": "先选择区域，再选择地点查看详情。",
+    "workshopLabel": "工具街区",
+    "workshopTitle": "travnie 工坊",
+    "workshopIntro": "小工具不必假装成帝国，能协同工作就够了。",
+    "workshopDescription": "共享工坊与街区主街：Benches、天气、Feedboard、Xiaomi ADB、插件和实验项目。",
+    "roadsLabel": "道路与地下",
+    "roadsTitle": "连接地图的纽带",
+    "aiDescription": "可移植的配置、指令、适配器与技能核心。",
+    "wifiDescription": "持续维护的 Android 分支，在不需要时关闭 Wi-Fi。",
+    "west": "西门",
+    "westDescription": "来源、服务、实验与指挥中心。",
+    "east": "东门",
+    "eastDescription": "组织、大型应用与共享工坊。",
+    "footer": "少些企业架子，多些电缆",
+    "exploreRegion": "探索区域",
+    "loadingTitle": "正在加载区域",
+    "loading": "正在加载地点…",
+    "unavailableTitle": "区域不可用",
+    "unavailable": "无法加载地图，仍可直接打开项目。",
+    "openProject": "打开项目 ↗",
+    "openDestination": "打开页面 ↗",
+    "back": "← 返回：",
+    "close": "关闭",
+    "navigation": "主导航",
+    "realmAria": "王国概况",
+    "mapAria": "主要项目",
+    "toolIntent": "从意图到自然文本",
+    "toolDoc": "PDF + 文档",
+    "toolCode": "二维码 + 条形码",
+    "toolFeeds": "Windows 11 信息流",
+    "lore": [
+      "整合胜过碎片化。小工具共用工坊，大项目拥有自己的堡垒。",
+      "两个项目之间最短的路，通常要经过一个原本没打算写的脚本。",
+      "在这里，local-first 不是贴纸，而是云服务突然有想法时的撤退计划。",
+      "如果设备还会说 2014 年的协议，这里很可能有人正在为它搭桥。",
+      "RSS 没死，只是搬离市中心，建了自己的天文台。"
+    ],
+    "cards": [
+      [
+        "天文台",
+        "RSS、Atom 和 JSON Feed：补全缺失订阅源，改进现有订阅源，不让一个失效源拖垮整座天线。"
+      ],
+      [
+        "信号塔",
+        "带小组件、广播和 IPTV 的 Android RSS 阅读器。一只黄色小鸟，背后却有大量基础设施。"
+      ],
+      [
+        "音频工坊",
+        "连接 Windows、foobar2000 与 Samsung Shape M5。让音频协议获得润滑、FLAC 和第二次生命。"
+      ],
+      [
+        "AI 实验室",
+        "一个工作台连接多个 AI 服务：WebView、原生提供商、模型比较和共享 KMP 核心。"
+      ],
+      [
+        "边境车库",
+        "汇集波兰、欧洲和美国的购车入口，附进口计算器。不靠无差别抓取和祈祷网站条款。"
+      ],
+      [
+        "广播站",
+        "为 TVP 频道提供稳定 IPTV 入口，Worker 与波兰家庭运行器负责刷新短时 HLS 流。"
+      ]
+    ],
+    "tags": [
+      "Python · 订阅源 · 发布",
+      "Kotlin · Media3 · Worker",
+      "Python · foobar2000 · Wi-Fi 音频",
+      "Kotlin Multiplatform · LLM · WebView",
+      "Android · 市场入口 · NBP",
+      "Python · Cloudflare · HLS"
+    ],
+    "nav": [
+      "打开菜单",
+      "关闭菜单",
+      "TRAVNY 导航",
+      "首页",
+      "服务",
+      "实验室",
+      "文章",
+      "主页",
+      "TRAVNY 中心",
+      "频道与播放器",
+      "天气",
+      "订阅源",
+      "徽章与计数器",
+      "所有文章",
+      "项目地图",
+      "AI 语言令牌世界杯"
+    ]
+  }
+}

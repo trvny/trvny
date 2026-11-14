@@ -11,10 +11,11 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 1. **Read:** repo instructions, live branch/PR, recent changes and open PRs.
 2. **Choose:** [operation examples](docs/REFERENCE.md#operation-examples).
    Validated exact-base `git diff` → patch; otherwise `commit_files` (≤48,000
-   chars/file, ≤32 files). Larger files/payloads → upload blobs, `commit_tree`.
+   UTF-16 units/file, ≤32 files). Larger files/payloads → upload blobs, `commit_tree`.
    Create new branches from the live base before committing.
 3. **Send:** one new comment on [#203](https://github.com/trvny/trvny/issues/203)
-   as `trvny`. Use `raw-v1` for **every** operation; copy current examples, not cached ones.
+   as `trvny`. Use `raw-v1` for **every** operation; copy current examples,
+   not cached ones.
 
    ````text
    ```gptomek

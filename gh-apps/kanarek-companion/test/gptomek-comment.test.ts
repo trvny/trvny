@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { decodeGptomekComment } from '../src/gptomek/gptomek-comment.ts';
+import { commentWireFormat, decodeGptomekComment } from '../src/gptomek/gptomek-comment.ts';
 
 const envelope = (value: unknown) => '```gptomek\n' + JSON.stringify(value) + '\n```';
 const boundary = 'example_123';
@@ -73,4 +73,13 @@ test('bounds and dangling delimiters are rejected before execution', () => {
   }
   assert.throws(() => decodeGptomekComment(raw(common, ...Array(321).fill('x'))), /invalid_comment_raw_framing/);
   assert.throws(() => decodeGptomekComment(raw(common).replace('\n```', marker + '```')), /invalid_comment_raw_framing/);
+});
+
+test('audit identifies valid envelopes and malformed raw preambles', () => {
+  assert.equal(commentWireFormat(envelope(common)), 'legacy-json');
+  assert.equal(commentWireFormat(raw(common)), 'raw-v1');
+  assert.equal(commentWireFormat(raw(common).replace(boundary, 'short')), 'raw-v1');
+  assert.equal(commentWireFormat(raw(common).replaceAll('\n', '\r\n')), 'raw-v1');
+  assert.equal(commentWireFormat(raw(common) + '\nextra'), 'unknown');
+  assert.equal(commentWireFormat('unrelated comment'), 'unknown');
 });

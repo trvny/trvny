@@ -70,6 +70,12 @@ function decodeRaw(payload: string, preamble: RegExpMatchArray): unknown {
   return command;
 }
 
+export function commentWireFormat(body: string): 'raw-v1' | 'legacy-json' | 'unknown' {
+  const payload = body.match(COMMENT_COMMAND_RE)?.[1];
+  if (payload === undefined) return 'unknown';
+  return payload.startsWith('raw-v1') ? 'raw-v1' : 'legacy-json';
+}
+
 export function decodeGptomekComment(body: string): unknown {
   const match = body.match(COMMENT_COMMAND_RE);
   if (!match) throw new Error('invalid_comment_command');

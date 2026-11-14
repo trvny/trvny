@@ -7,6 +7,7 @@ import {
   handleGptomekCommentCommand,
   handleGptomekMailboxCommand,
 } from './gptomek.ts';
+import { commentWireFormat } from './gptomek-comment.ts';
 import { createInstallationClient, GitHubApiError } from '../../../core/github-app.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
@@ -210,9 +211,7 @@ export async function handleGptomekCommentControl(
   try {
     const comment = await currentIssueComment(target.commentId, env, fetcher);
     const commentBodyHash = await commentBodySha256(comment.body);
-    const opening = /^\s*```gptomek[ \t]*\r?\n/.exec(comment.body);
-    const wireFormat = !opening ? 'unknown'
-      : comment.body.slice(opening[0].length).startsWith('raw-v1') ? 'raw-v1' : 'legacy-json';
+    const wireFormat = commentWireFormat(comment.body);
     const audit = { commentId: comment.id, wireFormat, bodyChars: comment.body.length };
     let result;
     try {

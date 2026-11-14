@@ -53,7 +53,7 @@ function polishTrack(data, station, now) {
   for (const programme of programmes) {
     const start=wallTime(modern?programme.startTime:programme.Start);
     const end=wallTime(modern?programme.stopTime:programme.Stop);
-    if (start<=now && end>now && (!active || start>active.start)) active={start,title:clean(modern?programme.title:programme.Title)};
+    if (start<=now && end>now && (!active || start>active.start)) active={start,end,title:clean(modern?programme.title:programme.Title)};
     const songs=modern?programme.playlistItems:programme.Songs;
     if (!Array.isArray(songs)) continue;
     for (const song of songs) {
@@ -65,7 +65,8 @@ function polishTrack(data, station, now) {
   }
   if (best) {
     const age=(now-best.started)/1000;
-    if (modern && Number.isFinite(best.duration) && best.duration>0 && best.duration<=1800 && age<best.duration)
+    if (modern && active && best.started>=active.start && best.started<active.end &&
+        Number.isFinite(best.duration) && best.duration>0 && best.duration<=1800 && age<best.duration)
       return {title:best.title,artist:best.artist,album:'',cover:safeImage(best.cover,['static.prsa.pl','cdn.polskieradio.pl']),kind:'track'};
     if (!modern && age<=900)
       return {title:best.title,artist:best.artist,album:'',cover:safeImage(best.cover,['static.prsa.pl','cdn.polskieradio.pl']),kind:'recent'};

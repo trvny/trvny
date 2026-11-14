@@ -46,3 +46,6 @@ Allow: /
 Sitemap: https://travny.pages.dev/sitemap.xml
 
 Sitemap: https://travny.pages.dev/przeglad/sitemap.xml
+Sitemap: https://travny.pages.dev/sitemap.txt
+Sitemap: https://travny.pages.dev/sitemap-atom.xml
+Sitemap: https://travny.pages.dev/sitemap-rss.xml

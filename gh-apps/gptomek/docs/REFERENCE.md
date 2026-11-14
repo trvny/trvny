@@ -47,7 +47,7 @@ One wire format for every operation, including batches:
    is framing, not content: extra blank line for a final EOL or empty block.
 4. Close the fence. Send exact source, not rendered Markdown; no escaping,
    trimming or indentation of raw text. `invalid_comment_raw_*`: fix framing
-   or references; no execution occurred.
+   header or references; no execution occurred.
 
 ## Operation examples
 

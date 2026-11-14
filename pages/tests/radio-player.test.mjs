@@ -9,7 +9,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
     addEventListener(type, callback) { (this.listeners[type] ??= []).push(callback); }
-    dispatch(type) { for (const callback of this.listeners[type] ?? []) callback(); }
+    dispatch(type, event) { for (const callback of this.listeners[type] ?? []) callback(event); }
     setAttribute(name, value) { this.attributes[name] = String(value); }
     getAttribute(name) { return this.attributes[name] ?? null; }
     removeAttribute(name) { delete this.attributes[name]; }
@@ -33,15 +33,19 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
   class Image extends Element {}
   class Select extends Element {
     constructor() { super(); this.value = "paradise"; }
-    get selectedOptions() { return [this.options[this.value]]; }
+    get options() { return Object.values(this.items); }
+    get selectedIndex() { return Object.keys(this.items).indexOf(this.value); }
+    set selectedIndex(index) { this.value = Object.keys(this.items)[index]; }
+    get selectedOptions() { return [this.items[this.value]]; }
   }
   const audio = new Audio();
   const play = new Button();
   const status = new Element();
   const station = new Select();
-  station.options = {
+  station.items = {
     paradise: { textContent: "Radio Paradise", dataset: { url: "paradise.aac", kind: "direct", mark: "RP", quality: "320K AAC" } },
     trojka: { textContent: "Trójka", dataset: { url: "trojka.m3u8", kind: "hls", mark: "3", quality: "LIVE HLS" } },
+    czworka: { textContent: "Czwórka", dataset: { url: "czworka.m3u8", kind: "hls", mark: "4", quality: "LIVE HLS" } },
     bbc1: { textContent: "BBC Radio 1", dataset: { url: "bbc.m3u8", kind: "hls", mark: "1", quality: "320K HLS", logo: "bbc-logo.png" } },
   };
   const elements = {
@@ -49,7 +53,9 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     "[data-volume]": new Input(), "[data-status]": status, "[data-cover]": new Image(),
     "[data-station-logo]": new Image(), "[data-kicker]": new Element(),
     "[data-title]": new Element(), "[data-artist]": new Element(), "[data-album]": new Element(),
-    "[data-station-picker]": new Element(), "[data-station]": station, ".radio-fallback [data-mark]": new Element(),
+    "[data-station-picker]": new Element(), "[data-station]": station,
+    "[data-station-nav]": new Element(), "[data-previous]": new Button(), "[data-next]": new Button(),
+    "[data-position]": new Element(), "[data-swipe-area]": new Element(), ".radio-fallback [data-mark]": new Element(),
     "[data-mark-label]": new Element(), ".radio-footer [data-quality]": new Element(),
   };
   const root = new Element();
@@ -235,4 +241,40 @@ test("recent metadata is labelled as recently played", async () => {
   p.select("bbc1");
   await p.flush();
   assert.equal(p.elements["[data-kicker]"].textContent, "RECENTLY PLAYED");
+});
+
+
+test("station arrows and swipes wrap without starting paused radio", async () => {
+  const p = await player();
+  const previous = p.elements["[data-previous]"], next = p.elements["[data-next]"];
+  const area = p.elements["[data-swipe-area]"];
+  assert.equal(p.elements["[data-station-nav]"].hidden, false);
+  previous.dispatch("click");
+  assert.equal(p.station.value, "bbc1");
+  assert.equal(p.elements["[data-position]"].textContent, "4 / 4");
+  next.dispatch("click");
+  assert.equal(p.station.value, "paradise");
+  area.dispatch("touchstart", { touches:[{ clientX:200, clientY:30 }] });
+  area.dispatch("touchend", { changedTouches:[{ clientX:100, clientY:35 }] });
+  assert.equal(p.station.value, "trojka");
+  area.dispatch("touchstart", { touches:[{ clientX:100, clientY:30 }] });
+  area.dispatch("touchend", { changedTouches:[{ clientX:200, clientY:35 }] });
+  assert.equal(p.station.value, "paradise");
+  area.dispatch("touchstart", { touches:[{ clientX:100, clientY:30 }] });
+  area.dispatch("touchend", { changedTouches:[{ clientX:120, clientY:180 }] });
+  assert.equal(p.station.value, "paradise", "vertical gestures do not change stations");
+  await p.flush();
+  assert.equal(p.audio.playCalls, 0);
+});
+
+test("swiping while playing switches the stream once", async () => {
+  const p = await player();
+  const area = p.elements["[data-swipe-area]"];
+  p.play.dispatch("click");
+  area.dispatch("touchstart", { touches:[{ clientX:210, clientY:20 }] });
+  area.dispatch("touchend", { changedTouches:[{ clientX:90, clientY:25 }] });
+  await p.flush();
+  assert.equal(p.station.value, "trojka");
+  assert.equal(p.audio.playCalls, 2);
+  assert.equal(p.instances[0].url, "trojka.m3u8");
 });

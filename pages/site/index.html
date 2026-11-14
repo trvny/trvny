@@ -114,7 +114,7 @@
   @keyframes blink{50%{opacity:0}}
   .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:30px}
   .feature-rail{display:contents}
-  @media (min-width:641px){.feature-rail>.panel.tv{order:-1}.feature-rail>.panel.radio{grid-column:1 / -1}}
+  @media (min-width:641px){.feature-rail>.panel.tv{order:-1}}
   .panel{grid-column:span 1; display:block; text-decoration:none; color:inherit; min-width:0;
     background:#0b0f16; border-top:6px solid var(--faint); padding:14px 16px 16px;
     position:relative; transition:background .12s, transform .12s}
@@ -198,8 +198,7 @@
     .crt{max-width:1320px}
     .grid{grid-template-columns:repeat(4,minmax(0,1fr))}
     .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .feature-rail>.panel.radio{grid-column:span 2}
-    .panel.fd{grid-column:1 / -1}
+    .panel.fd{grid-column:span 2}
     .fastext{grid-template-columns:repeat(4,minmax(0,1fr))}
   }
   @media (max-width:640px){
@@ -242,7 +241,7 @@
     </div>
   </div>
   <div class="grid">
-    <div class="feature-rail" id="featureRail" aria-label="Weather, TV and radio panels">
+    <div class="feature-rail" id="featureRail" aria-label="Weather and TV panels">
     <a class="panel wx" href="https://weather.travny.workers.dev/">
       <div class="phead"><span class="blk">P200</span> POGODA <span class="en">CHRZANÓW</span></div>
       <div class="wxrow">
@@ -270,7 +269,26 @@
       <span class="go">OTWÓRZ ›</span>
     </a>
 
-    <section class="panel radio" lang="en" data-radio aria-labelledby="radio-heading">
+
+    </div>
+    <div class="rail-controls" id="featureDots">
+      <span class="rail-hint">SWIPE ↔</span>
+      <div class="rail-dots" role="group" aria-label="Choose a live panel">
+        <button type="button" data-slide="0" aria-label="Weather" aria-pressed="true">200</button>
+        <button type="button" data-slide="1" aria-label="TV status" aria-pressed="false">101</button>
+      </div>
+      <button class="rail-pause" lang="en" type="button" data-rail-toggle aria-label="Pause automatic rotation" hidden>Pause</button>
+    </div>
+    <section class="panel fd">
+      <a class="phead" href="https://trvny.github.io/feedseek/">
+        <span class="blk">P300</span> FEEDY <span class="en">NAJNOWSZE ›</span>
+      </a>
+      <ul class="feedlist" id="feedlist"><li class="fdload">Najnowsze wpisy z Reuters, TVP, OpenAI i innych źródeł.</li></ul>
+      <a class="pgo" href="https://trvny.github.io/feedseek/reader/">▶ OTWÓRZ CZYTNIK</a>
+    </section>
+  </div>
+
+<section class="panel radio" lang="en" data-radio aria-labelledby="radio-heading">
   <div class="radio-head">
     <h2 id="radio-heading">Radio</h2>
     <span class="radio-live"><span aria-hidden="true"></span> LIVE</span>
@@ -283,7 +301,12 @@
       <option value="bbc1" data-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png" data-url="https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio=320000.norewind.m3u8" data-kind="hls" data-mark="1" data-quality="320K HLS">BBC Radio 1</option>
     </select>
   </label>
-  <div class="radio-now">
+  <div class="radio-station-nav" data-station-nav hidden>
+    <button type="button" data-previous aria-label="Previous station">‹</button>
+    <span class="radio-swipe-hint">SWIPE ↔ <span data-position aria-live="polite" aria-atomic="true">1 / 4</span></span>
+    <button type="button" data-next aria-label="Next station">›</button>
+  </div>
+  <div class="radio-now" data-swipe-area>
     <div class="radio-art" aria-hidden="true">
       <span class="radio-fallback"><b data-mark>RP</b><small data-mark-label>RADIO PARADISE</small><img data-station-logo alt="" referrerpolicy="no-referrer" hidden></span>
       <img data-cover alt="" hidden>
@@ -310,25 +333,6 @@
   </div>
   <div class="radio-footer"><span data-quality>320K AAC</span><a href="https://streambench.travny.workers.dev/">More stations ↗</a></div>
 </section>
-    </div>
-    <div class="rail-controls" id="featureDots">
-      <span class="rail-hint">SWIPE ↔</span>
-      <div class="rail-dots" role="group" aria-label="Choose a live panel">
-        <button type="button" data-slide="0" aria-label="Weather" aria-pressed="true">200</button>
-        <button type="button" data-slide="1" aria-label="TV status" aria-pressed="false">101</button>
-        <button type="button" data-slide="2" aria-label="Radio" aria-pressed="false">♫</button>
-      </div>
-      <button class="rail-pause" lang="en" type="button" data-rail-toggle aria-label="Pause automatic rotation" hidden>Pause</button>
-    </div>
-    <section class="panel fd">
-      <a class="phead" href="https://trvny.github.io/feedseek/">
-        <span class="blk">P300</span> FEEDY <span class="en">NAJNOWSZE ›</span>
-      </a>
-      <ul class="feedlist" id="feedlist"><li class="fdload">Najnowsze wpisy z Reuters, TVP, OpenAI i innych źródeł.</li></ul>
-      <a class="pgo" href="https://trvny.github.io/feedseek/reader/">▶ OTWÓRZ CZYTNIK</a>
-    </section>
-  </div>
-
   <nav class="fastext" aria-label="Skróty do narzędzi TRAVNY">
     <a class="ft cyan" href="/tv/">TVP IPTV<small>9 kanałów</small></a>
     <a class="ft yellow" href="https://weather.travny.workers.dev/">POGODA<small>Chrzanów</small></a>

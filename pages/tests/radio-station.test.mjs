@@ -86,3 +86,15 @@ test('a track assigned to the active programme can begin before its scheduled st
   t.mock.method(globalThis,'fetch',()=>Promise.resolve(Response.json(data)));
   assert.equal((await (await onRequestGet(request('trojka'))).json()).kind,'track');
 });
+
+
+test('overnight Polish programmes can continue from the previous day', async t => {
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-13T23:01:00Z')});
+  const requested=[];
+  const previous={data:[{title:'Night show',startTime:'2026-11-13T23:00:00',stopTime:'2026-11-14T02:00:00',playlistItems:[{title:'Song',artist:'Artist',startTime:'2026-11-13T23:59:00',duration:300}]}]};
+  t.mock.method(globalThis,'fetch',url=>{requested.push(url); return Promise.resolve(Response.json(url.includes('2026-11-13') ? previous : {data:[]}));});
+  const result=await (await onRequestGet(request('trojka'))).json();
+  assert.equal(result.kind,'track');
+  assert.equal(result.title,'Song');
+  assert.equal(requested.length,2);
+});

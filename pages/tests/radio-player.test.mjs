@@ -229,3 +229,10 @@ test("a broken cover reveals the station logo", async () => {
   assert.equal(cover.hidden, true);
   assert.equal(logo.hidden, false);
 });
+
+test("recent metadata is labelled as recently played", async () => {
+  const p = await player({ stationMetadata: { title: "Old track", artist: "Artist", cover: "", kind: "recent" } });
+  p.select("bbc1");
+  await p.flush();
+  assert.equal(p.elements["[data-kicker]"].textContent, "RECENTLY PLAYED");
+});

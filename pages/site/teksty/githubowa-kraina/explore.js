@@ -14,6 +14,11 @@
   let currentRegion = null;
   let currentItem = null;
   let loreIndex = 0;
+  const fallbackLore = [
+    'Konsolidacja ponad fragmentacją. Małe narzędzia dostają wspólny warsztat, duże projekty własne forty.',
+    'Najkrótsza droga między dwoma projektami zwykle prowadzi przez kolejny skrypt, którego miało nie być.',
+    'RSS nie umarł. Po prostu wyniósł się z centrum i zbudował własne obserwatorium.',
+  ];
 
   const text = (tag, value, className) => {
     const element = document.createElement(tag);
@@ -125,7 +130,7 @@
   };
   buttons.forEach(button => button.addEventListener('click', () => applyLanguage(button.dataset.language)));
   $('#shuffleLore')?.addEventListener('click', () => {
-    const options = dictionaries?.[language]?.lore;
+    const options = dictionaries?.[language]?.lore || fallbackLore;
     if (!options?.length) return;
     const offset = 1 + Math.floor(Math.random() * (options.length - 1));
     loreIndex = (loreIndex + offset) % options.length;

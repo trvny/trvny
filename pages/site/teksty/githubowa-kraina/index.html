@@ -41,7 +41,7 @@
 :focus-visible{outline:3px solid var(--cyan);outline-offset:4px}
 .atlas-dialog{width:min(640px,calc(100% - 24px));max-height:min(80vh,760px);padding:0;border:1px solid #47536a;border-radius:18px;background:#101722;color:var(--ink);box-shadow:0 24px 100px #000b}
 .atlas-dialog::backdrop{background:#05070bd9}
-.dialog-inner{padding:clamp(20px,5vw,34px)}.dialog-head{display:flex;justify-content:space-between;align-items:start;gap:16px}.dialog-head h2{font-size:clamp(1.7rem,5vw,2.5rem);line-height:1.1;margin:0;letter-spacing:-.04em}.dialog-close,.dialog-back{background:#1a2331;border:1px solid #47536a;color:var(--ink);border-radius:9px;padding:10px 13px;cursor:pointer}.dialog-close{font-size:1.2rem;line-height:1}.dialog-intro{color:#bbc5d3}.dialog-list{display:grid;gap:8px;margin:22px 0}.dialog-place{display:flex;justify-content:space-between;gap:16px;width:100%;text-align:left;color:var(--ink);background:#151e2a;border:1px solid #303d50;border-radius:10px;padding:15px;font:inherit;cursor:pointer}.dialog-place:hover{border-color:var(--cyan)}.dialog-place span{color:var(--cyan)}.dialog-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px}.dialog-link{display:inline-block;color:#101722;background:var(--ink);padding:10px 14px;border-radius:9px;font-weight:700;text-decoration:none}
+.dialog-languages{width:max-content;margin-top:16px}.dialog-inner{padding:clamp(20px,5vw,34px)}.dialog-head{display:flex;justify-content:space-between;align-items:start;gap:16px}.dialog-head h2{font-size:clamp(1.7rem,5vw,2.5rem);line-height:1.1;margin:0;letter-spacing:-.04em}.dialog-close,.dialog-back{background:#1a2331;border:1px solid #47536a;color:var(--ink);border-radius:9px;padding:10px 13px;cursor:pointer}.dialog-close{font-size:1.2rem;line-height:1}.dialog-intro{color:#bbc5d3}.dialog-list{display:grid;gap:8px;margin:22px 0}.dialog-place{display:flex;justify-content:space-between;gap:16px;width:100%;text-align:left;color:var(--ink);background:#151e2a;border:1px solid #303d50;border-radius:10px;padding:15px;font:inherit;cursor:pointer}.dialog-place:hover{border-color:var(--cyan)}.dialog-place span{color:var(--cyan)}.dialog-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px}.dialog-link{display:inline-block;color:#101722;background:var(--ink);padding:10px 14px;border-radius:9px;font-weight:700;text-decoration:none}
 </style>
 </head>
 <body>
@@ -195,6 +195,12 @@
   <dialog class="atlas-dialog" id="atlas-dialog" aria-labelledby="dialog-title">
     <div class="dialog-inner">
       <div class="dialog-head"><h2 id="dialog-title" aria-live="polite"></h2><button class="dialog-close" type="button" aria-label="Close">×</button></div>
+      <div class="language-switch dialog-languages" role="group" aria-label="Language / Język / Язык / 语言">
+        <button type="button" data-language="pl" lang="pl" aria-pressed="true">PL</button>
+        <button type="button" data-language="en" lang="en" aria-pressed="false">EN</button>
+        <button type="button" data-language="ru" lang="ru" aria-pressed="false">RU</button>
+        <button type="button" data-language="zh" lang="zh-Hans" aria-pressed="false" aria-label="中文">ZH</button>
+      </div>
       <div id="dialog-content"></div>
     </div>
   </dialog>

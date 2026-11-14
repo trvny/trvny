@@ -47,7 +47,8 @@ test('all language dictionaries cover the atlas without duplicating destinations
     assert.deepEqual(Object.keys(locales[language].tags).sort(), Object.keys(locales[language].cards).sort());
     assert.equal(locales[language].lore.length, 5);
     assert.equal(locales[language].nav.length, 16);
-    assert.match(html, new RegExp(`data-language="${language}"`));
+    assert.ok(html.includes(`data-language="${language}"`));
+    assert.ok(html.split('<dialog')[1].includes(`data-language="${language}"`));
     for (const [key, value] of Object.entries(locales[language])) {
       if (typeof value === 'string') assert.ok(value.trim(), `${language}.${key}`);
     }

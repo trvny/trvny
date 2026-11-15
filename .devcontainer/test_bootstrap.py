@@ -88,6 +88,37 @@ class BootstrapSafetyTests(unittest.TestCase):
             self.assertIn(b"no Devbox skills", result.stderr)
             self.assertFalse((home / ".agents" / "skills" / "devbox-*").is_symlink())
 
+    def test_all_reports_partial_skill_failure_and_runs_profiles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            home.mkdir()
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            trace = root / "profiles"
+            fake_bash = fake_bin / "bash"
+            fake_bash.write_text('#!/bin/sh\nprintf "%s\\n" "$2" >> "$PROFILE_TRACE"\n')
+            fake_bash.chmod(0o755)
+            fake_ln = fake_bin / "ln"
+            fake_ln.write_text(
+                '#!/bin/sh\ncase "$3" in *devbox-agent-selection) exit 1;; esac\n'
+                'exec /bin/ln "$@"\n'
+            )
+            fake_ln.chmod(0o755)
+            env = dict(os.environ, HOME=str(home), PROFILE_TRACE=str(trace))
+            env["PATH"] = f"{fake_bin}:{env['PATH']}"
+            result = subprocess.run(
+                ["/bin/bash", str(ROOT / "setup.sh"), "all"],
+                env=env, capture_output=True, timeout=10, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            dest = home / ".agents" / "skills"
+            self.assertFalse((dest / "devbox-agent-selection").exists())
+            self.assertTrue((dest / "devbox-workflow" / "SKILL.md").is_file())
+            self.assertEqual(trace.read_text().splitlines(), [
+                "base", "antigravity", "browser", "media", "hermes",
+            ])
+
     def test_optional_profiles_are_isolated_and_reported(self):
         setup = (ROOT / "setup.sh").read_text()
         self.assertIn("for profile in base antigravity browser media hermes", setup)

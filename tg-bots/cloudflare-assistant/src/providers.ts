@@ -107,7 +107,7 @@ export function workersAiAvailable(env: Env): boolean {
 function workersAiRuntime(env: Env) {
   const ai = env.AI;
   if (!ai || !workersAiAvailable(env)) {
-    throw new Error("Workers AI is reserved for SpaceMolt");
+    throw new Error("Workers AI is disabled or unbound");
   }
   return ai;
 }

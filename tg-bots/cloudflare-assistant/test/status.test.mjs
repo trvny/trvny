@@ -30,7 +30,7 @@ test("renders provider status as plain text and safe rich HTML", () => {
 test("renders an unavailable state when the router is not configured", () => {
   const view = formatProviderStatus(null, false, "@cf/fallback", false);
   assert.match(view.plain, /router token not configured/);
-  assert.match(view.plain, /reserved for SpaceMolt/);
+  assert.match(view.plain, /disabled/);
   assert.match(view.richHtml, /router token not configured/);
-  assert.match(view.richHtml, /reserved for SpaceMolt/);
+  assert.match(view.richHtml, /disabled/);
 });

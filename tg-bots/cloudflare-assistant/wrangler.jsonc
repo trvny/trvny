@@ -7,6 +7,7 @@
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
   },
+  "ai": { "binding": "AI" },
   "services": [
     {
       "binding": "KANAREK_COMPANION",
@@ -132,7 +133,7 @@
   ],
   "vars": {
     "TELEGRAM_WEBHOOK_URL": "https://tg-assistant.travny.workers.dev/telegram/webhook",
-    "WORKERS_AI_ENABLED": "false",
+    "WORKERS_AI_ENABLED": "true",
     "WORKERS_AI_MODEL": "@cf/zai-org/glm-4.7-flash",
     "RSS_MIN_SCORE": "75"
   }

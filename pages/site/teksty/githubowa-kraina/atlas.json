@@ -70,7 +70,7 @@
           "translations": {
             "pl": {
               "name": "Feedy dla modeli",
-              "description": "Dane feedów i wskazówki czytelne dla agentów."
+              "description": "Dane feedów czytelne maszynowo oraz wskazówki dla agentów."
             },
             "ru": {
               "name": "Ленты для моделей",
@@ -169,7 +169,7 @@
             },
             "ru": {
               "name": "Необязательный Worker",
-              "description": "Дополнительный сервер Cloudflare для сетевых функций. Приложение умеет читать ленты и напрямую."
+              "description": "Дополнительный сервер Cloudflare для загрузки данных и сетевых функций. Приложение также умеет читать ленты напрямую."
             },
             "zh": {
               "name": "可选 Worker",
@@ -587,7 +587,7 @@
             },
             "ru": {
               "name": "Weather Feed",
-              "description": "Погода, качество воздуха и предупреждения для Косцелец и Хшанува."
+              "description": "Погода, качество воздуха и предупреждения для Косцельца и Хшанува."
             },
             "zh": {
               "name": "Weather Feed",

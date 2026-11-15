@@ -141,6 +141,13 @@ general lists (deduplicated); no hidden catalogs or extra providers.
 Multi-model free gateways get at most three outbound requests per router call.
 Cooldown and context skips do not consume the request budget. Non-review
 OpenRouter fallback chains can contain multiple models in one request.
+
+Production deadlines per provider (wall time, not CPU): general 120s, quip 90s,
+judge 180s, free review 360s (300s model slice when another attempt remains),
+shitpost 25min (10min model slice when another attempt remains). Paid review
+retains its existing deadline. Caller deadlines can end the request earlier:
+companion review currently has a 810s sweep budget, Reactor 30min overall.
+No timeout is evidence of exhausted account quota by itself.
 Legacy model/order env variables are accepted only for callers without a
 corresponding structured task/general list; production no longer sets
 duplicated global model lists.

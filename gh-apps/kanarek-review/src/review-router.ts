@@ -21,16 +21,16 @@ const DEFAULT_FREE_PROBE_TIMEOUT_MS = 10_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
-const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
-// One review policy for every free provider: reasoning reviews need minutes, not
-// seconds. Multi-model providers give a model 120s before trying the next one.
-const REVIEW_PROVIDER_TIMEOUT_MS = 180_000;
-const REVIEW_MODEL_ATTEMPT_CAP_MS = 120_000;
+const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 180_000;
+// Free inference needs queueing + reasoning time; leave room for another model.
+const REVIEW_PROVIDER_TIMEOUT_MS = 360_000;
+const REVIEW_MODEL_ATTEMPT_CAP_MS = 300_000;
 const FREE_PROVIDER_REQUEST_CAP = 3;
 // Paid review: large context + high reasoning; same ceiling for every paid provider.
 const PAID_REVIEW_PROVIDER_TIMEOUT_MS = 300_000;
-const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
-const SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS = 25 * 60_000;
+const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 25 * 60_000;
+const SHITPOST_MODEL_ATTEMPT_CAP_MS = 10 * 60_000;
+const QUIP_PROVIDER_TIMEOUT_CAP_MS = 90_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
 const MIN_COOLDOWN_MS = 1_000;
@@ -472,11 +472,10 @@ export function taskProviderTimeoutMs(
   task: 'general' | 'quip' | 'review' | 'judge' | 'shitpost',
   provider?: ReviewProviderId,
 ): number {
-  if (task === 'shitpost') return Math.max(
-    baseMs,
-    provider === 'aihubmix' ? SHITPOST_AIHUBMIX_PROVIDER_TIMEOUT_MS : SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS,
-  );
-  if (task === 'review') return Math.max(baseMs, REVIEW_PROVIDER_TIMEOUT_MS);
+  if (task === 'shitpost') return Math.max(baseMs, SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS);
+  if (task === 'quip') return Math.min(baseMs, QUIP_PROVIDER_TIMEOUT_CAP_MS);
+  if (task === 'review') return Math.max(baseMs,
+    PAID_PROVIDER_IDS.some((id) => id === provider) ? PAID_REVIEW_PROVIDER_TIMEOUT_MS : REVIEW_PROVIDER_TIMEOUT_MS);
   if (task === 'judge') return Math.max(baseMs, REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS);
   return baseMs;
 }
@@ -599,7 +598,7 @@ function providers(
       model: orcaRouterModels[0] ?? '',
       fallbackModels: orcaRouterModels.slice(1),
       apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
-      timeoutMs: reviewFreeProbeTimeoutMs(env.KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS),
+      timeoutMs: reviewFreeProbeTimeoutMs(env.KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS, timeoutMs(env)),
     },
     {
       // Final HTTP reserve. The :publicai suffix prevents HF from silently selecting
@@ -1181,6 +1180,8 @@ export function modelAttemptTimeoutMs(
 ): number {
   if (remainingProviderMs <= 0 || !hasNextModel || task === 'general') return remainingProviderMs;
   if (task === 'review') return Math.min(remainingProviderMs, REVIEW_MODEL_ATTEMPT_CAP_MS);
+  if (task === 'shitpost') return Math.min(SHITPOST_MODEL_ATTEMPT_CAP_MS,
+    remainingProviderMs - Math.min(15_000, Math.floor(remainingProviderMs / 4)));
   if (provider === 'openrouter') return remainingProviderMs;
   return remainingProviderMs - Math.min(15_000, Math.floor(remainingProviderMs / 4));
 }
@@ -1196,7 +1197,7 @@ export function reviewFreeProbeTimeoutMs(
     if (
       Number.isSafeInteger(parsed)
       && parsed >= MIN_TIMEOUT_MS
-      && parsed <= DEFAULT_TIMEOUT_MS
+      && parsed <= MAX_TIMEOUT_MS
     ) {
       configured = parsed;
     }
@@ -2386,7 +2387,8 @@ export async function handleReviewRouterRequest(
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
       const attemptTimeoutMs = modelAttemptTimeoutMs(
         remainingProviderMs, task,
-        multiModel && cooledPrimaries.slice(attemptIndex + 1).some((cooled) => !cooled),
+        multiModel && (!supportsModelCooldown || outboundAttempts + 1 < FREE_PROVIDER_REQUEST_CAP) &&
+          cooledPrimaries.slice(attemptIndex + 1).some((cooled) => !cooled),
         provider.id,
       );
       if (attemptTimeoutMs <= 0) {

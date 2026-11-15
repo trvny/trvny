@@ -244,7 +244,7 @@ test("supervisor ignores a stale pid, restarts a dead worker and refuses a secon
   } finally {
     for (const pid of spawned) if (pid) await execFileAsync("taskkill.exe", ["/PID", String(pid), "/T", "/F"]).catch(() => undefined);
     for (const pid of workers) if (alive(pid)) { try { process.kill(pid); } catch { /* already gone */ } }
-    await rm(base, { recursive: true, force: true });
+    await rm(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -308,7 +308,7 @@ test("supervisor started with /logon waits before the first worker start", { ski
   } finally {
     for (const pid of spawned) if (pid) await execFileAsync("taskkill.exe", ["/PID", String(pid), "/T", "/F"]).catch(() => undefined);
     for (const pid of workers) if (alive(pid)) { try { process.kill(pid); } catch { /* already gone */ } }
-    await rm(base, { recursive: true, force: true });
+    await rm(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 

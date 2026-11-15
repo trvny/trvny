@@ -86,7 +86,7 @@ class BootstrapSafetyTests(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(b"no Devbox skills", result.stderr)
-            self.assertFalse((home / ".agents" / "skills" / "devbox-*").is_symlink())
+            self.assertFalse(list((home / ".agents" / "skills").glob("devbox-*")))
 
     def test_all_reports_partial_skill_failure_and_runs_profiles(self):
         with tempfile.TemporaryDirectory() as tmp:

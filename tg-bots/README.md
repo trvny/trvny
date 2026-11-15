@@ -1,6 +1,6 @@
 # Telegram bots
 
-[![Assistant CI](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflareworkers&logoColor=white)](https://developers.cloudflare.com/workers/)
+[![Assistant CI](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflareworkers&logoColor=white)](https://developers.cloudflare.com/workers/) ![Telegram](https://img.shields.io/badge/Telegram-26A5E4?logo=telegram&logoColor=fff&style=flat)
 
 | Component | Role | Go to |
 | --- | --- | --- |

@@ -2130,13 +2130,33 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     let draftMode: "rich" | "plain" = "rich";
     let lastDraftUpdateAt = 0;
     let lastDraftLength = 0;
+    let stopCheckedAt = 0;
+    let stopped = false;
+    const shouldStop = async () => {
+      if (!stopped && Date.now() - stopCheckedAt >= 250) {
+        stopped = await generationStopRequested(env, update.update_id);
+        stopCheckedAt = Date.now();
+      }
+      return stopped;
+    };
     const streamDraft = async (partial: string) => {
-      lastGeneratedPartial = partial;
       if (!partial) {
+        if (lastDraftLength > 0) {
+          const wait = TELEGRAM_DRAFT_UPDATE_INTERVAL_MS - (Date.now() - lastDraftUpdateAt);
+          if (wait > 0) await new Promise<void>((resolve) => setTimeout(resolve, wait));
+          if (await generationStopRequested(env, update.update_id)) {
+            throw new GenerationStoppedError(lastGeneratedPartial);
+          }
+          lastDraftUpdateAt = Date.now();
+          draftMode = await sendTelegramStreamingDraft(
+            env, message.chat.id, update.update_id, "Przełączam model…", messageThreadId, draftMode,
+          );
+        }
+        lastGeneratedPartial = "";
         lastDraftLength = 0;
-        lastDraftUpdateAt = 0;
         return;
       }
+      lastGeneratedPartial = partial;
       const draftLimit = draftMode === "rich"
         ? TELEGRAM_RICH_MESSAGE_MAX_CHARS
         : TELEGRAM_MESSAGE_MAX_CHARS;
@@ -2159,7 +2179,6 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         draftMode,
       );
     };
-    const shouldStop = () => generationStopRequested(env, update.update_id);
     const result = await chatWithStreamingFallback(
       env,
       [
@@ -2171,7 +2190,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       privateChat ? streamDraft : undefined,
       privateChat ? shouldStop : undefined,
     );
-    if (privateChat && await shouldStop()) throw new GenerationStoppedError(result.text);
+    if (privateChat && await generationStopRequested(env, update.update_id)) throw new GenerationStoppedError(result.text);
     const footer = `\n\n[${result.provider} · ${result.model}]`;
     const assistant = result.text.slice(0, Math.max(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS - footer.length));
     const replyMarkup = isDraft

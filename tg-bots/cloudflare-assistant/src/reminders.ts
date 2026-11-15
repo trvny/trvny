@@ -1,3 +1,4 @@
+import { wakeAutomation } from "./automation-wake.ts";
 import type { DurableObjectStateLike, Env } from "./types";
 
 export type Reminder = {
@@ -183,7 +184,9 @@ export async function createReminder(
   };
   const response = await post(env, "/create", reminder);
   if (!response.ok) throw new Error(`reminder create failed: HTTP ${response.status}`);
-  return response.json() as Promise<Reminder>;
+  const saved = await response.json() as Reminder;
+  await wakeAutomation(env, "reminders", Date.parse(saved.dueAt));
+  return saved;
 }
 
 export async function listReminders(env: Env): Promise<Reminder[]> {

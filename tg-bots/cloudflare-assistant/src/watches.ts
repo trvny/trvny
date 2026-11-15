@@ -1,3 +1,4 @@
+import { wakeAutomation } from "./automation-wake.ts";
 import type { DurableObjectStateLike, Env } from "./types";
 
 export type LegionWatchCondition = "offline" | "online";
@@ -315,7 +316,9 @@ export function watchIdForUpdate(updateId: number): string {
 export async function createConditionWatch(env: Env, watch: ConditionWatch): Promise<ConditionWatch> {
   const response = await post(env, "/create", watch);
   if (!response.ok) throw new Error(`watch create failed: HTTP ${response.status}`);
-  return response.json() as Promise<ConditionWatch>;
+  const saved = await response.json() as ConditionWatch;
+  await wakeAutomation(env, "watches", Date.parse(saved.nextCheckAt));
+  return saved;
 }
 
 export async function listConditionWatches(env: Env): Promise<ConditionWatch[]> {

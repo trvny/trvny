@@ -27,5 +27,6 @@ export async function reconcileAutomations(env: Env): Promise<void> {
   const failures = results.filter((result) => result.status === "rejected");
   if (failures.length) {
     console.error("Automation reconciliation failed", failures.map((result) => result.reason));
+    throw new Error(`${failures.length} automation reconciliation requests failed`);
   }
 }

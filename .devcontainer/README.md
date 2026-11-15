@@ -139,15 +139,15 @@ allowing arbitrary shell strings through Issue comments.
 
 **Scoped repair:** `client_payload.action: repair` runs only on the
 already-identified, running personal Devbox. It refuses unexpected local
-edits to the **three target files**, while preserving unrelated workspace
+edits to the **six target files**, while preserving unrelated workspace
 changes. It fetches trusted public `trvny/trvny` `main` in an isolated
 temporary Git checkout and replaces **only** `devcontainer.json`,
-`setup.sh`, and `devbox` before
+`setup.sh`, `devbox`, and the three Devbox `skills/*/SKILL.md` files before
 requesting `gh codespace rebuild -c <existing-name>`. The operation neither
 deletes the Codespace nor uses `git reset --hard`, and does not accept caller
 shell commands or repo arguments. Rebuild recreates the container and can
 discard files under the container home; tracked workspace files remain.
-Use `inspect` after rebuild to confirm Ubuntu and tools. The three
+Use `inspect` after rebuild to confirm Ubuntu and tools. The six
 repaired files may appear modified relative to the Codespace's older Git HEAD;
 this is expected until its working branch is updated normally. Retrying
 `repair` accepts files already identical to the latest trusted version.

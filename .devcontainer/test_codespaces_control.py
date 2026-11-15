@@ -130,6 +130,11 @@ class ControlTests(unittest.TestCase):
         self.assertIn('git -C "$tmp" show', command)
         self.assertIn("git show \"HEAD:$file\"", command)
         self.assertIn("original_missing", command)
+        self.assertIn(".devcontainer/skills/devbox-agent-selection/SKILL.md", command)
+        self.assertIn(".devcontainer/skills/devbox-handoff/SKILL.md", command)
+        self.assertIn(".devcontainer/skills/devbox-workflow/SKILL.md", command)
+        self.assertIn('test ! -L "$parent"', command)
+        self.assertIn('test ! -e "$file"', command)
         self.assertNotIn("git diff", command)
         self.assertIn("mktemp -d .devcontainer/.repair.XXXXXX", command)
         nested = command.split("'")[1]

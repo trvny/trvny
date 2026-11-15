@@ -2005,7 +2005,6 @@ export function classifyAIHubMixError(status: number, preview: string | null): s
 
 // Account quota and upstream capacity require different fallback scopes.
 function classifyOpenRouterRateLimit(preview: string | null, headers: Headers): string {
-  if (headers.has('x-ratelimit-limit') || headers.has('x-ratelimit-reset')) return 'http_429';
   if (preview) {
     try {
       const body: unknown = JSON.parse(preview);
@@ -2017,7 +2016,8 @@ function classifyOpenRouterRateLimit(preview: string | null, headers: Headers): 
     } catch {
       // Bounded preview may be truncated.
     }
-    if (/temporarily rate.limited upstream/i.test(badRequestText(preview))) return 'http_429_model_busy';
+    if (!headers.has('x-ratelimit-limit') && !headers.has('x-ratelimit-reset') &&
+        /temporarily rate.limited upstream/i.test(badRequestText(preview))) return 'http_429_model_busy';
   }
   return 'http_429';
 }
@@ -2528,7 +2528,7 @@ export async function handleReviewRouterRequest(
           ? retryAfterCooldownMs(response.headers.get('retry-after'))
           : null;
         const preview = status === 400 || (
-          provider.id === 'openrouter' && task === 'review' && status === 429
+          provider.id === 'openrouter' && status === 429
         ) || (
           provider.id === 'aihubmix' && [403, 404, 410, 429].includes(status)
         ) || (
@@ -2542,7 +2542,7 @@ export async function handleReviewRouterRequest(
             ? classifyBadRequest(preview)
             : provider.id === 'aihubmix'
               ? classifyAIHubMixError(status, preview)
-              : provider.id === 'openrouter' && task === 'review' && status === 429
+              : provider.id === 'openrouter' && status === 429
                 ? classifyOpenRouterRateLimit(preview, response.headers)
                 : `http_${status}`;
         // xAI RPC reports a billed failure as 502/504; keep it distinguishable from an outage.

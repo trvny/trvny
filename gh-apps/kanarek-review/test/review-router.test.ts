@@ -3633,14 +3633,22 @@ test('terminal OrcaRouter 403 cools the model instead of the gateway', async () 
   assert.equal((await call())?.status, 502);
   assert.equal((await call())?.status, 502);
   assert.deepEqual(models, ['locked/free']);
+  assert.equal(await cooldownActive(cooldowns, 'orcarouter'), false);
+  assert.equal(await cooldownActive(cooldowns, 'orcarouter#locked/free'), true);
 });
 
+async function cooldownActive(namespace: DurableObjectNamespace, key: string): Promise<boolean> {
+  const response = await namespace.get(namespace.idFromName(key)).fetch('https://review-cooldown.internal/active');
+  return (await response.json() as { active: boolean }).active;
+}
+
 test('OpenRouter upstream 429 falls through without cooling the gateway', async () => {
+  const cooldowns = cooldownNamespace();
   const models: string[] = [];
   const env = {
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
-    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
     KANAREK_REVIEW_ROUTING: {
       providerOrders: { review: ['openrouter'] },
       taskModels: { openrouter: { review: ['busy/free', 'live/free'] } },
@@ -3650,15 +3658,83 @@ test('OpenRouter upstream 429 falls through without cooling the gateway', async 
     const { model } = JSON.parse(String(init?.body)) as { model: string };
     models.push(model);
     return Promise.resolve(model === 'busy/free'
-      ? Response.json({ error: { metadata: { limit_source: 'upstream_provider_shared_pool' } } }, { status: 429 })
+      ? Response.json({ error: { metadata: { limit_source: 'upstream_provider_shared_pool' } } }, {
+          status: 429, headers: { 'x-ratelimit-limit': '50' },
+        })
       : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch;
   const call = () => handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free', stream: false, messages: [{ role: 'user', content: 'review' }],
   }), env, fetcher);
   assert.equal((await call())?.status, 200);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter'), false);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter#busy/free'), true);
   assert.equal((await call())?.status, 200);
   assert.deepEqual(models, ['busy/free', 'live/free', 'live/free']);
+});
+
+test('terminal OpenRouter upstream limits remain model-scoped across tasks', async () => {
+  const cooldowns = cooldownNamespace();
+  const models: string[] = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter'], quip: ['openrouter'] },
+      taskModels: { openrouter: { review: ['busy-a/free', 'busy-b/free'], quip: ['busy-c/free'] } },
+    },
+  };
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const { model } = JSON.parse(String(init?.body)) as { model: string };
+    models.push(model);
+    return Promise.resolve(model.startsWith('busy-')
+      ? Response.json({ error: { message: 'Model temporarily rate-limited upstream' } }, { status: 429 })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch;
+  const call = (model: string) => handleReviewRouterRequest(request(routerToken, {
+    model, stream: false, messages: [{ role: 'user', content: 'review' }],
+  }), env, fetcher);
+  assert.equal((await call('kanarek-quip-free'))?.status, 502);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter'), false);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter#busy-c/free'), true);
+  assert.equal((await call('kanarek-code-review-free'))?.status, 502);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter'), false);
+  for (const model of ['busy-a/free', 'busy-b/free']) {
+    assert.equal(await cooldownActive(cooldowns, 'openrouter#' + model), true);
+  }
+  env.KANAREK_REVIEW_ROUTING.taskModels.openrouter.review.push('live/free');
+  assert.equal((await call('kanarek-code-review-free'))?.status, 200);
+  assert.deepEqual(models, ['busy-c/free', 'busy-a/free', 'busy-b/free', 'live/free']);
+});
+
+test('OpenRouter account quota stops the model sweep', async () => {
+  const cooldowns = cooldownNamespace();
+  let calls = 0;
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter'] },
+      taskModels: { openrouter: { review: ['first/free', 'second/free'] } },
+    },
+  };
+  const fetcher = (() => {
+    calls++;
+    return Promise.resolve(Response.json({
+      error: { metadata: { limit_source: 'openrouter_free_daily' } },
+    }, { status: 429 }));
+  }) as typeof fetch;
+  const call = () => handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free', stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), env, fetcher);
+  assert.equal((await call())?.status, 429);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter'), true);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter#first/free'), false);
+  assert.equal((await call())?.status, 429);
+  assert.equal(calls, 1);
 });
 
 test('Workers AI runs at its configured position ahead of HTTP providers', async () => {

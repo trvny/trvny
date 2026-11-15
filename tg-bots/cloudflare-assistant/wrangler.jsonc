@@ -51,7 +51,7 @@
     ]
   },
   "triggers": {
-    "crons": ["*/21 * * * *"]
+    "crons": ["0 * * * *"]
   },
   "durable_objects": {
     "bindings": [
@@ -86,6 +86,10 @@
       {
         "name": "TELEGRAM_PUBLIC_GATE",
         "class_name": "TelegramPublicRateGate"
+      },
+      {
+        "name": "TELEGRAM_AUTOMATION_SCHEDULER",
+        "class_name": "TelegramAutomationScheduler"
       },
       {
         "name": "TELEGRAM_QUIP_BANK",
@@ -129,6 +133,10 @@
     {
       "tag": "v9",
       "new_sqlite_classes": ["TelegramQuipBank"]
+    },
+    {
+      "tag": "v10",
+      "new_sqlite_classes": ["TelegramAutomationScheduler"]
     }
   ],
   "vars": {

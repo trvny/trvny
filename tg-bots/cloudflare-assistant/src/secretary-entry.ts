@@ -9,6 +9,7 @@ import worker, {
   TelegramPublicRateGate,
   TelegramQuipBank,
 } from "./index";
+import { TelegramAutomationScheduler } from "./automation-scheduler.ts";
 import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest } from "./mini-app";
 import { handleMiniAppAutomationCancelRequest, handleMiniAppAutomationListRequest } from "./mini-app-automations";
 import { miniAppHtmlResponse } from "./mini-app-ui";
@@ -20,6 +21,7 @@ import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
 import type { Env, QueueBatch, TelegramUpdate } from "./types";
 
 export {
+  TelegramAutomationScheduler,
   TelegramConversationMemory,
   TelegramInlineQueryGate,
   TelegramMediaGroupGate,

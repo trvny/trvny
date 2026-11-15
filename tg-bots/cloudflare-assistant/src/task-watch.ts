@@ -1,3 +1,4 @@
+import { wakeAutomation } from "./automation-wake.ts";
 import type { DurableObjectStateLike, Env } from "./types";
 
 export type TaskWatch = {
@@ -129,6 +130,7 @@ export async function watchTask(
   };
   const response = await post(env, "/watch", payload);
   if (!response.ok) throw new Error(`task watch registration failed: HTTP ${response.status}`);
+  await wakeAutomation(env, "tasks", Date.now() + 120_000);
 }
 
 export async function pendingTaskWatches(env: Env): Promise<TaskWatch[]> {

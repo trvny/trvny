@@ -2132,6 +2132,11 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     let lastDraftLength = 0;
     const streamDraft = async (partial: string) => {
       lastGeneratedPartial = partial;
+      if (!partial) {
+        lastDraftLength = 0;
+        lastDraftUpdateAt = 0;
+        return;
+      }
       const draftLimit = draftMode === "rich"
         ? TELEGRAM_RICH_MESSAGE_MAX_CHARS
         : TELEGRAM_MESSAGE_MAX_CHARS;

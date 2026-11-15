@@ -295,6 +295,7 @@ async function consumeOpenAIStream(
 
   const flushEvent = async () => {
     if (eventData.length === 0) return;
+    if (shouldStop && await shouldStop()) throw new GenerationStoppedError(text.trimEnd());
     const payload = eventData.join("\n").trim();
     eventData = [];
     if (!payload) return;
@@ -315,12 +316,14 @@ async function consumeOpenAIStream(
     if (typeof delta === "string" && delta) {
       text += delta;
       await onPartial?.(text);
+      if (shouldStop && await shouldStop()) throw new GenerationStoppedError(text.trimEnd());
       return;
     }
     const complete = choice?.message?.content;
     if (!text && typeof complete === "string" && complete) {
       text = complete;
       await onPartial?.(text);
+      if (shouldStop && await shouldStop()) throw new GenerationStoppedError(text.trimEnd());
     }
   };
 
@@ -477,12 +480,19 @@ export async function chatWithStreamingFallback(
   shouldStop?: ShouldStopHandler,
 ) {
   const errors: string[] = [];
+  let localPartial = "";
   try {
-    return await workersAi(env, messages, shouldStop, "chat", onPartial);
+    return await workersAi(env, messages, shouldStop, "chat", onPartial ? async (text) => {
+      localPartial = text;
+      await onPartial(text);
+    } : undefined);
   } catch (error) {
     if (error instanceof GenerationStoppedError) throw error;
+    if (shouldStop && await shouldStop()) throw new GenerationStoppedError(localPartial);
     errors.push(error instanceof Error ? error.message : String(error));
   }
+  // Reset progress before a replacement stream, never append unrelated answers.
+  if (localPartial) await onPartial?.("");
   try {
     return await kanarekFreeRouterStream(env, messages, onPartial, shouldStop);
   } catch (error) {

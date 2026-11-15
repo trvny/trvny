@@ -350,3 +350,48 @@ test("primary stream deadline covers reading the response body", async (t) => {
   assert.equal((await result).text, "fallback");
   assert.equal(cancelled, true);
 });
+
+test("stop between frames in a single primary stream chunk", async () => {
+  let stop = false;
+  let calls = 0;
+  const partials = [];
+  const encoder = new TextEncoder();
+  const env = envWithRouter(
+    async () => { calls += 1; throw new Error("unexpected fallback"); },
+    async () => new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          'data: {"choices":[{"delta":{"content":"A"}}]}\n\n' +
+          'data: {"choices":[{"delta":{"content":"B"}}]}\n\ndata: [DONE]\n\n'
+        ));
+      },
+    }),
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    (text) => { partials.push(text); stop = true; }, () => stop),
+    (err) => err instanceof GenerationStoppedError && err.partialText === "A");
+  assert.deepEqual(partials, ["A"]);
+  assert.equal(calls, 0);
+});
+
+test("resets partial progress when primary stream fails and Kanarek takes over", async () => {
+  const partials = [];
+  const encoder = new TextEncoder();
+  let localController;
+  const env = envWithRouter(
+    async () => new Response('data: {"choices":[{"delta":{"content":"B"}}]}\n\ndata: [DONE]\n\n',
+      { headers: { "content-type": "text/event-stream" } }),
+    async () => new ReadableStream({
+      start(controller) {
+        localController = controller;
+        controller.enqueue(encoder.encode('data: {"response":"Long primary partial"}\n\n'));
+      },
+    }),
+  );
+  const result = await chatWithStreamingFallback(env, [{ role: "user", content: "hi" }], (text) => {
+    partials.push(text);
+    if (text === "Long primary partial") localController.error(new Error("stream failure"));
+  });
+  assert.deepEqual(partials, ["Long primary partial", "", "B"]);
+  assert.equal(result.text, "B");
+});

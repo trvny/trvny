@@ -20,7 +20,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - **Memory and proactive work:** Engram-backed `/remember` / `/recall`, one-shot reminders, Legion/GitHub/Feedseek watches and terminal task notifications.
 - **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
 - **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
-- **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
+- **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths use the local Workers AI binding.
 - **Mini App:** owner-only Control Center with Legion/task status, task cancellation, Watchtower reminders/watches, native Radio Paradise player and now-playing metadata from the canonical TRAVNY Pages API with an exact-origin CORS allowlist, plus native Docbench Draft Studio/PDF quick tools, Codebench link and Streambench catalog link. `/radio` and exact music shortcuts open the player via an owner-only inline Web App button; playback requires a user tap. iOS uses hardware volume controls where programmatic media volume is unavailable. Watchtower keeps Secretary idle watches private.
 
 
@@ -128,7 +128,7 @@ kanarek-review
         └─ AIHubMix / other configured free providers
 ```
 
-The private `kanarek-review` Worker owns provider credentials and fallback/cooldown behavior behind the companion proxy. Workers AI is temporarily disabled both there and in this Worker so the account neuron allocation is reserved for SpaceMolt. The Telegram assistant needs only the existing `KANAREK_REVIEW_ROUTER_TOKEN`.
+The private `kanarek-review` Worker owns provider credentials and fallback/cooldown behavior behind the companion proxy. Workers AI remains disabled there; the local Telegram Worker uses the account neuron allocation. The Telegram assistant needs only the existing `KANAREK_REVIEW_ROUTER_TOKEN`.
 
 Heavyweight repo/build/test jobs reuse the existing `pet-dispatcher-control` + `pet-dispatcher-tasks` transport instead of creating another task-control plane. The current dispatcher targets the Legion; multi-worker Android/Legion routing is a later extension.
 
@@ -147,7 +147,7 @@ so this is not general Internet access and does not expose host credentials.
 - same-account Service Binding to `kanarek-companion`;
 - Cloudflare Queues for reliable Telegram update processing;
 - SQLite Durable Objects for Telegram update deduplication and bounded conversation context;
-- shared free-model routing through Kanarek Companion; local Workers AI is temporarily disabled;
+- shared free-model routing through Kanarek Companion; local Workers AI emergency fallback;
 - Telegram Bot API webhook.
 
 ## Local setup
@@ -160,7 +160,7 @@ npm install
 cp .dev.vars.example .dev.vars
 ```
 
-Fill `.dev.vars`. Never commit it. `KANAREK_REVIEW_ROUTER_TOKEN` is required for model-backed local flows while Workers AI is reserved for SpaceMolt.
+Fill `.dev.vars`. Never commit it. `KANAREK_REVIEW_ROUTER_TOKEN` is required for model-backed local flows for shared router access.
 
 Before setting the webhook, send one message to the new bot and inspect Telegram IDs:
 
@@ -212,7 +212,7 @@ Deploy:
 npm run deploy
 ```
 
-Run GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant` after the first Worker deployment and again after credential rotation or Worker recreation. It mirrors the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production intentionally has no Workers AI binding while that allocation is reserved for SpaceMolt.
+Run GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant` after the first Worker deployment and again after credential rotation or Worker recreation. It mirrors the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production binds Workers AI locally for voice, vision and emergency fallback.
 
 Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, `guest_message`, `business_connection`, and `business_message` updates:
 
@@ -279,11 +279,11 @@ Normal requests first go over the `KANAREK_COMPANION` service binding to the exi
 1. OpenRouter free models;
 2. OrcaRouter `orcarouter/free`;
 3. AIHubMix `coding-glm-5.3-free`;
-Workers AI is intentionally excluded from this chain while its account allocation is reserved for SpaceMolt.
+Workers AI remains excluded from the shared chain; Botek can use its local binding after router failure.
 
 Normal chat asks the shared OpenAI-compatible router for `stream: true`. Final Rich Messages use Telegram's 32,768-character rich-text budget while short conversation memory stays deliberately bounded to 4,096 assistant characters per turn. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer. Drafts expose Telegram's native stop control. A `stopped_message_generation` update is written directly to the draft's Durable Object instead of waiting behind the serialized queue; the active stream polls that state, cancels consumption, skips provider fallback, and sends the bounded partial text as the final message so Telegram's temporary stopped draft does not evaporate.
 
-If the internal router itself is unavailable, times out, or its token is not configured, model-backed requests fail closed instead of consuming Workers AI. Voice transcription and image/thumbnail vision that depended on the local Workers AI binding are temporarily unavailable. `WORKERS_AI_ENABLED=false` is an additional runtime kill switch even if a binding is accidentally reintroduced.
+If the internal router itself is unavailable, times out, or its token is not configured, Botek can fall back to its local Workers AI binding. Voice transcription and image/thumbnail vision use the same binding. `WORKERS_AI_ENABLED=false` disables local inference.
 
 ## Conversation context
 
@@ -327,7 +327,7 @@ curl -X POST https://<worker>.workers.dev/ingest/rss \
 
 | HTTP | `error` | `retryable` | Meaning |
 | --- | --- | --- | --- |
-| `503` | `providers_unavailable` | `true` | shared router unavailable; local Workers AI is disabled |
+| `503` | `providers_unavailable` | `true` | shared router and local Workers AI unavailable |
 | `502` | `telegram_delivery_failed` | `true` | transient Telegram/network failure |
 | `500` | `telegram_delivery_failed` | `false` | non-transient Telegram failure |
 | `500` | `configuration_error` | `false` | required bot/chat configuration is missing |

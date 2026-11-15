@@ -43,7 +43,7 @@ export function formatProviderStatus(
     ...rows.map(({ label, status }) => `${label} — ${status}`),
     workersAiEnabled
       ? `Local emergency: Workers AI (${localModel})`
-      : "Workers AI: disabled; reserved for SpaceMolt",
+      : "Workers AI: disabled",
   ].join("\n");
 
   const bodyRows = rows.length
@@ -59,7 +59,7 @@ export function formatProviderStatus(
     `<table><tr><th>Provider</th><th>Status</th></tr>${bodyRows}</table>`,
     workersAiEnabled
       ? `<details><summary>Emergency fallback</summary><p>Workers AI: <code>${escapeHtml(localModel)}</code></p></details>`
-      : "<p>Workers AI: <b>disabled</b>; reserved for SpaceMolt</p>",
+      : "<p>Workers AI: <b>disabled</b></p>",
   ].join("");
 
   return { plain, richHtml };

@@ -1,10 +1,6 @@
 import { AUTOMATION_KINDS, type AutomationKind } from "./automation-wake.ts";
-import { processDueReminders } from "./reminder-notifications.ts";
 import { listReminders } from "./reminders.ts";
-import { processTaskNotifications } from "./task-notifications.ts";
 import { pendingTaskWatches } from "./task-watch.ts";
-import { sendTelegramMessage } from "./telegram.ts";
-import { processConditionWatches } from "./watch-runner.ts";
 import { listConditionWatches } from "./watches.ts";
 import type { DurableObjectStorageLike, Env } from "./types";
 
@@ -12,7 +8,7 @@ const KIND_KEY = "automation-kind";
 const TASK_POLL_MS = 120_000;
 const RETRY_MS = 30_000;
 
-type SchedulerState = {
+export type SchedulerState = {
   storage: DurableObjectStorageLike & { getAlarm(): Promise<number | null> };
 };
 
@@ -34,8 +30,12 @@ export async function nextAutomationAt(env: Env, kind: AutomationKind, now = Dat
   return valid.length ? Math.min(...valid) : null;
 }
 
-export class TelegramAutomationScheduler {
-  constructor(private readonly state: SchedulerState, private readonly env: Env) {}
+export class AutomationScheduler {
+  constructor(
+    private readonly state: SchedulerState,
+    private readonly env: Env,
+    private readonly runDuty: (env: Env, kind: AutomationKind) => Promise<void>,
+  ) {}
 
   private async armEarlier(at: number): Promise<void> {
     const current = await this.state.storage.getAlarm();
@@ -65,14 +65,16 @@ export class TelegramAutomationScheduler {
   async alarm(): Promise<void> {
     const kind = await this.state.storage.get<AutomationKind>(KIND_KEY);
     if (!validKind(kind)) return;
-    switch (kind) {
-      case "tasks": await processTaskNotifications(this.env); break;
-      case "reminders": await processDueReminders(this.env, sendTelegramMessage); break;
-      case "watches": await processConditionWatches(this.env, sendTelegramMessage); break;
+    try {
+      await this.runDuty(this.env, kind);
+      const now = Date.now();
+      const next = await nextAutomationAt(this.env, kind, now);
+      // Avoid tight loops on failed sends or a backlog. Preserve earlier concurrent wakes.
+      if (next !== null) await this.armEarlier(next <= now ? now + RETRY_MS : next);
+    } catch (error: unknown) {
+      console.error("Automation alarm failed", kind, error);
+      // If storage fails too, let the platform retry the thrown alarm.
+      await this.armEarlier(Date.now() + RETRY_MS);
     }
-    const now = Date.now();
-    const next = await nextAutomationAt(this.env, kind, now);
-    // Avoid tight loops on failed sends or a backlog. Preserve earlier concurrent wakes.
-    if (next !== null) await this.armEarlier(next <= now ? now + RETRY_MS : next);
   }
 }

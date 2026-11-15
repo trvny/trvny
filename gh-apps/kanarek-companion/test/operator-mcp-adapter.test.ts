@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  handleScopedMcp as handleScopedMcpGw,
   handleOperatorMcp as handleOperatorMcpGw,
   MCP_PROTOCOL_VERSION,
 } from '../src/specialists/mcp-adapter.ts';
 import { scopedRuntimeOpenApi, runtimeOpenApi } from '../src/runtime-openapi.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 import { scopedFeedseek } from './support/scoped-feedseek.ts';
+import { handleScopedMcp as handleScopedMcpGw } from './support/scoped-mcp.ts';
 
 type Invoke = (request: Request) => Promise<Response>;
 // Gateway-taking handler, driven by the route-shaped fixture.

@@ -137,14 +137,22 @@ install_browser() {
 }
 
 install_devbox_skills() {
-  local source target skill
+  local source target skill name
+  local -a skills=()
   source="$(cd "$(dirname "$0")" && pwd)/skills"
   target="$HOME/.agents/skills"
-  mkdir -p "$target"
   for skill in "$source"/devbox-*/; do
-    local name
+    [[ -f "$skill/SKILL.md" ]] && skills+=("$skill")
+  done
+  if (( ${#skills[@]} == 0 )); then
+    printf 'ERROR no Devbox skills in %s\n' "$source" >&2
+    return 1
+  fi
+  mkdir -p "$target"
+  for skill in "${skills[@]}"; do
     name="$(basename "$skill")"
     if [[ -e "$target/$name" || -L "$target/$name" ]]; then
+      # Preserve existing skills, including links from other workspaces.
       if [[ "$(readlink "$target/$name" || true)" != "${skill%/}" ]]; then
         printf 'WARN skill already exists: %s\n' "$target/$name" >&2
         continue
@@ -157,11 +165,11 @@ install_devbox_skills() {
 
 case "${1:-all}" in
   all)
-    install_devbox_skills
+    install_devbox_skills || return_code=1
     # Try every profile, including after a failure, and report incomplete
     # installs to manual callers. The devcontainer lifecycle handles this
     # nonzero status so optional CLI failure never breaks container creation.
-    failures=0
+    failures="${return_code:-0}"
     for profile in base antigravity browser media hermes; do
       if bash "$0" "$profile"; then
         printf 'OK   bootstrap: %s\n' "$profile"

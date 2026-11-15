@@ -246,8 +246,9 @@ network proxies:
 - `feedseek-actions.ts`: bounded Feedseek access.
 - `agents-guidance*.ts`: repository instruction/guidance lookup.
 - `account-attention.ts`: bounded attention summaries.
-- `mcp-adapter.ts`: specialist and scoped MCP surface composition.
-- `mcp-protocol.ts`: shared authenticated MCP/JSON-RPC request handling.
+- `mcp-adapter.ts`: specialist surface builder and scoped manifest metadata.
+- `mcp-protocol.ts`: shared authenticated MCP/JSON-RPC handling and surface combination.
+  Gremlin owns combined surface wiring in `../../gremlin/src/mcp-runtime.ts`.
 - `botek-specialists.ts`: same-account RPC adapter exposing only the Botek
   operations that are intentionally shared.
 

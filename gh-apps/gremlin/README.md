@@ -17,6 +17,10 @@ its own `/health`, and returns 404 for Kanarek-only ingress (GitHub webhook,
 GPTomek wake, private review router). This keeps one source of truth for
 operator policy instead of cloning it into two Workers.
 
+`src/mcp-runtime.ts` owns the MCP operator/specialist selection, surface
+composition and initialization guidance. Automation provides reusable protocol,
+surface builders and guarded Action dispatch.
+
 ### MCP OAuth 2.1 cutover
 
 The production entry (`src/entry.ts`) wraps the existing guarded runtime with

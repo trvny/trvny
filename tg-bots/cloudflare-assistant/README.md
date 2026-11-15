@@ -1,6 +1,6 @@
 # Cloudflare Telegram assistant
 
-[![Telegram Assistant CI](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square)](https://www.typescriptlang.org/)
+[![Telegram Assistant CI](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/tg-assistant-ci.yml) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflareworkers&logoColor=white&style=flat-square)](https://developers.cloudflare.com/workers/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square)](https://www.typescriptlang.org/)  ![Telegram](https://img.shields.io/badge/Telegram-26A5E4?logo=telegram&logoColor=fff&style=flat-square)
 
 > **Agent entry:** `src/` contains the webhook, Queue consumer and user-facing Telegram flows.
 > **Validate:** `cd tg-bots/cloudflare-assistant && npm ci && npm run check && npm test`.

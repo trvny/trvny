@@ -25,16 +25,6 @@
 <p align="center"><a href="https://github.com/trvny/.github"><img src="https://raw.githubusercontent.com/trvny/.github/main/assets/profile/contributors.svg" alt="Contributors across trvny and travnie" width="320"></a></p>
 <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Micro+5&size=23&letterSpacing=-150%25&duration=500&pause=100&color=F70EE1&center=true&vCenter=true&random=true&width=350&height=150&lines=cos+sie+popsulo;makaron;7312;AAAWRUUUK;%F0%9F%90%A4;%F0%9F%91%BE;%F0%9F%A6%80;%F0%9F%98%8E&groups=4%2C4" alt="Typing-SVG" /></a>
 
-## 🔀 Open pull requests
-
-<!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/.ai | [#32](https://github.com/trvny/.ai/pull/32) | chore(deps): bump anthropics/claude-code-action from 1.0.268 to 1.0.271 in the actions group | @dependabot[bot] | ready | 2026-11-13 |
-| trvny/.ai | [#33](https://github.com/trvny/.ai/pull/33) | deps: bump the wiki group in /wiki with 2 updates | @dependabot[bot] | ready | 2026-11-13 |
-| trvny/tvpi | [#144](https://github.com/trvny/tvpi/pull/144) | chore(deps-dev): bump wrangler from 4.156.0 to 4.159.0 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-11-12 |
-<!--OPEN_PRS:END-->
-
 ## 🧭 Project map
 
 **Private command center: projects, services, tools, and drawers in one place.**

@@ -162,10 +162,18 @@
   buttons.forEach(button => button.addEventListener('click', () => applyLanguage(button.dataset.language)));
   $('#shuffleLore')?.addEventListener('click', () => {
     const options = dictionaries?.[language]?.lore || fallbackLore;
-    if (!options?.length) return;
-    const random = typeof crypto !== 'undefined' ? crypto.getRandomValues(new Uint32Array(1))[0] : 0;
-    const offset = 1 + random % Math.max(1, options.length - 1);
-    loreIndex = (loreIndex + offset) % options.length;
+    if (!options || options.length < 2) return;
+    if (typeof crypto === 'undefined') {
+      loreIndex = (loreIndex + 1) % options.length;
+    } else {
+      const candidates = options.map((_, index) => index).filter(index => index !== loreIndex);
+      // Reject out-of-range samples; no biased modulo or immediate repeat.
+      let selected;
+      do {
+        selected = crypto.getRandomValues(new Uint8Array(64)).find(value => value < candidates.length);
+      } while (selected === undefined);
+      loreIndex = candidates[selected];
+    }
     set('#lore', options[loreIndex]);
   });
   fetch('/teksty/githubowa-kraina/locales.json')

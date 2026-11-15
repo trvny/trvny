@@ -74,7 +74,7 @@ function createPage(savedLanguage = null, browserLanguages = ['pl-PL'], options 
       if (!localeRequest && options.atlasGate) await options.atlasGate;
       return { ok: localeRequest ? !options.failLocales : !options.failAtlas, json: async () => localeRequest ? locales : atlas };
     },
-    console, Math,
+    console, Math, crypto: options.crypto,
   });
   vm.runInContext(script, context);
   return { document, get, buttons, cards, dialog, storage, navGroups };
@@ -159,4 +159,18 @@ test('failed locale fetch preserves Polish atlas and all lore entries', async ()
   }
   await page.cards[0].fire('click', { button: 0, preventDefault() {} });
   assert.equal(page.get('#dialog-content').children[0].textContent, atlas.regions[0].translations.pl.description);
+});
+
+test('lore draw rejects out-of-range samples and avoids immediate repeats', async () => {
+  const crypto = { getRandomValues: bytes => {
+    bytes.fill(255);
+    bytes[63] = 1;
+    return bytes;
+  } };
+  const page = createPage(null, ['pl'], { crypto });
+  await tick();
+  await page.get('#shuffleLore').fire('click');
+  assert.equal(page.get('#lore').textContent, locales.pl.lore[2]);
+  await page.get('#shuffleLore').fire('click');
+  assert.equal(page.get('#lore').textContent, locales.pl.lore[1]);
 });

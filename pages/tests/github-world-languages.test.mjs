@@ -97,6 +97,8 @@ test('language switching updates page, open atlas and stored preference', async 
   assert.equal(page.navGroups[1].querySelector('.trvny-nav-label').textContent, locales.zh.nav[4]);
   assert.equal(page.get('#trvny-nav-toggle').attrs['aria-label'], locales.zh.nav[0]);
   assert.equal(page.document.title, locales.zh.pageName + ' · TRAVNY');
+  assert.equal(page.get('.brand span:last-child').textContent, locales.zh.pageName);
+  assert.equal(page.get('.footer span:first-child').textContent, locales.zh.pageName + ' · 2026');
   assert.equal(page.get('meta[property="og:locale"]').attrs.content, 'zh_CN');
   assert.equal(JSON.parse(page.get('#atlas-schema').textContent).inLanguage, 'zh-Hans');
   assert.equal(page.storage.get('github-world-language'), 'zh');

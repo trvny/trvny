@@ -92,6 +92,8 @@
     const d = dictionaries[next];
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : next;
     document.title = d.pageName + ' · TRAVNY';
+    set('.brand span:last-child', d.pageName);
+    set('.footer span:first-child', d.pageName + ' · 2026');
     setAttr('meta[name="description"]', 'content', d.metaDescription);
     setAttr('meta[property="og:locale"]', 'content', { pl: 'pl_PL', en: 'en_US', ru: 'ru_RU', zh: 'zh_CN' }[next]);
     for (const selector of ['meta[property="og:title"]', 'meta[name="twitter:title"]']) setAttr(selector, 'content', document.title);

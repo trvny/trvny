@@ -26,7 +26,7 @@ The Telegram assistant reuses this control plane for heavyweight Legion/Hermes h
 
 `tg-assistant` is the lightweight always-on Telegram side. Telegram webhook updates are queued through `travny-tg-assistant-updates`; one SQLite Durable Object records `update_id` delivery state, a second stores bounded per-chat conversation context, and exhausted/ambiguous failures go to `travny-tg-assistant-updates-dlq`.
 
-Model calls first use a same-account Service Binding to the private OpenAI-compatible router in `kanarek-companion`. That keeps OpenRouter, OrcaRouter, AIHubMix and provider cooldowns in one maintained place. Workers AI is temporarily disabled in both Kanarek Review and Telegram; the account neuron allocation is reserved for the SpaceMolt gateway.
+Model calls first use a same-account Service Binding to the private OpenAI-compatible router in `kanarek-companion`. That keeps OpenRouter, OrcaRouter, AIHubMix and provider cooldowns in one maintained place. Workers AI remains disabled in Kanarek Review and SpaceMolt; the local Telegram binding uses the account neuron allocation for voice, vision and emergency fallback.
 
 The assistant needs the existing `KANAREK_REVIEW_ROUTER_TOKEN`, not copies of individual provider keys. `.github/workflows/automation-sync.yml` mirrors that repository-held router bearer into the deployed `tg-assistant` Worker; use the same target after credential rotation or Worker recreation. Telegram bot/webhook/owner secrets remain specific to the assistant Worker.
 

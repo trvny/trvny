@@ -146,7 +146,7 @@ Provider and individual model cooldowns can skip unavailable entries without
 reordering other entries. The API key for each provider is a Worker secret.
 The optional `workers-ai` entry follows the same explicit ordering if enabled.
 Production keeps Workers AI disabled to preserve the shared account's neuron
-budget for SpaceMolt; no Workers AI route is present in production queues.
+budget for Botek; no Workers AI route is present in production queues.
 
 The private System One routeThe private System One route is intentionally separate from the OpenAI-compatible
 chat router. It forwards at most 16 typed `choice` / `noul` / `score`
@@ -227,7 +227,7 @@ models pass through unchanged.
 Gemini Flex pins high reasoning with the same floor and strips deprecated
 sampling, thinking-budget, and candidate-count fields inherited from shared
 OpenAI-compatible callers. DeepSeek keeps its separate high-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
-headroom, but production keeps it disabled while the account neuron budget belongs to SpaceMolt.
+headroom, but production keeps it disabled while the account neuron budget belongs to Botek.
 
 Vercel AI Gateway uses a model chain rather than one fixed model. Hy3
 (`tencent/hy3`), Qwen 3.8 Omni, Ling 3.1 Flash, and Laguna S 2.1 receive the
@@ -284,7 +284,7 @@ skipped next time, so one dead or flaky model never cools down the provider.
 Fallback-chain attempts blame no single model.
 
 When enabled, the Workers AI fallback uses a guarded daily-neuron budget. It is currently
-disabled in production so SpaceMolt has exclusive use of the account allocation. Provider
+disabled in production so Botek has exclusive use of the account allocation. Provider
 health is exposed in `/health` without leaking upstream response bodies or credentials.
 
 ## Review contract versus provider routing

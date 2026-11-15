@@ -53,7 +53,8 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 
 ## Guards
 
-- Fresh unique `id` (1–100 ASCII letters/digits, `.`, `_`, `-`; no `/`).
+- Fresh unique `id` (1–100 ASCII letters/digits, `.`, `_`, `-`; no `/`;
+  batch max 90).
   Use e.g. `feat-docbench-20261114-1`, not a branch name. Identical retry
   only within 7 days.
   `command_outcome_uncertain`: never blindly replay; inspect live state.

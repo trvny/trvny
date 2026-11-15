@@ -11,7 +11,8 @@ Implementation truth:
 Post the entire `raw-v1` command as a new comment on `trvny/trvny#203`.
 Common keys: `id` (unique, 1–100 ASCII letters/digits, `.`, `_`, `-`; no `/`),
 `op`, `repository` (`trvny/*` or `travnie/*`). Example ID: `feat-docbench-1`.
-For batches, leave room for step suffixes. Examples use placeholder SHAs.
+Batch `id`: max 90 characters (steps append suffixes). Examples use placeholder
+SHAs.
 
 - Mutating an **existing branch**: specify `branch` + **fresh**
   `expectedHeadSha`. Never trust a previous command response as the next head;
@@ -492,6 +493,7 @@ raw-v1 example123
 - **Patch errors** (`invalid_patch_hunk_line`, `patch_hunk_count_mismatch`,
   `patch_context_mismatch`, `patch_old_eof_mismatch`): regenerate diff on exact
   base; preserve EOF.
+- **`batch_command_id_too_long`:** batch `id` exceeds 90 characters.
 - **`invalid_batch_steps`:** `steps` array (1–10), no inner `id` or
   `repository`.
 - **`gptomek_create_blob:500` / `gptomek_create_tree:500`:** GitHub Git-object

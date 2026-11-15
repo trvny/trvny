@@ -57,7 +57,7 @@ Reference: [Telegram Serverless documentation](https://core.telegram.org/bots/se
 
 ### Shared free-model router
 
-The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` exposes the OpenAI-compatible review endpoint while the private `kanarek-review` Worker owns provider credentials, cooldowns and provisioning for OpenRouter, OrcaRouter and AIHubMix. The Telegram Worker calls the companion endpoint through a same-account Service Binding and keeps only the shared router bearer. Workers AI is temporarily reserved for SpaceMolt.
+The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` exposes the OpenAI-compatible review endpoint while the private `kanarek-review` Worker owns provider credentials, cooldowns and provisioning for OpenRouter, OrcaRouter and AIHubMix. The Telegram Worker calls the companion endpoint through a same-account Service Binding and keeps only the shared router bearer. Local Workers AI is reserved for Botek voice, vision and emergency fallback.
 
 ### Hermes workers
 

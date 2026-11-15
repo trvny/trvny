@@ -310,7 +310,7 @@ remains responsible for deciding whether that completion can mutate GitHub.
 
 `wrangler.jsonc` defines the Worker, version metadata, provider model defaults,
 the dormant Workers AI settings, cooldown binding, and observability. The Worker has no
-Workers AI binding while that allocation is reserved for SpaceMolt.
+Workers AI binding while that allocation is reserved for Botek.
 
 Important variables include:
 

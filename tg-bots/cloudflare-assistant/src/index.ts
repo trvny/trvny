@@ -1906,7 +1906,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: "Analiza zdjęć jest chwilowo wyłączona, bo Workers AI jest zarezerwowane dla SpaceMolta.",
+        text: "Analiza zdjęć jest chwilowo wyłączona, bo Workers AI jest wyłączone lub nie jest skonfigurowane.",
         finalReaction: "👎",
       };
     }
@@ -1951,7 +1951,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: "Transkrypcja audio jest chwilowo wyłączona, bo Workers AI jest zarezerwowane dla SpaceMolta.",
+        text: "Transkrypcja audio jest chwilowo wyłączona, bo Workers AI jest wyłączone lub nie jest skonfigurowane.",
         finalReaction: "👎",
       };
     }
@@ -2020,7 +2020,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: "Transkrypcja głosówek jest chwilowo wyłączona, bo Workers AI jest zarezerwowane dla SpaceMolta.",
+        text: "Transkrypcja głosówek jest chwilowo wyłączona, bo Workers AI jest wyłączone lub nie jest skonfigurowane.",
         finalReaction: "👎",
       };
     }

@@ -29,7 +29,7 @@ test('atlas regions, cards and generated guide stay in sync', async () => {
   }
   const cards = [...html.matchAll(/data-region="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(cards.sort(), data.regions.map(region => region.id).sort());
-  assert.ok(html.includes(`<strong>${data.regions.length}</strong><span>regions to explore</span>`));
+  assert.ok(html.includes(`<strong>${data.regions.length}</strong><span>regionów do odkrycia</span>`));
   execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/github-world-guide.mjs', import.meta.url)), '--check']);
 });
 
@@ -39,6 +39,7 @@ test('all language dictionaries cover the atlas without duplicating destinations
   const locales = JSON.parse(await readFile(new URL('locales.json', root), 'utf8'));
   const html = await readFile(new URL('index.html', root), 'utf8');
   const languages = ['pl', 'en', 'ru', 'zh'];
+  for (const key of ['explore', 'command', 'infrastructure', 'regionsCount', 'metaDescription']) assert.ok(html.includes(locales.pl[key]), `Polish fallback: ${key}`);
   assert.deepEqual(Object.keys(locales).sort(), [...languages].sort());
   const keys = Object.keys(locales.en).sort();
   for (const language of languages) {
@@ -50,7 +51,11 @@ test('all language dictionaries cover the atlas without duplicating destinations
     assert.ok(html.includes(`data-language="${language}"`));
     assert.ok(html.split('<dialog')[1].includes(`data-language="${language}"`));
     for (const [key, value] of Object.entries(locales[language])) {
-      if (typeof value === 'string') assert.ok(value.trim(), `${language}.${key}`);
+      const strings = key === 'cards' ? Object.values(value).flat() : key === 'tags' ? Object.values(value) : Array.isArray(value) ? value : [value];
+      if (key === 'cards') {
+        for (const card of Object.values(value)) assert.ok(Array.isArray(card) && card.length === 2, `${language}.cards`);
+      }
+      assert.ok(strings.every(entry => typeof entry === 'string' && entry.trim()), `${language}.${key}`);
     }
   }
   for (const region of catalog.regions) {

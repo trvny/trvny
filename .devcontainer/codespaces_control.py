@@ -54,7 +54,8 @@ REPAIR_SYNC_COMMAND = (
     "git -C \"$tmp\" show \"FETCH_HEAD:$file\" > \"$tmp/new/$file\" || { echo fetch_failed; exit 4; }; "
     "parent=$(dirname \"$file\"); while test \"$parent\" != .; do "
     "test ! -L \"$parent\" && { test ! -e \"$parent\" || test -d \"$parent\"; } || { echo local_changes; exit 3; }; parent=$(dirname \"$parent\"); done; "
-    "test ! -L \"$file\" || { echo local_changes; exit 3; }; "
+    "test ! -L \"$file\" && { test ! -e \"$file\" || test -f \"$file\"; } "
+    "|| { echo local_changes; exit 3; }; "
     "if ! cmp -s \"$file\" \"$tmp/new/$file\"; then "
     "if git show \"HEAD:$file\" > \"$tmp/old/$file\" 2>/dev/null; then "
     "cmp -s \"$file\" \"$tmp/old/$file\" || { echo local_changes; exit 3; }; "
@@ -276,7 +277,7 @@ def run(action: str) -> None:
         )
         if "devcontainer_updated" not in result:
             raise RuntimeError("Configuration sync was not confirmed")
-        print("Synced three tracked Devbox files from main", flush=True)
+        print("Synced six Devbox files from main", flush=True)
         print("Requesting existing Codespace container rebuild", flush=True)
         call(["gh", "codespace", "rebuild", "-c", name], timeout=480)
         print("Codespace rebuild command completed")

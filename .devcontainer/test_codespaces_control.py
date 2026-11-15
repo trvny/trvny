@@ -134,7 +134,7 @@ class ControlTests(unittest.TestCase):
         self.assertIn(".devcontainer/skills/devbox-handoff/SKILL.md", command)
         self.assertIn(".devcontainer/skills/devbox-workflow/SKILL.md", command)
         self.assertIn('test ! -L "$parent"', command)
-        self.assertIn('test ! -e "$file"', command)
+        self.assertIn('test ! -e "$file" || test -f "$file"', command)
         self.assertNotIn("git diff", command)
         self.assertIn("mktemp -d .devcontainer/.repair.XXXXXX", command)
         nested = command.split("'")[1]

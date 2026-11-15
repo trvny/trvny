@@ -304,3 +304,49 @@ test("a stopped chat does not start either provider", async () => {
     undefined, () => true), GenerationStoppedError);
   assert.equal(calls, 0);
 });
+
+test("streams primary GLM content, not reasoning, and preserves stopped text", async () => {
+  const partials = [];
+  let stopped = false;
+  let cancelled = false;
+  let routerCalls = 0;
+  const enc = new TextEncoder();
+  const env = envWithRouter(
+    async () => { routerCalls += 1; throw new Error("unexpected fallback"); },
+    async (_model, input) => {
+      assert.equal(input.stream, true);
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(enc.encode('data: {"choices":[{"delta":{"reasoning_content":"private"}}]}\n\n'));
+          controller.enqueue(enc.encode('data: {"choices":[{"delta":{"content":"Visible"}}]}\n\n'));
+        },
+        cancel() { cancelled = true; },
+      });
+    },
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    (text) => { partials.push(text); stopped = true; },
+    () => stopped), (error) => error instanceof GenerationStoppedError && error.partialText === "Visible");
+  assert.deepEqual(partials, ["Visible"]);
+  assert.equal(routerCalls, 0);
+  assert.equal(cancelled, true);
+});
+
+test("primary stream deadline covers reading the response body", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let cancelled = false;
+  let started;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const env = envWithRouter(
+    async () => Response.json({ choices: [{ message: { content: "fallback" } }] }),
+    async () => new ReadableStream({
+      pull() { started(); return new Promise(() => {}); },
+      cancel() { cancelled = true; },
+    }),
+  );
+  const result = chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
+  await ready;
+  t.mock.timers.tick(45_000);
+  assert.equal((await result).text, "fallback");
+  assert.equal(cancelled, true);
+});

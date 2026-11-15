@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -70,6 +71,22 @@ class BootstrapSafetyTests(unittest.TestCase):
                 self.assertTrue(link.is_symlink())
                 self.assertEqual(link.resolve(), ROOT / "skills" / name)
                 self.assertTrue((link / "SKILL.md").is_file())
+
+    def test_missing_skills_fail_without_broken_links(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            home.mkdir()
+            script = root / "setup.sh"
+            shutil.copyfile(ROOT / "setup.sh", script)
+            result = subprocess.run(
+                ["/bin/bash", str(script), "skills"],
+                env=dict(os.environ, HOME=str(home)),
+                capture_output=True, timeout=10, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b"no Devbox skills", result.stderr)
+            self.assertFalse((home / ".agents" / "skills" / "devbox-*").is_symlink())
 
     def test_optional_profiles_are_isolated_and_reported(self):
         setup = (ROOT / "setup.sh").read_text()

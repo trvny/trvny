@@ -191,7 +191,8 @@ We intentionally do not start a filesystem MCP server: clients can advertise
 dynamic Roots that broaden its file access, while local agents already have
 workspace tools. Other MCP clients may need their own native configuration.
 See `.devcontainer/skills/devbox-workflow/` and
-`.devcontainer/skills/devbox-handoff/` for operational guidance. Bootstrap links these skills into `~/.agents/skills`;
+`.devcontainer/skills/devbox-handoff/` for operational guidance. Bootstrap links
+these skills into `~/.agents/skills`;
 retry with `devbox install skills`. Existing user-owned skills are preserved.
 Playwright CLI also installs its upstream skill into user-level agent skills.
 There is no separate model-provider MCP or cloned secret store.

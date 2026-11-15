@@ -49,6 +49,12 @@ export function validateExecArgs(file: string, args: string[], cwd?: string): vo
   if (file !== "git") return;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
+    if (arg === "--") break;
+    if (arg?.startsWith("--git-dir=") || arg?.startsWith("--work-tree=")) {
+      const separator = arg.indexOf("=");
+      assertSafeAbsolutePath(arg.slice(separator + 1), `command argument ${arg.slice(0, separator)}`);
+      continue;
+    }
     if (arg === "-C" || arg === "--git-dir" || arg === "--work-tree") {
       const path = args[i + 1];
       if (path === undefined) throw new Error(`missing command argument after ${arg}`);

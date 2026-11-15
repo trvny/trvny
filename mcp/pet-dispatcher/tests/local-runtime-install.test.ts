@@ -349,6 +349,10 @@ test("installer validates Git path operands without misreading other command arg
   assert.throws(() => validateExecArgs("git", ["-C"]), /missing command argument/);
   assert.throws(() => validateExecArgs("git", ["--git-dir", "relative"]), /absolute path/);
   assert.throws(() => validateExecArgs("git", ["--work-tree", "-bad"]), /absolute path/);
+  assert.throws(() => validateExecArgs("git", ["--git-dir=relative"]), /absolute path/);
+  assert.throws(() => validateExecArgs("git", ["--work-tree="]), /absolute path/);
+  assert.doesNotThrow(() => validateExecArgs("git", [`--git-dir=${absolute}`]));
+  assert.doesNotThrow(() => validateExecArgs("git", ["--", "--git-dir=relative"]));
   assert.doesNotThrow(() => validateExecArgs("npm", ["-C", "relative"]));
   assert.throws(() => validateExecArgs("npm", [], "relative"), /absolute path/);
 });

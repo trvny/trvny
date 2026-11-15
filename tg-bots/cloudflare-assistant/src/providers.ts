@@ -4,8 +4,8 @@ import { withDeadline } from "./deadline.ts";
 const ROUTER_TIMEOUT_MS = 20_000;
 const INLINE_ROUTER_TIMEOUT_MS = 2_500;
 const INLINE_WORKERS_AI_TIMEOUT_MS = 3_500;
-const WORKERS_AI_TIMEOUT_MS = 15_000;
-const WORKERS_AI_MAX_TOKENS = 2_048;
+const WORKERS_AI_TIMEOUT_MS = 45_000;
+const WORKERS_AI_MAX_TOKENS = 8_192;
 const INLINE_WORKERS_AI_MAX_TOKENS = 384;
 const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
@@ -380,7 +380,7 @@ async function workersAi(
       messages,
       max_tokens: inline ? INLINE_WORKERS_AI_MAX_TOKENS : WORKERS_AI_MAX_TOKENS,
       ...(model === "@cf/zai-org/glm-4.7-flash"
-        ? { chat_template_kwargs: { enable_thinking: false } }
+        ? { chat_template_kwargs: { enable_thinking: !inline } }
         : {}),
     });
     const pending = Promise.race([

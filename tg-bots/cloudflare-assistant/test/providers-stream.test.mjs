@@ -219,27 +219,32 @@ test("bounds local GLM inference and accepts chat completion responses", async (
   env.WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
   assert.equal((await chatWithStreamingFallback(env, messages)).text, "answer");
   assert.equal((await chatWithInlineFallback(env, messages)).text, "answer");
-  assert.deepEqual(calls.map(({ input }) => input.max_tokens), [2048, 384]);
-  assert.ok(calls.every(({ input }) => input.chat_template_kwargs.enable_thinking === false));
+  assert.deepEqual(calls.map(({ input }) => input.max_tokens), [8192, 384]);
+  assert.deepEqual(calls.map(({ input }) => input.chat_template_kwargs.enable_thinking), [true, false]);
 });
 
-test("local fallback times out without a second inference", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  let started;
-  const called = new Promise((resolve) => { started = resolve; });
-  let calls = 0;
-  const env = envWithRouter(
-    async () => new Response("unavailable", { status: 502 }),
-    async () => {
-      calls += 1;
-      started();
-      return new Promise(() => {});
-    },
-  );
-  const result = chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
-  const rejected = assert.rejects(result, /Workers AI timed out after 15000ms/);
-  await called;
-  t.mock.timers.tick(15_000);
-  await rejected;
-  assert.equal(calls, 1);
-});
+for (const [mode, invoke, deadline] of [
+  ["chat", chatWithStreamingFallback, 45_000],
+  ["inline", chatWithInlineFallback, 3_500],
+]) {
+  test(`local ${mode} fallback times out without a second inference`, async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    let started;
+    const called = new Promise((resolve) => { started = resolve; });
+    let calls = 0;
+    const env = envWithRouter(
+      async () => new Response("unavailable", { status: 502 }),
+      async () => {
+        calls += 1;
+        started();
+        return new Promise(() => {});
+      },
+    );
+    const result = invoke(env, [{ role: "user", content: "hi" }]);
+    const rejected = assert.rejects(result, new RegExp(`Workers AI timed out after ${deadline}ms`));
+    await called;
+    t.mock.timers.tick(deadline);
+    await rejected;
+    assert.equal(calls, 1);
+  });
+}

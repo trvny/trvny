@@ -99,7 +99,9 @@
       "Wszystkie teksty",
       "atlas projektów",
       "Tokenowy Mundial AI"
-    ]
+    ],
+    "pageName": "GitHubowa Kraina",
+    "metaDescription": "Interaktywny atlas publicznych projektów, warsztatów i infrastruktury trvny i travnie."
   },
   "en": {
     "heading": "Projects do not just sit in repositories.",
@@ -201,7 +203,9 @@
       "All stories",
       "project atlas",
       "AI Token World Cup"
-    ]
+    ],
+    "pageName": "GitHub World",
+    "metaDescription": "An interactive atlas of trvny and travnie projects, workshops and infrastructure."
   },
   "ru": {
     "heading": "Проекты здесь не лежат в репозиториях.",
@@ -303,7 +307,9 @@
       "Все тексты",
       "атлас проектов",
       "Чемпионат токенов ИИ"
-    ]
+    ],
+    "pageName": "Мир GitHub",
+    "metaDescription": "Интерактивный атлас публичных проектов, мастерских и инфраструктуры trvny и travnie."
   },
   "zh": {
     "heading": "项目不只是躺在代码仓库里。",
@@ -405,6 +411,8 @@
       "所有文章",
       "项目地图",
       "AI 语言令牌世界杯"
-    ]
+    ],
+    "pageName": "GitHub 王国",
+    "metaDescription": "trvny 和 travnie 公开项目、工坊与基础设施的交互式地图。"
   }
 }

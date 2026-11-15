@@ -49,7 +49,7 @@ The Astro Lab is an English-language section of the existing Hub with the Bench 
 ### Papagenerator
 
 - Browser editor: https://travny.pages.dev/papagenerator/
-- Source of truth: https://github.com/travnie/twojstar/tree/main/papagenerator
+- Source of truth: https://github.com/trvny/trvny/tree/main/pages/papagenerator
 
 Papagenerator adds meme stickers to local images and exports PNG in the browser. The Pages build publishes a pinned version of its HTML and JavaScript under this route; photos stay in the user's browser.
 

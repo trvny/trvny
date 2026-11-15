@@ -18,8 +18,9 @@ GPTomek wake, private review router). This keeps one source of truth for
 operator policy instead of cloning it into two Workers.
 
 `src/mcp-runtime.ts` owns the MCP operator/specialist selection, surface
-composition and initialization guidance. Automation provides reusable protocol,
-surface builders and guarded Action dispatch.
+composition and initialization guidance. `src/operator-mcp-surface.ts` owns
+OpenAPI-to-MCP conversion. Automation provides reusable protocol, specialist
+surface builders and guarded Action handlers.
 
 ### MCP OAuth 2.1 cutover
 

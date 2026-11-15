@@ -149,7 +149,10 @@ shell commands or repo arguments. Rebuild recreates the container and can
 discard files under the container home; tracked workspace files remain.
 Use `inspect` after rebuild to confirm Ubuntu and tools. The six
 repaired files may appear modified relative to the Codespace's older Git HEAD;
-this is expected until its working branch is updated normally. Retrying
+this is expected until its working branch is updated normally. Old tracked
+`.agents/skills` files are left intact to preserve local edits. If Git refuses
+to update due to newly copied skills, move those untracked copies aside first,
+then update normally. Retrying
 `repair` accepts files already identical to the latest trusted version.
 Do not resolve this temporary diff with `git reset --hard`.
 

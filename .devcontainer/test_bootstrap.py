@@ -50,6 +50,27 @@ class BootstrapSafetyTests(unittest.TestCase):
             ])
             self.assertIn("bootstrap: base failed", result.stderr)
 
+    def test_devbox_skills_link_without_overwriting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            dest = home / ".agents" / "skills"
+            dest.mkdir(parents=True)
+            existing = dest / "devbox-handoff"
+            existing.mkdir()
+            (existing / "SKILL.md").write_text("custom")
+            env = dict(os.environ, HOME=str(home))
+            for _ in range(2):
+                subprocess.run(
+                    ["/bin/bash", str(ROOT / "setup.sh"), "skills"],
+                    env=env, capture_output=True, check=True, timeout=10,
+                )
+            self.assertEqual((existing / "SKILL.md").read_text(), "custom")
+            for name in ("devbox-workflow", "devbox-agent-selection"):
+                link = dest / name
+                self.assertTrue(link.is_symlink())
+                self.assertEqual(link.resolve(), ROOT / "skills" / name)
+                self.assertTrue((link / "SKILL.md").is_file())
+
     def test_optional_profiles_are_isolated_and_reported(self):
         setup = (ROOT / "setup.sh").read_text()
         self.assertIn("for profile in base antigravity browser media hermes", setup)

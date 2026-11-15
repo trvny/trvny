@@ -136,8 +136,28 @@ install_browser() {
   bash "$(dirname "$0")/install-ubol.sh"
 }
 
+install_devbox_skills() {
+  local source target skill
+  source="$(cd "$(dirname "$0")" && pwd)/skills"
+  target="$HOME/.agents/skills"
+  mkdir -p "$target"
+  for skill in "$source"/devbox-*/; do
+    local name
+    name="$(basename "$skill")"
+    if [[ -e "$target/$name" || -L "$target/$name" ]]; then
+      if [[ "$(readlink "$target/$name" || true)" != "${skill%/}" ]]; then
+        printf 'WARN skill already exists: %s\n' "$target/$name" >&2
+        continue
+      fi
+    else
+      ln -s "${skill%/}" "$target/$name"
+    fi
+  done
+}
+
 case "${1:-all}" in
   all)
+    install_devbox_skills
     # Try every profile, including after a failure, and report incomplete
     # installs to manual callers. The devcontainer lifecycle handles this
     # nonzero status so optional CLI failure never breaks container creation.
@@ -167,8 +187,9 @@ case "${1:-all}" in
   android-sdk) install_android_sdk ;;
   cloud) install_cloud ;;
   mcp) install_node_tools ;;
+  skills) install_devbox_skills ;;
   *)
-    echo "Usage: bash .devcontainer/setup.sh {all|base|utils|android|android-sdk|cloud|mcp|antigravity|hermes|copilot|browser|ubol|media}" >&2
+    echo "Usage: bash .devcontainer/setup.sh {all|base|utils|android|android-sdk|cloud|mcp|antigravity|hermes|copilot|browser|ubol|media|skills}" >&2
     exit 2
     ;;
 esac

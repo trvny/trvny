@@ -11,7 +11,7 @@ import {
   workersAiAvailable,
 } from "../src/providers.ts";
 
-function envWithRouter(fetcher, aiRun = async () => ({ response: "local fallback" })) {
+function envWithRouter(fetcher, aiRun = async () => { throw new Error("local unavailable"); }) {
   return {
     KANAREK_REVIEW_ROUTER_TOKEN: "router-token",
     KANAREK_COMPANION: { fetch: fetcher },
@@ -104,10 +104,11 @@ test("does not use local Workers AI when disabled", async () => {
   assert.equal(localCalls, 0);
 });
 
-test("falls back to the local Workers AI binding when the router fails", async () => {
+test("uses local Workers AI first without calling the router", async () => {
   let localCalls = 0;
+  let routerCalls = 0;
   const env = envWithRouter(
-    async () => new Response("router unavailable", { status: 502 }),
+    async () => { routerCalls += 1; return new Response("router unavailable", { status: 502 }); },
     async () => {
       localCalls += 1;
       return { response: "local answer" };
@@ -117,6 +118,7 @@ test("falls back to the local Workers AI binding when the router fails", async (
   const result = await chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
 
   assert.equal(localCalls, 1);
+  assert.equal(routerCalls, 0);
   assert.deepEqual(result, {
     text: "local answer",
     provider: "Workers AI",
@@ -147,7 +149,7 @@ test("stops an active shared-router stream without falling back", async () => {
     }),
     async () => {
       localCalls += 1;
-      return { response: "must not run" };
+      throw new Error("local unavailable");
     },
   );
 
@@ -161,14 +163,15 @@ test("stops an active shared-router stream without falling back", async () => {
     (error) => error instanceof GenerationStoppedError && error.partialText === "Partial answer",
   );
 
-  assert.equal(localCalls, 0);
+  assert.equal(localCalls, 1);
   assert.equal(cancelled, true);
 });
 
-test("stops the local Workers AI fallback before delivery", async () => {
+test("stops local Workers AI without contacting Kanarek", async () => {
   let stop = false;
+  let routerCalls = 0;
   const env = envWithRouter(
-    async () => new Response("router unavailable", { status: 502 }),
+    async () => { routerCalls += 1; return new Response("router unavailable", { status: 502 }); },
     async () => new Promise(() => {}),
   );
   setTimeout(() => { stop = true; }, 30);
@@ -182,6 +185,7 @@ test("stops the local Workers AI fallback before delivery", async () => {
     ),
     GenerationStoppedError,
   );
+  assert.equal(routerCalls, 0);
 });
 
 
@@ -192,7 +196,7 @@ test("stops while waiting for shared-router response headers", async () => {
     async () => new Promise(() => {}),
     async () => {
       localCalls += 1;
-      return { response: "must not run" };
+      throw new Error("local unavailable");
     },
   );
   setTimeout(() => { stop = true; }, 30);
@@ -206,7 +210,7 @@ test("stops while waiting for shared-router response headers", async () => {
     ),
     GenerationStoppedError,
   );
-  assert.equal(localCalls, 0);
+  assert.equal(localCalls, 1);
 });
 
 test("bounds local GLM inference and accepts chat completion responses", async () => {
@@ -223,13 +227,13 @@ test("bounds local GLM inference and accepts chat completion responses", async (
   assert.equal((await chatWithStreamingFallback(env, messages)).text, "answer");
   assert.equal((await chatWithInlineFallback(env, messages)).text, "answer");
   assert.equal((await completeWithFallback(env, messages, (text) => text)).value, "answer");
-  assert.deepEqual(calls.map(({ input }) => input.max_completion_tokens), [10240, 384, 1024]);
+  assert.deepEqual(calls.map(({ input }) => input.max_completion_tokens), [10240, 768, 1024]);
   assert.deepEqual(calls.map(({ input }) => input.chat_template_kwargs.enable_thinking), [true, false, false]);
 });
 
 for (const [mode, invoke, deadline] of [
   ["chat", chatWithStreamingFallback, 45_000],
-  ["inline", chatWithInlineFallback, 3_500],
+  ["inline", chatWithInlineFallback, 5_000],
 ]) {
   test(`local ${mode} fallback times out without a second inference`, async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
@@ -273,4 +277,30 @@ test("voice and vision use their own inference contracts", async () => {
   assert.equal(calls[1].model, "@cf/meta/llama-3.2-11b-vision-instruct");
   assert.equal(calls[1].input.max_tokens, 1024);
   for (const { input } of calls) assert.equal(input.chat_template_kwargs, undefined);
+});
+
+test("primary failure falls back to Kanarek for inline and structured output", async () => {
+  let routerCalls = 0;
+  let localCalls = 0;
+  const env = envWithRouter(
+    async () => {
+      routerCalls += 1;
+      return Response.json({ choices: [{ message: { content: "router answer" } }] });
+    },
+    async () => { localCalls += 1; throw new Error("quota exhausted"); },
+  );
+  const messages = [{ role: "user", content: "hi" }];
+  assert.equal((await chatWithInlineFallback(env, messages)).text, "router answer");
+  assert.equal((await completeWithFallback(env, messages, (text) => text)).value, "router answer");
+  assert.equal(localCalls, 2);
+  assert.equal(routerCalls, 2);
+});
+
+test("a stopped chat does not start either provider", async () => {
+  let calls = 0;
+  const env = envWithRouter(async () => { calls += 1; throw new Error("unexpected"); },
+    async () => { calls += 1; throw new Error("unexpected"); });
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    undefined, () => true), GenerationStoppedError);
+  assert.equal(calls, 0);
 });

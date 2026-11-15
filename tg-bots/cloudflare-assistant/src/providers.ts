@@ -3,12 +3,12 @@ import { withDeadline } from "./deadline.ts";
 
 const ROUTER_TIMEOUT_MS = 20_000;
 const INLINE_ROUTER_TIMEOUT_MS = 2_500;
-const INLINE_WORKERS_AI_TIMEOUT_MS = 3_500;
+const INLINE_WORKERS_AI_TIMEOUT_MS = 5_000;
 const WORKERS_AI_TIMEOUT_MS = 45_000;
 const WORKERS_AI_MAX_TOKENS = 10_240;
 const STRUCTURED_WORKERS_AI_TIMEOUT_MS = 15_000;
 const STRUCTURED_WORKERS_AI_MAX_TOKENS = 1_024;
-const INLINE_WORKERS_AI_MAX_TOKENS = 384;
+const INLINE_WORKERS_AI_MAX_TOKENS = 768;
 const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
@@ -379,6 +379,7 @@ async function workersAi(
   shouldStop?: ShouldStopHandler,
   mode: "chat" | "inline" | "structured" = "structured",
 ): Promise<ProviderResult> {
+  if (shouldStop && await shouldStop()) throw new GenerationStoppedError();
   const runtime = workersAiRuntime(env);
   const model = env.WORKERS_AI_MODEL;
   const timeoutMs = mode === "inline" ? INLINE_WORKERS_AI_TIMEOUT_MS
@@ -421,8 +422,8 @@ export async function completeWithFallback<T>(
   parse: (text: string) => T,
 ): Promise<CompletionResult<T>> {
   const attempts = [
-    () => kanarekFreeRouter(env, messages),
     () => workersAi(env, messages),
+    () => kanarekFreeRouter(env, messages),
   ];
   const errors: string[] = [];
 
@@ -445,12 +446,12 @@ export async function completeWithFallback<T>(
 export async function chatWithInlineFallback(env: Env, messages: ChatMessage[]) {
   const errors: string[] = [];
   try {
-    return await kanarekFreeRouter(env, messages, INLINE_ROUTER_TIMEOUT_MS);
+    return await workersAi(env, messages, undefined, "inline");
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
-    return await workersAi(env, messages, undefined, "inline");
+    return await kanarekFreeRouter(env, messages, INLINE_ROUTER_TIMEOUT_MS);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
@@ -465,13 +466,13 @@ export async function chatWithStreamingFallback(
 ) {
   const errors: string[] = [];
   try {
-    return await kanarekFreeRouterStream(env, messages, onPartial, shouldStop);
+    return await workersAi(env, messages, shouldStop, "chat");
   } catch (error) {
     if (error instanceof GenerationStoppedError) throw error;
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
-    return await workersAi(env, messages, shouldStop, "chat");
+    return await kanarekFreeRouterStream(env, messages, onPartial, shouldStop);
   } catch (error) {
     if (error instanceof GenerationStoppedError) throw error;
     errors.push(error instanceof Error ? error.message : String(error));

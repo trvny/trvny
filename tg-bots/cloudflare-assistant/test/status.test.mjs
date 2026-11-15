@@ -19,6 +19,8 @@ test("renders provider status as plain text and safe rich HTML", () => {
   }, true, "@cf/model<safe>", true);
 
   assert.match(view.plain, /OrcaRouter/);
+  assert.match(view.plain, /Primary: Workers AI/);
+  assert.match(view.richHtml, /Primary model/);
   assert.match(view.richHtml, /<table>/);
   assert.match(view.richHtml, /<details>/);
   assert.doesNotMatch(view.richHtml, /custom<router>/);

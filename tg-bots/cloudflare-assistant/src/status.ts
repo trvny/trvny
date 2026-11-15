@@ -39,10 +39,10 @@ export function formatProviderStatus(
 
   const plain = [
     "Provider status:",
-    `Kanarek pool: ${summary}`,
+    `Kanarek fallback pool: ${summary}`,
     ...rows.map(({ label, status }) => `${label} — ${status}`),
     workersAiEnabled
-      ? `Local emergency: Workers AI (${localModel})`
+      ? `Primary: Workers AI (${localModel})`
       : "Workers AI: disabled",
   ].join("\n");
 
@@ -55,10 +55,10 @@ export function formatProviderStatus(
     : `<tr><td>Kanarek pool</td><td>${escapeHtml(summary)}</td></tr>`;
   const richHtml = [
     "<h2>Provider status</h2>",
-    `<p>Kanarek pool: <b>${escapeHtml(summary)}</b></p>`,
+    `<p>Kanarek fallback pool: <b>${escapeHtml(summary)}</b></p>`,
     `<table><tr><th>Provider</th><th>Status</th></tr>${bodyRows}</table>`,
     workersAiEnabled
-      ? `<details><summary>Emergency fallback</summary><p>Workers AI: <code>${escapeHtml(localModel)}</code></p></details>`
+      ? `<details><summary>Primary model</summary><p>Workers AI: <code>${escapeHtml(localModel)}</code></p></details>`
       : "<p>Workers AI: <b>disabled</b></p>",
   ].join("");
 

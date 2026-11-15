@@ -44,7 +44,19 @@ function assertSafeAbsolutePath(value: string, name: string): void {
   }
 }
 
+function validateExecArgs(args: string[], cwd?: string): void {
+  if (cwd) assertSafeAbsolutePath(cwd, "cwd");
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if ((arg === "-C" || arg === "--git-dir" || arg === "--work-tree") && i + 1 < args.length) {
+      assertSafeAbsolutePath(args[i + 1], `command argument after ${arg}`);
+      i += 1;
+    }
+  }
+}
+
 async function run(file: string, args: string[], cwd?: string): Promise<string> {
+  validateExecArgs(args, cwd);
   const { stdout } = await execFileAsync(file, args, { cwd, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
   return stdout.trim();
 }
@@ -261,6 +273,7 @@ async function main(): Promise<void> {
   const home = homedir();
   const dcRoot = join(home, "dir", ".dc");
   const installRoot = process.env.PET_DISPATCHER_INSTALL_ROOT ?? join(home, ".local", "share", "pet-dispatcher");
+  assertSafeAbsolutePath(installRoot, "installRoot");
   const repoUrl = await run("git", ["-C", sourceRoot, "remote", "get-url", "origin"]);
   const noStartup = process.argv.includes("--no-startup");
   const result = await installLocalRuntime({

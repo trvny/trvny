@@ -33,4 +33,6 @@ test("renders an unavailable state when the router is not configured", () => {
   assert.match(view.plain, /disabled/);
   assert.match(view.richHtml, /router token not configured/);
   assert.match(view.richHtml, /disabled/);
+  assert.doesNotMatch(view.plain, /reserved for SpaceMolt/);
+  assert.doesNotMatch(view.richHtml, /reserved for SpaceMolt/);
 });

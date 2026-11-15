@@ -44,14 +44,14 @@
     "KANAREK_REVIEW_ROUTING": {
       "providerOrders": {
         "quip": [
+          "huggingface-publicai",
+          "gemini-standard",
+          "ollama",
           "vercel",
           "groq",
           "aihubmix",
-          "ollama",
           "orcarouter",
-          "openrouter",
-          "huggingface-publicai",
-          "gemini-standard"
+          "openrouter"
         ],
         "review": [
           "openrouter",
@@ -76,9 +76,9 @@
         "shitpost": [
           "aihubmix",
           "openrouter",
+          "orcarouter",
           "gemini-standard",
           "vercel",
-          "orcarouter",
           "groq",
           "ollama",
           "huggingface-publicai"
@@ -97,10 +97,11 @@
       "taskModels": {
         "aihubmix": {
           "quip": [
+            "lfm-2.5-2.6b-free",
+            "gemma-4-31b-it-free",
             "xiaomi-mimo-v2.6-flash-free",
-            "nemotron-3.5-lightning-free",
-            "coding-glm-5.3-flash-free",
-            "gemma-4-31b-it-free"
+            "ernie-5.5-flash-preview-free",
+            "nemotron-3.5-lightning-free"
           ],
           "review": [
             "coding-glm-5.3-free",
@@ -112,19 +113,17 @@
           ],
           "judge": [
             "xiaomi-mimo-v2.6-pro-free",
+            "ernie-5.5-flash-preview-free",
             "coding-glm-5.3-free",
             "coding-kimi-k3-free",
             "north-mini-code-free"
           ],
           "shitpost": [
-            "coding-minimax-m3-free",
-            "coding-glm-5.3-free",
+            "dots-3-note-preview-free",
+            "lfm-2.5-2.6b-free",
             "nemotron-3-ultra-550b-a55b-free",
             "nemotron-3.5-lightning-free",
             "nemotron-3.5-super-vl-free",
-            "xiaomi-mimo-v2.6-flash-free",
-            "coding-kimi-k3-free",
-            "xiaomi-mimo-v2.6-pro-free",
             "ernie-5.5-flash-preview-free"
           ],
           "general": [
@@ -134,23 +133,24 @@
             "coding-minimax-m3-free",
             "north-mini-code-free",
             "ernie-5.5-flash-preview-free",
+            "particle-1-free",
+            "flint-v1.0-free",
+            "agents-a1-free",
+            "dots-3-note-preview-free",
+            "lfm-2.5-2.6b-free",
             "nemotron-3-ultra-550b-a55b-free",
             "nemotron-3.5-lightning-free",
             "nemotron-3.5-super-vl-free",
             "xiaomi-mimo-v2.6-flash-free",
             "coding-glm-5.3-flash-free",
             "gemma-4-31b-it-free",
-            "particle-1-free",
-            "flint-v1.0-free",
-            "agents-a1-free",
-            "dots-3-note-preview-free",
-            "lfm-2.5-2.6b-free",
             "kimi-for-coding-free"
           ]
         },
         "orcarouter": {
           "quip": [
             "z-ai/glm-5.3-flash-free",
+            "tencent/hy4-preview-free",
             "tencent/hy3-free",
             "deepseek/deepseek-v4.1-flash-free"
           ],
@@ -180,6 +180,9 @@
           "quip": [
             "nvidia/nemotron-3.5-lightning:free",
             "thinkingmachines/inkling-2-small:free",
+            "particle-ai/particle-1:free",
+            "recursive/flint-v1.0:free",
+            "dots-studio/dots-3-note-preview:free",
             "cohere/north-mini-code:free",
             "openrouter/free"
           ],
@@ -191,27 +194,27 @@
             "openrouter/free"
           ],
           "judge": [
+            "nvidia/nemotron-3.5-lightning:free",
             "cohere/north-mini-code:free",
             "baidu/ernie-5.5-flash-preview:free",
-            "openrouter/free",
-            "nvidia/nemotron-3-ultra-550b-a55b:free"
+            "openrouter/free"
           ],
           "shitpost": [
             "nvidia/nemotron-3-ultra-550b-a55b:free",
             "baidu/ernie-5.5-flash-preview:free",
-            "openrouter/free",
-            "cohere/north-mini-code:free"
+            "nvidia/nemotron-3.5-super-vl:free",
+            "openrouter/free"
           ],
           "general": [
+            "particle-ai/particle-1:free",
+            "recursive/flint-v1.0:free",
+            "dots-studio/dots-3-note-preview:free",
             "cohere/north-mini-code:free",
             "baidu/ernie-5.5-flash-preview:free",
             "nvidia/nemotron-3.5-lightning:free",
             "thinkingmachines/inkling-2-small:free",
             "nvidia/nemotron-3-ultra-550b-a55b:free",
             "nvidia/nemotron-3.5-super-vl:free",
-            "particle-ai/particle-1:free",
-            "recursive/flint-v1.0:free",
-            "dots-studio/dots-3-note-preview:free",
             "openrouter/free"
           ]
         },
@@ -222,20 +225,21 @@
             "alibaba/qwen3.8-omni-flash"
           ],
           "review": [
-            "tencent/hy3",
             "alibaba/qwen3.8-omni-flash",
+            "tencent/hy3",
             "poolside/laguna-s-2.1-free",
             "inclusionai/ling-3.1-flash-free"
           ],
           "judge": [
-            "alibaba/qwen3.8-omni-flash",
             "tencent/hy3",
-            "poolside/laguna-s-2.1-free",
-            "inclusionai/ling-3.1-flash-free"
+            "alibaba/qwen3.8-omni-flash",
+            "alibaba/qwen3-coder-30b-a3b"
           ],
           "shitpost": [
             "alibaba/qwen3.8-omni-flash",
             "inclusionai/ling-3.1-flash-free",
+            "poolside/laguna-s-2.1-free",
+            "nvidia/nemotron-3.5-lightning-free",
             "tencent/hy3"
           ],
           "general": [
@@ -280,7 +284,7 @@
     "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
     "KANAREK_REVIEW_GROQ_REASONING_EFFORT": "low",
     "KANAREK_REVIEW_REASONING_MIN_MAX_TOKENS": "16384",
-    "KANAREK_REVIEW_REASONING_EFFORT": "high",
+    "KANAREK_REVIEW_REASONING_EFFORT": "medium",
     "KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE": "0.9",
     "KANAREK_REVIEW_VERCEL_HY3_TOP_P": "1",
     "KANAREK_REVIEW_HUGGINGFACE_MODEL": "speakleash/Bielik-11B-v3.0-Instruct:publicai",

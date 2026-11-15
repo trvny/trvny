@@ -1,7 +1,5 @@
-import type { ActionInvoke } from '../action-auth.ts';
 import type { GithubGateway } from '../gptomek/github-gateway.ts';
 import { SpecialistToolError, type JsonObject } from '../tools/common.ts';
-import { operatorSurface, operatorToolNames } from '../operator/mcp-surface.ts';
 import {
   invokeSpecialistTool,
   isSpecialistToolName,
@@ -106,22 +104,12 @@ export function mcpManifest(): JsonObject {
   };
 }
 
-export function operatorMcpManifest(document: JsonObject): JsonObject {
-  return {
-    path: MCP_PATH,
-    protocolVersion: MCP_PROTOCOL_VERSION,
-    legacyProtocolVersion: LEGACY_PROTOCOL_VERSION,
-    stateless: true,
-    toolNames: operatorToolNames(document),
-  };
-}
-
 export function scopedMcpManifest(
-  document: JsonObject,
+  selectedOperatorNames: readonly string[],
   selectedSpecialistNames: readonly SpecialistToolName[],
 ): JsonObject {
   const allowed = specialistSelection(selectedSpecialistNames);
-  const operatorNames = operatorToolNames(document);
+  const operatorNames = [...selectedOperatorNames].sort();
   const specialistNames = specialistToolNames()
     .filter((name) => allowed.has(name))
     .sort();
@@ -143,13 +131,4 @@ export async function handleSpecialistMcp(
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   return handleMcp(request, github, specialistSurface(env, fetcher));
-}
-
-export async function handleOperatorMcp(
-  request: Request,
-  document: JsonObject,
-  invoke: ActionInvoke,
-  github: GithubGateway,
-): Promise<Response | null> {
-  return handleMcp(request, github, operatorSurface(request, document, invoke));
 }

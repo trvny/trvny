@@ -65,12 +65,18 @@ export type RuntimeEnv = GatewayEnv &
 // Operator and specialist dispatch remain here until the staged cutover.
 export { gatewayManifest, githubGateway };
 export { scopedRuntimeOpenApi } from './runtime-openapi.ts';
-export { operatorSurface } from './operator/mcp-surface.ts';
 export {
   scopedMcpManifest,
   selectedSpecialistSurface,
 } from './specialists/mcp-adapter.ts';
-export { combineMcpSurfaces, handleMcp } from './specialists/mcp-protocol.ts';
+export {
+  combineMcpSurfaces,
+  handleMcp,
+  InvalidToolArgumentsError,
+  MCP_PROTOCOL_VERSION,
+  type McpSurface,
+} from './specialists/mcp-protocol.ts';
+export { isObject };
 export type { ActionInvoke } from './action-auth.ts';
 export type { JsonObject } from './tools/common.ts';
 export type { SpecialistToolName } from './tools/registry.ts';

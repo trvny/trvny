@@ -4,7 +4,6 @@ import {
   gatewayManifest,
   githubGateway,
   handleMcp,
-  operatorSurface,
   scopedMcpManifest,
   scopedRuntimeOpenApi,
   selectedSpecialistSurface,
@@ -13,6 +12,7 @@ import {
   type RuntimeEnv,
   type SpecialistToolName,
 } from 'kanarek-companion/runtime';
+import { operatorSurface, operatorToolNames } from './operator-mcp-surface.ts';
 
 // Gremlin owns the plugin's 18 high-value operators. The legacy Custom GPT
 // keeps its separately curated, broader Action surface.
@@ -54,7 +54,7 @@ function gremlinOperatorOpenApi(origin: string): JsonObject {
 }
 
 export function gremlinMcpManifest(origin: string): JsonObject {
-  return scopedMcpManifest(gremlinOperatorOpenApi(origin), GREMLIN_SPECIALIST_TOOL_NAMES);
+  return scopedMcpManifest(operatorToolNames(gremlinOperatorOpenApi(origin)), GREMLIN_SPECIALIST_TOOL_NAMES);
 }
 
 export async function gremlinGatewayManifest(
@@ -65,7 +65,7 @@ export async function gremlinGatewayManifest(
   return {
     ...await gatewayManifest(openApi, metadata),
     service: 'gremlin',
-    mcp: scopedMcpManifest(openApi, GREMLIN_SPECIALIST_TOOL_NAMES),
+    mcp: scopedMcpManifest(operatorToolNames(openApi), GREMLIN_SPECIALIST_TOOL_NAMES),
   };
 }
 

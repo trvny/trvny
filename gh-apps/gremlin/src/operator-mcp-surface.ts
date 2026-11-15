@@ -1,6 +1,10 @@
-import type { ActionInvoke } from '../action-auth.ts';
-import { isObject, type JsonObject } from '../tools/common.ts';
-import { InvalidToolArgumentsError, type McpSurface } from '../specialists/mcp-protocol.ts';
+import {
+  InvalidToolArgumentsError,
+  isObject,
+  type ActionInvoke,
+  type JsonObject,
+  type McpSurface,
+} from 'kanarek-companion/runtime';
 
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 

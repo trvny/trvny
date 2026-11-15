@@ -31,11 +31,7 @@
 ## 🔀 Otwarte pull requesty
 
 <!--OPEN_PRS:START-->
-| Repozytorium | PR | Tytuł | Autor | Stan | Aktualizacja |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/.ai | [#32](https://github.com/trvny/.ai/pull/32) | chore(deps): bump anthropics/claude-code-action from 1.0.268 to 1.0.271 in the actions group | @dependabot[bot] | gotowy | 2026-11-13 |
-| trvny/.ai | [#33](https://github.com/trvny/.ai/pull/33) | deps: bump the wiki group in /wiki with 2 updates | @dependabot[bot] | gotowy | 2026-11-13 |
-| trvny/tvpi | [#144](https://github.com/trvny/tvpi/pull/144) | chore(deps-dev): bump wrangler from 4.156.0 to 4.159.0 in /worker in the worker-toolchain group | @dependabot[bot] | gotowy | 2026-11-12 |
+Brak otwartych pull requestów. 🎉
 <!--OPEN_PRS:END-->
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
@@ -93,7 +89,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝“If you think your users are idiots, only idiots will use it.”— Linus Torvalds❞</i>
+<i>❝If you don't read the newspaper, you're uninformed. If you read the newspaper, you're mis-informed. — Mark Twain❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
@@ -101,11 +97,11 @@
 
 <!--README_FEED:START-->
 - [How Climate Change Is Reshaping India’s Demographic Dividend](https://carnegieendowment.org/research/2026/11/how-climate-change-is-reshaping-indias-demographic-dividend)
-- [Naresh Bhatt Convicted: The Road to Justice for Mamta's Family | Case by Case | "48 Hours" Podcast](https://www.cbsnews.com/video/111326-48-hours-case-by-case-episode-30/)
-- [FAA issues nationwide ground stop, stranding thousands](https://www.cbsnews.com/news/faa-issues-nationwide-ground-stop/)
-- [Flights grounded across US after air traffic communications outage](https://www.reuters.com/world/us/faa-issues-national-ground-stop-due-extraordinary-circumstance-reasons-safety-2026-11-13/)
-- [Passengers rescued after tanker hit river cruise in New Orleans](https://www.cbsnews.com/news/tanker-cruise-collision-mississippi-river-new-orleans/)
-- [EXCLUSIVE: Investors flock to Anthropic IPO but question durability of AI lead](https://www.reuters.com/business/finance/investors-flock-anthropic-ipo-question-durability-ai-lead-2026-11-13/)
+- [Ranczo: Zemsta Wiedźm. Jest pierwszy zwiastun kultowego serialu](https://antyweb.pl/ranczo-zemsta-wiedzm-jest-pierwszy-zwiastun-kultowego-serialu)
+- [Vincentwei1021/video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft)
+- [martin-olivier/airgorah](https://github.com/martin-olivier/airgorah)
+- [Tencent/LoopForge](https://github.com/Tencent/LoopForge)
+- [ag-ui-protocol/ag-ui](https://github.com/ag-ui-protocol/ag-ui)
 <!--README_FEED:END-->
 
 <div align="center">

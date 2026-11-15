@@ -2,21 +2,59 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  handleOperatorMcp as handleOperatorMcpGw,
+  combineMcpSurfaces,
+  githubGateway,
+  handleMcp,
   MCP_PROTOCOL_VERSION,
-} from '../src/specialists/mcp-adapter.ts';
-import { scopedRuntimeOpenApi, runtimeOpenApi } from '../src/runtime-openapi.ts';
-import { loopbackGateway } from './support/loopback-gateway.ts';
-import { scopedFeedseek } from './support/scoped-feedseek.ts';
-import { handleScopedMcp as handleScopedMcpGw } from './support/scoped-mcp.ts';
+  scopedRuntimeOpenApi,
+  selectedSpecialistSurface,
+  type ActionInvoke,
+  type JsonObject,
+} from 'kanarek-companion/runtime';
+import { GREMLIN_SPECIALIST_TOOL_NAMES as scopedFeedseek } from '../src/mcp-runtime.ts';
+import { operatorSurface } from '../src/operator-mcp-surface.ts';
 
-type Invoke = (request: Request) => Promise<Response>;
-// Gateway-taking handler, driven by the route-shaped fixture.
-const handleGremlinMcp = (request: Request, document: Parameters<typeof handleScopedMcpGw>[1], env: Parameters<typeof handleScopedMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
-  handleScopedMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), scopedFeedseek, fetcher);
-// Gateway-taking handler, driven by the route-shaped fixture.
-const handleOperatorMcp = (request: Request, document: Parameters<typeof handleOperatorMcpGw>[1], invoke: Invoke) =>
-  handleOperatorMcpGw(request, document, invoke, loopbackGateway(request, invoke));
+type Invoke = ActionInvoke;
+
+// Test-only gateway for the existing route-shaped authorization fixtures.
+function loopbackGateway(source: Request, invoke: Invoke): ReturnType<typeof githubGateway> {
+  const unsupported = async () => { throw new Error('unexpected gateway call'); };
+  return {
+    async read(path) {
+      const response = await invoke(new Request(new URL('/gpt-actions/github/read', source.url), {
+        method: 'POST',
+        headers: source.headers,
+        body: JSON.stringify({ path }),
+      }));
+      assert.ok(response.ok);
+      const payload = await response.json() as { ok: boolean; data: unknown };
+      assert.equal(payload.ok, true);
+      return payload.data;
+    },
+    readOptional: unsupported,
+    graphql: unsupported,
+    bot: unsupported,
+    botEmpty: unsupported,
+  };
+}
+
+function handleGremlinMcp(
+  request: Request,
+  document: JsonObject,
+  env: Parameters<typeof selectedSpecialistSurface>[0],
+  invoke: Invoke,
+  fetcher: typeof fetch = fetch,
+) {
+  return handleMcp(request, loopbackGateway(request, invoke), combineMcpSurfaces(
+    operatorSurface(request, document, invoke),
+    selectedSpecialistSurface(env, fetcher, scopedFeedseek),
+    'Fixture scoped MCP surface.',
+  ));
+}
+
+function handleOperatorMcp(request: Request, document: JsonObject, invoke: Invoke) {
+  return handleMcp(request, loopbackGateway(request, invoke), operatorSurface(request, document, invoke));
+}
 
 const ORIGIN = 'https://gremlin.example';
 const SELECTED_OPERATOR_IDS = ['getRepositoryContext', 'getOperatorCapabilities'] as const;
@@ -183,7 +221,7 @@ test('operator MCP dispatches githubRead through the guarded Action route', asyn
       'tools/call',
       'githubRead',
     ),
-    runtimeOpenApi(ORIGIN),
+    scopedRuntimeOpenApi(ORIGIN, ['githubRead']),
     async (request) => {
       calls += 1;
       assert.equal(request.headers.get('authorization'), 'Bearer github-oauth-token');
@@ -272,7 +310,7 @@ test('operator MCP reports Action failures without replaying or hiding them', as
       'tools/call',
       'githubRead',
     ),
-    runtimeOpenApi(ORIGIN),
+    scopedRuntimeOpenApi(ORIGIN, ['githubRead']),
     async () => {
       calls += 1;
       if (calls === 1) return operatorAuthResponse();
@@ -325,7 +363,7 @@ test('operator MCP serializes batched tool calls so writes cannot overlap', asyn
       ],
       'tools/call',
     ),
-    runtimeOpenApi(ORIGIN),
+    scopedRuntimeOpenApi(ORIGIN, ['githubRead']),
     async (request) => {
       const body = await readJson(request);
       if (body.path === '/user') return operatorAuthResponse();

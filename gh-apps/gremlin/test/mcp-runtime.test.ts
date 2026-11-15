@@ -45,13 +45,17 @@ test('Gremlin assembles and dispatches its authenticated MCP surface', async () 
     assert.ok(response);
     assert.equal(response.status, 200);
     return await response.json() as {
-      result?: { instructions?: string; serverInfo?: { name: string }; tools?: Array<{ name: string }>; isError?: boolean };
+      result?: { instructions?: string; serverInfo?: { name: string; icons?: unknown }; _meta?: { 'io.modelcontextprotocol/serverInfo'?: { icons?: unknown } }; tools?: Array<{ name: string }>; isError?: boolean };
       error?: { code: number };
     };
   }
 
   const initialize = await rpc('initialize');
   assert.equal(initialize.result?.serverInfo?.name, 'mechagremlin');
+  const icons = [{ src: 'https://raw.githubusercontent.com/trvny/trvny/main/gh-apps/gremlin/plugin/assets/gpt-icon.png', mimeType: 'image/png' }];
+  assert.deepEqual(initialize.result?.serverInfo?.icons, icons);
+  const discovery = await rpc('server/discover');
+  assert.deepEqual(discovery.result?._meta?.['io.modelcontextprotocol/serverInfo']?.icons, icons);
   assert.equal(initialize.result?.instructions, 'Guarded GPTomek workflows and Feedseek. Use direct provider apps for ordinary calls.');
 
   const listed = await rpc('tools/list');

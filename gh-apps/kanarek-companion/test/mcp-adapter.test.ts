@@ -4,20 +4,16 @@ import test from 'node:test';
 import {
   handleSpecialistMcp as handleSpecialistMcpGw,
   scopedMcpManifest,
+  selectedSpecialistSurface,
   MCP_PROTOCOL_VERSION,
 } from '../src/specialists/mcp-adapter.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
-import { scopedFeedseek } from './support/scoped-feedseek.ts';
-import { handleScopedMcp as handleScopedMcpGw } from './support/scoped-mcp.ts';
+import { handleMcp } from '../src/specialists/mcp-protocol.ts';
 
 type Invoke = (request: Request) => Promise<Response>;
 // Gateway-taking handler, driven by the route-shaped fixture.
 const handleSpecialistMcp = (request: Request, env: Parameters<typeof handleSpecialistMcpGw>[1], invoke: Invoke, fetcher?: typeof fetch) =>
   handleSpecialistMcpGw(request, env, loopbackGateway(request, invoke), fetcher);
-// Gateway-taking handler, driven by the route-shaped fixture.
-const handleGremlinMcp = (request: Request, document: Parameters<typeof handleScopedMcpGw>[1], env: Parameters<typeof handleScopedMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
-  handleScopedMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), scopedFeedseek, fetcher);
-
 const origin = 'https://example.workers.dev';
 
 function rpcRequest(
@@ -59,11 +55,19 @@ test('MCP discovery advertises a stateless 2026 specialist server', async () => 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('mcp-protocol-version'), MCP_PROTOCOL_VERSION);
   const payload = await response.json() as {
-    result: { resultType: string; supportedVersions: string[]; capabilities: unknown };
+    result: {
+      resultType: string;
+      supportedVersions: string[];
+      capabilities: unknown;
+      _meta: { 'io.modelcontextprotocol/serverInfo': { name: string; icons?: unknown } };
+    };
   };
   assert.equal(payload.result.resultType, 'complete');
   assert.ok(payload.result.supportedVersions.includes(MCP_PROTOCOL_VERSION));
   assert.ok(payload.result.capabilities);
+  const info = payload.result._meta['io.modelcontextprotocol/serverInfo'];
+  assert.equal(info.name, 'mechagremlin-specialists');
+  assert.equal(info.icons, undefined);
 });
 
 test('MCP tools/list is generated from the shared specialist registry', async () => {
@@ -233,70 +237,12 @@ test('legacy initialize remains available for 2025 MCP clients', async () => {
   assert.equal(payload.result.protocolVersion, '2025-11-25');
 });
 
-test('Gremlin MCP discovery and initialization reuse the canonical icon without changing specialists', async () => {
-  const document = { paths: {} };
-  for (const method of ['server/discover', 'initialize'] as const) {
-    const request = rpcRequest({ jsonrpc: '2.0', id: 99, method, params: method === 'initialize'
-      ? { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 'test', version: '1' } }
-      : {} }, method);
-    const response = await handleGremlinMcp(request, document, {}, authorizedInvoke());
-    assert.ok(response);
-    const payload = await response.json() as {
-      result: { serverInfo?: { icons?: Array<{ src: string; mimeType: string }> };
-        _meta?: { 'io.modelcontextprotocol/serverInfo'?: { icons?: Array<{ src: string; mimeType: string }> } } };
-    };
-    const info = method === 'initialize' ? payload.result.serverInfo : payload.result._meta?.['io.modelcontextprotocol/serverInfo'];
-    assert.deepEqual(info?.icons, [{ src: 'https://raw.githubusercontent.com/trvny/trvny/main/gh-apps/gremlin/plugin/assets/gpt-icon.png', mimeType: 'image/png' }]);
-  }
-  const specialist = await handleSpecialistMcp(
-    rpcRequest({ jsonrpc: '2.0', id: 100, method: 'initialize' }, 'initialize'),
-    {},
-    authorizedInvoke(),
-  );
-  assert.ok(specialist);
-  const specialistPayload = await specialist.json() as { result: { serverInfo: { name: string; icons?: unknown } } };
-  assert.equal(specialistPayload.result.serverInfo.name, 'mechagremlin-specialists');
-  assert.equal(specialistPayload.result.serverInfo.icons, undefined);
-});
-
-test('Gremlin MCP exposes only Feedseek without changing the shared specialist gateway', async () => {
-  const document = { paths: {} };
-  const response = await handleGremlinMcp(
-    rpcRequest({ jsonrpc: '2.0', id: 7, method: 'tools/list' }, 'tools/list'),
-    document,
-    {},
-    authorizedInvoke(),
-  );
-  assert.ok(response);
-  const payload = await response.json() as {
-    result: { tools: Array<{ name: string }> };
-  };
-  assert.deepEqual(payload.result.tools.map((tool) => tool.name).sort(), [
-    'feedseek_fetch', 'feedseek_recent', 'feedseek_search',
-  ]);
-
-  const blocked = await handleGremlinMcp(
-    rpcRequest({
-      jsonrpc: '2.0', id: 8, method: 'tools/call',
-      params: { name: 'engram_search', arguments: { query: 'test' } },
-    }, 'tools/call', 'engram_search'),
-    document,
-    {},
-    authorizedInvoke(),
-  );
-  assert.ok(blocked);
-  const blockedBody = await blocked.json() as { error: { code: number; message: string } };
-  assert.equal(blockedBody.error.code, -32602);
-  assert.equal(blockedBody.error.message, 'Unknown tool');
-});
-
 test('scoped MCP only exposes requested specialist names', async () => {
-  const document = { paths: {} };
   assert.throws(
-    () => scopedMcpManifest(document, ['feedseek_search', 'unused_name'] as never),
+    () => scopedMcpManifest([], ['feedseek_search', 'unused_name'] as never),
     /unknown_specialist_tool:unused_name/,
   );
-  const manifest = scopedMcpManifest(document, ['feedseek_search']) as {
+  const manifest = scopedMcpManifest([], ['feedseek_search']) as {
     specialistToolNames?: string[];
     toolNames?: string[];
   };
@@ -305,31 +251,26 @@ test('scoped MCP only exposes requested specialist names', async () => {
 
   const request = rpcRequest({ jsonrpc: '2.0', id: 150, method: 'tools/list' }, 'tools/list');
   const invoke = authorizedInvoke();
-  const response = await handleScopedMcpGw(
+  const response = await handleMcp(
     request,
-    document,
-    {},
-    invoke,
     loopbackGateway(request, invoke),
-    ['feedseek_search'],
+    selectedSpecialistSurface({}, fetch, ['feedseek_search']),
   );
   assert.ok(response);
   const payload = await response.json() as { result: { tools: Array<{ name: string }> } };
   assert.deepEqual(payload.result.tools.map((tool) => tool.name), ['feedseek_search']);
 });
 
-test('empty specialist scope preserves caller-provided MCP instructions', async () => {
-  const request = rpcRequest({
-    jsonrpc: '2.0', id: 153, method: 'initialize',
-    params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 'test', version: '1' } },
-  }, 'initialize');
-  const invoke = authorizedInvoke();
-  const response = await handleScopedMcpGw(
-    request, { paths: {} }, {}, invoke, loopbackGateway(request, invoke), [],
+test('empty specialist scope exposes no tools', async () => {
+  const request = rpcRequest({ jsonrpc: '2.0', id: 153, method: 'tools/list' }, 'tools/list');
+  const response = await handleMcp(
+    request,
+    loopbackGateway(request, authorizedInvoke()),
+    selectedSpecialistSurface({}, fetch, []),
   );
   assert.ok(response);
-  const payload = await response.json() as { result: { instructions: string } };
-  assert.equal(payload.result.instructions, 'Fixture scoped MCP surface.');
+  const payload = await response.json() as { result: { tools: unknown[] } };
+  assert.deepEqual(payload.result.tools, []);
 });
 
 test('scoped MCP dispatches selected Feedseek and rejects unselected tools', async () => {
@@ -350,14 +291,13 @@ test('scoped MCP dispatches selected Feedseek and rejects unselected tools', asy
     });
   };
 
-  const document = { paths: {} };
   const invoke = authorizedInvoke();
   const selected = rpcRequest({
     jsonrpc: '2.0', id: 151, method: 'tools/call',
     params: { name: 'feedseek_recent', arguments: { limit: 1 } },
   }, 'tools/call', 'feedseek_recent');
-  const permitted = await handleScopedMcpGw(
-    selected, document, {}, invoke, loopbackGateway(selected, invoke), ['feedseek_recent'], fetcher,
+  const permitted = await handleMcp(
+    selected, loopbackGateway(selected, invoke), selectedSpecialistSurface({}, fetcher, ['feedseek_recent']),
   );
   assert.ok(permitted);
   const result = await permitted.json() as {
@@ -372,8 +312,8 @@ test('scoped MCP dispatches selected Feedseek and rejects unselected tools', asy
     jsonrpc: '2.0', id: 152, method: 'tools/call',
     params: { name: 'feedseek_search', arguments: { query: 'test' } },
   }, 'tools/call', 'feedseek_search');
-  const denied = await handleScopedMcpGw(
-    unselected, document, {}, invoke, loopbackGateway(unselected, invoke), ['feedseek_recent'], fetcher,
+  const denied = await handleMcp(
+    unselected, loopbackGateway(unselected, invoke), selectedSpecialistSurface({}, fetcher, ['feedseek_recent']),
   );
   assert.ok(denied);
   const failure = await denied.json() as { error: { code: number; message: string } };

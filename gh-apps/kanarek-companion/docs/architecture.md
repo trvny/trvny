@@ -212,7 +212,8 @@ That makes these modules the canonical implementation:
 
 - `gremlin-router.ts`: operator route composition, OAuth wiring, OpenAPI
   assembly, and low-level route restrictions.
-- `mcp-surface.ts`: OpenAPI-to-MCP operator descriptors and guarded Action dispatch.
+- `../../gremlin/src/operator-mcp-surface.ts`: Gremlin-owned OpenAPI-to-MCP
+  descriptors and guarded Action dispatch.
 - `operator-actions.ts`: composed PR inspection/finalization.
 - `autopilot-actions.ts` and `autopilot-checkpoint.ts`: multi-step operator
   execution and resumability.

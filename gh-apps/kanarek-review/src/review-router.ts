@@ -26,6 +26,7 @@ const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
 // seconds. Multi-model providers give a model 120s before trying the next one.
 const REVIEW_PROVIDER_TIMEOUT_MS = 180_000;
 const REVIEW_MODEL_ATTEMPT_CAP_MS = 120_000;
+const FREE_PROVIDER_REQUEST_CAP = 3;
 // Paid review: large context + high reasoning; same ceiling for every paid provider.
 const PAID_REVIEW_PROVIDER_TIMEOUT_MS = 300_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
@@ -190,7 +191,7 @@ export function configuredRoutingList(
     .filter(Boolean))];
 }
 
-// Explicit Wrangler task list = exact queue; legacy vars only when task missing.
+// Task preferences precede the general pool; an explicit empty list disables the pool.
 function configuredTaskModels(
   env: ReviewRouterEnv,
   provider: 'AIHUBMIX' | 'ORCAROUTER' | 'OPENROUTER' | 'VERCEL' | 'OLLAMA',
@@ -198,8 +199,11 @@ function configuredTaskModels(
 ): string[] {
   const key = provider.toLowerCase();
   const selected = configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'taskModels', key, task);
-  if (selected !== undefined) return selected;
   const general = configuredRoutingList(env.KANAREK_REVIEW_ROUTING, 'taskModels', key, 'general');
+  if (selected !== undefined) {
+    if (!selected.length || task === 'general') return selected;
+    return [...new Set([...selected, ...(general ?? [])])];
+  }
   if (general !== undefined) return general;
   const vars = env as unknown as Record<string, string | undefined>;
   const legacy = [
@@ -2237,7 +2241,7 @@ export async function handleReviewRouterRequest(
     if (cooldown) {
       failures.push(diagnostic(provider, `cooldown_${cooldown.category}`));
       console.info(JSON.stringify({
-        kanarekReviewRouter: 'provider_cooldown', provider, category: cooldown.category,
+        kanarekReviewRouter: 'provider_cooldown', task, provider, category: cooldown.category,
       }));
     } else {
       const bindingInput = workersAiInput(input, env);
@@ -2251,7 +2255,7 @@ export async function handleReviewRouterRequest(
           await rememberProviderCooldown(provider, category, env);
           failures.push(diagnostic(provider, category));
           console.warn(JSON.stringify({
-            kanarekReviewRouter: 'provider_failed', provider, category, model: workersModel,
+            kanarekReviewRouter: 'provider_failed', task, provider, category, model: workersModel,
           }));
         } else {
           const reservation = reservationResult.reservation;
@@ -2272,7 +2276,7 @@ export async function handleReviewRouterRequest(
               workersAiActualNeurons(result) ?? reservation.neurons,
             );
             console.info(JSON.stringify({
-              kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: workersModel,
+              kanarekReviewRouter: 'selected', task, provider, attempt: 'binding', model: workersModel,
             }));
             await clearProviderCooldown(provider, env);
             return workersAiResponse(result, workersModel);
@@ -2282,7 +2286,7 @@ export async function handleReviewRouterRequest(
             await rememberProviderCooldown(provider, category, env);
             failures.push(diagnostic(provider, category));
             console.warn(JSON.stringify({
-              kanarekReviewRouter: 'provider_failed', provider, category, model: workersModel,
+              kanarekReviewRouter: 'provider_failed', task, provider, category, model: workersModel,
             }));
           } finally {
             if (timeout) clearTimeout(timeout);
@@ -2294,7 +2298,7 @@ export async function handleReviewRouterRequest(
     }
     if (excluded.has(provider.id)) {
       console.info(JSON.stringify({
-        kanarekReviewRouter: 'provider_excluded', provider: provider.id,
+        kanarekReviewRouter: 'provider_excluded', task, provider: provider.id,
       }));
       continue;
     }
@@ -2309,7 +2313,7 @@ export async function handleReviewRouterRequest(
       const category = `cooldown_${cooldown.category}`;
       failures.push(diagnostic(provider, category));
       console.info(JSON.stringify({
-        kanarekReviewRouter: 'provider_cooldown', provider: provider.id, category: cooldown.category,
+        kanarekReviewRouter: 'provider_cooldown', task, provider: provider.id, category: cooldown.category,
       }));
       continue;
     }
@@ -2328,6 +2332,7 @@ export async function handleReviewRouterRequest(
     let providerFailureCategory = 'unknown';
     let providerInvalidRequest = true;
     let providerRetryAfterMs: number | null = null;
+    let outboundAttempts = 0;
 
     // Primaries cooling down will be skipped; they must not cap the live model's time.
     const cooledPrimaries = supportsModelCooldown && multiModel
@@ -2336,6 +2341,13 @@ export async function handleReviewRouterRequest(
       : attempts.map(() => false);
 
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+      if (supportsModelCooldown && outboundAttempts >= FREE_PROVIDER_REQUEST_CAP) {
+        console.info(JSON.stringify({
+          kanarekReviewRouter: 'provider_attempt_cap', task, provider: provider.id,
+          attempts: outboundAttempts,
+        }));
+        break;
+      }
       const attempt = attempts[attemptIndex];
       const modelKey = modelCooldownId(provider.id, attempt.model);
       // A fallback-chain attempt spans several models; its failure blames none.
@@ -2357,7 +2369,7 @@ export async function handleReviewRouterRequest(
         providerFailureCategory = 'model_cooldown';
         providerInvalidRequest = false;
         console.info(JSON.stringify({
-          kanarekReviewRouter: 'provider_skipped',
+          kanarekReviewRouter: 'provider_skipped', task,
           provider: provider.id,
           category: providerFailureCategory,
           attempt: attempt.label,
@@ -2412,7 +2424,7 @@ export async function handleReviewRouterRequest(
           providerFailureCategory = 'context_budget';
           providerInvalidRequest = false;
           console.info(JSON.stringify({
-            kanarekReviewRouter: 'provider_skipped',
+            kanarekReviewRouter: 'provider_skipped', task,
             provider: provider.id,
             category: providerFailureCategory,
             attempt: attempt.label,
@@ -2427,7 +2439,7 @@ export async function handleReviewRouterRequest(
           providerFailureCategory = input.stream === true ? 'unsupported_stream' : 'unsupported_input';
           providerInvalidRequest = false;
           console.info(JSON.stringify({
-            kanarekReviewRouter: 'provider_skipped',
+            kanarekReviewRouter: 'provider_skipped', task,
             provider: provider.id,
             category: providerFailureCategory,
             attempt: attempt.label,
@@ -2435,6 +2447,7 @@ export async function handleReviewRouterRequest(
           }));
           break;
         }
+        outboundAttempts += 1;
         const response = provider.id === 'xai'
           ? await xaiReviewRpcResponse(env, outboundInput)
           : await fetcher(provider.url, {
@@ -2456,7 +2469,7 @@ export async function handleReviewRouterRequest(
               providerFailureCategory = 'invalid_response';
               providerInvalidRequest = false;
               console.warn(JSON.stringify({
-                kanarekReviewRouter: 'provider_failed',
+                kanarekReviewRouter: 'provider_failed', task,
                 provider: provider.id,
                 category: providerFailureCategory,
                 attempt: attempt.label,
@@ -2465,7 +2478,7 @@ export async function handleReviewRouterRequest(
               break;
             }
             console.info(JSON.stringify({
-              kanarekReviewRouter: 'selected',
+              kanarekReviewRouter: 'selected', task,
               provider: provider.id,
               attempt: attempt.label,
               model: attempt.model,
@@ -2480,7 +2493,7 @@ export async function handleReviewRouterRequest(
               providerFailureCategory = 'preview_timeout';
               providerInvalidRequest = false;
               console.warn(JSON.stringify({
-                kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'preview_timeout',
+                kanarekReviewRouter: 'provider_failed', task, provider: provider.id, category: 'preview_timeout',
               }));
               break;
             }
@@ -2489,7 +2502,7 @@ export async function handleReviewRouterRequest(
               providerFailureCategory = 'soft_quota';
               providerInvalidRequest = false;
               console.warn(JSON.stringify({
-                kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'soft_quota',
+                kanarekReviewRouter: 'provider_failed', task, provider: provider.id, category: 'soft_quota',
               }));
               break;
             }
@@ -2499,7 +2512,7 @@ export async function handleReviewRouterRequest(
             providerFailureCategory = 'invalid_response';
             providerInvalidRequest = false;
             console.warn(JSON.stringify({
-              kanarekReviewRouter: 'provider_failed',
+              kanarekReviewRouter: 'provider_failed', task,
               provider: provider.id,
               category: providerFailureCategory,
               attempt: attempt.label,
@@ -2517,7 +2530,7 @@ export async function handleReviewRouterRequest(
             break;
           }
           console.info(JSON.stringify({
-            kanarekReviewRouter: 'selected', provider: provider.id, attempt: attempt.label, model: attempt.model,
+            kanarekReviewRouter: 'selected', task, provider: provider.id, attempt: attempt.label, model: attempt.model,
           }));
           await succeeded();
           return upstreamResponse(response, provider, groqInput?.partial === true);
@@ -2557,7 +2570,7 @@ export async function handleReviewRouterRequest(
         }
         await discard(response);
         console.warn(JSON.stringify({
-          kanarekReviewRouter: 'provider_failed',
+          kanarekReviewRouter: 'provider_failed', task,
           provider: provider.id,
           status,
           category: providerFailureCategory,
@@ -2584,7 +2597,7 @@ export async function handleReviewRouterRequest(
         providerFailureCategory = category;
         providerInvalidRequest = false;
         console.warn(JSON.stringify({
-          kanarekReviewRouter: 'provider_failed', provider: provider.id, category,
+          kanarekReviewRouter: 'provider_failed', task, provider: provider.id, category,
           attempt: attempt.label, model: attempt.model,
         }));
         const localBudgetCutoff = category === 'timeout' && controller.signal.aborted &&

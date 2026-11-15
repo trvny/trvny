@@ -3311,7 +3311,8 @@ test('task model deadline reserves one more attempt', () => {
   assert.equal(modelAttemptTimeoutMs(360_000, 'review', true, 'aihubmix'), 300_000);
   assert.equal(modelAttemptTimeoutMs(360_000, 'review', true, 'openrouter'), 300_000);
   assert.equal(modelAttemptTimeoutMs(360_000, 'review', false, 'openrouter'), 360_000);
-  assert.equal(modelAttemptTimeoutMs(1_500_000, 'shitpost', true, 'openrouter'), 600_000);
+  assert.equal(modelAttemptTimeoutMs(1_500_000, 'shitpost', true, 'openrouter'), 1_500_000);
+  assert.equal(modelAttemptTimeoutMs(1_500_000, 'shitpost', true, 'aihubmix'), 600_000);
   assert.equal(modelAttemptTimeoutMs(120_000, 'shitpost', true, 'aihubmix'), 105_000);
   assert.equal(modelAttemptTimeoutMs(10_000, 'quip', true, 'aihubmix'), 7_500);
   assert.equal(modelAttemptTimeoutMs(60_000, 'general', true, 'aihubmix'), 60_000);

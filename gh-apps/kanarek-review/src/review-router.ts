@@ -1180,9 +1180,10 @@ export function modelAttemptTimeoutMs(
 ): number {
   if (remainingProviderMs <= 0 || !hasNextModel || task === 'general') return remainingProviderMs;
   if (task === 'review') return Math.min(remainingProviderMs, REVIEW_MODEL_ATTEMPT_CAP_MS);
+  // OpenRouter non-review attempts can already include an upstream fallback chain.
+  if (provider === 'openrouter') return remainingProviderMs;
   if (task === 'shitpost') return Math.min(SHITPOST_MODEL_ATTEMPT_CAP_MS,
     remainingProviderMs - Math.min(15_000, Math.floor(remainingProviderMs / 4)));
-  if (provider === 'openrouter') return remainingProviderMs;
   return remainingProviderMs - Math.min(15_000, Math.floor(remainingProviderMs / 4));
 }
 

@@ -144,7 +144,8 @@ OpenRouter fallback chains can contain multiple models in one request.
 
 Production deadlines per provider (wall time, not CPU): general 120s, quip 90s,
 judge 180s, free review 360s (300s model slice when another attempt remains),
-shitpost 25min (10min model slice when another attempt remains). Paid review
+shitpost 25min (10min model slice when another attempt remains, except
+OpenRouter's upstream fallback chain). Paid review
 retains its existing deadline. Caller deadlines can end the request earlier:
 companion review currently has a 810s sweep budget, Reactor 30min overall.
 No timeout is evidence of exhausted account quota by itself.
@@ -185,13 +186,9 @@ normal pass; if that judge also fails, verified L1 findings are published
 unchanged. Paid review skips L2 because its larger context can exceed the
 decision runtimes' input windows.
 
-Latency is task policy too. Quips keep short deadlines; judges get 60 s per
-provider. Free code review uses one rule for every provider: a 180-second
-provider budget, and a 120-second cap per model while another model of that
-provider remains (the last model gets the rest). Review sends **one request per
-configured model**, never a hidden upstream `models` chain. Paid review
-providers (Grok, DeepSeek) get 300 s each. Kanarek Companion bounds the whole
-free sweep, the paid pass and L2 by its 15-minute alarm wall time.
+Review sends **one request per model**, never a hidden upstream `models` chain.
+See the production deadlines above. Kanarek Companion bounds each sweep and L2
+by its 15-minute alarm wall time.
 
 Free first, then paid: Companion sweeps the free queue (each provider excluded
 after an unusable answer; a clean verdict needs two free providers), and only

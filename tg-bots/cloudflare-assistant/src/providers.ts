@@ -5,13 +5,17 @@ const ROUTER_TIMEOUT_MS = 20_000;
 const INLINE_ROUTER_TIMEOUT_MS = 2_500;
 const INLINE_WORKERS_AI_TIMEOUT_MS = 3_500;
 const WORKERS_AI_TIMEOUT_MS = 45_000;
-const WORKERS_AI_MAX_TOKENS = 8_192;
+const WORKERS_AI_MAX_TOKENS = 10_240;
+const STRUCTURED_WORKERS_AI_TIMEOUT_MS = 15_000;
+const STRUCTURED_WORKERS_AI_MAX_TOKENS = 1_024;
 const INLINE_WORKERS_AI_MAX_TOKENS = 384;
 const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
-const VISION_TIMEOUT_MS = 15_000;
+const VISION_TIMEOUT_MS = 25_000;
+const VISION_MAX_TOKENS = 1_024;
+const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 
 type KanarekProviderHealth = {
   available: boolean;
@@ -126,11 +130,15 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 export async function transcribeAudio(env: Env, audio: ArrayBuffer): Promise<string> {
-  const result = (await workersAiRuntime(env).run(WHISPER_MODEL, {
-    audio: arrayBufferToBase64(audio),
-    task: "transcribe",
-    vad_filter: true,
-  })) as {
+  const result = (await withDeadline(
+    workersAiRuntime(env).run(WHISPER_MODEL, {
+      audio: arrayBufferToBase64(audio),
+      task: "transcribe",
+      vad_filter: true,
+    }),
+    TRANSCRIPTION_TIMEOUT_MS,
+    "Workers AI transcription",
+  )) as {
     text?: string;
     transcription_info?: { text?: string };
   };
@@ -164,7 +172,7 @@ export async function describeImage(
     workersAiRuntime(env).run(VISION_MODEL, {
       messages,
       image: `data:image/jpeg;base64,${arrayBufferToBase64(image)}`,
-      max_tokens: 512,
+      max_tokens: VISION_MAX_TOKENS,
       temperature: 0.2,
     }),
     VISION_TIMEOUT_MS,
@@ -369,19 +377,24 @@ async function workersAi(
   env: Env,
   messages: ChatMessage[],
   shouldStop?: ShouldStopHandler,
-  inline = false,
+  mode: "chat" | "inline" | "structured" = "structured",
 ): Promise<ProviderResult> {
   const runtime = workersAiRuntime(env);
   const model = env.WORKERS_AI_MODEL;
-  const timeoutMs = inline ? INLINE_WORKERS_AI_TIMEOUT_MS : WORKERS_AI_TIMEOUT_MS;
+  const timeoutMs = mode === "inline" ? INLINE_WORKERS_AI_TIMEOUT_MS
+    : mode === "chat" ? WORKERS_AI_TIMEOUT_MS : STRUCTURED_WORKERS_AI_TIMEOUT_MS;
+  const maxTokens = mode === "inline" ? INLINE_WORKERS_AI_MAX_TOKENS
+    : mode === "chat" ? WORKERS_AI_MAX_TOKENS : STRUCTURED_WORKERS_AI_MAX_TOKENS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const inference = runtime.run(model, {
       messages,
-      max_tokens: inline ? INLINE_WORKERS_AI_MAX_TOKENS : WORKERS_AI_MAX_TOKENS,
       ...(model === "@cf/zai-org/glm-4.7-flash"
-        ? { chat_template_kwargs: { enable_thinking: !inline } }
-        : {}),
+        ? {
+            max_completion_tokens: maxTokens,
+            chat_template_kwargs: { enable_thinking: mode === "chat" },
+          }
+        : { max_tokens: maxTokens }),
     });
     const pending = Promise.race([
       inference,
@@ -437,7 +450,7 @@ export async function chatWithInlineFallback(env: Env, messages: ChatMessage[]) 
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
-    return await workersAi(env, messages, undefined, true);
+    return await workersAi(env, messages, undefined, "inline");
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
@@ -458,7 +471,7 @@ export async function chatWithStreamingFallback(
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
-    return await workersAi(env, messages, shouldStop);
+    return await workersAi(env, messages, shouldStop, "chat");
   } catch (error) {
     if (error instanceof GenerationStoppedError) throw error;
     errors.push(error instanceof Error ? error.message : String(error));

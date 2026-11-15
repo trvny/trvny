@@ -5,6 +5,9 @@ import {
   GenerationStoppedError,
   chatWithStreamingFallback,
   chatWithInlineFallback,
+  completeWithFallback,
+  describeImage,
+  transcribeAudio,
   workersAiAvailable,
 } from "../src/providers.ts";
 
@@ -219,8 +222,9 @@ test("bounds local GLM inference and accepts chat completion responses", async (
   env.WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
   assert.equal((await chatWithStreamingFallback(env, messages)).text, "answer");
   assert.equal((await chatWithInlineFallback(env, messages)).text, "answer");
-  assert.deepEqual(calls.map(({ input }) => input.max_tokens), [8192, 384]);
-  assert.deepEqual(calls.map(({ input }) => input.chat_template_kwargs.enable_thinking), [true, false]);
+  assert.equal((await completeWithFallback(env, messages, (text) => text)).value, "answer");
+  assert.deepEqual(calls.map(({ input }) => input.max_completion_tokens), [10240, 384, 1024]);
+  assert.deepEqual(calls.map(({ input }) => input.chat_template_kwargs.enable_thinking), [true, false, false]);
 });
 
 for (const [mode, invoke, deadline] of [
@@ -248,3 +252,25 @@ for (const [mode, invoke, deadline] of [
     assert.equal(calls, 1);
   });
 }
+
+test("voice and vision use their own inference contracts", async () => {
+  const calls = [];
+  const env = envWithRouter(
+    async () => new Response("unused", { status: 502 }),
+    async (model, input) => {
+      calls.push({ model, input });
+      if (model.includes("whisper")) return { text: "transcript" };
+      return { response: "photo description" };
+    },
+  );
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+  assert.equal(await transcribeAudio(env, bytes), "transcript");
+  assert.equal((await describeImage(env, bytes)).text, "photo description");
+  assert.equal(calls[0].model, "@cf/openai/whisper-large-v3-turbo");
+  assert.equal(calls[0].input.task, "transcribe");
+  assert.equal(calls[0].input.vad_filter, true);
+  assert.equal(calls[0].input.max_tokens, undefined);
+  assert.equal(calls[1].model, "@cf/meta/llama-3.2-11b-vision-instruct");
+  assert.equal(calls[1].input.max_tokens, 1024);
+  for (const { input } of calls) assert.equal(input.chat_template_kwargs, undefined);
+});

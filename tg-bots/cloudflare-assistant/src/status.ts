@@ -52,7 +52,7 @@ export function formatProviderStatus(
           `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(status)}</td></tr>`,
         )
         .join("")
-    : `<tr><td>Kanarek pool</td><td>${escapeHtml(summary)}</td></tr>`;
+    : `<tr><td>Kanarek fallback pool</td><td>${escapeHtml(summary)}</td></tr>`;
   const richHtml = [
     "<h2>Provider status</h2>",
     `<p>Kanarek fallback pool: <b>${escapeHtml(summary)}</b></p>`,

@@ -36,9 +36,9 @@
     }
   },
   "vars": {
-    "KANAREK_REVIEW_ROUTER_TIMEOUT_MS": "30000",
+    "KANAREK_REVIEW_ROUTER_TIMEOUT_MS": "120000",
     "KANAREK_REVIEW_WORK_TIMEOUT_MS": "300000",
-    "KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS": "10000",
+    "KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS": "120000",
     "KANAREK_REVIEW_QUOTA_COOLDOWN_MS": "600000",
     "KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS": "30000",
     "KANAREK_REVIEW_ROUTING": {
@@ -252,6 +252,8 @@
           ]
         },
         "ollama": {
+          "review": ["gpt-oss:120b"],
+          "quip": ["gpt-oss:20b"],
           "general": [
             "gpt-oss:120b",
             "gpt-oss:20b"

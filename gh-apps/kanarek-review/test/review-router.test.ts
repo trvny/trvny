@@ -156,11 +156,11 @@ test('free router skips a successful provider response with no assistant content
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(
     calls.length,
-    REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.length + 2,
+    4,
   );
   assert.deepEqual(
     calls.slice(0, -1),
-    Array(REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.length + 1)
+    Array(3)
       .fill('https://openrouter.ai/api/v1/chat/completions'),
   );
   assert.equal(calls[calls.length - 1], 'https://api.orcarouter.ai/v1/chat/completions');
@@ -1201,15 +1201,16 @@ test('paid review contract uses the review task profile while work stays separat
 test('task timeout policy is patient only where latency is acceptable', () => {
   assert.equal(taskProviderTimeoutMs(10_000, 'general'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'quip'), 10_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 180_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 180_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 180_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 360_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'aihubmix'), 360_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review', 'orcarouter'), 360_000);
+  assert.equal(taskProviderTimeoutMs(120_000, 'quip'), 90_000);
   assert.equal(taskProviderTimeoutMs(300_000, 'review', 'deepseek'), 300_000);
-  assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);
+  assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 180_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 1_500_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost', 'aihubmix'), 1_500_000);
-  assert.equal(taskProviderTimeoutMs(180_000, 'shitpost', 'openrouter'), 180_000);
-  assert.equal(taskProviderTimeoutMs(180_000, 'shitpost'), 180_000);
+  assert.equal(taskProviderTimeoutMs(180_000, 'shitpost', 'openrouter'), 1_500_000);
+  assert.equal(taskProviderTimeoutMs(180_000, 'shitpost'), 1_500_000);
 });
 
 test('free router contract never spends DeepSeek or Gemini paid reserves', async () => {
@@ -2062,7 +2063,9 @@ test('free probe timeout defaults to 10s and stays below the normal router ceili
   assert.equal(reviewFreeProbeTimeoutMs('5000'), 5_000);
   assert.equal(reviewFreeProbeTimeoutMs('30000'), 30_000);
   assert.equal(reviewFreeProbeTimeoutMs('999'), 10_000);
-  assert.equal(reviewFreeProbeTimeoutMs('30001'), 10_000);
+  assert.equal(reviewFreeProbeTimeoutMs('30001'), 30_000);
+  assert.equal(reviewFreeProbeTimeoutMs('120000', 120_000), 120_000);
+  assert.equal(reviewFreeProbeTimeoutMs('120001', 120_000), 10_000);
   assert.equal(reviewFreeProbeTimeoutMs('wat'), 10_000);
   assert.equal(reviewFreeProbeTimeoutMs(undefined, 1_000), 1_000);
   assert.equal(reviewFreeProbeTimeoutMs('5000', 2_000), 2_000);
@@ -2423,7 +2426,7 @@ test('review router falls through after the OpenRouter chain and individual mode
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'ollama');
-  assert.equal(calls, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.length + 2);
+  assert.equal(calls, 4);
 });
 
 test('review router obeys exact configured provider order without additions', async () => {
@@ -2466,7 +2469,7 @@ test('review router reaches OrcaRouter as the last resort after AIHubMix fails',
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(
     urls.filter((url) => url === 'https://aihubmix.com/v1/chat/completions').length,
-    REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_AIHUBMIX_MODELS.length,
+    3,
   );
   assert.equal(urls.at(-1), 'https://api.orcarouter.ai/v1/chat/completions');
 });
@@ -3305,8 +3308,10 @@ test('a model that failed is skipped next time while its provider keeps serving'
 
 test('task model deadline reserves one more attempt', () => {
   assert.equal(modelAttemptTimeoutMs(60_000, 'review', true, 'aihubmix'), 60_000);
-  assert.equal(modelAttemptTimeoutMs(180_000, 'review', true, 'aihubmix'), 120_000);
-  assert.equal(modelAttemptTimeoutMs(180_000, 'review', true, 'openrouter'), 120_000);
+  assert.equal(modelAttemptTimeoutMs(360_000, 'review', true, 'aihubmix'), 300_000);
+  assert.equal(modelAttemptTimeoutMs(360_000, 'review', true, 'openrouter'), 300_000);
+  assert.equal(modelAttemptTimeoutMs(360_000, 'review', false, 'openrouter'), 360_000);
+  assert.equal(modelAttemptTimeoutMs(1_500_000, 'shitpost', true, 'openrouter'), 600_000);
   assert.equal(modelAttemptTimeoutMs(120_000, 'shitpost', true, 'aihubmix'), 105_000);
   assert.equal(modelAttemptTimeoutMs(10_000, 'quip', true, 'aihubmix'), 7_500);
   assert.equal(modelAttemptTimeoutMs(60_000, 'general', true, 'aihubmix'), 60_000);

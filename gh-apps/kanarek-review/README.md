@@ -129,15 +129,18 @@ per-model safety limits, but no second queue or model catalog to append.
 
 - `providerOrders.general` is the general free lane; `quip`, `review`,
   `judge` and `shitpost` override it for their respective tasks.
-- `taskModels.<provider>.<task>` contains the exact models to try for that
-  task. A missing task entry inherits `taskModels.<provider>.general`.
+- `taskModels.<provider>.<task>` lists preferred models first, then appends
+  unique models from `taskModels.<provider>.general`. Missing task lists inherit
+  `general`; an explicit empty task list disables that provider for the task.
 - `decisionModels` is a separate, free decision-only System One pool.
 - `KANAREK_REVIEW_PAID_PROVIDER_ORDER` controls the paid review queue,
   which runs only after the free review phase or when explicitly requested.
 
-The router tries providers and models in listed order. Omitting a provider or
-model means **do not try it**. No hidden defaults, extra providers, or model
-pools are appended. Duplicates and unknown provider IDs are ignored.
+Provider order stays exact. Model preferences use only the configured task and
+general lists (deduplicated); no hidden catalogs or extra providers.
+Multi-model free gateways get at most three outbound requests per router call.
+Cooldown and context skips do not consume the request budget. Non-review
+OpenRouter fallback chains can contain multiple models in one request.
 Legacy model/order env variables are accepted only for callers without a
 corresponding structured task/general list; production no longer sets
 duplicated global model lists.
@@ -404,12 +407,14 @@ Edit [`wrangler.jsonc`](wrangler.jsonc). The single
 
 - `providerOrders`: `general`, `quip`, `review`, `judge`, `shitpost`.
   Each list is exact and ordered. Missing task lists inherit `general`.
-- `taskModels`: per-provider `general` model list and exact task-specific
-  lists for providers that vary by task. Missing tasks inherit `general`.
+- `taskModels`: per-provider `general` pool and task preferences. Nonempty
+  task lists prepend preferences to the deduplicated general pool; `[]` disables
+  that pool for the task.
 - `decisionModels`: independent decision model queue per provider.
 
-Omitted entries are **not** automatically appended. To add a provider/model
-to a task, put it in that task's list. Keep Workers AI absent unless deliberately
+Provider lists never append omitted providers. Model lists append only explicit
+`general` entries, with at most three outbound requests per free multi-model
+provider per router call. Keep Workers AI absent unless deliberately
 enabled with its binding, model and neuron budget. Provider API credentials
 are secrets, never routing variables.
 

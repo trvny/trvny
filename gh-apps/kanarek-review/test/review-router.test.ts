@@ -13,6 +13,7 @@ import {
   nearestReasoningEffort,
   reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
+  rememberProviderCooldown,
   reviewRouterTaskProfile,
   taskProviderTimeoutMs,
 } from '../src/review-router.ts';
@@ -3538,7 +3539,7 @@ test('configured general priorities apply when task overrides are missing', asyn
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(chosenModel, 'tencent/hy4-preview-free');
 });
-test('task model list is exact and does not append general or legacy models', async () => {
+test('task models precede deduplicated general models without appending legacy models', async () => {
   const models: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
@@ -3550,7 +3551,7 @@ test('task model list is exact and does not append general or legacy models', as
     KANAREK_REVIEW_OPENROUTER_MODELS: 'legacy/free',
     KANAREK_REVIEW_ROUTING: {
       providerOrders: { review: ['openrouter'] },
-      taskModels: { openrouter: { general: ['general/free'],
+      taskModels: { openrouter: { general: ['review-a/free', 'general/free', 'fourth/free'],
         review: ['review-a/free', 'review-b/free'] } },
     },
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
@@ -3558,7 +3559,54 @@ test('task model list is exact and does not append general or legacy models', as
     return Promise.resolve(new Response('missing', { status: 404 }));
   }) as typeof fetch);
   assert.equal(response?.status, 502);
-  assert.deepEqual(models, ['review-a/free', 'review-b/free']);
+  assert.deepEqual(models, ['review-a/free', 'review-b/free', 'general/free']);
+});
+
+test('free request cap counts outbound calls, not cooled models, and advances to the next gateway', async () => {
+  const cooldowns = cooldownNamespace();
+  const models: string[] = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter', 'orcarouter'] },
+      taskModels: {
+        openrouter: { review: ['cooled/free', 'a/free', 'b/free', 'c/free', 'd/free'] },
+        orcarouter: { review: ['healthy/free'] },
+      },
+    },
+  };
+  await rememberProviderCooldown('openrouter#cooled/free', 'http_404', env, 60_000);
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free', stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), env, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const { model } = JSON.parse(String(init?.body)) as { model: string };
+    models.push(model);
+    return Promise.resolve(model === 'healthy/free'
+      ? Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] })
+      : new Response('missing', { status: 404 }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.deepEqual(models, ['a/free', 'b/free', 'c/free', 'healthy/free']);
+  assert.equal(await cooldownActive(cooldowns, 'openrouter'), false);
+});
+
+test('an explicit empty task model list disables that gateway pool', async () => {
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free', stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter'] },
+      taskModels: { openrouter: { review: [], general: ['general/free'] } },
+    },
+  }, (() => { throw new Error('disabled pool must not be called'); }) as typeof fetch);
+  assert.equal(response?.status, 503);
 });
 
 test('missing task route inherits the explicit general provider and model queues', async () => {

@@ -50,7 +50,7 @@
     ]
   },
   "triggers": {
-    "crons": ["*/2 * * * *"]
+    "crons": ["*/21 * * * *"]
   },
   "durable_objects": {
     "bindings": [

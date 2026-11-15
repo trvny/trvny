@@ -5,6 +5,7 @@ on: # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - "pages/site/**"
+      - "pages/papagenerator/**"
       - "pages/astro/**"
       - "pages/functions/**"
       - "pages/build.sh"
@@ -17,6 +18,7 @@ on: # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - "pages/site/**"
+      - "pages/papagenerator/**"
       - "pages/astro/**"
       - "pages/functions/**"
       - "pages/build.sh"
@@ -84,7 +86,7 @@ jobs:
             echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
           else
             changed="$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")"
-            if grep -Eq '^pages/(astro/|site/|functions/|scripts/sitemap-variants\.mjs$|build\.sh$)' <<<"$changed"; then
+            if grep -Eq '^pages/(astro/|site/|papagenerator/|functions/|scripts/sitemap-variants\.mjs$|build\.sh$)' <<<"$changed"; then
               echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
             else
               echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"

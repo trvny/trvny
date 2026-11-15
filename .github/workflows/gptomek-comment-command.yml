@@ -61,8 +61,9 @@ jobs:
           state="$(jq -r '.state // empty' <<<"$response")"
           duplicate="$(jq -r '.duplicate // false' <<<"$response")"
           reason="$(jq -r '.commandError // empty' <<<"$response")"
-          printf 'Comment: %s\n\nState: %s\n\nDuplicate delivery: %s\n\nError: %s\n' \
-            "$COMMENT_ID" "${state:-unknown}" "$duplicate" "${reason:-none}" >>"$GITHUB_STEP_SUMMARY"
+          # Compact JSON in an indented code block: no Markdown interpretation.
+          printf 'Comment: %s\n\n    %s\n' "$COMMENT_ID" \
+            "$(jq -c '{state, duplicate, commandError}' <<<"$response")" >>"$GITHUB_STEP_SUMMARY"
           {
             echo "state=$state"
             echo "duplicate=$duplicate"

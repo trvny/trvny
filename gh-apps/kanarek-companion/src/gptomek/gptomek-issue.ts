@@ -208,11 +208,11 @@ export async function handleGptomekCommentControl(
     throw new Error('invalid_gptomek_comment_target');
   }
 
+  let audit: { commentId: number; wireFormat: string; bodyChars: number } | undefined;
   try {
     const comment = await currentIssueComment(target.commentId, env, fetcher);
+    audit = { commentId: comment.id, wireFormat: commentWireFormat(comment.body), bodyChars: comment.body.length };
     const commentBodyHash = await commentBodySha256(comment.body);
-    const wireFormat = commentWireFormat(comment.body);
-    const audit = { commentId: comment.id, wireFormat, bodyChars: comment.body.length };
     let result;
     try {
       result = await handleGptomekCommentCommand(comment.body, env, fetcher, audit);
@@ -251,6 +251,7 @@ export async function handleGptomekCommentControl(
       JSON.stringify({
         gptomek: 'comment_control_failed',
         commentId: target.commentId,
+        ...audit,
         failure: issueFailure(error),
         issueNumber: target.pullRequestNumber,
         repository: target.repository,

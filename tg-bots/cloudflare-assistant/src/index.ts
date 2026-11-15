@@ -118,6 +118,7 @@ import {
   TelegramSendError,
 } from "./telegram";
 import { healTelegramWebhook } from "./webhook-heal";
+import { reconcileAutomations } from "./automation-wake.ts";
 import type {
   Env,
   QueueBatch,
@@ -2891,7 +2892,12 @@ export default {
     } catch (error) {
       console.warn("Telegram webhook heal failed", error);
     }
-    // Independent duties: one failing must not starve the others this minute.
+    // Hourly repair also seeds alarms for records created before migration.
+    if (env.TELEGRAM_AUTOMATION_SCHEDULER) {
+      await reconcileAutomations(env);
+      return;
+    }
+    // Compatibility path while the scheduler binding is absent.
     const duties: Array<[string, () => Promise<unknown>]> = [
       ["task notifications", () => processTaskNotifications(env)],
       ["reminders", () => processDueReminders(env, sendTelegramMessage)],

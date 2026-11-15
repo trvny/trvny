@@ -44,19 +44,22 @@ function assertSafeAbsolutePath(value: string, name: string): void {
   }
 }
 
-function validateExecArgs(args: string[], cwd?: string): void {
+export function validateExecArgs(file: string, args: string[], cwd?: string): void {
   if (cwd) assertSafeAbsolutePath(cwd, "cwd");
+  if (file !== "git") return;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
-    if ((arg === "-C" || arg === "--git-dir" || arg === "--work-tree") && i + 1 < args.length) {
-      assertSafeAbsolutePath(args[i + 1], `command argument after ${arg}`);
+    if (arg === "-C" || arg === "--git-dir" || arg === "--work-tree") {
+      const path = args[i + 1];
+      if (path === undefined) throw new Error(`missing command argument after ${arg}`);
+      assertSafeAbsolutePath(path, `command argument after ${arg}`);
       i += 1;
     }
   }
 }
 
 async function run(file: string, args: string[], cwd?: string): Promise<string> {
-  validateExecArgs(args, cwd);
+  validateExecArgs(file, args, cwd);
   const { stdout } = await execFileAsync(file, args, { cwd, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
   return stdout.trim();
 }

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { installLocalRuntime, pruneReleases } from "../scripts/install-local-runtime.js";
+import { installLocalRuntime, pruneReleases, validateExecArgs } from "../scripts/install-local-runtime.js";
 import { localRuntimePaths } from "../src/local-runtime.js";
 import { PROVIDER_CREDENTIAL_ENV_NAMES } from "../src/provider-credentials.js";
 
@@ -341,4 +341,14 @@ test("local installer can run npm build on Windows", { skip: process.platform !=
   } finally {
     await rm(base, { recursive: true, force: true });
   }
+});
+
+test("installer validates Git path operands without misreading other command arguments", () => {
+  const absolute = tmpdir();
+  assert.doesNotThrow(() => validateExecArgs("git", ["-C", absolute, "status"], absolute));
+  assert.throws(() => validateExecArgs("git", ["-C"]), /missing command argument/);
+  assert.throws(() => validateExecArgs("git", ["--git-dir", "relative"]), /absolute path/);
+  assert.throws(() => validateExecArgs("git", ["--work-tree", "-bad"]), /absolute path/);
+  assert.doesNotThrow(() => validateExecArgs("npm", ["-C", "relative"]));
+  assert.throws(() => validateExecArgs("npm", [], "relative"), /absolute path/);
 });

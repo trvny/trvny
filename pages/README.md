@@ -12,7 +12,7 @@
 | Pages Functions / redirects | `functions/`; brand-only `trfny.com` homepage, robots and sitemap; other deep paths redirect to the canonical hub |
 | Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests join one `/teksty/` stream/feed |
 | Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
-| Papagenerator | Pinned `travnie/twojstar/papagenerator` commit fetched by `build.sh`; **not** a second editor source |
+| Papagenerator | [`papagenerator/`](papagenerator/README.md); local runtime copied by `build.sh` to `site/papagenerator/` |
 | Badges | `functions/badge/[[path]].js`; public [/badges/](https://travny.pages.dev/badges/) catalog, `/badge/<slug>.svg`, `/badge/o/<octicon>.svg`, `/badge/model/<model-id>.svg`, live status badges |
 
 ## Edit / validate

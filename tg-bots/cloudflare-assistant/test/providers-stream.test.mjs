@@ -82,7 +82,7 @@ test("Workers AI availability follows the binding and kill switch", () => {
   assert.equal(workersAiAvailable(env), false);
 });
 
-test("does not use local Workers AI when it is reserved for SpaceMolt", async () => {
+test("does not use local Workers AI when disabled", async () => {
   let localCalls = 0;
   const env = envWithRouter(
     async () => new Response("router unavailable", { status: 502 }),
@@ -95,7 +95,7 @@ test("does not use local Workers AI when it is reserved for SpaceMolt", async ()
 
   await assert.rejects(
     chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]),
-    /Workers AI is reserved for SpaceMolt/,
+    /Workers AI is disabled or unbound/,
   );
   assert.equal(localCalls, 0);
 });

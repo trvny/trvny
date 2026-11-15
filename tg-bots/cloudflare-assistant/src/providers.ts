@@ -4,6 +4,9 @@ import { withDeadline } from "./deadline.ts";
 const ROUTER_TIMEOUT_MS = 20_000;
 const INLINE_ROUTER_TIMEOUT_MS = 2_500;
 const INLINE_WORKERS_AI_TIMEOUT_MS = 3_500;
+const WORKERS_AI_TIMEOUT_MS = 15_000;
+const WORKERS_AI_MAX_TOKENS = 2_048;
+const INLINE_WORKERS_AI_MAX_TOKENS = 384;
 const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
@@ -366,17 +369,37 @@ async function workersAi(
   env: Env,
   messages: ChatMessage[],
   shouldStop?: ShouldStopHandler,
+  inline = false,
 ): Promise<ProviderResult> {
-  const result = (await awaitWithStop(
-    workersAiRuntime(env).run(env.WORKERS_AI_MODEL, { messages }),
-    shouldStop,
-    () => "",
-  )) as {
-    response?: string;
-  };
-  const text = result.response?.trim();
-  if (!text) throw new Error("empty Workers AI response");
-  return { text, provider: "Workers AI", model: env.WORKERS_AI_MODEL };
+  const runtime = workersAiRuntime(env);
+  const model = env.WORKERS_AI_MODEL;
+  const timeoutMs = inline ? INLINE_WORKERS_AI_TIMEOUT_MS : WORKERS_AI_TIMEOUT_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const inference = runtime.run(model, {
+      messages,
+      max_tokens: inline ? INLINE_WORKERS_AI_MAX_TOKENS : WORKERS_AI_MAX_TOKENS,
+      ...(model === "@cf/zai-org/glm-4.7-flash"
+        ? { chat_template_kwargs: { enable_thinking: false } }
+        : {}),
+    });
+    const pending = Promise.race([
+      inference,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Workers AI timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+    // A stop prevents delivery, but a binding call already submitted may still consume neurons.
+    const result = (await awaitWithStop(pending, shouldStop, () => "")) as {
+      response?: string;
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const text = result?.response?.trim() || result?.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("empty Workers AI response");
+    return { text, provider: "Workers AI", model };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 export async function completeWithFallback<T>(
@@ -414,11 +437,7 @@ export async function chatWithInlineFallback(env: Env, messages: ChatMessage[]) 
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
-    return await withDeadline(
-      workersAi(env, messages),
-      INLINE_WORKERS_AI_TIMEOUT_MS,
-      "Workers AI inline fallback",
-    );
+    return await workersAi(env, messages, undefined, true);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }

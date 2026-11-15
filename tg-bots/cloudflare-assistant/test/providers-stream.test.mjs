@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   GenerationStoppedError,
   chatWithStreamingFallback,
+  chatWithInlineFallback,
   workersAiAvailable,
 } from "../src/providers.ts";
 
@@ -203,4 +204,42 @@ test("stops while waiting for shared-router response headers", async () => {
     GenerationStoppedError,
   );
   assert.equal(localCalls, 0);
+});
+
+test("bounds local GLM inference and accepts chat completion responses", async () => {
+  const messages = [{ role: "user", content: "hi" }];
+  const calls = [];
+  const env = envWithRouter(
+    async () => new Response("unavailable", { status: 502 }),
+    async (model, input) => {
+      calls.push({ model, input });
+      return { choices: [{ message: { content: "answer" } }] };
+    },
+  );
+  env.WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
+  assert.equal((await chatWithStreamingFallback(env, messages)).text, "answer");
+  assert.equal((await chatWithInlineFallback(env, messages)).text, "answer");
+  assert.deepEqual(calls.map(({ input }) => input.max_tokens), [2048, 384]);
+  assert.ok(calls.every(({ input }) => input.chat_template_kwargs.enable_thinking === false));
+});
+
+test("local fallback times out without a second inference", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let started;
+  const called = new Promise((resolve) => { started = resolve; });
+  let calls = 0;
+  const env = envWithRouter(
+    async () => new Response("unavailable", { status: 502 }),
+    async () => {
+      calls += 1;
+      started();
+      return new Promise(() => {});
+    },
+  );
+  const result = chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
+  const rejected = assert.rejects(result, /Workers AI timed out after 15000ms/);
+  await called;
+  t.mock.timers.tick(15_000);
+  await rejected;
+  assert.equal(calls, 1);
 });

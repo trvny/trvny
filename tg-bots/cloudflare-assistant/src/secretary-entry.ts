@@ -9,7 +9,11 @@ import worker, {
   TelegramPublicRateGate,
   TelegramQuipBank,
 } from "./index";
-import { TelegramAutomationScheduler } from "./automation-scheduler.ts";
+import { AutomationScheduler, type SchedulerState } from "./automation-scheduler.ts";
+import { processTaskNotifications } from "./task-notifications";
+import { processDueReminders } from "./reminder-notifications";
+import { processConditionWatches } from "./watch-runner";
+import { sendTelegramMessage } from "./telegram";
 import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest } from "./mini-app";
 import { handleMiniAppAutomationCancelRequest, handleMiniAppAutomationListRequest } from "./mini-app-automations";
 import { miniAppHtmlResponse } from "./mini-app-ui";
@@ -20,8 +24,19 @@ import { handleTelegramSecretaryUpdate } from "./secretary-runtime";
 import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
 import type { Env, QueueBatch, TelegramUpdate } from "./types";
 
+export class TelegramAutomationScheduler extends AutomationScheduler {
+  constructor(state: SchedulerState, env: Env) {
+    super(state, env, async (dutyEnv, kind) => {
+      switch (kind) {
+        case "tasks": await processTaskNotifications(dutyEnv); break;
+        case "reminders": await processDueReminders(dutyEnv, sendTelegramMessage); break;
+        case "watches": await processConditionWatches(dutyEnv, sendTelegramMessage); break;
+      }
+    });
+  }
+}
+
 export {
-  TelegramAutomationScheduler,
   TelegramConversationMemory,
   TelegramInlineQueryGate,
   TelegramMediaGroupGate,

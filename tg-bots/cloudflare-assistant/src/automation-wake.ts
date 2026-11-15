@@ -16,7 +16,7 @@ async function requestScheduler(env: Env, kind: AutomationKind, operation: strin
 
 export async function wakeAutomation(env: Env, kind: AutomationKind, at: number): Promise<void> {
   // The record is already durable. Hourly reconciliation repairs failed wakes.
-  await requestScheduler(env, kind, "wake", at).catch((error) => {
+  await requestScheduler(env, kind, "wake", at).catch((error: unknown) => {
     console.warn("Automation wake failed", kind, error);
   });
 }
@@ -25,5 +25,7 @@ export async function reconcileAutomations(env: Env): Promise<void> {
   const results = await Promise.allSettled(AUTOMATION_KINDS.map((kind) =>
     requestScheduler(env, kind, "reconcile")));
   const failures = results.filter((result) => result.status === "rejected");
-  if (failures.length) throw new Error(`${failures.length} automation reconciliation requests failed`);
+  if (failures.length) {
+    console.error("Automation reconciliation failed", failures.map((result) => result.reason));
+  }
 }

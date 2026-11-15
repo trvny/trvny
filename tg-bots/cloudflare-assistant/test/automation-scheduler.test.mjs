@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { TelegramAutomationScheduler, nextAutomationAt } from "../src/automation-scheduler.ts";
+import { AutomationScheduler, nextAutomationAt } from "../src/automation-scheduler.ts";
 import { wakeAutomation } from "../src/automation-wake.ts";
 
 function namespace(items) {
@@ -10,7 +10,7 @@ function namespace(items) {
   }) };
 }
 
-function setup() {
+function setup(runDuty = async () => {}) {
   const records = new Map();
   let alarm = null;
   const storage = {
@@ -24,7 +24,7 @@ function setup() {
     TELEGRAM_REMINDERS: namespace([]),
     TELEGRAM_WATCHES: namespace([]),
   };
-  const scheduler = new TelegramAutomationScheduler({ storage }, env);
+  const scheduler = new AutomationScheduler({ storage }, env, runDuty);
   env.TELEGRAM_AUTOMATION_SCHEDULER = {
     idFromName: () => ({}),
     get: () => ({ fetch: (url, init) => scheduler.fetch(new Request(url, init)) }),
@@ -98,4 +98,17 @@ test("hourly reconciliation recovers existing overdue records", async () => {
   assert.equal(response.status, 200);
   const alarm = await storage.getAlarm();
   assert.ok(alarm !== null && alarm <= Date.now() + 1000);
+});
+
+test("processor failure leaves an alarm for retry", async () => {
+  const { env, scheduler, storage, clearAlarm } = setup(async () => {
+    throw new Error("temporary failure");
+  });
+  await wakeAutomation(env, "tasks", Date.now());
+  clearAlarm();
+  const before = Date.now();
+  await scheduler.alarm();
+  const alarm = await storage.getAlarm();
+  assert.ok(alarm >= before + 30_000);
+  assert.ok(alarm <= Date.now() + 30_000);
 });

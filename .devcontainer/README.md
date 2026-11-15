@@ -190,8 +190,9 @@ The repo's `.mcp.json` configures **remote Context7** over HTTP.
 We intentionally do not start a filesystem MCP server: clients can advertise
 dynamic Roots that broaden its file access, while local agents already have
 workspace tools. Other MCP clients may need their own native configuration.
-See `.agents/skills/devbox-workflow/` and
-`.agents/skills/devbox-handoff/` for project-local operational guidance;
+See `.devcontainer/skills/devbox-workflow/` and
+`.devcontainer/skills/devbox-handoff/` for operational guidance. Bootstrap links these skills into `~/.agents/skills`;
+retry with `devbox install skills`. Existing user-owned skills are preserved.
 Playwright CLI also installs its upstream skill into user-level agent skills.
 There is no separate model-provider MCP or cloned secret store.
 
@@ -289,7 +290,7 @@ allowance; Hermes uses free-first third-party model providers through the
 existing Kanarek router when a restricted external broker is available.
 Do **not** configure all three with one shared OpenAI/Gemini API key.
 Use one lead agent per task, and optionally a read-only second opinion.
-See `.agents/skills/devbox-agent-selection/SKILL.md` for task selection.
+See `.devcontainer/skills/devbox-agent-selection/SKILL.md` for task selection.
 
 ### Copilot CLI: GitHub Copilot allowance
 

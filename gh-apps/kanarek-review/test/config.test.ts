@@ -30,7 +30,7 @@ test('kanarek-review stays reachable only through the Service Binding', () => {
   for (const key of ['route', 'routes']) assert.equal(config[key], undefined, key);
 });
 
-test('Workers AI is disabled outside SpaceMolt', () => {
+test('Workers AI is disabled in the shared router', () => {
   assert.equal(config.ai, undefined);
   assert.equal(config.vars.KANAREK_REVIEW_WORKERS_AI_ENABLED, 'false');
 });

@@ -14,9 +14,13 @@
   let currentRegion = null;
   let currentItem = null;
   let loreIndex = 0;
+  let activeCard = null;
+  let dialogState = null;
   const fallbackLore = [
     'Konsolidacja ponad fragmentacją. Małe narzędzia dostają wspólny warsztat, duże projekty własne forty.',
     'Najkrótsza droga między dwoma projektami zwykle prowadzi przez kolejny skrypt, którego miało nie być.',
+    'W tej krainie „local-first” nie jest naklejką. To plan ewakuacyjny na wypadek, gdy chmura zacznie mieć pomysły.',
+    'Jeżeli urządzenie ma działający protokół z 2014 roku, istnieje niezerowa szansa, że ktoś tu właśnie pisze do niego most.',
     'RSS nie umarł. Po prostu wyniósł się z centrum i zbudował własne obserwatorium.',
   ];
 
@@ -34,11 +38,12 @@
     return element;
   };
   const translated = entry => ({ ...entry, ...(entry.translations?.[language] || {}) });
-  const fallback = { loadingTitle: 'Loading region', loading: 'Loading places…', unavailableTitle: 'Region unavailable', unavailable: 'The atlas could not be loaded. You can still open the project.', openProject: 'Open project ↗', openDestination: 'Open destination ↗', back: '← Back to ' };
+  const fallback = {"loadingTitle":"Wczytywanie regionu","loading":"Wczytywanie miejsc…","unavailableTitle":"Region niedostępny","unavailable":"Nie udało się wczytać atlasu. Możesz nadal otworzyć projekt.","openProject":"Otwórz projekt ↗","openDestination":"Otwórz stronę ↗","back":"← Wróć do: "};
   const t = key => dictionaries?.[language]?.[key] || dictionaries?.en?.[key] || fallback[key] || key;
   const set = (selector, value) => { const element = $(selector); if (element) element.textContent = value; };
   const setAttr = (selector, attr, value) => { const element = $(selector); if (element) element.setAttribute(attr, value); };
   const showRegion = (region, focusIndex = null) => {
+    dialogState = 'region';
     currentRegion = region;
     currentItem = null;
     title.textContent = translated(region).name;
@@ -58,6 +63,7 @@
     if (focusIndex !== null) list.querySelectorAll('button')[focusIndex]?.focus();
   };
   const showItem = (region, index, focus = true) => {
+    dialogState = 'item';
     currentRegion = region;
     currentItem = index;
     const item = translated(region.items[index]);
@@ -71,11 +77,30 @@
     content.replaceChildren(text('p', item.description, 'dialog-intro'), actions);
     if (focus) back.focus();
   };
+  const showStatus = () => {
+    if (dialogState === 'loading') {
+      title.textContent = t('loadingTitle');
+      content.replaceChildren(text('p', t('loading'), 'dialog-intro'));
+    } else if (dialogState === 'unavailable') {
+      title.textContent = t('unavailableTitle');
+      content.replaceChildren(text('p', t('unavailable'), 'dialog-intro'), link(t('openProject'), activeCard.href));
+    }
+  };
   const applyLanguage = next => {
     if (!dictionaries?.[next]) return;
     language = next;
     const d = dictionaries[next];
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : next;
+    document.title = d.pageName + ' · TRAVNY';
+    setAttr('meta[name="description"]', 'content', d.metaDescription);
+    setAttr('meta[property="og:locale"]', 'content', { pl: 'pl_PL', en: 'en_US', ru: 'ru_RU', zh: 'zh_CN' }[next]);
+    for (const selector of ['meta[property="og:title"]', 'meta[name="twitter:title"]']) setAttr(selector, 'content', document.title);
+    for (const selector of ['meta[property="og:description"]', 'meta[name="twitter:description"]']) setAttr(selector, 'content', d.metaDescription);
+    const schema = $('#atlas-schema');
+    if (schema?.textContent) {
+      const metadata = JSON.parse(schema.textContent);
+      schema.textContent = JSON.stringify({ ...metadata, name: d.pageName, description: d.metaDescription, inLanguage: document.documentElement.lang });
+    }
     buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.language === next)));
     const fields = {
       '#hero-heading':'heading', '.hero h1 em':'headingEm', '.lede':'lede',
@@ -110,7 +135,12 @@
     setAttr('#trvny-nav-toggle', 'aria-label', nav[0]);
     setAttr('#trvny-nav-close', 'aria-label', nav[1]);
     setAttr('#trvny-nav-drawer', 'aria-label', nav[2]);
-    document.querySelectorAll('.trvny-nav-label').forEach((node, index) => { node.textContent = nav[index + 3]; });
+    const groupLabels = { '/': nav[3], 'https://weather.travny.workers.dev/': nav[4], '/lab/': nav[5], '/teksty/': nav[6] };
+    document.querySelectorAll('.trvny-nav-group').forEach(group => {
+      const label = group.querySelector('.trvny-nav-label');
+      const href = group.querySelector('a')?.getAttribute('href');
+      if (label && Object.hasOwn(groupLabels, href)) label.textContent = groupLabels[href];
+    });
     const navText = (selector, value) => { const node = $(selector)?.firstChild; if (node && node.nodeType === Node.TEXT_NODE) node.textContent = value; };
     navText('#trvny-nav-drawer a[href="/"]', nav[7]);
     set('#trvny-nav-drawer a[href="/"] small', nav[8]);
@@ -122,9 +152,10 @@
     set('#trvny-nav-drawer a[href="/teksty/githubowa-kraina/"] small', nav[14]);
     navText('#trvny-nav-drawer a[href="/teksty/token-worldcup/"]', nav[15]);
     document.querySelectorAll('.explore-hint').forEach(hint => { hint.textContent = d.exploreRegion; });
-    if (dialog?.open && currentRegion) {
-      if (currentItem === null) showRegion(currentRegion);
-      else showItem(currentRegion, currentItem, false);
+    if (dialog?.open) {
+      if (currentRegion && dialogState === 'region') showRegion(currentRegion);
+      else if (currentRegion && dialogState === 'item') showItem(currentRegion, currentItem, false);
+      else showStatus();
     }
     try { localStorage.setItem('github-world-language', next); } catch { /* Storage is optional. */ }
   };
@@ -132,7 +163,8 @@
   $('#shuffleLore')?.addEventListener('click', () => {
     const options = dictionaries?.[language]?.lore || fallbackLore;
     if (!options?.length) return;
-    const offset = 1 + Math.floor(Math.random() * (options.length - 1));
+    const random = typeof crypto !== 'undefined' ? crypto.getRandomValues(new Uint32Array(1))[0] : 0;
+    const offset = 1 + random % Math.max(1, options.length - 1);
     loreIndex = (loreIndex + offset) % options.length;
     set('#lore', options[loreIndex]);
   });
@@ -143,14 +175,16 @@
       buttons.forEach(button => { button.disabled = false; });
       let stored = null;
       try { stored = localStorage.getItem('github-world-language'); } catch { /* Storage is optional. */ }
-      const browser = (navigator.language || '').toLowerCase().split('-')[0];
-      applyLanguage(languages.includes(stored) ? stored : languages.includes(browser) ? browser : 'pl');
+      const browser = [...(navigator.languages || []), navigator.language]
+        .filter(Boolean).map(value => value.toLowerCase().split('-')[0])
+        .find(value => languages.includes(value));
+      applyLanguage(languages.includes(stored) ? stored : browser || 'pl');
     })
     .catch(error => { console.warn('Languages unavailable.', error); buttons.forEach(button => { button.disabled = true; }); });
 
   if (!dialog || typeof dialog.showModal !== 'function') return;
   close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => { selection += 1; currentRegion = null; currentItem = null; });
+  dialog.addEventListener('close', () => { selection += 1; currentRegion = null; currentItem = null; activeCard = null; dialogState = null; });
   const atlas = fetch('/teksty/githubowa-kraina/atlas.json')
     .then(response => { if (!response.ok) throw new Error('Atlas unavailable'); return response.json(); })
     .then(result => { data = result; return data; })
@@ -163,8 +197,11 @@
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
       const current = ++selection;
-      title.textContent = t('loadingTitle');
-      content.replaceChildren(text('p', t('loading'), 'dialog-intro'));
+      activeCard = card;
+      currentRegion = null;
+      currentItem = null;
+      dialogState = 'loading';
+      showStatus();
       if (!dialog.open) dialog.showModal();
       close.focus();
       const result = data || await atlas;
@@ -172,8 +209,8 @@
       const region = result?.regions.find(entry => entry.id === card.dataset.region);
       if (region) showRegion(region);
       else {
-        title.textContent = t('unavailableTitle');
-        content.replaceChildren(text('p', t('unavailable'), 'dialog-intro'), link(t('openProject'), card.href));
+        dialogState = 'unavailable';
+        showStatus();
       }
     });
   }

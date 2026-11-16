@@ -17,7 +17,7 @@ const PAGES = [
 export function staticAliases(path) {
   if (path.endsWith("/")) {
     const base = path.slice(0, -1);
-    return [base, path, path + "index.html"];
+    return [base, path, path + "index", path + "index.html"];
   }
   return [path, path + ".html"];
 }
@@ -31,11 +31,8 @@ export function decorateStaticPage(html, page) {
     ? '<meta property="og:url" content="' + ORIGIN + page.path + '">' : "";
   const head = NAV_HEAD + pageSeoHead(page.path) + canonical + og;
   // Checked-in/generated templates have explicit closing tags. Reject malformed output.
-  for (const tag of ["head", "body"]) {
-    if ([...clean.matchAll(new RegExp("</" + tag + "\\s*>", "gi"))].length !== 1) {
-      throw new Error(page.path + ": expected exactly one closing " + tag + " tag");
-    }
-  }
+  if ([...clean.matchAll(/<\/head\s*>/gi)].length !== 1) throw new Error(page.path + ": expected exactly one closing head tag");
+  if ([...clean.matchAll(/<\/body\s*>/gi)].length !== 1) throw new Error(page.path + ": expected exactly one closing body tag");
   const insert = (tag, value) => "<!-- hub-static-" + tag + ":start -->" + value + "<!-- hub-static-" + tag + ":end -->";
   return clean
     .replace(/<\/head\s*>/i, tag => insert("head", head) + tag)
@@ -44,7 +41,8 @@ export function decorateStaticPage(html, page) {
 
 export async function prerenderStatic(site, baseRoutes) {
   const routes = { ...baseRoutes, exclude: [...baseRoutes.exclude] };
-  const headers = [];
+  // Production deployment hashes also live on a prefixed host, not the canonical host.
+  const headers = ['https://:version.travny.pages.dev/*\n  X-Robots-Tag: noindex, follow'];
   for (const page of PAGES) {
     const file = new URL(page.path.slice(1) + (page.path.endsWith("/") ? "index.html" : ".html"), site);
     const html = await readFile(file, "utf8");

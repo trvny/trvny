@@ -6,6 +6,8 @@ import { decorateStaticPage } from "../scripts/prerender-static.mjs";
 const site = new URL("../site/", import.meta.url);
 test("built static pages retain one navigation and SEO with no runtime injection", async () => {
   const headers = await readFile(new URL("_headers", site), "utf8");
+  assert.ok(headers.includes("https://:version.travny.pages.dev/*\n  X-Robots-Tag: noindex, follow"));
+  assert.ok(!headers.includes("https://travny.pages.dev/*\n  X-Robots-Tag: noindex"));
   for (const [file, lang] of [
     ["teksty/githubowa-kraina/index.html", "pl"],
     ["teksty/githubowa-kraina/universe.html", "en"],

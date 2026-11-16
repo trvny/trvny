@@ -32,8 +32,8 @@ test('HTML, discovery, redirects and dynamic endpoints retain middleware', () =>
 
 test('prerendered HTML aliases bypass Functions with existing redirects preserved', () => {
   for (const path of [
-    '/papagenerator', '/papagenerator/', '/papagenerator/index.html',
-    '/teksty/githubowa-kraina', '/teksty/githubowa-kraina/', '/teksty/githubowa-kraina/index.html',
+    '/papagenerator', '/papagenerator/', '/papagenerator/index', '/papagenerator/index.html',
+    '/teksty/githubowa-kraina', '/teksty/githubowa-kraina/', '/teksty/githubowa-kraina/index', '/teksty/githubowa-kraina/index.html',
     '/teksty/githubowa-kraina/universe', '/teksty/githubowa-kraina/universe.html',
     '/teksty/token-worldcup', '/teksty/token-worldcup/', '/teksty/token-worldcup/index.html',
     '/teksty/token-worldcup/effort-matrix', '/teksty/token-worldcup/effort-matrix.html',

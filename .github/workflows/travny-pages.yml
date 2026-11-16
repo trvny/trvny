@@ -94,7 +94,7 @@ jobs:
             echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
           else
             changed="$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")"
-            if grep -Eq '^pages/(astro/|site/|papagenerator/|functions/|scripts/(sitemap-variants|build-badge-previews|prerender-static)\.mjs$|build\.sh$)' <<<"$changed"; then
+            if grep -Eq '^pages/(astro/|site/|papagenerator/|functions/|scripts/(sitemap-variants|build-badge-previews|prerender-static)\.mjs$|routes\.json$|build\.sh$)' <<<"$changed"; then
               echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
             else
               echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"
@@ -205,6 +205,92 @@ jobs:
             done
             [[ "$status" == "deploy/success" ]] || { echo "::error::Redeploy ${id} still ${status} after 5 min."; exit 1; }
           fi
+
+      - name: Smoke test static routes and host policy
+        if: ${{ github.event_name == 'push' && needs.check.outputs.pages_deploy_expected == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
+          current=$(curl --fail --silent --show-error -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$endpoint")
+          if [[ "$(jq -r '.result.canonical_deployment.deployment_trigger.metadata.commit_hash' <<<"$current")" != "$GITHUB_SHA" ]]; then
+            echo "Deployment skipped or superseded; smoke test skipped."
+            exit 0
+          fi
+          suffix='/teksty/githubowa-kraina/?smoke=1'
+          alias_url=$(jq -er '.result.canonical_deployment.url | select(test("^https://[a-z0-9-]+\\.travny\\.pages\\.dev$"))' <<<"$current")
+          headers() {
+            curl --retry 2 --max-time 15 --silent --show-error -D - -o /dev/null "$1" | tr -d '\r'
+          }
+          canonical=$(headers "https://travny.pages.dev${suffix}")
+          grep -Eq '^HTTP/[^ ]+ 200( |$)' <<<"$canonical"
+          grep -Eiq '^content-language: pl
+        id: waf_token
+        # Main only: the script runs with a zone WAF token.
+        if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.mode == 'assert') }}
+        env:
+          CLOUDFLARE_WAF_API_TOKEN: ${{ secrets.CLOUDFLARE_WAF_API_TOKEN }}
+        run: |
+          if [[ -n "$CLOUDFLARE_WAF_API_TOKEN" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::WAF sync skipped: set CLOUDFLARE_WAF_API_TOKEN (Zone WAF Write on trfny.com)."
+          fi
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.waf_token.outputs.available == 'true' }}
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: pages/scripts
+
+      - name: Allow ChatGPT Work Cloud browser
+        if: ${{ steps.waf_token.outputs.available == 'true' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WAF_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: "22c6b82ea8b722c6976f5c2c4714c5e8"
+        run: python pages/scripts/waf_allow_chatgpt.py
+
+      - name: Update Git auto-deploy control
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.mode == 'disable-git-auto-deploy' || inputs.mode == 'enable-git-auto-deploy') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
+          case "${{ inputs.mode }}" in
+            disable-git-auto-deploy) enabled=false ;;
+            enable-git-auto-deploy) enabled=true ;;
+            *) echo "Unsupported mode" >&2; exit 2 ;;
+          esac
+          payload=$(jq -nc --argjson enabled "$enabled" \
+            '{source:{config:{production_deployments_enabled:$enabled,preview_deployment_setting:"none"}}}')
+          updated=$(curl --fail-with-body --silent --show-error \
+            -X PATCH \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "$endpoint")
+          jq -e --argjson expected "$enabled" '
+            .success == true and
+            .result.source.config.production_deployments_enabled == $expected and
+            .result.source.config.preview_deployment_setting == "none"
+          ' <<<"$updated" >/dev/null
+          jq '{
+            name: .result.name,
+            production_deployments_enabled: .result.source.config.production_deployments_enabled,
+            preview_deployment_setting: .result.source.config.preview_deployment_setting
+          }' <<<"$updated"
+ <<<"$canonical"
+          if grep -Eiq '^x-robots-tag:.*noindex' <<<"$canonical"; then exit 1; fi
+          preview=$(headers "${alias_url}${suffix}")
+          grep -Eq '^HTTP/[^ ]+ 200( |$)' <<<"$preview"
+          grep -Eiq '^x-robots-tag:.*noindex' <<<"$preview"
+          for host in trfny.com www.trfny.com; do
+            redirect=$(headers "https://${host}${suffix}")
+            grep -Eq '^HTTP/[^ ]+ 301( |$)' <<<"$redirect"
+            grep -Fxi "location: https://travny.pages.dev${suffix}" <<<"$redirect"
+          done
 
       - name: Check dedicated WAF token
         id: waf_token

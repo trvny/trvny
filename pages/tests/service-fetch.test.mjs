@@ -62,4 +62,6 @@ test("public successful reads share a 5-minute cache across hub pages", async t 
   env.WEATHER_SERVICE.fetch = async () => { calls++; return Response.json({ state: "fresh" }); };
   assert.deepEqual(await (await fetchWeather(weather)).json(), { state: "fresh" });
   assert.equal(calls, 3);
+  assert.deepEqual(await (await fetchWeather(weather)).json(), { state: "fresh" });
+  assert.equal(calls, 3);
 });

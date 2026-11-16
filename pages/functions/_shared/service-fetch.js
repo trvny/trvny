@@ -25,7 +25,7 @@ export function serviceFetch(context, name, fetchImpl = fetch) {
           const stored = Number(hit.headers.get(CACHED_AT));
           const age = Date.now() - stored;
           if (stored > 0 && age >= 0 && age < CACHE_TTL * 1000) return hit;
-          await hit.body?.cancel();
+          if (hit.body) void hit.body.cancel().catch(() => {});
         }
       }
     } catch (error) {

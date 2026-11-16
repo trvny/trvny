@@ -36,6 +36,8 @@ Radio audio remains direct to station providers.
 
 [Hub backend CI](../.github/workflows/hub-backend.yml): tests and Worker dry
 run on PRs; main deploys Worker and configures the production binding if
-missing, then requests a Pages redeploy. Existing bindings preserved.
+missing, then requests a Pages redeploy if the live binding probe fails.
+Existing bindings preserved. Probe: invalid radio station, HTTP 400 and
+`x-travny-backend: worker`; no upstream request.
 To roll back, remove `HUB_BACKEND` from Pages and redeploy; local handlers
 remain available. Disable the backend workflow first if rolling back the binding.

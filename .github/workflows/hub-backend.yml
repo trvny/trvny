@@ -73,21 +73,47 @@ jobs:
           current=$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint")
           jq -e '.success == true' <<<"$current" >/dev/null
           service=$(jq -r '.result.deployment_configs.production.services.HUB_BACKEND.service // ""' <<<"$current")
-          if [[ "$service" == "travny-hub-backend" ]]; then exit 0; fi
-          if [[ -n "$service" ]]; then
+          if [[ -n "$service" && "$service" != "travny-hub-backend" ]]; then
             echo "::error::Existing HUB_BACKEND points to another Worker."
             exit 1
           fi
-          payload=$(jq -c '{
-            deployment_configs:{production:{services:(
-              (.result.deployment_configs.production.services // {}) +
-              {HUB_BACKEND:{service:"travny-hub-backend",environment:"production"}}
-            )}}
-          }' <<<"$current")
-          updated=$(curl --fail-with-body --silent --show-error "${auth[@]}" \
-            -H "Content-Type: application/json" -X PATCH --data "$payload" "$endpoint")
-          jq -e '.success == true and .result.deployment_configs.production.services.HUB_BACKEND.service == "travny-hub-backend"' <<<"$updated" >/dev/null
-          # Existing Pages build may have started before the binding was configured.
-          # Redeploy main; fallback remains available until the new deployment is live.
-          curl --fail-with-body --silent --show-error "${auth[@]}" -X POST \
-            -F branch=main "$endpoint/deployments" | jq -er '.result.id'
+          probe() {
+            local headers status
+            headers=$(mktemp)
+            status=$(curl --silent --show-error --max-time 15 -o /dev/null -D "$headers" \
+              -w '%{http_code}' 'https://travny.pages.dev/api/radio-station?station=invalid') || status=000
+            if [[ "$status" == 400 ]] && grep -Eiq '^x-travny-backend:[[:space:]]*worker[[:space:]]*$' "$headers"; then
+              rm -f "$headers"
+              return 0
+            fi
+            rm -f "$headers"
+            return 1
+          }
+          if [[ "$service" == "travny-hub-backend" ]]; then
+            if probe; then exit 0; fi
+          else
+            payload=$(jq -c '{
+              deployment_configs:{production:{services:(
+                (.result.deployment_configs.production.services // {}) +
+                {HUB_BACKEND:{service:"travny-hub-backend",environment:"production"}}
+              )}}
+            }' <<<"$current")
+            updated=$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+              -H "Content-Type: application/json" -X PATCH --data "$payload" "$endpoint")
+            jq -e '.success == true and .result.deployment_configs.production.services.HUB_BACKEND.service == "travny-hub-backend"' <<<"$updated" >/dev/null
+          fi
+          # Existing builds may predate the binding. Retry activation if the
+          # configuration exists but the live API still uses the local fallback.
+          id=$(curl --fail-with-body --silent --show-error "${auth[@]}" -X POST \
+            -F branch=main "$endpoint/deployments" | jq -er '.result.id')
+          for _ in $(seq 1 36); do
+            stage=$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+              "$endpoint/deployments/$id" | jq -r '.result.latest_stage | "\(.name)/\(.status)"')
+            case "$stage" in
+              deploy/success) if probe; then exit 0; fi ;;
+              */failure|*/canceled) echo "::error::Pages activation $id ended $stage."; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Worker binding not confirmed in production (deployment $id)."
+          exit 1

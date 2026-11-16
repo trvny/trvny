@@ -13,6 +13,7 @@
 | Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests join one `/teksty/` stream/feed |
 | Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
 | Papagenerator | [`papagenerator/`](papagenerator/README.md); local runtime copied by `build.sh` to `site/papagenerator/` |
+| Hub backend | `worker/`; private Worker `travny-hub-backend`, Pages service binding `HUB_BACKEND`; radio API logic in `functions/_shared/radio-*.js` |
 | Badges | `functions/badge/[[path]].js`; public [/badges/](https://travny.pages.dev/badges/) catalog, `/badge/<slug>.svg`, `/badge/o/<octicon>.svg`, `/badge/model/<model-id>.svg`, live status badges |
 
 ## Edit / validate
@@ -24,3 +25,17 @@ node --test tests/*.test.mjs
 ```
 
 [Pages CI](../.github/workflows/travny-pages.yml) runs lint. PR checks do not change Cloudflare settings; main pushes and manual `assert` runs can PATCH project settings, including setting `preview_deployment_setting` to `none`. Do not change project, move Astro's output into `site/` directly, duplicate the publication feed, or alter legacy Atom IDs/URLs. Design tokens are opt-in `--tr-*`; existing pages keep their palette.
+
+## Hub backend
+
+Pages owns public URLs, static assets, HTML middleware, SEO and redirects.
+Private Worker owns radio metadata routes; Pages delegates only these GET
+endpoints via `HUB_BACKEND`. No public Worker hostname. Missing or failed
+binding falls back to the same shared implementation; no duplicate logic.
+Radio audio remains direct to station providers.
+
+[Hub backend CI](../.github/workflows/hub-backend.yml): tests and Worker dry
+run on PRs; main deploys Worker and configures the production binding if
+missing, then requests a Pages redeploy. Existing bindings preserved.
+To roll back, remove `HUB_BACKEND` from Pages and redeploy; local handlers
+remain available. Disable the backend workflow first if rolling back the binding.

@@ -37,7 +37,7 @@ export default [
     // This config file is matched too. eslint 9 warns "no matching
     // configuration" for any file it is handed but no block covers, and
     // MegaLinter hands it over whenever it changes.
-    files: ["functions/**/*.js", "tests/**/*.mjs", "*.mjs"],
+    files: ["functions/**/*.js", "worker/**/*.js", "tests/**/*.mjs", "*.mjs"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",

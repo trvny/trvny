@@ -1,0 +1,93 @@
+name: Hub backend
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - "pages/worker/**"
+      - "pages/functions/api/**"
+      - "pages/functions/_shared/radio-*.js"
+      - "pages/functions/_shared/hub-backend.js"
+      - "pages/tests/hub-worker.test.mjs"
+      - "pages/tests/radio*.test.mjs"
+      - ".github/workflows/hub-backend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "pages/worker/**"
+      - "pages/functions/api/**"
+      - "pages/functions/_shared/radio-*.js"
+      - "pages/functions/_shared/hub-backend.js"
+      - "pages/tests/hub-worker.test.mjs"
+      - "pages/tests/radio*.test.mjs"
+      - ".github/workflows/hub-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: hub-backend-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: pages
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: node --test tests/radio-now.test.mjs tests/radio-station.test.mjs tests/hub-worker.test.mjs
+      - run: npx --yes wrangler@4.160.0 deploy --config worker/wrangler.jsonc --dry-run --outdir "$RUNNER_TEMP/hub-worker"
+
+  deploy:
+    needs: check
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npx --yes wrangler@4.160.0 deploy --config worker/wrangler.jsonc
+        working-directory: pages
+      - name: Ensure Pages production service binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/travny"
+          auth=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          current=$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint")
+          jq -e '.success == true' <<<"$current" >/dev/null
+          service=$(jq -r '.result.deployment_configs.production.services.HUB_BACKEND.service // ""' <<<"$current")
+          if [[ "$service" == "travny-hub-backend" ]]; then exit 0; fi
+          if [[ -n "$service" ]]; then
+            echo "::error::Existing HUB_BACKEND points to another Worker."
+            exit 1
+          fi
+          payload=$(jq -c '{
+            deployment_configs:{production:{services:(
+              (.result.deployment_configs.production.services // {}) +
+              {HUB_BACKEND:{service:"travny-hub-backend",environment:"production"}}
+            )}}
+          }' <<<"$current")
+          updated=$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            -H "Content-Type: application/json" -X PATCH --data "$payload" "$endpoint")
+          jq -e '.success == true and .result.deployment_configs.production.services.HUB_BACKEND.service == "travny-hub-backend"' <<<"$updated" >/dev/null
+          # Existing Pages build may have started before the binding was configured.
+          # Redeploy main; fallback remains available until the new deployment is live.
+          curl --fail-with-body --silent --show-error "${auth[@]}" -X POST \
+            -F branch=main "$endpoint/deployments" | jq -er '.result.id'

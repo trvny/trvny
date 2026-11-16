@@ -1,4 +1,5 @@
 import { readJson } from './radio-now.js';
+import { forwardHubRequest } from '../_shared/hub-backend.js';
 
 const BBC = 'https://rms.api.bbc.co.uk/v2/services/bbc_radio_one/segments/latest?experience=domestic&offset=0&limit=1';
 const MAX_BYTES = 512 * 1024;
@@ -74,7 +75,11 @@ function polishTrack(data, station, now) {
   if (active?.title) return {title:active.title,artist:'Live programme',album:'',cover:'',kind:'programme'};
   return null;
 }
-export async function onRequestGet({ request }) {
+export function onRequestGet(context) {
+  return forwardHubRequest(context, radioStation);
+}
+
+export async function radioStation({ request }) {
   const station=new URL(request.url).searchParams.get('station');
   if (!['trojka','czworka','bbc1'].includes(station)) return Response.json({error:'unknown_station'},{status:400,headers:{'cache-control':'no-store'}});
   const {day,wallTime:now,ambiguous}=localClock(new Date());

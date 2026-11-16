@@ -1,4 +1,4 @@
-// Flat config for the Pages Functions in functions/.
+// Flat config for Pages Functions and the hub Worker.
 //
 // Run by .github/workflows/travny-pages.yml (repo MegaLinter has no
 // JAVASCRIPT_ES). Dependency-free: no imports, no install step.
@@ -30,14 +30,14 @@ const workerGlobals = Object.fromEntries(
 
 export default [
   {
-    // Everything that is not a Pages Function: linted elsewhere or not at all.
+    // Generated site output and dependencies: linted elsewhere or not at all.
     ignores: ["site/**", "node_modules/**"],
   },
   {
     // This config file is matched too. eslint 9 warns "no matching
     // configuration" for any file it is handed but no block covers, and
     // MegaLinter hands it over whenever it changes.
-    files: ["functions/**/*.js", "tests/**/*.mjs", "*.mjs"],
+    files: ["functions/**/*.js", "worker/**/*.js", "tests/**/*.mjs", "*.mjs"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",

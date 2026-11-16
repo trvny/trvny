@@ -1,3 +1,5 @@
+import { forwardHubRequest } from '../_shared/hub-backend.js';
+
 const UPSTREAM = "https://api.radioparadise.com/api/now_playing?chan=0";
 const MAX_BYTES = 32768;
 const BOTEK_ORIGIN = "https://tg-assistant.travny.workers.dev";
@@ -36,7 +38,11 @@ function coverUrl(value) {
   } catch { return ""; }
 }
 
-export async function onRequestGet() {
+export function onRequestGet(context = {}) {
+  return forwardHubRequest(context, radioNow);
+}
+
+export async function radioNow() {
   try {
     const upstream = await fetch(UPSTREAM, {
       signal: AbortSignal.timeout(6000),

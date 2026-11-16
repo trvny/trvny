@@ -34,7 +34,8 @@ Papagenerator and badges catalogue. `scripts/build-static-shell.mjs`
 uses shared `functions/_shared/page-shell.js`, writes navigation, SEO and
 static `_headers`; exact document aliases bypass Functions.
 Run `sh build.sh` before serving `site/` locally; generated shell and route
-headers are build output (do not commit injected HTML). Keep dynamic HTML,
+headers are build output. CI rejects committed shell markers in tracked HTML.
+Keep dynamic HTML,
 discovery, feeds, redirects and APIs in middleware. Avoid broad
 extension globs: dynamic SVG badges and JSON routes share those extensions.
 Live zone redirect `c61b0c373e274a0bb58ab50d0f8f14dd` covers `trfny.com`

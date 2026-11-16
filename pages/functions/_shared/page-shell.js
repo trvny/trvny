@@ -1,4 +1,4 @@
-import { pageSeoHead } from "./page-seo.js";
+import { ORIGIN, pageSeoHead } from "./page-seo.js";
 
 const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor">';
 export const NAV_BODY = `
@@ -18,9 +18,9 @@ export const NAV_BODY = `
 
 export function pageShellHead(pathname, page) {
   const canonical = page === "papagenerator"
-    ? '<link rel="canonical" href="https://travny.pages.dev/papagenerator/">'
+    ? `<link rel="canonical" href="${ORIGIN}/papagenerator/">`
     : page === "token-worldcup"
-      ? '<link rel="canonical" href="https://travny.pages.dev/teksty/token-worldcup/"><meta property="og:url" content="https://travny.pages.dev/teksty/token-worldcup/">'
+      ? `<link rel="canonical" href="${ORIGIN}/teksty/token-worldcup/"><meta property="og:url" content="${ORIGIN}/teksty/token-worldcup/">`
       : "";
   return NAV_HEAD + pageSeoHead(pathname) + canonical;
 }

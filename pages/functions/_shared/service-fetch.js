@@ -17,11 +17,12 @@ export function serviceFetch(context, name, fetchImpl = fetch) {
     try {
       cache = await globalThis.caches?.open("hub-public-json-v1");
       if (cache) {
-        key = new Request(new URL("/__hub-cache/" + name, context.request.url));
+        key = new Request("https://travny.pages.dev/__hub-cache/" + name);
         const hit = await cache.match(key);
         if (hit) return hit;
       }
-    } catch {
+    } catch (error) {
+      console.warn("hub_cache_unavailable", name, error instanceof Error ? error.name : "unknown");
       cache = undefined;
     }
 
@@ -32,7 +33,7 @@ export function serviceFetch(context, name, fetchImpl = fetch) {
       response = await binding.fetch(url, bindingInit);
     } catch (error) {
       if (init.signal?.aborted) throw error;
-      console.warn("hub_service_binding_unavailable", name);
+      console.warn("hub_service_binding_unavailable", name, error instanceof Error ? error.name : "unknown");
       return fetchImpl(url, init);
     }
 
@@ -42,7 +43,9 @@ export function serviceFetch(context, name, fetchImpl = fetch) {
       headers.set("cache-control", "public, max-age=300");
       const task = cache.put(key, new Response(copy.body, {
         status: copy.status, headers,
-      })).catch(() => {});
+      })).catch(error => {
+        console.warn("hub_cache_write_failed", name, error instanceof Error ? error.name : "unknown");
+      });
       if (typeof context.waitUntil === "function") context.waitUntil(task);
       else await task;
     }

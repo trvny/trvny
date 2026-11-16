@@ -8,7 +8,7 @@ const context = env => ({ request: new Request("https://travny.pages.dev/"), env
 
 test("direct bindings receive only their configured public endpoint", async () => {
   const calls = [];
-  const publicFetch = async (url, init) => { calls.push(["public", url]); assert.ok(init.cf); return Response.json({ public: true }); };
+  const publicFetch = async (url, init) => { calls.push(["public", url]); assert.ok(init.cf); if (url === weather) assert.equal(init.method, "POST"); return Response.json({ public: true }); };
   const env = {
     WEATHER_SERVICE: { fetch: async (url, init) => { calls.push(["weather", url]); assert.equal(init.cf, undefined); return Response.json({ direct: true }); } },
     REACTOR_SERVICE: { fetch: async url => { calls.push(["reactor", url]); return Response.json({ direct: true }); } },
@@ -16,7 +16,8 @@ test("direct bindings receive only their configured public endpoint", async () =
   assert.deepEqual(await (await serviceFetch(context(env), "WEATHER_SERVICE", publicFetch)(weather, { cf: { cacheTtl: 300 } })).json(), { direct: true });
   assert.deepEqual(await (await serviceFetch(context(env), "REACTOR_SERVICE", publicFetch)(reactor)).json(), { direct: true });
   await serviceFetch(context(env), "WEATHER_SERVICE", publicFetch)(reactor, { cf: { cacheTtl: 300 } });
-  assert.deepEqual(calls, [["weather", weather], ["reactor", reactor], ["public", reactor]]);
+  await serviceFetch(context(env), "WEATHER_SERVICE", publicFetch)(weather, { method: "POST", cf: { cacheTtl: 300 } });
+  assert.deepEqual(calls, [["weather", weather], ["reactor", reactor], ["public", reactor], ["public", weather]]);
 });
 
 test("missing or throwing bindings fall back; HTTP errors and aborted calls do not retry", async () => {
@@ -50,7 +51,8 @@ test("public successful reads share a 5-minute cache across hub pages", async t 
   assert.equal(cached.size, 0);
   env.WEATHER_SERVICE.fetch = async () => { calls++; return Response.json({ state: "ok" }); };
   assert.deepEqual(await (await fetchWeather(weather)).json(), { state: "ok" });
-  ctx.request = new Request("https://travny.pages.dev/weather");
+  ctx.request = new Request("https://preview.travny.pages.dev/weather?utm_source=test");
+  assert.deepEqual([...cached.keys()], ["https://travny.pages.dev/__hub-cache/WEATHER_SERVICE"]);
   const hit = await fetchWeather(weather);
   assert.equal(hit.headers.get("cache-control"), "public, max-age=300");
   assert.deepEqual(await hit.json(), { state: "ok" });

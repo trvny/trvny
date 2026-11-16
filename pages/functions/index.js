@@ -1,5 +1,6 @@
 import { getDigestPosts, latestFirst, publicationPath } from "./_shared/digests.js";
 import { getShitposts, REACTOR_HOME_URL } from "./_shared/shitpost.js";
+import { serviceFetch } from "./_shared/service-fetch.js";
 
 const TEXTS_HEAD = `
 <style>
@@ -114,7 +115,7 @@ export async function onRequest(context) {
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
     getDigestPosts(context),
-    getShitposts(fetch, 10),
+    getShitposts(serviceFetch(context, "REACTOR_SERVICE"), 10),
   ]);
   const contentType = response.headers.get("content-type") || "";
 

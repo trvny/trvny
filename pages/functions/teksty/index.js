@@ -1,5 +1,6 @@
 import { getDigestPosts, latestFirst, publicationPath } from "../_shared/digests.js";
 import { getLatestShitpost, REACTOR_HOME_URL } from "../_shared/shitpost.js";
+import { serviceFetch } from "../_shared/service-fetch.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -50,7 +51,7 @@ export async function onRequest(context) {
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
     getDigestPosts(context),
-    getLatestShitpost(),
+    getLatestShitpost(serviceFetch(context, "REACTOR_SERVICE")),
   ]);
   const contentType = response.headers.get("content-type") || "";
   if (!response.ok || !contentType.includes("text/html")) return response;

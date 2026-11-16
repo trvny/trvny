@@ -1,5 +1,6 @@
 import { pageSeoHead } from "./_shared/page-seo.js";
 import { brandResponse } from "./_shared/brand-page.js";
+import { serviceFetch } from "./_shared/service-fetch.js";
 
 const CHANNELS = [
   { id: "399697", no: "101", slug: "tvp1", tag: "TVP1", name: "TVP 1 HD" },
@@ -92,11 +93,11 @@ function aqiClass(value) {
 // until then: a server that answers with headers immediately and then drips
 // the body would otherwise hold the page render open with no bound at all.
 // The timeout covers the whole exchange, not just the wait for headers.
-async function fetchWithTimeout(url, options = {}, timeoutMs = 4500, parse = "text") {
+async function fetchWithTimeout(fetchImpl, url, options = {}, timeoutMs = 4500, parse = "text") {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetchImpl(url, { ...options, signal: controller.signal });
     if (!response.ok) return { ok: false, body: null };
     return { ok: true, body: parse === "json" ? await response.json() : await response.text() };
   } finally {
@@ -104,9 +105,9 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 4500, parse = "te
   }
 }
 
-async function getWeather() {
+async function getWeather(context) {
   try {
-    const { ok, body } = await fetchWithTimeout(WEATHER_STATE, {
+    const { ok, body } = await fetchWithTimeout(serviceFetch(context, 'WEATHER_SERVICE'), WEATHER_STATE, {
       cf: { cacheTtl: 300, cacheEverything: true },
       headers: { accept: "application/json" },
     }, 4500, "json");
@@ -298,7 +299,7 @@ export async function onRequest(context) {
   const [assetResponse, channels, weatherState] = await Promise.all([
     context.next(),
     needsChannels ? getChannels() : Promise.resolve([]),
-    needsWeather ? getWeather() : Promise.resolve(null),
+    needsWeather ? getWeather(context) : Promise.resolve(null),
   ]);
 
   const contentType = assetResponse.headers.get("content-type") || "";

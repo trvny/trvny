@@ -22,7 +22,7 @@ test("each real static HTML source receives one shared shell and preserves its c
     const original = stripShell(rendered);
     assert.equal(original, html, page.file);
     if (page.page === "papagenerator" || page.page === "token-worldcup") {
-      assert.match(rendered, new RegExp('rel="canonical" href="https://travny.pages.dev' + page.path + '"'));
+      assert.ok(rendered.includes('rel="canonical" href="https://travny.pages.dev' + page.path + '"'));
     }
     if (page.noindex) {
       assert.match(rendered, /<meta name="robots" content="noindex,follow">/);
@@ -52,6 +52,7 @@ test("build writes all documents and static headers; repeat build is stable", as
     }
   }
   assert.ok(headers.includes("/teksty/githubowa-kraina/index.md>; rel=\"alternate\""));
+  assert.ok(headers.includes('</llms.txt>; rel="describedby"'));
   assert.ok(headers.includes("X-Robots-Tag: noindex, follow"));
   await writeFile(new URL("_headers", dir), "/manual\n  X-Example: keep\n");
   await assert.rejects(writeStaticShell(dir), /Refusing to overwrite/);

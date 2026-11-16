@@ -7,7 +7,9 @@ import { pathToFileURL } from "node:url";
 import { STATIC_PAGES, staticPaths, renderStaticShell, staticHeaders, writeStaticShell } from "../scripts/build-static-shell.mjs";
 
 const root = new URL("../", import.meta.url);
-const source = page => readFile(new URL(page.source ?? "site/" + page.file, root), "utf8");
+const stripShell = html => html.replace(/<!-- hub-shell:head:start -->[\s\S]*?<!-- hub-shell:head:end -->/, "")
+  .replace(/<!-- hub-shell:body:start -->[\s\S]*?<!-- hub-shell:body:end -->/, "");
+const source = async page => stripShell(await readFile(new URL(page.source ?? "site/" + page.file, root), "utf8"));
 
 test("each real static HTML source receives one shared shell and preserves its content", async () => {
   for (const page of STATIC_PAGES) {
@@ -17,8 +19,7 @@ test("each real static HTML source receives one shared shell and preserves its c
     assert.equal(rendered.match(/id="trvny-nav-toggle"/g)?.length, 1, page.file);
     assert.equal(rendered.match(/src="\/assets\/nav.js"/g)?.length, 1, page.file);
     assert.equal(rendered.match(/src="\/assets\/webmcp.js"/g)?.length, 1, page.file);
-    const original = rendered.replace(/<!-- hub-shell:head:start -->[\s\S]*?<!-- hub-shell:head:end -->/, "")
-      .replace(/<!-- hub-shell:body:start -->[\s\S]*?<!-- hub-shell:body:end -->/, "");
+    const original = stripShell(rendered);
     assert.equal(original, html, page.file);
     if (page.page === "papagenerator" || page.page === "token-worldcup") {
       assert.match(rendered, new RegExp('rel="canonical" href="https://travny.pages.dev' + page.path + '"'));

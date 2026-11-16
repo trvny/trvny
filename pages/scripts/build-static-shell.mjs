@@ -69,7 +69,7 @@ function inject(html, tag, content) {
 }
 
 export function renderStaticShell(html, page) {
-  const lang = /<html\\b[^>]*\\slang=["']([^"']+)["']/i.exec(html)?.[1];
+  const lang = /<html\b[^>]*\slang=["']([^"']+)["']/i.exec(html)?.[1];
   if (lang !== page.lang) throw new Error("Unexpected document language: " + page.file);
   return inject(inject(html, "head", pageShellHead(page.path, page.page)), "body", NAV_BODY);
 }

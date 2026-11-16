@@ -11,6 +11,7 @@
 import { BRANDS, cleanLabel, iconParts, iconUrl, modelStyle, placeIcon, renderBadge, renderMark } from "../_shared/badge.js";
 import { COUNTERS, ECO, MARKS, OCTICONS_VERSION, OCTICON_NAME, PALETTE, STATUS, fetchText, octiconUrl, paletteColour, textFor } from "../_shared/eco.js";
 import { LOBE_VERSION } from "../_shared/model-icons.js";
+import { forwardHubRequest } from "../_shared/hub-backend.js";
 
 const MAX_LABEL = 40;
 const MAX_ID = 120;
@@ -117,7 +118,11 @@ export function catalogue() {
   return { canonical: "https://travny.pages.dev", octicons: OCTICONS_VERSION, lobe: LOBE_VERSION, palette: Object.keys(PALETTE), badges: rows };
 }
 
-export async function onRequestGet(context, fetchImpl = fetch) {
+export function onRequestGet(context, fetchImpl = fetch) {
+  return forwardHubRequest(context, local => badgeResponse(local, fetchImpl), { fallbackOnMissingRoute: true });
+}
+
+export async function badgeResponse(context, fetchImpl = fetch) {
   const url = new URL(context.request.url);
   const path = context.params?.path;
   const segs = Array.isArray(path) ? path : [path];

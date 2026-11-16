@@ -42,3 +42,22 @@ test('Worker dispatches only known GET routes and preserves query parameters', a
   assert.equal(result.headers.get('x-travny-backend'), 'worker');
   assert.equal(result.headers.get('access-control-allow-origin'), 'https://tg-assistant.travny.workers.dev');
 });
+
+test('badge routes retain query customization and distinguish missing routes from unknown badges', async () => {
+  const { onRequestGet: badge } = await import('../functions/badge/[[path]].js');
+  const request = new Request('https://travny.pages.dev/badge/twojstar.svg?label=Custom');
+  const params = { path: ['twojstar.svg'] };
+  const old = { HUB_BACKEND: { fetch: () => new Response('Not found', { status: 404 }) } };
+  const fallback = await badge({ request, params, env: old });
+  assert.match(await fallback.text(), />Custom<\/text>/);
+  const response = await badge({ request, params, env: { HUB_BACKEND: worker } });
+  assert.equal(response.headers.get('x-travny-backend'), 'worker');
+  assert.match(await response.text(), />Custom<\/text>/);
+  const unknown = await worker.fetch(new Request('https://travny.pages.dev/badge/unknown.svg'));
+  assert.equal(unknown.status, 404);
+  assert.equal(unknown.headers.get('x-travny-backend'), 'worker');
+  assert.match(await unknown.text(), /unknown badge/);
+  const index = await worker.fetch(new Request('https://travny.pages.dev/badge/index.json'));
+  assert.equal(index.status, 200);
+  assert.ok((await index.json()).badges.length > 0);
+});

@@ -500,7 +500,9 @@ raw-v1 example123
   Count each reply and reaction as a separate step. No inner `id` or
   `repository`.
 - **`gptomek_create_blob:500` / `gptomek_create_tree:500`:** GitHub Git-object
-  API fault; inspect live branch before retrying.
+  API fault. Immutable blob/tree POSTs retry 500/502/503/504 twice (250ms,
+  750ms); no ref or comment replay. If exhausted, inspect live branch before
+  retrying.
 - **Successful command, comment still present:** cleanup warning/edited comment;
   check commit first.
 

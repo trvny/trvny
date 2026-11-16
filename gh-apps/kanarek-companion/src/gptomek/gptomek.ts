@@ -1033,6 +1033,28 @@ async function adoptBranch(
   return { sha: newSha };
 }
 
+// Content-addressed objects: repeat the identical POST, never a ref mutation.
+export async function createGitObject(
+  client: GitHubInstallationClient,
+  repositoryName: string,
+  kind: 'blob' | 'tree',
+  payload: unknown,
+): Promise<{ sha?: string }> {
+  const operation = kind === 'blob' ? 'gptomek_create_blob' : 'gptomek_create_tree';
+  const path = `/repos/${repoPath(repositoryName)}/git/${kind}s`;
+  const body = JSON.stringify(payload);
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await client.json<{ sha?: string }>(path, operation, { method: 'POST', body });
+    } catch (error) {
+      if (attempt >= 3 || !(error instanceof GitHubApiError) ||
+        ![500, 502, 503, 504].includes(error.status)) throw error;
+      console.warn(JSON.stringify({ gptomek: 'git_object_retry', operation, status: error.status, attempt }));
+      await sleep(attempt === 1 ? 250 : 750);
+    }
+  }
+}
+
 async function createFileCommit(
   client: GitHubInstallationClient,
   repositoryName: string,
@@ -1049,21 +1071,17 @@ async function createFileCommit(
       if (new TextEncoder().encode(file.content).byteLength <= MAX_INLINE_TREE_CONTENT_BYTES) {
         return { path: file.path, mode: file.mode ?? '100644', type: 'blob', content: file.content };
       }
-      const blob = await client.json<{ sha?: string }>(
-        `/repos/${repoPath(repositoryName)}/git/blobs`,
-        'gptomek_create_blob',
-        { method: 'POST', body: JSON.stringify({ content: file.content, encoding: 'utf-8' }) },
-      );
+      const blob = await createGitObject(client, repositoryName, 'blob', {
+        content: file.content, encoding: 'utf-8',
+      });
       if (!blob.sha || !SHA_RE.test(blob.sha)) throw new Error('invalid_created_blob');
       return { path: file.path, mode: file.mode ?? '100644', type: 'blob', sha: blob.sha };
     }),
   );
 
-  const createdTree = await client.json<{ sha?: string }>(
-    `/repos/${repoPath(repositoryName)}/git/trees`,
-    'gptomek_create_tree',
-    { method: 'POST', body: JSON.stringify({ base_tree: baseCommit.tree.sha, tree }) },
-  );
+  const createdTree = await createGitObject(client, repositoryName, 'tree', {
+    base_tree: baseCommit.tree.sha, tree,
+  });
   if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
 
   return createCommit(client, repositoryName, message, createdTree.sha, parentSha);
@@ -1483,17 +1501,9 @@ export async function cherryPick(
 
   if (!changes.length) throw new Error('cherry_pick_has_no_changes');
 
-  const createdTree = await client.json<{ sha?: string }>(
-    `/repos/${repoPath(command.repository)}/git/trees`,
-    'gptomek_create_tree',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        base_tree: target.tree.sha,
-        tree: changes,
-      }),
-    },
-  );
+  const createdTree = await createGitObject(client, command.repository, 'tree', {
+    base_tree: target.tree.sha, tree: changes,
+  });
   if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
   if (createdTree.sha.toLowerCase() === target.tree.sha) {
     throw new Error('cherry_pick_has_no_effect');
@@ -1596,17 +1606,9 @@ export async function commitTree(
   }
 
   const treeWrites = [...writes.values()].sort((left, right) => left.path.localeCompare(right.path));
-  const createdTree = await client.json<{ sha?: string }>(
-    `/repos/${repoPath(command.repository)}/git/trees`,
-    'gptomek_create_tree',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        base_tree: baseCommit.tree.sha,
-        tree: treeWrites,
-      }),
-    },
-  );
+  const createdTree = await createGitObject(client, command.repository, 'tree', {
+    base_tree: baseCommit.tree.sha, tree: treeWrites,
+  });
   if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
   if (createdTree.sha.toLowerCase() === baseCommit.tree.sha) {
     throw new Error('commit_tree_has_no_effect');
@@ -1692,17 +1694,9 @@ export async function moveFiles(
   }
 
   const treeWrites = [...writes.values()].sort((left, right) => left.path.localeCompare(right.path));
-  const createdTree = await client.json<{ sha?: string }>(
-    `/repos/${repoPath(command.repository)}/git/trees`,
-    'gptomek_create_tree',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        base_tree: baseCommit.tree.sha,
-        tree: treeWrites,
-      }),
-    },
-  );
+  const createdTree = await createGitObject(client, command.repository, 'tree', {
+    base_tree: baseCommit.tree.sha, tree: treeWrites,
+  });
   if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
   if (createdTree.sha.toLowerCase() === baseCommit.tree.sha) {
     throw new Error('move_files_has_no_effect');

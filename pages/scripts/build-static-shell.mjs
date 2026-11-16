@@ -52,6 +52,8 @@ export function staticPaths(page) {
 }
 
 function inject(html, tag, content) {
+  const closing = tag === "head" ? /<\/head\s*>/gi : tag === "body" ? /<\/body\s*>/gi : null;
+  if (!closing) throw new Error("Unsupported shell tag");
   const start = "<!-- hub-shell:" + tag + ":start -->";
   const end = "<!-- hub-shell:" + tag + ":end -->";
   if (html.includes(start)) {
@@ -61,7 +63,6 @@ function inject(html, tag, content) {
     html = html.slice(0, from) + html.slice(to + end.length);
   }
   // Controlled HTML inputs only. Fail closed if their layout changes.
-  const closing = new RegExp("</" + tag + "\\s*>", "gi");
   const matches = [...html.matchAll(closing)];
   if (matches.length !== 1) throw new Error("Expected one closing " + tag + " tag");
   const index = matches[0].index;

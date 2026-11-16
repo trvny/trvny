@@ -88,8 +88,11 @@ function card(row) {
   const el = document.createElement("div");
   el.className = "card";
   const href = links[row.slug] ?? "";
-  el.innerHTML = `<img loading="lazy" src="${esc(row.path)}" alt="${esc(row.label)}"><code>${esc(row.path)}</code>
+  el.innerHTML = `<img loading="lazy" alt="${esc(row.label)}"><code>${esc(row.path)}</code>
     <div class="row"><button type="button" data-copy="md">MD</button><button type="button" data-copy="html">HTML</button></div>`;
+  const img = el.querySelector("img");
+  if (row.preview) img.addEventListener("error", () => { img.src = row.path; }, { once: true });
+  img.src = row.preview || row.path;
   el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => copy(b, snippet(b.dataset.copy, CANON + row.path, row.label, href))));
   return el;
 }
@@ -109,7 +112,17 @@ function refreshBuilder() {
 document.querySelectorAll(".builder button").forEach((b) => b.addEventListener("click", () =>
   copy(b, snippet(b.dataset.copy, CANON + builderPath(), document.getElementById("b-label").value || "badge", document.getElementById("b-href").value.trim()))));
 
-fetch("/badge/index.json").then((r) => r.json()).then((data) => {
+async function loadCatalogue() {
+  try {
+    const response = await fetch("/assets/badge-previews/catalogue.json");
+    if (response.ok) return await response.json();
+  } catch { /* local development / old deployment */ }
+  const response = await fetch("/badge/index.json");
+  if (!response.ok) throw new Error("catalogue unavailable");
+  return response.json();
+}
+
+loadCatalogue().then((data) => {
   document.getElementById("palette").innerHTML = data.palette.map((c) => `<option value="${c}">`).join("");
   const groups = document.getElementById("groups");
   groups.innerHTML = "";

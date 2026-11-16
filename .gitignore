@@ -87,3 +87,4 @@ worker-configuration.d.ts
 /pages/site/papagenerator/
 /pages/site/assets/vendor/
 /pages/astro/.astro/
+/pages/site/assets/badge-previews/

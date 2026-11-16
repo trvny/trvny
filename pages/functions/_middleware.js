@@ -1,6 +1,6 @@
 import { pageSeoHead } from "./_shared/page-seo.js";
 import { brandResponse } from "./_shared/brand-page.js";
-import { serviceFetch } from "./_shared/service-fetch.js";
+import { serviceFetch, WEATHER_STATE_URL } from "./_shared/service-fetch.js";
 
 const CHANNELS = [
   { id: "399697", no: "101", slug: "tvp1", tag: "TVP1", name: "TVP 1 HD" },
@@ -15,7 +15,6 @@ const CHANNELS = [
 ];
 
 const TV_WORKER = "https://tvpi.travny.workers.dev";
-const WEATHER_STATE = "https://weather.travny.workers.dev/state.json";
 
 // Several hosts reach this same site/ output, and they are treated differently.
 //
@@ -107,7 +106,7 @@ async function fetchWithTimeout(fetchImpl, url, options = {}, timeoutMs = 4500, 
 
 async function getWeather(context) {
   try {
-    const { ok, body } = await fetchWithTimeout(serviceFetch(context, 'WEATHER_SERVICE'), WEATHER_STATE, {
+    const { ok, body } = await fetchWithTimeout(serviceFetch(context, 'WEATHER_SERVICE'), WEATHER_STATE_URL, {
       cf: { cacheTtl: 300, cacheEverything: true },
       headers: { accept: "application/json" },
     }, 4500, "json");

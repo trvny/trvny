@@ -9,17 +9,16 @@
 // not the build output (destination_dir) — see build_config on the Pages
 // project (root_dir: "", destination_dir: "site"). A copy under site/
 // silently never gets deployed (uses_functions stays false).
-import { serviceFetch } from './_shared/service-fetch.js';
+import { serviceFetch, WEATHER_STATE_URL } from './_shared/service-fetch.js';
 
 export async function onRequest(context) {
-  const UPSTREAM = "https://weather.travny.workers.dev/state.json";
   const cors = {
     "content-type": "application/json; charset=utf-8",
     "access-control-allow-origin": "*",
     "cache-control": "public, s-maxage=300, stale-while-revalidate=60",
   };
   try {
-    const res = await serviceFetch(context, 'WEATHER_SERVICE')(UPSTREAM, { cf: { cacheTtl: 300, cacheEverything: true } });
+    const res = await serviceFetch(context, 'WEATHER_SERVICE')(WEATHER_STATE_URL, { cf: { cacheTtl: 300, cacheEverything: true } });
     if (!res.ok) return new Response(`{"error":"upstream_${res.status}"}`, { status: 502, headers: cors });
     return new Response(await res.text(), { status: 200, headers: cors });
   } catch {

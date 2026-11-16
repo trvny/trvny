@@ -43,13 +43,16 @@ test("public successful reads share a 5-minute cache across hub pages", async t 
     else delete globalThis.caches;
   });
   let calls = 0;
-  const env = { WEATHER_SERVICE: { fetch: async () => { calls++; return Response.json({ state: "ok" }); } } };
+  const env = { WEATHER_SERVICE: { fetch: async () => { calls++; return new Response("unavailable", { status: 503 }); } } };
   const ctx = context(env);
   const fetchWeather = serviceFetch(ctx, "WEATHER_SERVICE");
+  assert.equal((await fetchWeather(weather)).status, 503);
+  assert.equal(cached.size, 0);
+  env.WEATHER_SERVICE.fetch = async () => { calls++; return Response.json({ state: "ok" }); };
   assert.deepEqual(await (await fetchWeather(weather)).json(), { state: "ok" });
   ctx.request = new Request("https://travny.pages.dev/weather");
   const hit = await fetchWeather(weather);
   assert.equal(hit.headers.get("cache-control"), "public, max-age=300");
   assert.deepEqual(await hit.json(), { state: "ok" });
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });

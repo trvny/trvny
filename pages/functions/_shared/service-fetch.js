@@ -1,8 +1,11 @@
 // Private reads of known public JSON endpoints. Preserve the existing 5m cache
 // when a service binding bypasses the upstream hostname's edge cache.
+import { SHITPOST_FEED_URL } from "./shitpost.js";
+
+export const WEATHER_STATE_URL = "https://weather.travny.workers.dev/state.json";
 const SOURCES = {
-  WEATHER_SERVICE: "https://weather.travny.workers.dev/state.json",
-  REACTOR_SERVICE: "https://shitpost-reactor.travny.workers.dev/feed.json",
+  WEATHER_SERVICE: WEATHER_STATE_URL,
+  REACTOR_SERVICE: SHITPOST_FEED_URL,
 };
 
 export function serviceFetch(context, name, fetchImpl = fetch) {

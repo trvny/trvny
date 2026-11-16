@@ -26,6 +26,14 @@ node --test tests/*.test.mjs
 
 [Pages CI](../.github/workflows/travny-pages.yml) runs lint. PR checks do not change Cloudflare settings; main pushes and manual `assert` runs can PATCH project settings, including setting `preview_deployment_setting` to `none`. Do not change project, move Astro's output into `site/` directly, duplicate the publication feed, or alter legacy Atom IDs/URLs. Design tokens are opt-in `--tr-*`; existing pages keep their palette.
 
+## Static routing
+
+`site/_routes.json`: bypass Functions for known static runtime assets and data.
+Keep HTML, discovery, feeds, redirects and APIs in middleware. Avoid broad
+extension globs: dynamic SVG badges and JSON routes share those extensions.
+Custom-domain deep links redirect at the zone edge; Pages previews default to
+`X-Robots-Tag: noindex`.
+
 ## Hub backend
 
 Pages owns public URLs, static assets, HTML middleware, SEO and redirects.

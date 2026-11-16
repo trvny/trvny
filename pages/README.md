@@ -40,10 +40,11 @@ for preview deployments, independent of middleware.
 ## Hub backend
 
 Pages owns public URLs, static assets, HTML middleware, SEO and redirects.
-Private Worker owns radio metadata routes; Pages delegates only these GET
+Private Worker owns radio metadata and badge rendering; Pages delegates GET
 endpoints via `HUB_BACKEND`. No public Worker hostname. Missing binding or
 binding fetch exception falls back to the same shared implementation.
 Worker HTTP responses (including upstream errors) pass through unchanged.
+Badge routes also fall back on an unmarked 404 from an older Worker bundle.
 Radio audio remains direct to station providers.
 
 Cloudflare Builds settings for `travny-hub-backend`:
@@ -53,7 +54,9 @@ Cloudflare Builds settings for `travny-hub-backend`:
 - Deploy: `npx --yes wrangler@4.160.0 deploy`.
 - Watch: `pages/worker/**`, `pages/functions/api/**`, `pages/functions/_shared/hub-backend.js`,
   `pages/tests/radio*.test.mjs`, `pages/tests/hub-worker.test.mjs`,
-  `pages/eslint.config.mjs`.
+  `pages/eslint.config.mjs`, `pages/functions/badge/**`,
+  `pages/functions/_shared/{badge,eco,model-icons}.js` (three individual paths),
+  `pages/tests/badge.test.mjs`.
 
 Pages keeps its existing Git build. After first successful Worker build, add
 production service binding `HUB_BACKEND` → `travny-hub-backend` and redeploy

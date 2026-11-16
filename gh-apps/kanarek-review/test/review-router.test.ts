@@ -2596,6 +2596,14 @@ test('explicit review order tries Vercel Hy3 before Groq', async () => {
 
 test('Vercel reasoning-capable fallbacks get high reasoning and the shared floor', async () => {
   for (const model of [
+    'meta/muse-ember',
+    'meituan/longcat-2.5',
+    'inclusionai/ling-3.1-flash-1019',
+    'minimax/minimax-m3.1-flash',
+    'inception/mercury-3',
+    'nvidia/nemotron-3.5-super-vl',
+    'inclusionai/ling-3.1-flash',
+    'xiaomi/mimo-v2.6-flash',
     'tencent/hy4-flash',
     'paperinstruments/ultramarine-1-flash',
     'thinkingmachines/inkling-2-small',
@@ -2628,6 +2636,28 @@ test('Vercel reasoning-capable fallbacks get high reasoning and the shared floor
     assert.equal('temperature' in body, false);
     assert.equal('top_p' in body, false);
   }
+});
+
+test('Vercel caps HY4 Flash at its documented decimal output limit', async () => {
+  let body: Record<string, unknown> = {};
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 65_536,
+    messages: [{ role: 'user', content: 'review carefully' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy4-flash',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(body.max_tokens, 64_000);
 });
 
 test('Vercel caps non-reasoning Qwen Coder at its 8K output limit', async () => {

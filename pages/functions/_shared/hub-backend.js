@@ -14,7 +14,9 @@ export async function forwardHubRequest(context, local, { fallbackOnMissingRoute
 
 // Explicit Pages HEAD handlers preserve GET headers even with the local fallback.
 export async function hubHead(context, get) {
-  const response = await get(context);
+  // GET through the binding also works against pre-HEAD Worker deployments.
+  const request = new Request(context.request, { method: 'GET' });
+  const response = await get({ ...context, request });
   await response.body?.cancel();
   return new Response(null, { status: response.status, headers: response.headers });
 }

@@ -24,3 +24,6 @@ if [ -d astro/dist/_astro ]; then cp -R astro/dist/_astro site/; fi
 
 # Alternate sitemap formats from the canonical root and digest maps.
 node scripts/sitemap-variants.mjs
+
+# Pre-render default badges for the catalogue; live and custom routes stay dynamic.
+node scripts/build-badge-previews.mjs

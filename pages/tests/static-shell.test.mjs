@@ -45,10 +45,22 @@ test("build writes all documents and static headers; repeat build is stable", as
   await writeStaticShell(dir);
   const headers = await readFile(new URL("_headers", dir), "utf8");
   assert.equal(headers, staticHeaders());
+  const blocks = new Map();
+  let current;
+  for (const line of headers.split("\n")) {
+    if (line.startsWith("/")) {
+      current = [];
+      blocks.set(line, current);
+    } else if (line.startsWith("  ")) current.push(line.trim());
+  }
   for (const page of STATIC_PAGES) {
     assert.equal(await readFile(new URL(page.file, dir), "utf8"), renderStaticShell(await source(page), page));
     for (const alias of staticPaths(page)) {
-      assert.ok(headers.includes("\n" + alias + "\n  Content-Language: " + page.lang + "\n"), alias);
+      const block = blocks.get(alias);
+      assert.ok(block, alias);
+      assert.ok(block.includes("Content-Language: " + page.lang), alias);
+      assert.equal(block.includes("X-Robots-Tag: noindex, follow"), Boolean(page.noindex), alias);
+      assert.ok(block.includes("Link: " + (page.markdown ? "<" + page.markdown + '>; rel="alternate"; type="text/markdown", ' : "") + '</llms.txt>; rel="describedby"'), alias);
     }
   }
   assert.ok(headers.includes("/teksty/githubowa-kraina/index.md>; rel=\"alternate\""));
@@ -56,4 +68,5 @@ test("build writes all documents and static headers; repeat build is stable", as
   assert.ok(headers.includes("X-Robots-Tag: noindex, follow"));
   await writeFile(new URL("_headers", dir), "/manual\n  X-Example: keep\n");
   await assert.rejects(writeStaticShell(dir), /Refusing to overwrite/);
+  assert.equal(await readFile(new URL("_headers", dir), "utf8"), "/manual\n  X-Example: keep\n");
 });

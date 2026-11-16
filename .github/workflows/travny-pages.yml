@@ -73,6 +73,12 @@ jobs:
         with:
           node-version: 24
 
+      - name: Reject committed generated HTML shell
+        run: |
+          if git grep -n -F '<!-- hub-shell:' -- site/; then
+            echo "::error::Generated shell markers in tracked site assets. Keep source HTML clean."
+            exit 1
+          fi
       - run: sh -n build.sh
       - run: npm --prefix astro ci --no-audit --no-fund
       - run: npm --prefix astro run build

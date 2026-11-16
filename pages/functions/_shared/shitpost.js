@@ -1,6 +1,6 @@
 const SHITPOST_ORIGIN = "https://shitpost-reactor.travny.workers.dev";
 export const REACTOR_HOME_URL = `${SHITPOST_ORIGIN}/`;
-const SHITPOST_FEED_URL = `${SHITPOST_ORIGIN}/feed.json`;
+export const SHITPOST_FEED_URL = `${SHITPOST_ORIGIN}/feed.json`;
 const SOURCE_ORIGINS = new Set([SHITPOST_ORIGIN, "https://shitpost.trfny.com"]);
 const UNDATED_UPDATED = "1970-01-01T00:00:00.000Z";
 const MAX_SOURCE_ITEMS = 500;

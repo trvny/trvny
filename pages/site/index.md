@@ -2,7 +2,7 @@
 
 > Public hub for TVP IPTV, local weather, enhanced feeds, browser workbenches and small technical publications.
 
-Canonical site: https://travny.pages.dev/. The retiring `trfny.com` domain redirects here; preview deployment aliases stay noindex.
+Canonical site: https://travny.pages.dev/. The `trfny.com` alias redirects here; preview deployment aliases stay noindex.
 
 TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub organization hosts companion projects. [GitHub profile](https://github.com/trvny) · [Organization](https://github.com/travnie).
 

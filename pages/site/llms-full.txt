@@ -7,7 +7,7 @@ Source: https://travny.pages.dev/
 ## Identity and hosts
 
 - Canonical hub: https://travny.pages.dev/
-- Retiring custom domain: https://trfny.com/ — redirects to the canonical Pages host while the domain remains active.
+- Custom domain alias: https://trfny.com/ — redirects to the canonical Pages host.
 - Legacy Pages host: https://tvpi.pages.dev/ — permanently redirects to the canonical host while preserving path and query.
 - Repository: https://github.com/trvny/trvny/tree/main/pages
 - TVPI Worker repository: https://github.com/trvny/tvpi

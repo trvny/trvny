@@ -1,5 +1,4 @@
 import { NAV_BODY, pageShellHead } from "./_shared/page-shell.js";
-import { brandResponse } from "./_shared/brand-page.js";
 import { serviceFetch, WEATHER_STATE_URL } from "./_shared/service-fetch.js";
 
 const CHANNELS = [
@@ -18,8 +17,8 @@ const TV_WORKER = "https://tvpi.travny.workers.dev";
 
 // Several hosts reach this same site/ output, and they are treated differently.
 //
-// Stable hub: travny.pages.dev. Distinct brand homepage: trfny.com.
-// Brand discovery and old deep-link redirects: _shared/brand-page.js.
+// Stable hub: travny.pages.dev. Custom domain aliases redirect to it.
+// Zone redirect rules also cover paths that bypass Functions.
 // Deployment preview aliases stay excluded from search.
 //
 // Preview deployment aliases still serve the Pages output, but responses
@@ -30,7 +29,8 @@ const TV_WORKER = "https://tvpi.travny.workers.dev";
 // Its redirect target must match this primary host.
 // Preview aliases are matched separately, so the primary Pages host
 // is indexable while <hash>.travny.pages.dev remains noindex.
-const REDIRECT_HOSTS = new Set(["tvpi.pages.dev"]);
+const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "trfny.com", "www.trfny.com"]);
+const FEED_ALIAS_HOSTS = new Set(["trfny.com", "www.trfny.com"]);
 const PREVIEW_SUFFIX = ".travny.pages.dev";
 const CANONICAL_HOST = "travny.pages.dev";
 
@@ -244,15 +244,23 @@ function withPreviewNoindex(response, hostname) {
 }
 
 export async function onRequest(context) {
-  const brand = brandResponse(context.request);
-  if (brand) return brand;
   const url = new URL(context.request.url);
+
+  // Mirror the zone rule when a request reaches Functions directly.
+  if (FEED_ALIAS_HOSTS.has(url.hostname) && url.pathname.startsWith("/f/")) {
+    const destination = new URL("https://trvny.github.io");
+    destination.pathname = "/feedseek/" + url.pathname.slice(3);
+    destination.search = url.search;
+    return Response.redirect(destination.href, 301);
+  }
 
   // Permanent, path- and query-preserving move. 301 (not 302) is what lets
   // Search Console transfer ranking signals to the new host; Google asks for
   // these redirects to stay up at least a year after the move.
   if (REDIRECT_HOSTS.has(url.hostname)) {
+    url.protocol = "https:";
     url.hostname = CANONICAL_HOST;
+    url.port = "";
     return Response.redirect(url.toString(), 301);
   }
 

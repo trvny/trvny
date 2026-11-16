@@ -49,3 +49,12 @@ production service binding `HUB_BACKEND` → `travny-hub-backend` and redeploy
 Pages via Cloudflare. Verify `/api/radio-station?station=invalid`: HTTP 400 and
 `x-travny-backend: worker` (no upstream request).
 Rollback: remove binding and rebuild Pages. Local handlers remain available.
+
+### Upstream service bindings
+
+Production Pages bindings: `WEATHER_SERVICE` → `weather`,
+`REACTOR_SERVICE` → `shitpost-reactor` (production environment).
+GET only to fixed public JSON endpoints; 5m named edge cache for successful
+bound responses. Missing/throwing bindings retain public HTTP reads and
+original cache options. No retry for upstream HTTP errors or aborted reads.
+Configure in Cloudflare Pages settings; activate with a native Pages build.

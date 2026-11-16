@@ -220,35 +220,41 @@
         },
         "vercel": {
           "quip": [
-            "inclusionai/ling-3.1-flash-free",
+            "inception/mercury-3",
             "poolside/laguna-s-2.1-free",
-            "alibaba/qwen3.8-omni-flash"
+            "tencent/hy4-flash"
           ],
           "review": [
-            "alibaba/qwen3.8-omni-flash",
-            "tencent/hy3",
-            "poolside/laguna-s-2.1-free",
-            "inclusionai/ling-3.1-flash-free"
+            "tencent/hy4-flash",
+            "xiaomi/mimo-v2.6-flash",
+            "poolside/laguna-s-2.1-free"
           ],
           "judge": [
+            "meta/muse-ember",
+            "tencent/hy4-flash",
+            "poolside/laguna-s-2.1-free"
+          ],
+          "shitpost": [
+            "poolside/laguna-s-2.1-free",
+            "xiaomi/mimo-v2.6-flash",
+            "minimax/minimax-m3.1-flash"
+          ],
+          "general": [
+            "poolside/laguna-s-2.1-free",
+            "tencent/hy4-flash",
+            "inception/mercury-3",
+            "xiaomi/mimo-v2.6-flash",
+            "meta/muse-ember",
+            "minimax/minimax-m3.1-flash",
+            "nvidia/nemotron-3.5-super-vl",
+            "paperinstruments/ultramarine-1-flash",
+            "thinkingmachines/inkling-2-small",
+            "meituan/longcat-2.5",
+            "inclusionai/ling-3.1-flash-1019",
+            "inclusionai/ling-3.1-flash",
             "tencent/hy3",
             "alibaba/qwen3.8-omni-flash",
             "alibaba/qwen3-coder-30b-a3b"
-          ],
-          "shitpost": [
-            "alibaba/qwen3.8-omni-flash",
-            "inclusionai/ling-3.1-flash-free",
-            "poolside/laguna-s-2.1-free",
-            "nvidia/nemotron-3.5-lightning-free",
-            "tencent/hy3"
-          ],
-          "general": [
-            "tencent/hy3",
-            "alibaba/qwen3.8-omni-flash",
-            "alibaba/qwen3-coder-30b-a3b",
-            "inclusionai/ling-3.1-flash-free",
-            "poolside/laguna-s-2.1-free",
-            "nvidia/nemotron-3.5-lightning-free"
           ]
         },
         "ollama": {

@@ -1,16 +1,28 @@
 import { radioNow } from '../functions/api/radio-now.js';
 import { radioStation } from '../functions/api/radio-station.js';
+import { badgeResponse } from '../functions/badge/[[path]].js';
 
 export default {
   async fetch(request) {
-    const pathname = new URL(request.url).pathname.replace(/\/$/, '').toLowerCase();
+    const rawPath = new URL(request.url).pathname.replace(/\/$/, '');
+    const pathname = rawPath.toLowerCase();
+    const badgePath = pathname.startsWith('/badge/') ? rawPath.slice('/badge/'.length) : null;
+    let params;
+    if (badgePath !== null) {
+      try {
+        params = { path: badgePath.split('/').map(decodeURIComponent) };
+      } catch {
+        return new Response('Invalid path', { status: 400 });
+      }
+    }
     const handler = pathname === '/api/radio-now' ? radioNow :
-      pathname === '/api/radio-station' ? radioStation : null;
+      pathname === '/api/radio-station' ? radioStation :
+      badgePath !== null ? badgeResponse : null;
     if (!handler) return new Response('Not found', { status: 404 });
     if (request.method !== 'GET') {
       return new Response('Method not allowed', { status: 405, headers: { allow: 'GET' } });
     }
-    const response = await handler({ request });
+    const response = await handler({ request, params });
     response.headers.set('x-travny-backend', 'worker');
     return response;
   },

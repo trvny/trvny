@@ -8,7 +8,7 @@ const SOURCES = {
 export function serviceFetch(context, name, fetchImpl = fetch) {
   const binding = context?.env?.[name];
   return async (url, init = {}) => {
-    if (!binding || SOURCES[name] !== String(url)) return fetchImpl(url, init);
+    if (!binding || SOURCES[name] !== String(url) || (init.method ?? "GET").toUpperCase() !== "GET") return fetchImpl(url, init);
 
     let cache, key;
     try {
@@ -24,9 +24,12 @@ export function serviceFetch(context, name, fetchImpl = fetch) {
 
     let response;
     try {
-      response = await binding.fetch(url, init);
+      const bindingInit = { ...init };
+      delete bindingInit.cf; // Public-origin cache options; bound reads use the named cache.
+      response = await binding.fetch(url, bindingInit);
     } catch (error) {
       if (init.signal?.aborted) throw error;
+      console.warn("hub_service_binding_unavailable", name);
       return fetchImpl(url, init);
     }
 

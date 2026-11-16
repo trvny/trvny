@@ -8,14 +8,14 @@ const context = env => ({ request: new Request("https://travny.pages.dev/"), env
 
 test("direct bindings receive only their configured public endpoint", async () => {
   const calls = [];
-  const publicFetch = async url => { calls.push(["public", url]); return Response.json({ public: true }); };
+  const publicFetch = async (url, init) => { calls.push(["public", url]); assert.ok(init.cf); return Response.json({ public: true }); };
   const env = {
-    WEATHER_SERVICE: { fetch: async url => { calls.push(["weather", url]); return Response.json({ direct: true }); } },
+    WEATHER_SERVICE: { fetch: async (url, init) => { calls.push(["weather", url]); assert.equal(init.cf, undefined); return Response.json({ direct: true }); } },
     REACTOR_SERVICE: { fetch: async url => { calls.push(["reactor", url]); return Response.json({ direct: true }); } },
   };
-  assert.deepEqual(await (await serviceFetch(context(env), "WEATHER_SERVICE", publicFetch)(weather)).json(), { direct: true });
+  assert.deepEqual(await (await serviceFetch(context(env), "WEATHER_SERVICE", publicFetch)(weather, { cf: { cacheTtl: 300 } })).json(), { direct: true });
   assert.deepEqual(await (await serviceFetch(context(env), "REACTOR_SERVICE", publicFetch)(reactor)).json(), { direct: true });
-  await serviceFetch(context(env), "WEATHER_SERVICE", publicFetch)(reactor);
+  await serviceFetch(context(env), "WEATHER_SERVICE", publicFetch)(reactor, { cf: { cacheTtl: 300 } });
   assert.deepEqual(calls, [["weather", weather], ["reactor", reactor], ["public", reactor]]);
 });
 

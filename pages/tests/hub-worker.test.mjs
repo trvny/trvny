@@ -80,8 +80,13 @@ test('public Pages HEAD routes preserve status and headers with old, missing or 
     [await import('../functions/api/radio-station.js'), '/api/radio-station?station=invalid', {}],
     [await import('../functions/badge/[[path]].js'), '/badge/twojstar.svg', { path: ['twojstar.svg'] }],
   ];
+  const old = { fetch(request) {
+    if (new URL(request.url).pathname.startsWith('/badge/')) return new Response('Not found', { status: 404 });
+    if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { allow: 'GET' } });
+    return worker.fetch(request);
+  } };
   for (const [route, path, params] of routes) {
-    for (const env of [{}, { HUB_BACKEND: worker }]) {
+    for (const env of [{}, { HUB_BACKEND: old }, { HUB_BACKEND: worker }]) {
       const url = 'https://travny.pages.dev' + path;
       const get = await route.onRequestGet({ request: new Request(url), params, env });
       const head = await route.onRequestHead({ request: new Request(url, { method: 'HEAD' }), params, env });

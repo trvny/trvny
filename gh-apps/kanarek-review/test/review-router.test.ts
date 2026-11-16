@@ -2596,6 +2596,9 @@ test('explicit review order tries Vercel Hy3 before Groq', async () => {
 
 test('Vercel reasoning-capable fallbacks get high reasoning and the shared floor', async () => {
   for (const model of [
+    'tencent/hy4-flash',
+    'paperinstruments/ultramarine-1-flash',
+    'thinkingmachines/inkling-2-small',
     'alibaba/qwen3.8-omni-flash',
     'inclusionai/ling-3.1-flash-free',
     'poolside/laguna-s-2.1-free',

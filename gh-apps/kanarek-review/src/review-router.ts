@@ -75,12 +75,18 @@ type FreeTaskProfileId = 'general' | 'quip' | 'review' | 'judge' | 'shitpost';
 
 const HIGH_REASONING_TASKS = new Set<FreeTaskProfileId>(['review', 'judge', 'shitpost']);
 const VERCEL_REASONING_MODELS = new Set<string>([
+  'tencent/hy4-flash',
+  'paperinstruments/ultramarine-1-flash',
+  'thinkingmachines/inkling-2-small',
   'tencent/hy3',
   'alibaba/qwen3.8-omni-flash',
   'inclusionai/ling-3.1-flash-free',
   'poolside/laguna-s-2.1-free',
 ]);
 const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
+  ['tencent/hy4-flash', 65_536],
+  ['paperinstruments/ultramarine-1-flash', 131_000],
+  ['thinkingmachines/inkling-2-small', 262_144],
   ['alibaba/qwen3.8-omni-flash', 131_072],
   ['alibaba/qwen3-coder-30b-a3b', 8_192],
   ['inclusionai/ling-3.1-flash-free', 32_768],

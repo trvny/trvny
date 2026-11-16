@@ -222,27 +222,27 @@
           "quip": [
             "inclusionai/ling-3.1-flash-free",
             "poolside/laguna-s-2.1-free",
-            "alibaba/qwen3.8-omni-flash"
+            "tencent/hy4-flash"
           ],
           "review": [
-            "alibaba/qwen3.8-omni-flash",
-            "tencent/hy3",
-            "poolside/laguna-s-2.1-free",
-            "inclusionai/ling-3.1-flash-free"
+            "tencent/hy4-flash",
+            "paperinstruments/ultramarine-1-flash",
+            "thinkingmachines/inkling-2-small"
           ],
           "judge": [
-            "tencent/hy3",
-            "alibaba/qwen3.8-omni-flash",
-            "alibaba/qwen3-coder-30b-a3b"
-          ],
-          "shitpost": [
-            "alibaba/qwen3.8-omni-flash",
-            "inclusionai/ling-3.1-flash-free",
-            "poolside/laguna-s-2.1-free",
-            "nvidia/nemotron-3.5-lightning-free",
+            "tencent/hy4-flash",
+            "paperinstruments/ultramarine-1-flash",
             "tencent/hy3"
           ],
+          "shitpost": [
+            "tencent/hy4-flash",
+            "alibaba/qwen3.8-omni-flash",
+            "inclusionai/ling-3.1-flash-free"
+          ],
           "general": [
+            "tencent/hy4-flash",
+            "paperinstruments/ultramarine-1-flash",
+            "thinkingmachines/inkling-2-small",
             "tencent/hy3",
             "alibaba/qwen3.8-omni-flash",
             "alibaba/qwen3-coder-30b-a3b",

@@ -211,7 +211,7 @@ payload lists the effective general and task queues in
 signal reflects configuration/cooldowns rather than a guaranteed successful
 inference. Paid providers follow their own explicitly configured order.
 
-Vercel AI Gateway is intentionally classifiedVercel AI Gateway is intentionally classified as `monthly-free-credit`. The
+Vercel AI Gateway is intentionally classified as `monthly-free-credit`. The
 account-level $5/month spend cap is the guardrail, so both zero-price models and
 models consuming that included monthly allowance are part of the free budget.
 The cap stays enforced at Vercel instead of being duplicated here.
@@ -236,7 +236,10 @@ sampling, thinking-budget, and candidate-count fields inherited from shared
 OpenAI-compatible callers. DeepSeek keeps its separate high-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
 headroom, but production keeps it disabled while the account neuron budget belongs to Botek.
 
-Vercel AI Gateway uses a model chain rather than one fixed model. Hy3
+Vercel AI Gateway uses a model chain rather than one fixed model. HY4 Flash,
+Ultramarine 1 Flash and Inkling 2 Small join the credit-backed reasoning pool.
+Parallel Decisions Fast is web-grounded, not a code-only L2 judge; keep it out
+of review prompts. Its free promotion ends 2026-11-23. Hy3
 (`tencent/hy3`), Qwen 3.8 Omni, Ling 3.1 Flash, and Laguna S 2.1 receive the
 shared reasoning policy when used by a reasoning-heavy task. Hy3 alone keeps
 Tencent's recommended `temperature: 0.9` / `top_p: 1.0` sampling overrides.

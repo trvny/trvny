@@ -22,9 +22,10 @@ function decodeRaw(payload: string, preamble: RegExpMatchArray): unknown {
   const parts = (payload.slice(preamble[0].length) + eol).split(delimiter);
   const header = parts.shift();
   if (header === undefined || (parts.length > 0 &&
-    (parts.pop() !== '' || !parts.length || parts.length > MAX_RAW_BLOCKS))) {
+    (parts.pop() !== '' || parts.length > MAX_RAW_BLOCKS))) {
     throw new Error('invalid_comment_raw_framing');
   }
+  // A lone closing marker is harmless with zero blocks. References still require a block.
   const command = decodeJson(header);
   if (!record(command)) throw new Error('invalid_comment_raw_header');
   const used = new Set<number>();

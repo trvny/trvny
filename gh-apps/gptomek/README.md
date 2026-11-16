@@ -44,7 +44,8 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
    ````
 
    Replace placeholders with live values. Follow the [framing rules](docs/REFERENCE.md#raw-text-blocks).
-   No raw blocks? Close the fence after the JSON header. Never edit old commands.
+   No raw blocks (e.g. `commit_tree`)? Close the fence after JSON; no markers.
+   Never edit old commands.
 4. **Verify:** keep the comment ID. Check its Actions run and live state.
    Success normally deletes the comment; 👎 means rejection or unconfirmed
    transport, not proof that no write occurred. Do not resubmit blindly.
@@ -61,7 +62,8 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
   See [replay rules](docs/REFERENCE.md#command-model).
 - Existing branch: fresh `expectedHeadSha` before **each** write. New branch
   from patch: immutable `baseSha`. Batch: `steps`, 1–10, no inner `id` or
-  `repository`, no rollback. Omit completed steps before changing a retry.
+  `repository`, no rollback. Count replies and reactions separately; split >10
+  into fresh batches. Omit completed steps before changing a retry.
 - [Adopt branch](docs/REFERENCE.md#adopt-a-prepared-branch): after `git`/`gh`
   or non-GPTomek commits, consolidate the pushed final tree into one GPTomek
   commit. Use PR merge base + live `expectedHeadSha`; pause other writers.

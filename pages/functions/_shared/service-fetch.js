@@ -3,6 +3,8 @@
 import { SHITPOST_FEED_URL } from "./shitpost.js";
 
 export const WEATHER_STATE_URL = "https://weather.travny.workers.dev/state.json";
+const CACHE_TTL = 300;
+const CACHED_AT = "x-travny-cached-at";
 const SOURCES = {
   WEATHER_SERVICE: WEATHER_STATE_URL,
   REACTOR_SERVICE: SHITPOST_FEED_URL,
@@ -19,7 +21,12 @@ export function serviceFetch(context, name, fetchImpl = fetch) {
       if (cache) {
         key = new Request("https://travny.pages.dev/__hub-cache/" + name);
         const hit = await cache.match(key);
-        if (hit) return hit;
+        if (hit) {
+          const stored = Number(hit.headers.get(CACHED_AT));
+          const age = Date.now() - stored;
+          if (stored > 0 && age >= 0 && age < CACHE_TTL * 1000) return hit;
+          await hit.body?.cancel();
+        }
       }
     } catch (error) {
       console.warn("hub_cache_unavailable", name, error instanceof Error ? error.name : "unknown");
@@ -40,7 +47,11 @@ export function serviceFetch(context, name, fetchImpl = fetch) {
     if (response.status === 200 && cache && key) {
       const copy = response.clone();
       const headers = new Headers(copy.headers);
-      headers.set("cache-control", "public, max-age=300");
+      headers.delete("age");
+      headers.delete("expires");
+      headers.set("date", new Date().toUTCString());
+      headers.set(CACHED_AT, String(Date.now()));
+      headers.set("cache-control", "public, max-age=" + CACHE_TTL);
       const task = cache.put(key, new Response(copy.body, {
         status: copy.status, headers,
       })).catch(error => {

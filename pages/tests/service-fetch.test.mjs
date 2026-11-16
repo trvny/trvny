@@ -57,4 +57,9 @@ test("public successful reads share a 5-minute cache across hub pages", async t 
   assert.equal(hit.headers.get("cache-control"), "public, max-age=300");
   assert.deepEqual(await hit.json(), { state: "ok" });
   assert.equal(calls, 2);
+  const stale = cached.values().next().value;
+  stale.headers.set("x-travny-cached-at", String(Date.now() - 301000));
+  env.WEATHER_SERVICE.fetch = async () => { calls++; return Response.json({ state: "fresh" }); };
+  assert.deepEqual(await (await fetchWeather(weather)).json(), { state: "fresh" });
+  assert.equal(calls, 3);
 });

@@ -16,7 +16,7 @@ test('Reactor exposes a read-only WebMCP tool with bounded public feed access', 
     document: { modelContext: { registerTool: (tool, options) => tools.push({ tool, options }) } },
     fetch: async (path) => {
       assert.equal(path, '/feed.json');
-      return Response.json({ items: [{ title: 'satire', summary: 'x'.repeat(300), url: 'https://example.test/post' }] });
+      return Response.json({ items: Array.from({ length: 7 }, () => ({ title: 'satire', summary: 'x'.repeat(300), url: 'https://example.test/post' })) });
     },
   };
   runInNewContext(WEBMCP_SCRIPT, sandbox);
@@ -25,7 +25,9 @@ test('Reactor exposes a read-only WebMCP tool with bounded public feed access', 
   assert.equal(tool.name, 'read_reactor_posts');
   assert.equal(tool.annotations.readOnlyHint, true);
   assert.equal((await tool.execute({ limit: 6 })).ok, false);
+  assert.equal((await tool.execute({ limit: 5 })).items.length, 5);
   const result = await tool.execute({ limit: 1 });
+  assert.equal(result.items.length, 1);
   assert.equal(result.items[0].summary.length, 240);
   const cached = new Event('pagehide');
   cached.persisted = true;

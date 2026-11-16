@@ -612,7 +612,7 @@ Canonical pages, feed links, publishing and discovery use the Workers origin ind
 
 ## WebMCP
 
-In compatible browsers, `read_reactor_posts` reads recent public satire (read-only, maximum five entries). No publishing or private editorial data.
+In compatible browsers, \`read_reactor_posts\` reads recent public satire (read-only, maximum five entries). No publishing or private editorial data.
 
 ## Discovery
 

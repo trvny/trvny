@@ -240,8 +240,8 @@ Vercel AI Gateway uses a model chain rather than one fixed model. HY4 Flash,
 Ultramarine 1 Flash and Inkling 2 Small join the credit-backed reasoning pool.
 Prefer affordable task models and keep Laguna Free within the three-request
 cap. General holds backups, not an unlimited sweep. Expired Ling Free replaced
-by credit-backed Ling variants; NVIDIA Lightning Free is trial-only and not
-used by automated tasks. Muse Spark Open is omitted for cost.
+by credit-backed Ling variants; the Vercel NVIDIA Lightning Free endpoint is
+trial-only and omitted from Vercel routing. Muse Spark Open is omitted for cost.
 Parallel Decisions Fast is web-grounded, not a code-only L2 judge; keep it out
 of review prompts. Its free promotion ends 2026-11-23. Hy3
 (`tencent/hy3`), Qwen 3.8 Omni, Ling 3.1 Flash, and Laguna S 2.1 receive the

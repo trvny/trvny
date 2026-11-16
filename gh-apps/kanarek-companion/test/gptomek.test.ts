@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   commandMarker,
+  createGitObject,
   deleteBranch,
   handleGptomekControl,
   isGptomekControlPr,
@@ -268,4 +269,41 @@ test('preserves existing co-authors and avoids duplicate connector trailers', ()
   assert.equal(withCodexCoauthor(`${withBoth}\n\n`), withBoth);
   const withChangeId = `${withClaude}\nChange-Id: I12345`;
   assert.equal(withCodexCoauthor(withChangeId), `${withChangeId}\n${connectorTrailer}`);
+});
+
+test('retries identical immutable Git object writes on transient HTTP errors', async () => {
+  for (const kind of ['blob', 'tree'] as const) {
+    const calls: Array<{ path: string; operation: string; body: unknown }> = [];
+    const client = {
+      async json<T>(path: string, operation: string, init: RequestInit): Promise<T> {
+        assert.equal(init.method, 'POST');
+        calls.push({ path, operation, body: init.body });
+        if (calls.length < 3) throw new GitHubApiError(operation, calls.length === 1 ? 500 : 503);
+        return { sha: 'a'.repeat(40) } as T;
+      },
+    } as unknown as GitHubInstallationClient;
+    const result = await createGitObject(client, 'trvny/trvny', kind, { test: kind });
+    assert.equal(result.sha, 'a'.repeat(40));
+    assert.equal(calls.length, 3);
+    assert.deepEqual(calls, Array.from({ length: 3 }, () => ({
+      path: `/repos/trvny/trvny/git/${kind}s`,
+      operation: `gptomek_create_${kind}`,
+      body: JSON.stringify({ test: kind }),
+    })));
+  }
+});
+
+test('Git object retry is bounded and does not retry non-transient statuses', async () => {
+  for (const status of [403, 422, 500]) {
+    let calls = 0;
+    const client = {
+      async json<T>(_path: string, operation: string): Promise<T> {
+        calls += 1;
+        throw new GitHubApiError(operation, status);
+      },
+    } as unknown as GitHubInstallationClient;
+    await assert.rejects(createGitObject(client, 'trvny/trvny', 'tree', {}),
+      (error: unknown) => error instanceof GitHubApiError && error.status === status);
+    assert.equal(calls, status === 500 ? 3 : 1);
+  }
 });

@@ -88,3 +88,7 @@ worker-configuration.d.ts
 /pages/site/assets/vendor/
 /pages/astro/.astro/
 /pages/site/assets/badge-previews/
+
+# Generated Pages deployment metadata
+/pages/site/_routes.json
+/pages/site/_headers

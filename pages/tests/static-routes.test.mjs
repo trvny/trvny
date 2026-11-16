@@ -19,14 +19,24 @@ test('HTML, discovery, redirects and dynamic endpoints retain middleware', () =>
   for (const path of [
     '/', '/index.html', '/tv', '/tv/', '/tv/index.html',
     '/lab/', '/lab/example/', '/przeglad/2026-11-16/',
-    '/papagenerator/', '/papagenerator/index.html',
-    '/teksty/', '/teksty/githubowa-kraina/universe.html',
+    '/teksty/',
     '/teksty/grass-mud-horse-pl/', '/teksty/token-worldcup/token-worldcup.html',
     '/robots.txt', '/sitemap.xml', '/llms.txt', '/favicon.ico',
     '/badge/index.json', '/badge/status/hub.svg', '/badge/model/gpt-6.svg',
-    '/badges/', '/weather', '/api/radio-now', '/api/radio-station',
+    '/weather', '/api/radio-now', '/api/radio-station',
     '/teksty/feed.xml', '/not-found',
   ]) {
     assert.equal(invokes(path), true, path);
   }
+});
+
+test('prerendered HTML aliases bypass Functions with existing redirects preserved', () => {
+  for (const path of [
+    '/papagenerator', '/papagenerator/', '/papagenerator/index.html',
+    '/teksty/githubowa-kraina', '/teksty/githubowa-kraina/', '/teksty/githubowa-kraina/index.html',
+    '/teksty/githubowa-kraina/universe', '/teksty/githubowa-kraina/universe.html',
+    '/teksty/token-worldcup', '/teksty/token-worldcup/', '/teksty/token-worldcup/index.html',
+    '/teksty/token-worldcup/effort-matrix', '/teksty/token-worldcup/effort-matrix.html',
+    '/badges', '/badges/', '/badges/index.html',
+  ]) assert.equal(invokes(path), false, path);
 });

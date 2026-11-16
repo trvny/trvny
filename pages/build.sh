@@ -27,3 +27,6 @@ node scripts/sitemap-variants.mjs
 
 # Pre-render default badges for the catalogue; live and custom routes stay dynamic.
 node scripts/build-badge-previews.mjs
+
+# Static HTML: common navigation, SEO, headers and exact route exclusions.
+node scripts/prerender-static.mjs

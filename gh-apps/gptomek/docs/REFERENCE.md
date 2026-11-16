@@ -44,7 +44,9 @@ One wire format for every operation, including batches:
    (including `operator_action.body`) in JSON. Each block referenced once.
 3. Put `--<boundary>--` on its own line before, between and after blocks.
    Choose a boundary absent from the content as a marker line. With no blocks,
-   close the fence directly after the JSON. Use consistent framing EOL (LF or
+   close the fence directly after the JSON (e.g. `commit_tree`). A single
+   redundant marker is tolerated for zero blocks, not missing references.
+   Use consistent framing EOL (LF or
    CRLF); preserve the raw text exactly. The EOL immediately before a marker
    is framing, not content: extra blank line for a final EOL or empty block.
 4. Close the fence. Send exact source, not rendered Markdown; no escaping,
@@ -494,7 +496,8 @@ raw-v1 example123
   `patch_context_mismatch`, `patch_old_eof_mismatch`): regenerate diff on exact
   base; preserve EOF.
 - **`batch_command_id_too_long`:** batch `id` exceeds 90 characters.
-- **`invalid_batch_steps`:** `steps` array (1–10), no inner `id` or
+- **`invalid_batch_steps`:** split into batches of at most 10 operations.
+  Count each reply and reaction as a separate step. No inner `id` or
   `repository`.
 - **`gptomek_create_blob:500` / `gptomek_create_tree:500`:** GitHub Git-object
   API fault; inspect live branch before retrying.

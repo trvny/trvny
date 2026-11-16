@@ -72,7 +72,7 @@ test('bounds and dangling delimiters are rejected before execution', () => {
     assert.throws(() => decodeGptomekComment(raw(common).replace(boundary, invalid)), /invalid_comment_raw_framing/);
   }
   assert.throws(() => decodeGptomekComment(raw(common, ...Array(321).fill('x'))), /invalid_comment_raw_framing/);
-  assert.throws(() => decodeGptomekComment(raw(common).replace('\n```', marker + '```')), /invalid_comment_raw_framing/);
+  assert.throws(() => decodeGptomekComment(raw(common).replace('\n```', marker + 'unterminated\n```')), /invalid_comment_raw_framing/);
 });
 
 test('audit identifies valid envelopes and malformed raw preambles', () => {
@@ -82,4 +82,15 @@ test('audit identifies valid envelopes and malformed raw preambles', () => {
   assert.equal(commentWireFormat(raw(common).replaceAll('\n', '\r\n')), 'raw-v1');
   assert.equal(commentWireFormat(raw(common) + '\nextra'), 'unknown');
   assert.equal(commentWireFormat('unrelated comment'), 'unknown');
+});
+
+test('one redundant marker on a header-only command is harmless', () => {
+  const command = { ...common, op: 'commit_tree', entries: [{ path: 'x', sha: 'b'.repeat(40) }] };
+  const marked = raw(command).replace('\n```', marker + '```');
+  assert.deepEqual(decodeGptomekComment(marked), command);
+  assert.deepEqual(decodeGptomekComment(marked.replaceAll('\n', '\r\n')), command);
+  const missing = raw({ ...common, op: 'apply_patch', patch: { raw: 1 } }).replace('\n```', marker + '```');
+  assert.throws(() => decodeGptomekComment(missing), /invalid_comment_raw_reference/);
+  assert.throws(() => decodeGptomekComment(raw(command, '')), /invalid_comment_raw_unused_block/);
+  assert.throws(() => decodeGptomekComment(marked.replace('\n```', marker + '```')), /invalid_comment_raw_framing/);
 });

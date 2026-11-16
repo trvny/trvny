@@ -8,11 +8,13 @@ test('Pages forwards the original request and response via the private binding',
   for (const [handler, path] of [[now, '/api/radio-now'], [station, '/api/radio-station?station=bbc1']]) {
     const request = new Request('https://travny.pages.dev' + path);
     const response = new Response('bound', { status: 502, headers: { 'cache-control': 'no-store' } });
+    let received;
     const env = { HUB_BACKEND: { fetch: incoming => {
-      assert.equal(incoming, request);
+      received = incoming;
       return response;
     } } };
     assert.equal(await handler({ request, env }), response);
+    assert.equal(received, request);
   }
 });
 
@@ -31,11 +33,11 @@ test('Worker dispatches only known GET routes and preserves query parameters', a
   const fetchMock = t.mock.method(globalThis, 'fetch', () => Promise.resolve(Response.json({ title: 'Song', artist: 'Artist' })));
   assert.equal((await worker.fetch(request('/assets/radio.js'))).status, 404);
   assert.equal((await worker.fetch(request('/api/radio-now', 'POST'))).status, 405);
-  const invalid = await worker.fetch(request('/api/radio-station?station=bad'));
+  const invalid = await worker.fetch(request('/API/radio-station/?station=bad'));
   assert.equal(invalid.status, 400);
   assert.equal(invalid.headers.get('x-travny-backend'), 'worker');
   assert.equal(fetchMock.mock.callCount(), 0);
-  const result = await worker.fetch(request('/api/radio-now'));
+  const result = await worker.fetch(request('/api/radio-now/'));
   assert.equal(result.status, 200);
   assert.equal(result.headers.get('x-travny-backend'), 'worker');
   assert.equal(result.headers.get('access-control-allow-origin'), 'https://tg-assistant.travny.workers.dev');

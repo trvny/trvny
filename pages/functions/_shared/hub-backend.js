@@ -3,8 +3,8 @@ export async function forwardHubRequest(context, local) {
   if (context.env?.HUB_BACKEND && context.request) {
     try {
       return await context.env.HUB_BACKEND.fetch(context.request);
-    } catch {
-      // Binding unavailable. Preserve the existing endpoint contract.
+    } catch (error) {
+      console.warn('Hub binding unavailable; using local radio handler', error instanceof Error ? error.name : 'unknown');
     }
   }
   return local(context);

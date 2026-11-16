@@ -1,9 +1,9 @@
-import { onRequestGet as radioNow } from '../functions/_shared/radio-now.js';
-import { onRequestGet as radioStation } from '../functions/_shared/radio-station.js';
+import { radioNow } from '../functions/_shared/radio-now.js';
+import { radioStation } from '../functions/_shared/radio-station.js';
 
 export default {
   async fetch(request) {
-    const { pathname } = new URL(request.url);
+    const pathname = new URL(request.url).pathname.replace(/\/$/, '').toLowerCase();
     const handler = pathname === '/api/radio-now' ? radioNow :
       pathname === '/api/radio-station' ? radioStation : null;
     if (!handler) return new Response('Not found', { status: 404 });

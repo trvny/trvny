@@ -1,4 +1,4 @@
-// Flat config for the Pages Functions in functions/.
+// Flat config for Pages Functions and the hub Worker.
 //
 // Run by .github/workflows/travny-pages.yml (repo MegaLinter has no
 // JAVASCRIPT_ES). Dependency-free: no imports, no install step.
@@ -30,7 +30,7 @@ const workerGlobals = Object.fromEntries(
 
 export default [
   {
-    // Everything that is not a Pages Function: linted elsewhere or not at all.
+    // Generated site output and dependencies: linted elsewhere or not at all.
     ignores: ["site/**", "node_modules/**"],
   },
   {

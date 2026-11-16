@@ -30,14 +30,23 @@ node --test tests/*.test.mjs
 
 Pages owns public URLs, static assets, HTML middleware, SEO and redirects.
 Private Worker owns radio metadata routes; Pages delegates only these GET
-endpoints via `HUB_BACKEND`. No public Worker hostname. Missing or failed
-binding falls back to the same shared implementation; no duplicate logic.
+endpoints via `HUB_BACKEND`. No public Worker hostname. Missing binding or
+binding fetch exception falls back to the same shared implementation.
+Worker HTTP responses (including upstream errors) pass through unchanged.
 Radio audio remains direct to station providers.
 
-[Hub backend CI](../.github/workflows/hub-backend.yml): tests and Worker dry
-run on PRs; main deploys Worker and configures the production binding if
-missing, then requests a Pages redeploy if the live binding probe fails.
-Existing bindings preserved. Probe: invalid radio station, HTTP 400 and
-`x-travny-backend: worker`; no upstream request.
-To roll back, remove `HUB_BACKEND` from Pages and redeploy; local handlers
-remain available. Disable the backend workflow first if rolling back the binding.
+Cloudflare Builds settings for `travny-hub-backend`:
+
+- Git: `trvny/trvny`, branch `main`, root `pages/worker`; previews disabled.
+- Build: `sh check.sh`; Node 24.
+- Deploy: `npx --yes wrangler@4.160.0 deploy`.
+- Watch: `pages/worker/**`, `pages/functions/_shared/radio-*.js`,
+  `pages/functions/api/**`, `pages/functions/_shared/hub-backend.js`,
+  `pages/tests/radio*.test.mjs`, `pages/tests/hub-worker.test.mjs`,
+  `pages/eslint.config.mjs`.
+
+Pages keeps its existing Git build. After first successful Worker build, add
+production service binding `HUB_BACKEND` → `travny-hub-backend` and redeploy
+Pages via Cloudflare. Verify `/api/radio-station?station=invalid`: HTTP 400 and
+`x-travny-backend: worker` (no upstream request).
+Rollback: remove binding and rebuild Pages. Local handlers remain available.

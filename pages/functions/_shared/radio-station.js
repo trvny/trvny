@@ -74,7 +74,7 @@ function polishTrack(data, station, now) {
   if (active?.title) return {title:active.title,artist:'Live programme',album:'',cover:'',kind:'programme'};
   return null;
 }
-export async function onRequestGet({ request }) {
+export async function radioStation({ request }) {
   const station=new URL(request.url).searchParams.get('station');
   if (!['trojka','czworka','bbc1'].includes(station)) return Response.json({error:'unknown_station'},{status:400,headers:{'cache-control':'no-store'}});
   const {day,wallTime:now,ambiguous}=localClock(new Date());

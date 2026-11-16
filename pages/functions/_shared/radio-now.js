@@ -36,7 +36,7 @@ function coverUrl(value) {
   } catch { return ""; }
 }
 
-export async function onRequestGet() {
+export async function radioNow() {
   try {
     const upstream = await fetch(UPSTREAM, {
       signal: AbortSignal.timeout(6000),

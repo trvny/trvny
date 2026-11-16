@@ -11,3 +11,10 @@ export async function forwardHubRequest(context, local, { fallbackOnMissingRoute
   }
   return local(context);
 }
+
+// Explicit Pages HEAD handlers preserve GET headers even with the local fallback.
+export async function hubHead(context, get) {
+  const response = await get(context);
+  await response.body?.cancel();
+  return new Response(null, { status: response.status, headers: response.headers });
+}

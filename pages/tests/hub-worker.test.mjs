@@ -72,3 +72,22 @@ test('Worker HEAD preserves GET status and headers without a response body', asy
     assert.equal(await head.text(), '');
   }
 });
+
+test('public Pages HEAD routes preserve status and headers with old, missing or current bindings', async t => {
+  t.mock.method(globalThis, 'fetch', () => Promise.resolve(Response.json({ title: 'Song', artist: 'Artist' })));
+  const routes = [
+    [await import('../functions/api/radio-now.js'), '/api/radio-now', {}],
+    [await import('../functions/api/radio-station.js'), '/api/radio-station?station=invalid', {}],
+    [await import('../functions/badge/[[path]].js'), '/badge/twojstar.svg', { path: ['twojstar.svg'] }],
+  ];
+  for (const [route, path, params] of routes) {
+    for (const env of [{}, { HUB_BACKEND: worker }]) {
+      const url = 'https://travny.pages.dev' + path;
+      const get = await route.onRequestGet({ request: new Request(url), params, env });
+      const head = await route.onRequestHead({ request: new Request(url, { method: 'HEAD' }), params, env });
+      assert.equal(head.status, get.status);
+      assert.deepEqual([...head.headers], [...get.headers]);
+      assert.equal(await head.text(), '');
+    }
+  }
+});

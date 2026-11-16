@@ -11,7 +11,7 @@
 import { BRANDS, cleanLabel, iconParts, iconUrl, modelStyle, placeIcon, renderBadge, renderMark } from "../_shared/badge.js";
 import { COUNTERS, ECO, MARKS, OCTICONS_VERSION, OCTICON_NAME, PALETTE, STATUS, fetchText, octiconUrl, paletteColour, textFor } from "../_shared/eco.js";
 import { LOBE_VERSION } from "../_shared/model-icons.js";
-import { forwardHubRequest } from "../_shared/hub-backend.js";
+import { forwardHubRequest, hubHead } from "../_shared/hub-backend.js";
 
 const MAX_LABEL = 40;
 const MAX_ID = 120;
@@ -166,4 +166,8 @@ export async function badgeResponse(context, fetchImpl = fetch) {
     ttl = 120;
   }
   return svgResponse(renderBadge(spec), { ttl });
+}
+
+export function onRequestHead(context) {
+  return hubHead(context, onRequestGet);
 }

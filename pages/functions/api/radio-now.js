@@ -1,4 +1,4 @@
-import { forwardHubRequest } from '../_shared/hub-backend.js';
+import { forwardHubRequest, hubHead } from '../_shared/hub-backend.js';
 
 const UPSTREAM = "https://api.radioparadise.com/api/now_playing?chan=0";
 const MAX_BYTES = 32768;
@@ -59,4 +59,8 @@ export async function radioNow() {
   } catch {
     return Response.json({ error: "metadata_unavailable" }, { status: 502, headers: { "access-control-allow-origin": BOTEK_ORIGIN, "cache-control": "no-store" } });
   }
+}
+
+export function onRequestHead(context) {
+  return hubHead(context, onRequestGet);
 }

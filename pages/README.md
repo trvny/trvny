@@ -34,7 +34,8 @@ extension globs: dynamic SVG badges and JSON routes share those extensions.
 Live zone redirect `c61b0c373e274a0bb58ab50d0f8f14dd` covers `trfny.com`
 and `www.trfny.com`, except `/f/*`; 301 to `travny.pages.dev`, path/query kept.
 Keep this rule while static paths bypass middleware. `tvpi.pages.dev` uses
-its own Pages project. [Pages preview deployments default to `noindex`](https://developers.cloudflare.com/pages/configuration/preview-deployments/#preview-indexing-by-search-engines), independent of middleware.
+its own Pages project. Cloudflare Pages defaults to `X-Robots-Tag: noindex`
+for preview deployments, independent of middleware.
 
 ## Hub backend
 

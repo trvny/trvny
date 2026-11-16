@@ -1,5 +1,5 @@
 import { readJson } from './radio-now.js';
-import { forwardHubRequest } from '../_shared/hub-backend.js';
+import { forwardHubRequest, hubHead } from '../_shared/hub-backend.js';
 
 const BBC = 'https://rms.api.bbc.co.uk/v2/services/bbc_radio_one/segments/latest?experience=domestic&offset=0&limit=1';
 const MAX_BYTES = 512 * 1024;
@@ -103,4 +103,8 @@ export async function radioStation({ request }) {
   } catch {
     return Response.json({error:'metadata_unavailable'}, {status:502,headers:{'cache-control':'no-store'}});
   }
+}
+
+export function onRequestHead(context) {
+  return hubHead(context, onRequestGet);
 }

@@ -530,8 +530,8 @@ export function renderJsonFeed(posts) {
   }, null, 2)}\n`;
 }
 
-function renderSitemap(entries) {
-  const urls = [`  <url><loc>${escapeXml(`${SITE_URL}/`)}</loc></url>`, `  <url><loc>${escapeXml(`${SITE_URL}/archive`)}</loc></url>`, ...entries.map((entry) => `  <url><loc>${escapeXml(`${SITE_URL}/posts/${entry.id}`)}</loc><lastmod>${escapeXml(entry.published_at)}</lastmod></url>`)].join('\n');
+function renderSitemap() {
+  const urls = ['/', '/archive'].map((path) => `  <url><loc>${escapeXml(SITE_URL + path)}</loc></url>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
@@ -894,13 +894,9 @@ async function handleGet(url, env) {
     return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
   }
 
-  // The sitemap uses the complete archive index, not the 50-post feed window.
-  // IDs and timestamps are sufficient; no post body reads are needed.
+  // Stable discovery pages only. Posts remain discoverable via archive and feeds.
   if (url.pathname === '/sitemap.xml') {
-    const entries = await readCompleteIndex(env);
-    return response(renderSitemap(entries), 'application/xml; charset=utf-8', {
-      lastModified: entries[0]?.published_at,
-    });
+    return response(renderSitemap(), 'application/xml; charset=utf-8', { cache: 'public, max-age=3600' });
   }
 
   const posts = await readPosts(env);

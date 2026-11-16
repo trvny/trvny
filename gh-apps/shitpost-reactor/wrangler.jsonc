@@ -5,6 +5,9 @@
   "compatibility_date": "2026-10-31",
   "workers_dev": true,
   "preview_urls": false,
+  "issue_detection": {
+      "enabled": true
+    },
   "routes": [
     {
       "pattern": "shitpost.trfny.com",

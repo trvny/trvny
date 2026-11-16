@@ -21,6 +21,9 @@ test("build emits static previews without replacing public badge paths or live p
   assert.equal(brand.path, "/badge/twojstar.svg");
   assert.equal(brand.preview, "/assets/badge-previews/twojstar.svg");
   assert.match(await readFile(new URL("twojstar.svg", dir), "utf8"), />twojstar<\/text>/);
+  const cloudflare = bySlug.get("cloudflare");
+  assert.equal(cloudflare.preview, "/assets/badge-previews/cloudflare.svg");
+  assert.match(await readFile(new URL("cloudflare.svg", dir), "utf8"), />Cloudflare<\/text>/);
   assert.equal(bySlug.get("feedseek").preview, undefined);
   assert.equal(bySlug.get("status/kanarek").preview, undefined);
   assert.equal(bySlug.get("tvpi/channels").preview, undefined);

@@ -88,3 +88,6 @@ worker-configuration.d.ts
 /pages/site/assets/vendor/
 /pages/astro/.astro/
 /pages/site/assets/badge-previews/
+
+# Generated Pages response headers
+/pages/site/_headers

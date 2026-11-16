@@ -9,7 +9,7 @@
 | Concern | Maintained source / output |
 | --- | --- |
 | Hub | `site/index.html`, `site/assets/tokens.css`; existing HTML preserved |
-| Pages Functions / redirects | `functions/`; brand-only `trfny.com` homepage, robots and sitemap; other deep paths redirect to the canonical hub |
+| Pages Functions / redirects | `functions/`; custom-domain aliases redirect to the canonical hub or Feedseek |
 | Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests join one `/teksty/` stream/feed |
 | Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
 | Papagenerator | [`papagenerator/`](papagenerator/README.md); local runtime copied by `build.sh` to `site/papagenerator/` |

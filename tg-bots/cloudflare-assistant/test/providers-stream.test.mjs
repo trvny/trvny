@@ -11,7 +11,7 @@ import {
   workersAiAvailable,
 } from "../src/providers.ts";
 
-function envWithRouter(fetcher, aiRun = async () => ({ response: "local fallback" })) {
+function envWithRouter(fetcher, aiRun = async () => { throw new Error("local unavailable"); }) {
   return {
     KANAREK_REVIEW_ROUTER_TOKEN: "router-token",
     KANAREK_COMPANION: { fetch: fetcher },
@@ -104,10 +104,11 @@ test("does not use local Workers AI when disabled", async () => {
   assert.equal(localCalls, 0);
 });
 
-test("falls back to the local Workers AI binding when the router fails", async () => {
+test("uses local Workers AI first without calling the router", async () => {
   let localCalls = 0;
+  let routerCalls = 0;
   const env = envWithRouter(
-    async () => new Response("router unavailable", { status: 502 }),
+    async () => { routerCalls += 1; return new Response("router unavailable", { status: 502 }); },
     async () => {
       localCalls += 1;
       return { response: "local answer" };
@@ -117,6 +118,7 @@ test("falls back to the local Workers AI binding when the router fails", async (
   const result = await chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
 
   assert.equal(localCalls, 1);
+  assert.equal(routerCalls, 0);
   assert.deepEqual(result, {
     text: "local answer",
     provider: "Workers AI",
@@ -147,7 +149,7 @@ test("stops an active shared-router stream without falling back", async () => {
     }),
     async () => {
       localCalls += 1;
-      return { response: "must not run" };
+      throw new Error("local unavailable");
     },
   );
 
@@ -161,14 +163,15 @@ test("stops an active shared-router stream without falling back", async () => {
     (error) => error instanceof GenerationStoppedError && error.partialText === "Partial answer",
   );
 
-  assert.equal(localCalls, 0);
+  assert.equal(localCalls, 1);
   assert.equal(cancelled, true);
 });
 
-test("stops the local Workers AI fallback before delivery", async () => {
+test("stops local Workers AI without contacting Kanarek", async () => {
   let stop = false;
+  let routerCalls = 0;
   const env = envWithRouter(
-    async () => new Response("router unavailable", { status: 502 }),
+    async () => { routerCalls += 1; return new Response("router unavailable", { status: 502 }); },
     async () => new Promise(() => {}),
   );
   setTimeout(() => { stop = true; }, 30);
@@ -182,6 +185,7 @@ test("stops the local Workers AI fallback before delivery", async () => {
     ),
     GenerationStoppedError,
   );
+  assert.equal(routerCalls, 0);
 });
 
 
@@ -192,7 +196,7 @@ test("stops while waiting for shared-router response headers", async () => {
     async () => new Promise(() => {}),
     async () => {
       localCalls += 1;
-      return { response: "must not run" };
+      throw new Error("local unavailable");
     },
   );
   setTimeout(() => { stop = true; }, 30);
@@ -206,7 +210,7 @@ test("stops while waiting for shared-router response headers", async () => {
     ),
     GenerationStoppedError,
   );
-  assert.equal(localCalls, 0);
+  assert.equal(localCalls, 1);
 });
 
 test("bounds local GLM inference and accepts chat completion responses", async () => {
@@ -223,13 +227,13 @@ test("bounds local GLM inference and accepts chat completion responses", async (
   assert.equal((await chatWithStreamingFallback(env, messages)).text, "answer");
   assert.equal((await chatWithInlineFallback(env, messages)).text, "answer");
   assert.equal((await completeWithFallback(env, messages, (text) => text)).value, "answer");
-  assert.deepEqual(calls.map(({ input }) => input.max_completion_tokens), [10240, 384, 1024]);
+  assert.deepEqual(calls.map(({ input }) => input.max_completion_tokens), [10240, 768, 1024]);
   assert.deepEqual(calls.map(({ input }) => input.chat_template_kwargs.enable_thinking), [true, false, false]);
 });
 
 for (const [mode, invoke, deadline] of [
   ["chat", chatWithStreamingFallback, 45_000],
-  ["inline", chatWithInlineFallback, 3_500],
+  ["inline", chatWithInlineFallback, 5_000],
 ]) {
   test(`local ${mode} fallback times out without a second inference`, async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
@@ -273,4 +277,175 @@ test("voice and vision use their own inference contracts", async () => {
   assert.equal(calls[1].model, "@cf/meta/llama-3.2-11b-vision-instruct");
   assert.equal(calls[1].input.max_tokens, 1024);
   for (const { input } of calls) assert.equal(input.chat_template_kwargs, undefined);
+});
+
+test("primary failure falls back to Kanarek for inline and structured output", async () => {
+  let routerCalls = 0;
+  let localCalls = 0;
+  const env = envWithRouter(
+    async () => {
+      routerCalls += 1;
+      return Response.json({ choices: [{ message: { content: "router answer" } }] });
+    },
+    async () => { localCalls += 1; throw new Error("quota exhausted"); },
+  );
+  const messages = [{ role: "user", content: "hi" }];
+  assert.equal((await chatWithInlineFallback(env, messages)).text, "router answer");
+  assert.equal((await completeWithFallback(env, messages, (text) => text)).value, "router answer");
+  assert.equal(localCalls, 2);
+  assert.equal(routerCalls, 2);
+});
+
+test("a stopped chat does not start either provider", async () => {
+  let calls = 0;
+  const env = envWithRouter(async () => { calls += 1; throw new Error("unexpected"); },
+    async () => { calls += 1; throw new Error("unexpected"); });
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    undefined, () => true), GenerationStoppedError);
+  assert.equal(calls, 0);
+});
+
+test("streams primary GLM content, not reasoning, and preserves stopped text", async () => {
+  const partials = [];
+  let stopped = false;
+  let cancelled = false;
+  let routerCalls = 0;
+  const enc = new TextEncoder();
+  const env = envWithRouter(
+    async () => { routerCalls += 1; throw new Error("unexpected fallback"); },
+    async (_model, input) => {
+      assert.equal(input.stream, true);
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(enc.encode('data: {"choices":[{"delta":{"reasoning_content":"private"}}]}\n\n'));
+          controller.enqueue(enc.encode('data: {"choices":[{"delta":{"content":"Visible"}}]}\n\n'));
+        },
+        cancel() { cancelled = true; },
+      });
+    },
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    (text) => { partials.push(text); stopped = true; },
+    () => stopped), (error) => error instanceof GenerationStoppedError && error.partialText === "Visible");
+  assert.deepEqual(partials, ["Visible"]);
+  assert.equal(routerCalls, 0);
+  assert.equal(cancelled, true);
+});
+
+test("primary stream deadline covers reading the response body", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let cancelled = false;
+  let started;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const env = envWithRouter(
+    async () => Response.json({ choices: [{ message: { content: "fallback" } }] }),
+    async () => new ReadableStream({
+      pull() { started(); return new Promise(() => {}); },
+      cancel() { cancelled = true; },
+    }),
+  );
+  const result = chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
+  await ready;
+  t.mock.timers.tick(45_000);
+  assert.equal((await result).text, "fallback");
+  assert.equal(cancelled, true);
+});
+
+test("stop between frames in a single primary stream chunk", async () => {
+  let stop = false;
+  let calls = 0;
+  const partials = [];
+  const encoder = new TextEncoder();
+  const env = envWithRouter(
+    async () => { calls += 1; throw new Error("unexpected fallback"); },
+    async () => new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          'data: {"choices":[{"delta":{"content":"A"}}]}\n\n' +
+          'data: {"choices":[{"delta":{"content":"B"}}]}\n\ndata: [DONE]\n\n'
+        ));
+      },
+    }),
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    (text) => { partials.push(text); stop = true; }, () => stop),
+    (err) => err instanceof GenerationStoppedError && err.partialText === "A");
+  assert.deepEqual(partials, ["A"]);
+  assert.equal(calls, 0);
+});
+
+test("resets partial progress when primary stream fails and Kanarek takes over", async () => {
+  const partials = [];
+  const encoder = new TextEncoder();
+  let localController;
+  const env = envWithRouter(
+    async () => new Response('data: {"choices":[{"delta":{"content":"B"}}]}\n\ndata: [DONE]\n\n',
+      { headers: { "content-type": "text/event-stream" } }),
+    async () => new ReadableStream({
+      start(controller) {
+        localController = controller;
+        controller.enqueue(encoder.encode('data: {"response":"Long primary partial"}\n\n'));
+      },
+    }),
+  );
+  const result = await chatWithStreamingFallback(env, [{ role: "user", content: "hi" }], (text) => {
+    partials.push(text);
+    if (text === "Long primary partial") localController.error(new Error("stream failure"));
+  });
+  assert.deepEqual(partials, ["Long primary partial", "", "B"]);
+  assert.equal(result.text, "B");
+});
+
+test("cancels a returned Workers AI stream when stop wins the handoff", async () => {
+  let checks = 0;
+  let routerCalls = 0;
+  let cancelCount = 0;
+  const stream = new ReadableStream({ cancel() { cancelCount += 1; } });
+  const env = envWithRouter(
+    async () => { routerCalls += 1; throw new Error("unexpected fallback"); },
+    async () => stream,
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    undefined, () => ++checks >= 3), GenerationStoppedError);
+  assert.equal(cancelCount, 1);
+  assert.equal(routerCalls, 0);
+});
+
+test("cancels a stream returned after stopping an unresolved binding", async () => {
+  let stop = false;
+  let resolveInference;
+  let cancelled;
+  const cancellation = new Promise((resolve) => { cancelled = resolve; });
+  let routerCalls = 0;
+  const env = envWithRouter(
+    async () => { routerCalls += 1; throw new Error("unexpected fallback"); },
+    () => {
+      stop = true;
+      return new Promise((resolve) => { resolveInference = resolve; });
+    },
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    undefined, () => stop), GenerationStoppedError);
+  resolveInference(new ReadableStream({ cancel() { cancelled(); } }));
+  await cancellation;
+  assert.equal(routerCalls, 0);
+});
+
+test("cancels a stream returned after the binding deadline without delaying fallback", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let resolveInference;
+  let started;
+  let cancelled;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const cancellation = new Promise((resolve) => { cancelled = resolve; });
+  const env = envWithRouter(
+    async () => Response.json({ choices: [{ message: { content: "fallback" } }] }),
+    () => new Promise((resolve) => { resolveInference = resolve; started(); }),
+  );
+  const result = chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
+  await ready;
+  t.mock.timers.tick(45_000);
+  assert.equal((await result).text, "fallback");
+  resolveInference(new ReadableStream({ cancel() { cancelled(); } }));
+  await cancellation;
 });

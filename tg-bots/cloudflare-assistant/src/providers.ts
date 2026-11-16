@@ -3,12 +3,12 @@ import { withDeadline } from "./deadline.ts";
 
 const ROUTER_TIMEOUT_MS = 20_000;
 const INLINE_ROUTER_TIMEOUT_MS = 2_500;
-const INLINE_WORKERS_AI_TIMEOUT_MS = 3_500;
+const INLINE_WORKERS_AI_TIMEOUT_MS = 5_000;
 const WORKERS_AI_TIMEOUT_MS = 45_000;
 const WORKERS_AI_MAX_TOKENS = 10_240;
 const STRUCTURED_WORKERS_AI_TIMEOUT_MS = 15_000;
 const STRUCTURED_WORKERS_AI_MAX_TOKENS = 1_024;
-const INLINE_WORKERS_AI_MAX_TOKENS = 384;
+const INLINE_WORKERS_AI_MAX_TOKENS = 768;
 const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
@@ -62,6 +62,7 @@ type OpenAIResponse = {
 
 type OpenAIStreamChunk = {
   model?: string;
+  response?: string;
   choices?: Array<{
     delta?: { content?: string };
     message?: { content?: string };
@@ -83,6 +84,8 @@ async function awaitWithStop<T>(
   partialText: () => string,
 ): Promise<T> {
   if (!shouldStop) return pending;
+  // Stop may win before the first race attaches a rejection handler.
+  void pending.catch(() => undefined);
   while (true) {
     if (await shouldStop()) throw new GenerationStoppedError(partialText());
     const result = await Promise.race([
@@ -275,6 +278,7 @@ async function consumeOpenAIStream(
   response: Response,
   onPartial?: PartialTextHandler,
   shouldStop?: ShouldStopHandler,
+  local?: { model: string; deadline: Promise<never> },
 ): Promise<ProviderResult> {
   if (!response.headers.get("content-type")?.toLowerCase().includes("text/event-stream")) {
     const data = await awaitWithStop(response.json(), shouldStop, () => "");
@@ -288,11 +292,12 @@ async function consumeOpenAIStream(
   let lineBuffer = "";
   let eventData: string[] = [];
   let text = "";
-  let model = KANAREK_REVIEW_MODEL;
+  let model = local?.model ?? KANAREK_REVIEW_MODEL;
   let streamDone = false;
 
   const flushEvent = async () => {
     if (eventData.length === 0) return;
+    if (shouldStop && await shouldStop()) throw new GenerationStoppedError(text.trimEnd());
     const payload = eventData.join("\n").trim();
     eventData = [];
     if (!payload) return;
@@ -309,16 +314,18 @@ async function consumeOpenAIStream(
     }
     if (chunk.model) model = chunk.model;
     const choice = chunk.choices?.[0];
-    const delta = choice?.delta?.content;
+    const delta = choice?.delta?.content ?? (local ? chunk.response : undefined);
     if (typeof delta === "string" && delta) {
       text += delta;
       await onPartial?.(text);
+      if (shouldStop && await shouldStop()) throw new GenerationStoppedError(text.trimEnd());
       return;
     }
     const complete = choice?.message?.content;
     if (!text && typeof complete === "string" && complete) {
       text = complete;
       await onPartial?.(text);
+      if (shouldStop && await shouldStop()) throw new GenerationStoppedError(text.trimEnd());
     }
   };
 
@@ -333,7 +340,12 @@ async function consumeOpenAIStream(
 
   try {
     streamLoop: while (true) {
-      const { done, value } = await awaitWithStop(reader.read(), shouldStop, () => text.trimEnd());
+      const read = reader.read();
+      const { done, value } = await awaitWithStop(
+        local ? Promise.race([read, local.deadline]) : read,
+        shouldStop,
+        () => text.trimEnd(),
+      );
       if (done) break;
       lineBuffer += decoder.decode(value, { stream: true });
       const lines = lineBuffer.split("\n");
@@ -353,8 +365,8 @@ async function consumeOpenAIStream(
   }
 
   const finalText = text.trim();
-  if (!finalText) throw new Error("empty Kanarek router stream");
-  return { text: finalText, provider: `Kanarek/${selected}`, model };
+  if (!finalText) throw new Error(local ? "empty Workers AI stream" : "empty Kanarek router stream");
+  return { text: finalText, provider: local ? "Workers AI" : `Kanarek/${selected}`, model };
 }
 
 async function kanarekFreeRouterStream(
@@ -378,7 +390,9 @@ async function workersAi(
   messages: ChatMessage[],
   shouldStop?: ShouldStopHandler,
   mode: "chat" | "inline" | "structured" = "structured",
+  onPartial?: PartialTextHandler,
 ): Promise<ProviderResult> {
+  if (shouldStop && await shouldStop()) throw new GenerationStoppedError();
   const runtime = workersAiRuntime(env);
   const model = env.WORKERS_AI_MODEL;
   const timeoutMs = mode === "inline" ? INLINE_WORKERS_AI_TIMEOUT_MS
@@ -386,9 +400,12 @@ async function workersAi(
   const maxTokens = mode === "inline" ? INLINE_WORKERS_AI_MAX_TOKENS
     : mode === "chat" ? WORKERS_AI_MAX_TOKENS : STRUCTURED_WORKERS_AI_MAX_TOKENS;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let inference: Promise<unknown> | undefined;
+  let streamHandedOff = false;
   try {
-    const inference = runtime.run(model, {
+    inference = runtime.run(model, {
       messages,
+      ...(mode === "chat" ? { stream: true } : {}),
       ...(model === "@cf/zai-org/glm-4.7-flash"
         ? {
             max_completion_tokens: maxTokens,
@@ -396,14 +413,19 @@ async function workersAi(
           }
         : { max_tokens: maxTokens }),
     });
-    const pending = Promise.race([
-      inference,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`Workers AI timed out after ${timeoutMs}ms`)), timeoutMs);
-      }),
-    ]);
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Workers AI timed out after ${timeoutMs}ms`)), timeoutMs);
+    });
     // A stop prevents delivery, but a binding call already submitted may still consume neurons.
-    const result = (await awaitWithStop(pending, shouldStop, () => "")) as {
+    const output = await awaitWithStop(Promise.race([inference, deadline]), shouldStop, () => "");
+    if (output instanceof ReadableStream) {
+      const response = new Response(output, {
+        headers: { "content-type": "text/event-stream" },
+      });
+      streamHandedOff = true;
+      return await consumeOpenAIStream(response, onPartial, shouldStop, { model, deadline });
+    }
+    const result = output as {
       response?: string;
       choices?: Array<{ message?: { content?: string } }>;
     };
@@ -412,6 +434,13 @@ async function workersAi(
     return { text, provider: "Workers AI", model };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    if (!streamHandedOff && inference) {
+      // Stop/timeout can precede the binding response or interrupt stream handoff.
+      // Cancel any orphaned stream without delaying stop or fallback.
+      void inference.then(async (output) => {
+        if (output instanceof ReadableStream && !output.locked) await output.cancel();
+      }).catch(() => undefined);
+    }
   }
 }
 
@@ -421,8 +450,8 @@ export async function completeWithFallback<T>(
   parse: (text: string) => T,
 ): Promise<CompletionResult<T>> {
   const attempts = [
-    () => kanarekFreeRouter(env, messages),
     () => workersAi(env, messages),
+    () => kanarekFreeRouter(env, messages),
   ];
   const errors: string[] = [];
 
@@ -445,12 +474,12 @@ export async function completeWithFallback<T>(
 export async function chatWithInlineFallback(env: Env, messages: ChatMessage[]) {
   const errors: string[] = [];
   try {
-    return await kanarekFreeRouter(env, messages, INLINE_ROUTER_TIMEOUT_MS);
+    return await workersAi(env, messages, undefined, "inline");
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
-    return await workersAi(env, messages, undefined, "inline");
+    return await kanarekFreeRouter(env, messages, INLINE_ROUTER_TIMEOUT_MS);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
@@ -464,14 +493,21 @@ export async function chatWithStreamingFallback(
   shouldStop?: ShouldStopHandler,
 ) {
   const errors: string[] = [];
+  let localPartial = "";
   try {
-    return await kanarekFreeRouterStream(env, messages, onPartial, shouldStop);
+    return await workersAi(env, messages, shouldStop, "chat", onPartial ? async (text) => {
+      localPartial = text;
+      await onPartial(text);
+    } : undefined);
   } catch (error) {
     if (error instanceof GenerationStoppedError) throw error;
+    if (shouldStop && await shouldStop()) throw new GenerationStoppedError(localPartial);
     errors.push(error instanceof Error ? error.message : String(error));
   }
+  // Reset progress before a replacement stream, never append unrelated answers.
+  if (localPartial) await onPartial?.("");
   try {
-    return await workersAi(env, messages, shouldStop, "chat");
+    return await kanarekFreeRouterStream(env, messages, onPartial, shouldStop);
   } catch (error) {
     if (error instanceof GenerationStoppedError) throw error;
     errors.push(error instanceof Error ? error.message : String(error));

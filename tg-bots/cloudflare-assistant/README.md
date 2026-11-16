@@ -97,7 +97,8 @@ unlocking or arbitrary chat-history import is promised.
 Cancellation takes effect at the reminder/watch Durable Object **send gate**. A cancellation completed before that gate prevents the Telegram send, even when the scheduler has reserved the reminder or a GitHub/Feedseek/Secretary check is still running. A cancellation after the gate removes the automation but reports `deliveryStarted: true`; the in-flight Telegram request may still arrive. Owner commands and Watchtower surface this distinction.
 
 Claimed condition watches use per-claim tokens to reject stale checks, releases and sends. A worker interrupted after entering `sending` does **not** automatically replay that watch: delivery may already have reached Telegram. Inspect and cancel a stuck `sending` watch manually rather than risking a duplicate Business reply or notification. Reminder `sending` entries similarly stay out of the due queue until finished/canceled; existing ambiguous-send finalization remains conservative.
-- **Model routing:** same-account Kanarek Companion router; provider credentials remain centralized in `kanarek-review`.
+- **Model routing:** local Workers AI first; same-account Kanarek Companion
+  fallback; provider credentials remain centralized in `kanarek-review`.
 - **Service endpoints:** `POST /ingest/rss` and `GET /health`; no polling daemon or always-on phone process.
 
 ## Roadmap
@@ -147,7 +148,7 @@ so this is not general Internet access and does not expose host credentials.
 - same-account Service Binding to `kanarek-companion`;
 - Cloudflare Queues for reliable Telegram update processing;
 - SQLite Durable Objects for Telegram update deduplication and bounded conversation context;
-- shared free-model routing through Kanarek Companion; local Workers AI emergency fallback;
+- local Workers AI primary; shared free-model fallback through Kanarek Companion;
 - Telegram Bot API webhook.
 
 ## Local setup
@@ -212,7 +213,7 @@ Deploy:
 npm run deploy
 ```
 
-Run GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant` after the first Worker deployment and again after credential rotation or Worker recreation. It mirrors the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production binds Workers AI locally for voice, vision and emergency fallback.
+Run GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant` after the first Worker deployment and again after credential rotation or Worker recreation. It mirrors the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production binds Workers AI locally for chat, inline, RSS, voice and vision.
 
 Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, `guest_message`, `business_connection`, and `business_message` updates:
 
@@ -274,16 +275,16 @@ Runtime secrets belong in **Worker → Settings → Variables & Secrets**, not i
 
 ## Provider chain
 
-Normal requests first go over the `KANAREK_COMPANION` service binding to the existing private free router. At the time this project was added, that router tries:
+Normal requests first use Workers AI. On failure, Botek calls the existing private free router via `KANAREK_COMPANION`. At the time this project was added, that router tries:
 
 1. OpenRouter free models;
 2. OrcaRouter `orcarouter/free`;
 3. AIHubMix `coding-glm-5.3-free`;
-Workers AI remains excluded from the shared chain; Botek can use its local binding after router failure.
+Workers AI remains excluded from the shared chain; Botek uses its own binding first.
 
-Normal chat asks the shared OpenAI-compatible router for `stream: true`. Final Rich Messages use Telegram's 32,768-character rich-text budget while short conversation memory stays deliberately bounded to 4,096 assistant characters per turn. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer. Drafts expose Telegram's native stop control. A `stopped_message_generation` update is written directly to the draft's Durable Object instead of waiting behind the serialized queue; the active stream polls that state, cancels consumption, skips provider fallback, and sends the bounded partial text as the final message so Telegram's temporary stopped draft does not evaporate.
+Normal chat streams the local binding first; the shared OpenAI-compatible fallback also uses `stream: true`. Reasoning deltas stay out of visible Telegram drafts. Final Rich Messages use Telegram's 32,768-character rich-text budget while short conversation memory stays deliberately bounded to 4,096 assistant characters per turn. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer. Drafts expose Telegram's native stop control. A `stopped_message_generation` update is written directly to the draft's Durable Object instead of waiting behind the serialized queue; the active stream polls that state, cancels consumption, skips provider fallback, and sends the bounded partial text as the final message so Telegram's temporary stopped draft does not evaporate.
 
-If the internal router itself is unavailable, times out, or its token is not configured, Botek can fall back to its local Workers AI binding. Voice transcription and image/thumbnail vision use the same binding. `WORKERS_AI_ENABLED=false` disables local inference. Local text fallback uses at most 10,240 completion tokens and a 45 s response deadline for chat (inline: 384 tokens, 3.5 s; structured RSS scoring: 1,024 tokens, 15 s). GLM thinking is enabled only for streaming chat. Whisper Large V3 Turbo uses VAD, automatic language detection and a 60 s deadline; Llama 3.2 11B Vision uses 1,024 output tokens, temperature 0.2 and a 25 s deadline. On Workers Free, Cloudflare enforces the shared 10,000-neuron daily allowance; no separate Botek billing ledger. A response deadline or user stop does not guarantee provider-side cancellation or a neuron refund.
+If local Workers AI is disabled, unavailable, exhausted or times out, Botek falls back to the shared router. Voice transcription and image/thumbnail vision use the same binding. `WORKERS_AI_ENABLED=false` disables local inference. Local text generation uses at most 10,240 completion tokens and a 45 s response deadline for chat (inline: 768 tokens, 5 s; structured RSS scoring: 1,024 tokens, 15 s). GLM thinking is enabled only for normal chat. Whisper Large V3 Turbo uses VAD, automatic language detection and a 60 s deadline; Llama 3.2 11B Vision uses 1,024 output tokens, temperature 0.2 and a 25 s deadline. On Workers Free, Cloudflare enforces the shared 10,000-neuron daily allowance; no separate Botek billing ledger. A response deadline or user stop does not guarantee provider-side cancellation or a neuron refund.
 
 ## Conversation context
 

@@ -272,13 +272,13 @@ test('preserves existing co-authors and avoids duplicate connector trailers', ()
 });
 
 test('retries identical immutable Git object writes on transient HTTP errors', async () => {
-  for (const kind of ['blob', 'tree'] as const) {
+  for (const [kind, statuses] of [['blob', [500, 502]], ['tree', [503, 504]]] as const) {
     const calls: Array<{ path: string; operation: string; body: unknown }> = [];
     const client = {
       async json<T>(path: string, operation: string, init: RequestInit): Promise<T> {
         assert.equal(init.method, 'POST');
         calls.push({ path, operation, body: init.body });
-        if (calls.length < 3) throw new GitHubApiError(operation, calls.length === 1 ? 500 : 503);
+        if (calls.length < 3) throw new GitHubApiError(operation, statuses[calls.length - 1]);
         return { sha: 'a'.repeat(40) } as T;
       },
     } as unknown as GitHubInstallationClient;
@@ -294,7 +294,7 @@ test('retries identical immutable Git object writes on transient HTTP errors', a
 });
 
 test('Git object retry is bounded and does not retry non-transient statuses', async () => {
-  for (const status of [403, 422, 500]) {
+  for (const status of [403, 422, 500, 502, 503, 504]) {
     let calls = 0;
     const client = {
       async json<T>(_path: string, operation: string): Promise<T> {
@@ -304,6 +304,6 @@ test('Git object retry is bounded and does not retry non-transient statuses', as
     } as unknown as GitHubInstallationClient;
     await assert.rejects(createGitObject(client, 'trvny/trvny', 'tree', {}),
       (error: unknown) => error instanceof GitHubApiError && error.status === status);
-    assert.equal(calls, status === 500 ? 3 : 1);
+    assert.equal(calls, status >= 500 ? 3 : 1);
   }
 });

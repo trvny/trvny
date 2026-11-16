@@ -1,5 +1,6 @@
 import { getDigestPosts, publicationPath } from "../_shared/digests.js";
 import { getShitposts } from "../_shared/shitpost.js";
+import { serviceFetch } from "../_shared/service-fetch.js";
 
 function escapeXml(value) {
   return String(value ?? "")
@@ -65,7 +66,7 @@ function latestUpdated(entries) {
 
 async function feedResponse(context, headOnly = false) {
   try {
-    const [posts, digests, shitposts] = await Promise.all([getPosts(context), getDigestPosts(context), getShitposts()]);
+    const [posts, digests, shitposts] = await Promise.all([getPosts(context), getDigestPosts(context), getShitposts(serviceFetch(context, "REACTOR_SERVICE"))]);
     const entries = [
       ...[...posts, ...digests].filter((post) => publicationPath(post)).map((post) => ({ updated: post.updated, xml: renderEntry(post) })),
       ...shitposts.map((post) => ({ updated: post.updated, xml: renderShitpostEntry(post) })),

@@ -58,24 +58,20 @@ test('individual posts expose truthful BlogPosting schema and publication date',
   assert.match(html, /<time datetime="2026-10-01T18:01:00.000Z">/);
 });
 
-test('sitemap includes every archived post without reading post bodies', async () => {
-  const entries = Array.from({ length: 55 }, (_, index) => ({
-    id: `gh-${1000 + index}-1`,
-    published_at: new Date(Date.UTC(2026, 8, 1 + index)).toISOString(),
-  }));
+test('sitemap stays fixed and never reads archive storage', async () => {
   const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/sitemap.xml'), {
     FEED: {
-      get: async (key) => {
-        assert.equal(key, 'index.json', 'sitemap must not read post JSON objects');
-        return { json: async () => entries, customMetadata: { archive_index_version: '2' } };
-      },
+      get: async () => assert.fail('sitemap must not read R2'),
+      list: async () => assert.fail('sitemap must not list R2'),
     },
   });
   assert.equal(response.status, 200);
   const xml = await response.text();
-  assert.equal((xml.match(/<loc>/g) ?? []).length, 57); // Home, archive, 55 posts.
-  assert.match(xml, /<loc>https:\/\/shitpost-reactor\.travny\.workers\.dev\/posts\/gh-1000-1<\/loc>/);
-  assert.match(xml, /<loc>https:\/\/shitpost-reactor\.travny\.workers\.dev\/posts\/gh-1054-1<\/loc>/);
+  assert.deepEqual([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]), [
+    'https://shitpost-reactor.travny.workers.dev/',
+    'https://shitpost-reactor.travny.workers.dev/archive',
+  ]);
+  assert.doesNotMatch(xml, /<lastmod>/);
 });
 
 test('homepage hides the description while retaining discovery metadata', async () => {

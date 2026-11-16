@@ -19,11 +19,13 @@ export default {
       pathname === '/api/radio-station' ? radioStation :
       badgePath !== null ? badgeResponse : null;
     if (!handler) return new Response('Not found', { status: 404 });
-    if (request.method !== 'GET') {
-      return new Response('Method not allowed', { status: 405, headers: { allow: 'GET' } });
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return new Response('Method not allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
     }
     const response = await handler({ request, params });
     response.headers.set('x-travny-backend', 'worker');
-    return response;
+    return request.method === 'HEAD'
+      ? new Response(null, { status: response.status, headers: response.headers })
+      : response;
   },
 };

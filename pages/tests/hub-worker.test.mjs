@@ -61,3 +61,14 @@ test('badge routes retain query customization and distinguish missing routes fro
   assert.equal(index.status, 200);
   assert.ok((await index.json()).badges.length > 0);
 });
+
+test('Worker HEAD preserves GET status and headers without a response body', async () => {
+  for (const path of ['/badge/twojstar.svg?label=Custom', '/api/radio-station?station=invalid']) {
+    const url = 'https://travny.pages.dev' + path;
+    const get = await worker.fetch(new Request(url));
+    const head = await worker.fetch(new Request(url, { method: 'HEAD' }));
+    assert.equal(head.status, get.status);
+    assert.deepEqual([...head.headers], [...get.headers]);
+    assert.equal(await head.text(), '');
+  }
+});

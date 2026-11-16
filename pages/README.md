@@ -31,8 +31,10 @@ node --test tests/*.test.mjs
 `site/_routes.json`: bypass Functions for known static runtime assets and data.
 Keep HTML, discovery, feeds, redirects and APIs in middleware. Avoid broad
 extension globs: dynamic SVG badges and JSON routes share those extensions.
-Custom-domain deep links redirect at the zone edge; Pages previews default to
-`X-Robots-Tag: noindex`.
+Live zone redirect `c61b0c373e274a0bb58ab50d0f8f14dd` covers `trfny.com`
+and `www.trfny.com`, except `/f/*`; 301 to `travny.pages.dev`, path/query kept.
+Keep this rule while static paths bypass middleware. `tvpi.pages.dev` uses
+its own Pages project. [Pages preview deployments default to `noindex`](https://developers.cloudflare.com/pages/configuration/preview-deployments/#preview-indexing-by-search-engines), independent of middleware.
 
 ## Hub backend
 

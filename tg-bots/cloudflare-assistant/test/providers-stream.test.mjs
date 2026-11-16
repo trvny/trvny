@@ -395,3 +395,57 @@ test("resets partial progress when primary stream fails and Kanarek takes over",
   assert.deepEqual(partials, ["Long primary partial", "", "B"]);
   assert.equal(result.text, "B");
 });
+
+test("cancels a returned Workers AI stream when stop wins the handoff", async () => {
+  let checks = 0;
+  let routerCalls = 0;
+  let cancelCount = 0;
+  const stream = new ReadableStream({ cancel() { cancelCount += 1; } });
+  const env = envWithRouter(
+    async () => { routerCalls += 1; throw new Error("unexpected fallback"); },
+    async () => stream,
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    undefined, () => ++checks >= 3), GenerationStoppedError);
+  assert.equal(cancelCount, 1);
+  assert.equal(routerCalls, 0);
+});
+
+test("cancels a stream returned after stopping an unresolved binding", async () => {
+  let stop = false;
+  let resolveInference;
+  let cancelled;
+  const cancellation = new Promise((resolve) => { cancelled = resolve; });
+  let routerCalls = 0;
+  const env = envWithRouter(
+    async () => { routerCalls += 1; throw new Error("unexpected fallback"); },
+    () => {
+      stop = true;
+      return new Promise((resolve) => { resolveInference = resolve; });
+    },
+  );
+  await assert.rejects(chatWithStreamingFallback(env, [{ role: "user", content: "hi" }],
+    undefined, () => stop), GenerationStoppedError);
+  resolveInference(new ReadableStream({ cancel() { cancelled(); } }));
+  await cancellation;
+  assert.equal(routerCalls, 0);
+});
+
+test("cancels a stream returned after the binding deadline without delaying fallback", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let resolveInference;
+  let started;
+  let cancelled;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const cancellation = new Promise((resolve) => { cancelled = resolve; });
+  const env = envWithRouter(
+    async () => Response.json({ choices: [{ message: { content: "fallback" } }] }),
+    () => new Promise((resolve) => { resolveInference = resolve; started(); }),
+  );
+  const result = chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]);
+  await ready;
+  t.mock.timers.tick(45_000);
+  assert.equal((await result).text, "fallback");
+  resolveInference(new ReadableStream({ cancel() { cancelled(); } }));
+  await cancellation;
+});

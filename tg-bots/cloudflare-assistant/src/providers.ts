@@ -84,6 +84,8 @@ async function awaitWithStop<T>(
   partialText: () => string,
 ): Promise<T> {
   if (!shouldStop) return pending;
+  // Stop may win before the first race attaches a rejection handler.
+  void pending.catch(() => undefined);
   while (true) {
     if (await shouldStop()) throw new GenerationStoppedError(partialText());
     const result = await Promise.race([
@@ -398,8 +400,10 @@ async function workersAi(
   const maxTokens = mode === "inline" ? INLINE_WORKERS_AI_MAX_TOKENS
     : mode === "chat" ? WORKERS_AI_MAX_TOKENS : STRUCTURED_WORKERS_AI_MAX_TOKENS;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let inference: Promise<unknown> | undefined;
+  let streamHandedOff = false;
   try {
-    const inference = runtime.run(model, {
+    inference = runtime.run(model, {
       messages,
       ...(mode === "chat" ? { stream: true } : {}),
       ...(model === "@cf/zai-org/glm-4.7-flash"
@@ -415,9 +419,11 @@ async function workersAi(
     // A stop prevents delivery, but a binding call already submitted may still consume neurons.
     const output = await awaitWithStop(Promise.race([inference, deadline]), shouldStop, () => "");
     if (output instanceof ReadableStream) {
-      return await consumeOpenAIStream(new Response(output, {
+      const response = new Response(output, {
         headers: { "content-type": "text/event-stream" },
-      }), onPartial, shouldStop, { model, deadline });
+      });
+      streamHandedOff = true;
+      return await consumeOpenAIStream(response, onPartial, shouldStop, { model, deadline });
     }
     const result = output as {
       response?: string;
@@ -428,6 +434,13 @@ async function workersAi(
     return { text, provider: "Workers AI", model };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    if (!streamHandedOff && inference) {
+      // Stop/timeout can precede the binding response or interrupt stream handoff.
+      // Cancel any orphaned stream without delaying stop or fallback.
+      void inference.then(async (output) => {
+        if (output instanceof ReadableStream && !output.locked) await output.cancel();
+      }).catch(() => undefined);
+    }
   }
 }
 

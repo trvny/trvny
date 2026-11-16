@@ -13,7 +13,7 @@
 | Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests join one `/teksty/` stream/feed |
 | Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
 | Papagenerator | [`papagenerator/`](papagenerator/README.md); local runtime copied by `build.sh` to `site/papagenerator/` |
-| Hub backend | `worker/`; private Worker `travny-hub-backend`, Pages service binding `HUB_BACKEND`; radio API logic in `functions/_shared/radio-*.js` |
+| Hub backend | `worker/`; private Worker `travny-hub-backend`, Pages service binding `HUB_BACKEND`; radio API logic in `functions/api/radio-*.js` |
 | Badges | `functions/badge/[[path]].js`; public [/badges/](https://travny.pages.dev/badges/) catalog, `/badge/<slug>.svg`, `/badge/o/<octicon>.svg`, `/badge/model/<model-id>.svg`, live status badges |
 
 ## Edit / validate
@@ -40,8 +40,7 @@ Cloudflare Builds settings for `travny-hub-backend`:
 - Git: `trvny/trvny`, branch `main`, root `pages/worker`; previews disabled.
 - Build: `sh check.sh`; Node 24.
 - Deploy: `npx --yes wrangler@4.160.0 deploy`.
-- Watch: `pages/worker/**`, `pages/functions/_shared/radio-*.js`,
-  `pages/functions/api/**`, `pages/functions/_shared/hub-backend.js`,
+- Watch: `pages/worker/**`, `pages/functions/api/**`, `pages/functions/_shared/hub-backend.js`,
   `pages/tests/radio*.test.mjs`, `pages/tests/hub-worker.test.mjs`,
   `pages/eslint.config.mjs`.
 

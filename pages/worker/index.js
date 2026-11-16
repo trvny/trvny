@@ -1,5 +1,5 @@
-import { radioNow } from '../functions/_shared/radio-now.js';
-import { radioStation } from '../functions/_shared/radio-station.js';
+import { radioNow } from '../functions/api/radio-now.js';
+import { radioStation } from '../functions/api/radio-station.js';
 
 export default {
   async fetch(request) {

@@ -29,6 +29,6 @@
   "services": [
     { "binding": "TVPI", "service": "tvpi" },
     { "binding": "WEATHER", "service": "weather" },
-    { "binding": "AUTKA", "service": "cargate-backend" }
+    { "binding": "AUTKA", "service": "cargate" }
   ]
 }

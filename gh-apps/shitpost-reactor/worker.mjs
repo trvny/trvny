@@ -1,4 +1,5 @@
 import { iconAsset } from './icons.mjs';
+import { WEBMCP_SCRIPT } from './webmcp.mjs';
 import {
   SHITPOST_MEME_LINE_HARD_MAX_CHARS,
   SHITPOST_TEXT_HARD_MAX_CHARS,
@@ -541,14 +542,39 @@ User-agent: GPTBot
 User-agent: OAI-SearchBot
 User-agent: OAI-AdsBot
 User-agent: ChatGPT-User
+User-agent: anthropic-ai
 User-agent: ClaudeBot
 User-agent: Claude-SearchBot
 User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Perplexity-User
+User-agent: MistralAI-Index
+User-agent: MistralAI-Training
+User-agent: MistralAI-User
+User-agent: KimiBot
+User-agent: Kimi-SearchBot
+User-agent: Kimi-User
+User-agent: Meta-WebIndexer
+User-agent: Meta-ExternalFetcher
+User-agent: Meta-ExternalAgent
+User-agent: Googlebot
+User-agent: Googlebot-News
+User-agent: Googlebot-Image
+User-agent: Googlebot-Video
+User-agent: GoogleOther
+User-agent: GoogleOther-Image
+User-agent: GoogleOther-Video
+User-agent: Google-InspectionTool
 User-agent: Google-Extended
 User-agent: Applebot
 User-agent: Applebot-Extended
+User-agent: BingBot
+User-agent: DuckDuckBot
+User-agent: DuckAssistBot
+User-agent: YandexBot
+User-agent: YandexFavicons
+User-agent: CCBot
+User-agent: SemanticScholarBot
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 
@@ -583,6 +609,10 @@ Canonical pages, feed links, publishing and discovery use the Workers origin ind
 - The bundled \`gh-apps/shitpost-reactor/style-reference.md\` provides curated craft notes; the generator makes no runtime skill download.
 - Each published entry has a stable canonical URL under \`/posts/gh-<run_id>-<run_attempt>\`.
 - Feeds expose finished content only: a text post, or a meme macro rendered as an image, plus the publication time.
+
+## WebMCP
+
+In compatible browsers, `read_reactor_posts` reads recent public satire (read-only, maximum five entries). No publishing or private editorial data.
 
 ## Discovery
 
@@ -693,7 +723,7 @@ ${structuredData}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Reactor">
 <style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem}article h2{font-size:1.3rem;margin:0 0 1rem}article .entry-body{line-height:1.55}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}.meme{display:block;max-width:100%;height:auto;margin:1rem 0;border-radius:.5rem}</style>
-</head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a><a href="/archive">Full archive</a></p></header>${body}</body></html>`;
+</head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a><a href="/archive">Full archive</a></p></header>${body}<script src="/webmcp.js" defer></script></body></html>`;
 }
 
 function response(body, contentType, { cache = 'public, max-age=300, stale-while-revalidate=600', status = 200, lastModified } = {}) {
@@ -870,6 +900,7 @@ async function handleGet(url, env) {
   const icon = iconAsset(url.pathname);
   if (icon) return response(icon.body, icon.contentType, { cache: 'public, max-age=31536000, immutable' });
 
+  if (url.pathname === '/webmcp.js') return response(WEBMCP_SCRIPT, 'text/javascript; charset=utf-8');
   if (url.pathname === '/robots.txt') return response(renderRobots(), 'text/plain; charset=utf-8', { cache: 'public, max-age=86400' });
   if (url.pathname === '/llms.txt') return response(renderLlms(), 'text/plain; charset=utf-8', { cache: 'public, max-age=3600' });
   if (url.pathname === '/site.webmanifest' || url.pathname === '/manifest.json') {

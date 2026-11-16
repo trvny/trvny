@@ -26,7 +26,7 @@
   };
   window.addEventListener("pagehide", (event) => {
     if (!event.persisted) cleanup();
-  }, { once: true });
+  }, { signal: lifecycle.signal });
 
   const names = destinations.map(({ label }) => label);
   const tool = {

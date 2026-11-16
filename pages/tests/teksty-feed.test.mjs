@@ -222,3 +222,18 @@ test("multiline fallback headlines are omitted from previews", async () => {
   assert.equal(items[0].title, "First line");
   assert.equal(items[0].excerpt, "Second line\nThird line");
 });
+
+test("Atom reads Reactor through the configured binding", async t => {
+  const ctx = context();
+  const calls = [];
+  ctx.env.REACTOR_SERVICE = { fetch: async url => {
+    calls.push(url);
+    return Response.json({ items: [first] });
+  } };
+  const publicFetch = t.mock.method(globalThis, "fetch", () => { throw new Error("unexpected public fetch"); });
+  const response = await onRequestGet(ctx);
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /First post &amp; &lt;payload&gt;/);
+  assert.deepEqual(calls, [origin + "/feed.json"]);
+  assert.equal(publicFetch.mock.callCount(), 0);
+});

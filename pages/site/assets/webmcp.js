@@ -14,7 +14,6 @@
       return [{ label, url: link.href }];
     });
   }
-  if (currentDestinations().length === 0) return;
 
   const ownerKey = Symbol.for("trfny.hub.webmcp.lifecycle");
   const previous = globalThis[ownerKey];

@@ -69,6 +69,7 @@ const SUPPORTED_EVENTS = new Set([
   'ping',
   'pull_request',
   'pull_request_review',
+  'pull_request_review_thread',
   'repository',
   'status',
   'workflow_run',
@@ -91,6 +92,7 @@ const PULL_REQUEST_ACTIONS = new Set([
   'closed',
 ]);
 const PULL_REQUEST_REVIEW_ACTIONS = new Set(['submitted', 'dismissed']);
+const REVIEW_THREAD_ACTIONS = new Set(['resolved', 'unresolved']);
 const CHECK_RUN_ACTIONS = new Set(['completed']);
 const CHECK_SUITE_ACTIONS = new Set(['completed']);
 const WORKFLOW_RUN_ACTIONS = new Set(['completed']);
@@ -279,6 +281,9 @@ function isCompanionEvent(
   if (metadata.event === 'pull_request_review') {
     return PULL_REQUEST_REVIEW_ACTIONS.has(metadata.action);
   }
+  if (metadata.event === 'pull_request_review_thread') {
+    return REVIEW_THREAD_ACTIONS.has(metadata.action);
+  }
   if (metadata.event === 'check_run') {
     return CHECK_RUN_ACTIONS.has(metadata.action);
   }
@@ -317,7 +322,7 @@ async function companionTargets(
   } else if (metadata.event === 'pull_request') {
     const direct = validNumber(payload.number);
     numbers = direct ? [direct] : [];
-  } else if (metadata.event === 'pull_request_review') {
+  } else if (metadata.event === 'pull_request_review' || metadata.event === 'pull_request_review_thread') {
     const pr = payload.pull_request as { number?: unknown } | undefined;
     const direct = validNumber(pr?.number);
     numbers = direct ? [direct] : [];
@@ -392,7 +397,7 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
 }
 
 function shouldCoalesceTarget(target: CompanionTarget): boolean {
-  if (target.sourceEvent === 'issues' || target.sourceEvent === 'gptomek_comment' || target.sourceEvent === 'review_job') return false;
+  if (target.sourceEvent === 'issues' || target.sourceEvent === 'gptomek_comment' || target.sourceEvent === 'review_job' || target.sourceEvent === 'pull_request_review_thread') return false;
   return !isGptomekFallbackPullRequest(target.repository, target.pullRequestNumber);
 }
 

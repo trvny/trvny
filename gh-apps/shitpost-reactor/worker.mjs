@@ -900,6 +900,7 @@ async function handleGet(url, env) {
   const icon = iconAsset(url.pathname);
   if (icon) return response(icon.body, icon.contentType, { cache: 'public, max-age=31536000, immutable' });
 
+  if (url.pathname === '/3d7f6f7c227e7f3cd4010a286e1e6065.txt') return response('3d7f6f7c227e7f3cd4010a286e1e6065\n', 'text/plain; charset=utf-8', { cache: 'public, max-age=86400' });
   if (url.pathname === '/webmcp.js') return response(WEBMCP_SCRIPT, 'text/javascript; charset=utf-8');
   if (url.pathname === '/robots.txt') return response(renderRobots(), 'text/plain; charset=utf-8', { cache: 'public, max-age=86400' });
   if (url.pathname === '/llms.txt') return response(renderLlms(), 'text/plain; charset=utf-8', { cache: 'public, max-age=3600' });

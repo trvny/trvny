@@ -40,6 +40,15 @@ class IndexNowTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(indexnow.changes(first, third), [indexnow.BASE + "/"])
 
+    def test_scoped_feedseek_and_mixed_weather_sitemap(self):
+        feedseek = indexnow.SITES["feedseek"]
+        self.assertTrue(indexnow.canonical("https://trvny.github.io/feedseek/reader/", feedseek))
+        self.assertFalse(indexnow.canonical("https://trvny.github.io/other/", feedseek))
+        self.assertFalse(indexnow.canonical("https://trvny.github.io/feedseek/../other/", feedseek))
+        weather = indexnow.SITES["weather"]
+        doc = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://weather.travny.workers.dev/</loc></url><url><loc>https://weather.travny.workers.dev/feed.atom</loc></url></urlset>'
+        self.assertEqual(indexnow.entries([doc], weather), {weather.root: ""})
+
     def test_no_duplicate_submission(self):
         old = {indexnow.BASE + "/": "same"}
         self.assertEqual(indexnow.changes(old, old), [])

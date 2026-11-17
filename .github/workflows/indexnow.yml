@@ -34,6 +34,11 @@ jobs:
     if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-slim
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        site: [hub, feedseek, codebench, docbench, streambench, weather, reactor]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -41,12 +46,12 @@ jobs:
       - run: python -m pip install defusedxml==0.7.1
       - uses: actions/cache/restore@v5
         with:
-          path: .indexnow-state
-          key: indexnow-hub-v1-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: indexnow-hub-v1-
-      - run: python pages/scripts/indexnow.py .indexnow-state/hub.json
+          path: .indexnow-state/${{ matrix.site }}.json
+          key: indexnow-${{ matrix.site }}-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: indexnow-${{ matrix.site }}-v1-
+      - run: python pages/scripts/indexnow.py .indexnow-state/${{ matrix.site }}.json ${{ matrix.site }}
       - uses: actions/cache/save@v5
-        if: ${{ always() && hashFiles('.indexnow-state/hub.json') != '' }}
+        if: ${{ always() && hashFiles(format('.indexnow-state/{0}.json', matrix.site)) != '' }}
         with:
-          path: .indexnow-state
-          key: indexnow-hub-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .indexnow-state/${{ matrix.site }}.json
+          key: indexnow-${{ matrix.site }}-v1-${{ github.run_id }}-${{ github.run_attempt }}

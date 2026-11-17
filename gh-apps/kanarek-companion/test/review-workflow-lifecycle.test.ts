@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
-import type { StoredJob } from '../src/companion/webhook-review.ts';
+import type { ReviewTarget, StoredJob } from '../src/companion/webhook-review.ts';
 
 const job: StoredJob = { target: {
   repository: 'trvny/trvny', number: 42, installationId: 123, action: 'synchronize',
@@ -17,6 +17,8 @@ function fixture() {
   let currentHead: string | undefined;
   let ambiguous = false;
   let missing = false;
+  let createWait: Promise<void> | undefined;
+  let createEntered: (() => void) | undefined;
   let tail = Promise.resolve();
   const store = {
     async get(key: string) { return data.get(key); },
@@ -30,6 +32,8 @@ function fixture() {
   const workflow: ReviewWorkflowBinding = {
     async create({ id }) {
       calls.push('create:' + id);
+      createEntered?.();
+      if (createWait) await createWait;
       if (missing) throw new Error('create unavailable');
       instances.set(id, { status: 'queued' });
       if (ambiguous) throw new Error('response lost');
@@ -45,11 +49,12 @@ function fixture() {
       };
     },
   };
-  const controller = () => new ReviewWorkflowLifecycle(
-    store as unknown as DurableObjectStorage, workflow, async (target) => fresh && (currentHead === undefined || target.headSha === currentHead),
+  const controller = (current?: (target: ReviewTarget) => Promise<boolean>) => new ReviewWorkflowLifecycle(
+    store as unknown as DurableObjectStorage, workflow, current ?? (async (target) => fresh && (currentHead === undefined || target.headSha === currentHead)),
   );
   return { data, instances, calls, controller, setFresh: (value: boolean) => { fresh = value; },
     setHead: (head: string) => { currentHead = head; },
+    holdCreate: (wait: Promise<void>, entered: () => void) => { createWait = wait; createEntered = entered; },
     loseResponse: () => { ambiguous = true; }, failCreate: () => { missing = true; } };
 }
 
@@ -70,6 +75,38 @@ test('concurrent starts and runtime reset create only one instance', async () =>
   const c = await f.controller().start(job);
   assert.equal(c.status, 'queued');
   assert.equal(f.calls.filter((call) => call.startsWith('create:')).length, 1);
+});
+
+test('old start cannot cancel a newer active instance after delayed freshness', async () => {
+  const f = fixture();
+  let enter!: () => void;
+  let release!: (value: boolean) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const delayed = new Promise<boolean>((resolve) => { release = resolve; });
+  const oldStart = f.controller(async () => { enter(); return delayed; }).start(job);
+  await entered;
+  const newer = await f.controller().start(updated);
+  release(true);
+  await assert.rejects(oldStart, /active_changed/);
+  assert.deepEqual(f.calls, ['create:' + newer.id]);
+});
+
+test('cancel during create revokes durable permission before the instance exists', async () => {
+  const f = fixture();
+  let enter!: () => void;
+  let release!: () => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const wait = new Promise<void>((resolve) => { release = resolve; });
+  f.holdCreate(wait, enter);
+  const pending = f.controller().start(job);
+  await entered;
+  assert.equal(await f.controller().canRun(job.target), true);
+  await f.controller().cancel(job.target);
+  assert.equal(await f.controller().canRun(job.target), false);
+  release();
+  const result = await pending;
+  assert.equal(result.status, 'terminated');
+  assert.equal(await f.controller().canRun(job.target), false);
 });
 
 test('ambiguous create recovers existing instance without repeat creation', async () => {

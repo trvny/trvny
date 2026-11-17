@@ -288,12 +288,18 @@ export async function runFreeReviewWorkflowPrototype(
   env: WebhookReviewEnv,
   step: StepRunner,
   fetcher: typeof fetch = runtimeFetch,
+  authorize?: AbortableCallback<boolean>,
 ) {
   assertFreeReviewWorkflowJob(job, env);
   if (!env.KANAREK_REVIEW_ROUTER_TOKEN?.trim()) throw new Error('router_unconfigured');
   const readOnlyFetch = workflowReadOnlyFetch(job.target, fetcher);
 
   const snapshot = await step.do('prepare', READ_STEP, async () => {
+    if (authorize && !await authorize(AbortSignal.timeout(FRESHNESS_TIMEOUT_MS))) {
+      return serializeReviewSnapshot({ kind: 'finished', result: {
+        reviewed: false, provider: null, findingCount: 0, skipped: 'managed_workflow_cancelled',
+      } });
+    }
     const client = await createInstallationClient(
       env.GITHUB_APP_ID, env.GITHUB_PRIVATE_KEY, job.target.installationId, readOnlyFetch,
     );
@@ -311,9 +317,12 @@ export async function runFreeReviewWorkflowPrototype(
     return JSON.stringify({ order, deadlineAt: Date.now() + FREE_BUDGET_MS });
   })) as { order: string[]; deadlineAt: number };
   const reviewEnv = reviewRouterEnvForAttempt({ ...env, KANAREK_REVIEW_WORKERS_AI_ENABLED: 'false' }, job.attempt);
-  const current = (signal: AbortSignal) => reviewTargetIsCurrent(
-    job.target, env, (input, init) => readOnlyFetch(input, { ...init, signal }),
-  );
+  const current = async (signal: AbortSignal) => {
+    if (!await reviewTargetIsCurrent(
+      job.target, env, (input, init) => readOnlyFetch(input, { ...init, signal }),
+    )) return false;
+    return !authorize || await authorize(signal);
+  };
   const { sweep, stopped } = await checkpointFreeSweep(
     step, route.order, route.deadlineAt, prepared.verifiableFiles,
     current,

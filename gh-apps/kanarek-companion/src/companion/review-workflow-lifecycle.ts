@@ -10,8 +10,9 @@ type Handle = {
   terminate(): Promise<void>;
   resume(): Promise<void>;
 };
+export type ManagedWorkflowParams = { mode: 'managed'; job: StoredJob };
 export interface ReviewWorkflowBinding {
-  create(options: { id: string; params: StoredJob }): Promise<Handle>;
+  create(options: { id: string; params: ManagedWorkflowParams }): Promise<Handle>;
   get(id: string): Promise<Handle>;
 }
 
@@ -164,10 +165,19 @@ export class ReviewWorkflowLifecycle {
         return true;
       });
       if (dispatch) {
-        try { await this.workflow.create({ id, params: job }); } catch { /* Reconcile by ID. */ }
+        try { await this.workflow.create({ id, params: { mode: 'managed', job } }); } catch { /* Reconcile by ID. */ }
       }
     }
     return (await this.reconcile(id)) ?? reservation.record;
+  }
+
+  async canRun(target: ReviewTarget): Promise<boolean> {
+    const id = await reviewWorkflowInstanceId(target);
+    return this.store.transaction(async (txn) => {
+      if (await txn.get<string>(ACTIVE) !== id) return false;
+      const record = await txn.get<ManagedReview>(recordKey(id));
+      return Boolean(record && !record.cancelRequested && record.status !== 'reserved' && !terminal(record.status));
+    });
   }
 
   async status(target: ReviewTarget): Promise<ManagedReview | null> {

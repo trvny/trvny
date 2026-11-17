@@ -66,6 +66,9 @@ no GitHub access or inference. Legacy alarms remain active.
 - One active instance; new target waits for previous termination. Freshness
   check before start/resume; accepted legacy enqueue cancels stale managed work
   only when control enabled. No Workflow restart of completed/errored instances.
+- Managed payload binds to actual Workflow instance ID; DO permission required
+  before preparation and each new inference stage. Revocation survives restart.
+  In-flight requests may finish; cancellation cannot undo sent provider I/O.
 - Terminal receipts retain metadata only. Unknown create with no retrievable
   instance needs explicit operator reconciliation; no automatic reset.
 - No automatic starts, paid calls, status gating or publication.

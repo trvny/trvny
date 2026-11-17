@@ -14,6 +14,7 @@ function fixture() {
   const instances = new Map<string, { status: string; output?: unknown }>();
   const calls: string[] = [];
   let fresh = true;
+  let currentHead: string | undefined;
   let ambiguous = false;
   let missing = false;
   let tail = Promise.resolve();
@@ -45,9 +46,10 @@ function fixture() {
     },
   };
   const controller = () => new ReviewWorkflowLifecycle(
-    store as unknown as DurableObjectStorage, workflow, async () => fresh,
+    store as unknown as DurableObjectStorage, workflow, async (target) => fresh && (currentHead === undefined || target.headSha === currentHead),
   );
   return { data, instances, calls, controller, setFresh: (value: boolean) => { fresh = value; },
+    setHead: (head: string) => { currentHead = head; },
     loseResponse: () => { ambiguous = true; }, failCreate: () => { missing = true; } };
 }
 
@@ -83,6 +85,7 @@ test('unknown reservation fails closed across reset and blocks supersession', as
   f.failCreate();
   assert.equal((await f.controller().start(job)).status, 'unknown');
   assert.equal((await f.controller().start(job)).status, 'unknown');
+  f.setHead(updated.target.headSha);
   await assert.rejects(f.controller().start(updated), /previous_unsettled/);
   assert.equal(f.calls.length, 1);
 });
@@ -90,6 +93,7 @@ test('unknown reservation fails closed across reset and blocks supersession', as
 test('new target cancels prior instance before creating successor', async () => {
   const f = fixture();
   const first = await f.controller().start(job);
+  f.setHead(updated.target.headSha);
   const second = await f.controller().start(updated);
   assert.notEqual(first.id, second.id);
   assert.deepEqual(f.calls, ['create:' + first.id, 'cancel:' + first.id, 'create:' + second.id]);

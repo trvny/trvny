@@ -58,6 +58,9 @@ no GitHub access or inference. Legacy alarms remain active.
 
 - Private `KanarekReviewWorkflowControl.manage(start|status|cancel|resume, job)`.
 - `KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED=false` by default; no public route.
+- Bind a trusted operator Worker to service `automation`, entrypoint
+  `KanarekReviewWorkflowControl` before using control; no caller binding or public
+  route in this rollout.
 - Per-PR review DO persists reservation and terminal receipt; stable SHA-256 instance
   ID (repo, PR, head, base). Unknown create reconciles by ID, never recreates.
 - One active instance; new target waits for previous termination. Freshness

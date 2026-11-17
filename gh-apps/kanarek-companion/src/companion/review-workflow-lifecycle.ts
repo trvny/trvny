@@ -18,7 +18,7 @@ export interface ReviewWorkflowBinding {
 export interface ManagedReview {
   id: string;
   target: ReviewTarget;
-  status: ObservedStatus | 'starting';
+  status: ObservedStatus | 'reserved' | 'starting';
   cancelRequested: boolean;
   needsPaid: boolean;
 }
@@ -56,13 +56,17 @@ function needsPaid(output: unknown): boolean {
 // One controller per PR DO. Reservation survives runtime reset and Workflow expiry.
 // Ambiguous create: reconcile by ID, never issue another create for that target.
 export class ReviewWorkflowLifecycle {
-  constructor(
-    private readonly store: Store,
-    private readonly workflow: ReviewWorkflowBinding,
-    private readonly current: (target: ReviewTarget) => Promise<boolean>,
-  ) {}
+  private readonly store: Store;
+  private readonly workflow: ReviewWorkflowBinding;
+  private readonly current: (target: ReviewTarget) => Promise<boolean>;
 
-  private async observe(id: string, status: ObservedStatus, output?: unknown): Promise<ManagedReview> {
+  constructor(store: Store, workflow: ReviewWorkflowBinding, current: (target: ReviewTarget) => Promise<boolean>) {
+    this.store = store;
+    this.workflow = workflow;
+    this.current = current;
+  }
+
+  private observe(id: string, status: ObservedStatus, output?: unknown): Promise<ManagedReview> {
     return this.store.transaction(async (txn) => {
       const record = await txn.get<ManagedReview>(recordKey(id));
       if (!record) throw new Error('review_workflow_record_missing');
@@ -78,7 +82,7 @@ export class ReviewWorkflowLifecycle {
 
   private async reconcile(id: string): Promise<ManagedReview | null> {
     const record = await this.store.get<ManagedReview>(recordKey(id));
-    if (!record || terminal(record.status)) return record ?? null;
+    if (!record || terminal(record.status) || record.status === 'reserved') return record ?? null;
     try {
       const instance = await this.workflow.get(id);
       let status = await instance.status();
@@ -98,17 +102,13 @@ export class ReviewWorkflowLifecycle {
     await this.store.transaction(async (txn) => {
       const record = await txn.get<ManagedReview>(recordKey(id));
       if (record && !terminal(record.status)) {
-        await txn.put(recordKey(id), { ...record, cancelRequested: true, needsPaid: false });
+        await txn.put(recordKey(id), {
+          ...record, status: record.status === 'reserved' ? 'terminated' : record.status,
+          cancelRequested: true, needsPaid: false,
+        });
       }
     });
     return this.reconcile(id);
-  }
-
-  async cancelSuperseded(target: ReviewTarget): Promise<void> {
-    const active = await this.store.get<string>(ACTIVE);
-    if (active && active !== await reviewWorkflowInstanceId(target)) {
-      await this.cancelId(active);
-    }
   }
 
   async cancelIfStale(): Promise<void> {
@@ -124,29 +124,48 @@ export class ReviewWorkflowLifecycle {
     if (job.phase === 'paid') throw new Error('review_workflow_free_only');
     const id = await reviewWorkflowInstanceId(job.target);
     const existing = await this.store.get<ManagedReview>(recordKey(id));
-    if (existing) return (await this.reconcile(id)) ?? existing;
+    if (existing && existing.status !== 'reserved') return (await this.reconcile(id)) ?? existing;
 
+    const observedActive = await this.store.get<string>(ACTIVE);
     if (!await this.current(job.target)) throw new Error('review_workflow_stale_target');
-    await this.cancelSuperseded(job.target);
+    if (observedActive && observedActive !== id) {
+      const previous = await this.store.get<ManagedReview>(recordKey(observedActive));
+      if (previous && !terminal(previous.status)) {
+        if (await this.current(previous.target)) throw new Error('review_workflow_previous_current');
+        await this.cancelId(observedActive);
+      }
+    }
     const reservation = await this.store.transaction(async (txn) => {
       const record = await txn.get<ManagedReview>(recordKey(id));
-      if (record) return { record, created: false };
+      if (record) return { record };
       const active = await txn.get<string>(ACTIVE);
+      if (active !== observedActive) throw new Error('review_workflow_active_changed');
       if (active) {
         const previous = await txn.get<ManagedReview>(recordKey(active));
         if (!previous || !terminal(previous.status)) throw new Error('review_workflow_previous_unsettled');
       }
       const next: ManagedReview = {
-        id, target: job.target, status: 'starting', cancelRequested: false, needsPaid: false,
+        id, target: job.target, status: 'reserved', cancelRequested: false, needsPaid: false,
       };
       await txn.put(recordKey(id), next);
       await txn.put(ACTIVE, id);
-      return { record: next, created: true };
+      return { record: next };
     });
 
-    if (reservation.created) {
-      // The reservation precedes external I/O. On crash/timeout, never recreate.
-      try { await this.workflow.create({ id, params: job }); } catch { /* Reconcile by ID. */ }
+    // Reserved (not dispatched) is recoverable. Starting/unknown never recreates.
+    if (reservation.record.status === 'reserved') {
+      if (!await this.current(job.target)) {
+        return (await this.cancelId(id)) ?? reservation.record;
+      }
+      const dispatch = await this.store.transaction(async (txn) => {
+        const record = await txn.get<ManagedReview>(recordKey(id));
+        if (!record || record.status !== 'reserved' || record.cancelRequested || await txn.get<string>(ACTIVE) !== id) return false;
+        await txn.put(recordKey(id), { ...record, status: 'starting' });
+        return true;
+      });
+      if (dispatch) {
+        try { await this.workflow.create({ id, params: job }); } catch { /* Reconcile by ID. */ }
+      }
     }
     return (await this.reconcile(id)) ?? reservation.record;
   }

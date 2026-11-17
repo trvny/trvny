@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHmac } from 'node:crypto';
+import { GptomekWebhookJob } from '../src/gptomek/gptomek-webhook.ts';
 
 import worker, {
   COMMENT_WINDOW_MS,
@@ -318,4 +320,91 @@ test('routes only marked edits of the GPTomek control mailbox', async () => {
       },
     ],
   );
+});
+
+
+test('direct ingress verifies separate HMAC, scopes created commands and defaults to standby', async () => {
+  const now = new Date().toISOString();
+  const payload = {
+    action: 'created', repository: { full_name: 'trvny/trvny' },
+    installation: { id: 123 }, sender: { login: 'trvny' },
+    issue: { number: 203, state: 'open', user: { login: 'trvny' } },
+    comment: { id: 777, user: { login: 'trvny' }, created_at: now, updated_at: now,
+      body: '\x60\x60\x60gptomek\n{}\n\x60\x60\x60' },
+  };
+  const queued: unknown[] = [];
+  const config = {
+    ...env, GPTOMEK_WEBHOOK_SECRET: 'separate-secret', GPTOMEK_INSTALLATION_ID: '123',
+    GPTOMEK_WEBHOOK_JOBS: {
+      idFromName: (name: string) => name,
+      get: () => ({ fetch: async (_url: string, init: RequestInit) => {
+        queued.push(JSON.parse(String(init.body)));
+        return Response.json({ ok: true });
+      } }),
+    } as unknown as DurableObjectNamespace,
+  };
+  const send = (value: unknown, event = 'issue_comment', secret = 'separate-secret', primary = true) => {
+    const body = JSON.stringify(value);
+    const signature = createHmac('sha256', secret).update(body).digest('hex');
+    return worker.fetch(new Request('https://example.test/webhooks/gptomek', {
+      method: 'POST', body, headers: { 'x-github-event': event, 'x-hub-signature-256': 'sha256=' + signature },
+    }), { ...config, GPTOMEK_WEBHOOK_PRIMARY: primary ? 'true' : undefined });
+  };
+  assert.equal((await send(payload, 'issue_comment', 'test-secret')).status, 401);
+  assert.equal((await send({}, 'ping', 'separate-secret', false)).status, 200);
+  assert.equal((await send(payload, 'issue_comment', 'separate-secret', false)).status, 202);
+  for (const value of [
+    { ...payload, action: 'edited' }, { ...payload, installation: { id: 456 } },
+    { ...payload, issue: { ...payload.issue, number: 204 } },
+    { ...payload, sender: { login: 'other' } },
+    { ...payload, comment: { ...payload.comment, body: 'ordinary comment' } },
+    { ...payload, comment: { ...payload.comment, updated_at: '2000-01-01T00:00:00Z' } },
+  ]) assert.equal((await send(value)).status, 202);
+  assert.equal(queued.length, 0);
+  assert.deepEqual(await (await send(payload)).json(), { accepted: true, queued: true, duplicate: false });
+  assert.equal(queued.length, 1);
+  assert.deepEqual(queued[0], { commentId: 777, installationId: 123,
+    bodySha256: (await import('node:crypto')).createHash('sha256').update(payload.comment.body).digest('hex') });
+});
+
+test('webhook job persists before ACK, retries transport and separates acknowledged cleanup', async () => {
+  const data = new Map<string, unknown>();
+  let alarm: number | null = null;
+  const storage = {
+    get: async (key: string) => data.get(key),
+    put: async (key: string, value: unknown) => { data.set(key, value); },
+    delete: async (key: string) => data.delete(key),
+    setAlarm: async (at: number) => { alarm = at; },
+  };
+  const calls: Array<{ cleanupComment: boolean; expectedCommentBodySha256: string }> = [];
+  const config = {
+    ...env,
+    COMPANION_LOCK: {
+      idFromName: (name: string) => name,
+      get: () => ({ fetch: async (_url: string, init: RequestInit) => {
+        const target = JSON.parse(String(init.body));
+        calls.push(target);
+        if (calls.length === 1) return Response.json({ ok: false }, { status: 502 });
+        return Response.json({ ok: true, result: {
+          state: 'gptomek-comment-ok', commentCleanup: target.cleanupComment ? 'deleted' : null,
+        } });
+      } }),
+    } as unknown as DurableObjectNamespace,
+  };
+  const make = () => new GptomekWebhookJob({ storage } as unknown as DurableObjectState, config);
+  const request = () => new Request('https://internal/enqueue', {
+    method: 'POST', body: JSON.stringify({ commentId: 777, installationId: 123, bodySha256: 'a'.repeat(64) }),
+  });
+  assert.equal((await make().fetch(request())).status, 200);
+  assert.notEqual(alarm, null);
+  assert.equal(calls.length, 0);
+  assert.deepEqual(await (await make().fetch(request())).json(), { ok: true, duplicate: true });
+  await make().alarm();
+  assert.equal((data.get('job') as { phase: string }).phase, 'execute');
+  await make().alarm();
+  assert.equal((data.get('job') as { phase: string }).phase, 'cleanup');
+  await make().alarm();
+  assert.equal((data.get('job') as { phase: string }).phase, 'done');
+  assert.deepEqual(calls.map(c => c.cleanupComment), [false, false, true]);
+  assert.ok(calls.every(c => c.expectedCommentBodySha256 === 'a'.repeat(64)));
 });

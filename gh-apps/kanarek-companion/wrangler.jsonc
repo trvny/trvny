@@ -38,6 +38,10 @@
       {
         "name": "ANCHOR_MUTATION_REPLAYS",
         "class_name": "AnchorMutationReplayStore"
+      },
+      {
+        "name": "GPTOMEK_WEBHOOK_JOBS",
+        "class_name": "GptomekWebhookJob"
       }
     ]
   },
@@ -75,6 +79,10 @@
     {
       "tag": "v7",
       "new_sqlite_classes": ["AnchorMutationReplayStore"]
+    },
+    {
+      "tag": "v8",
+      "new_sqlite_classes": ["GptomekWebhookJob"]
     }
   ],
   "observability": {

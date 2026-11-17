@@ -31,6 +31,7 @@ export interface CompanionTarget {
   sourceEvent: string;
   commentId?: number;
   cleanupComment?: boolean;
+  expectedCommentBodySha256?: string;
 }
 
 export interface CompanionResult {

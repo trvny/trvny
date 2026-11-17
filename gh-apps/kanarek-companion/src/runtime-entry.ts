@@ -87,4 +87,6 @@ export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
   }
 }
 
+export { GptomekWebhookJob } from './gptomek/gptomek-webhook.ts';
+
 export default runtime;

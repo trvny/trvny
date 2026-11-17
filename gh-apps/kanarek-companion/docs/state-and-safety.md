@@ -18,6 +18,14 @@ single route name.
 - immediate GPTomek control handling.
 
 Companion coalescing and code-review scheduling are separate mechanisms.
+
+`pull_request_review_thread` (`resolved`, `unresolved`) bypasses coalescing.
+Refresh only; no new review job. For a current-head findings or recovered
+posted outcome, read actual GitHub review threads (root review author, marker,
+commit). All matched findings resolved -> `AI review ✅ resolved`; an open
+finding restores `AI review 🐤 findings`. No match, stale head, incomplete
+pagination or API failure -> keep historical badge. Clean/in-flight jobs
+need no extra thread query.
 Changing one must not silently change the timing or dedupe behavior of the
 other.
 

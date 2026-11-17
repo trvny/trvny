@@ -244,6 +244,26 @@ test('routes the PR and review events used by the companion', async () => {
   );
 });
 
+test('routes resolved and reopened review threads directly to the affected PR', async () => {
+  const event = 'pull_request_review_thread';
+  const payload = { pull_request: { number: 289 }, thread: { id: 1 } };
+  for (const action of ['resolved', 'unresolved']) {
+    const metadata = { ...testMetadata, event, action };
+    assert.equal(isCompanionEvent(metadata, payload), true);
+    const targets = await companionTargets(metadata, payload, env);
+    assert.deepEqual(targets, [{
+      delivery: 'delivery-123',
+      installationId: 123,
+      pullRequestNumber: 289,
+      repository: 'trvny/trvny',
+      sourceEvent: event,
+    }]);
+    assert.equal(shouldCoalesceTarget(targets[0]), false);
+    assert.deepEqual(await companionTargets(metadata, {}, env), []);
+  }
+  assert.equal(isCompanionEvent({ ...testMetadata, event, action: 'edited' }, payload), false);
+});
+
 test('coalesces normal companion activity into ten-minute refresh windows', () => {
   const target = {
     delivery: 'delivery-123',

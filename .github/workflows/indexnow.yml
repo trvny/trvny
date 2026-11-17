@@ -1,0 +1,49 @@
+name: IndexNow
+
+on: # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/indexnow.yml"
+      - "pages/scripts/indexnow.py"
+      - "pages/scripts/test_indexnow.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: python -m unittest discover -s pages/scripts -p test_indexnow.py
+
+  notify:
+    needs: check
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/cache/restore@v5
+        with:
+          path: .indexnow-state
+          key: indexnow-hub-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: indexnow-hub-v1-
+      - run: python pages/scripts/indexnow.py .indexnow-state/hub.json
+      - uses: actions/cache/save@v5
+        if: ${{ always() && hashFiles('.indexnow-state/hub.json') != '' }}
+        with:
+          path: .indexnow-state
+          key: indexnow-hub-v1-${{ github.run_id }}-${{ github.run_attempt }}

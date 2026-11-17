@@ -1,9 +1,10 @@
-"""Notify IndexNow of changed canonical hub URLs. State advances only on acceptance."""
+"""Notify IndexNow of changed canonical public URLs. State advances only on acceptance."""
 from __future__ import annotations
 
 import hashlib
 import json
 import sys
+from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -11,15 +12,48 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from defusedxml import ElementTree
 
-BASE = "https://travny.pages.dev"
-HOST = urlsplit(BASE).netloc
-KEY = "e5c82dc398a4a68a5dc77951901293a9"
-KEY_URL = f"{BASE}/{KEY}.txt"
 API = "https://api.indexnow.org/indexnow"
 NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
-MAPS = ("/sitemap.xml", "/przeglad/sitemap.xml")
-GUIDES = {"/": "/index.md", "/tv/": "/tv/index.md", "/teksty/": "/teksty/index.md",
-          "/teksty/githubowa-kraina/": "/teksty/githubowa-kraina/index.md"}
+
+
+@dataclass(frozen=True)
+class Site:
+    root: str  # trailing slash; ownership scope
+    key: str
+    maps: tuple[str, ...] = ("sitemap.xml",)
+    guides: dict[str, str] = field(default_factory=dict)
+    pages: tuple[str, ...] = ()  # explicit HTML subset for mixed sitemaps
+    guide_only: bool = False  # live telemetry is not search content
+
+    @property
+    def host(self):
+        return urlsplit(self.root).netloc
+
+    @property
+    def key_url(self):
+        return self.root + self.key + ".txt"
+
+
+SITES = {
+    "hub": Site("https://travny.pages.dev/", "e5c82dc398a4a68a5dc77951901293a9",
+                ("sitemap.xml", "przeglad/sitemap.xml"),
+                {"/": "index.md", "/tv/": "tv/index.md", "/teksty/": "teksty/index.md",
+                 "/teksty/githubowa-kraina/": "teksty/githubowa-kraina/index.md"}),
+    "feedseek": Site("https://trvny.github.io/feedseek/", "81245951337e900395962c61557b6ac6",
+                    guides={"/feedseek/": "index.md"}),
+    "codebench": Site("https://codebench.travny.workers.dev/", "281aa1aafbb3f6d4d5384132bf3b6542",
+                     guides={"/": "index.md"}),
+    "docbench": Site("https://docbench.travny.workers.dev/", "b7831eb1aadc5c992606547cdbb615f9",
+                    guides={"/": "index.md"}),
+    "streambench": Site("https://streambench.travny.workers.dev/", "51cad3603d5fce8b8d6dd3c1a55e8142",
+                       guides={"/": "index.md"}),
+    "weather": Site("https://weather.travny.workers.dev/", "d715f047a08ac671e4dc69cc036a7410",
+                    guides={"/": "index.md"}, pages=("/",), guide_only=True),
+    "reactor": Site("https://shitpost-reactor.travny.workers.dev/", "3d7f6f7c227e7f3cd4010a286e1e6065",
+                    pages=("/", "/archive")),
+}
+HUB = SITES["hub"]
+BASE = HUB.root.rstrip("/")
 MAX_BYTES = 12 * 1024 * 1024
 MAX_BATCH = 100
 MAX_URLS = 1000
@@ -78,8 +112,8 @@ class StableHTML(HTMLParser):
         self.handle_data(f"<!{decl}>")
 
 
-def read(url: str) -> bytes:
-    if not canonical(url):
+def read(url: str, site: Site = HUB) -> bytes:
+    if not canonical(url, site):
         raise ValueError(f"Unexpected URL: {url}")
     request = Request(url, headers={"User-Agent": "TRAVNY-IndexNow/1.0", "Accept": "text/html, */*;q=0.8"})
     with OPENER.open(request, timeout=30) as response:
@@ -91,13 +125,16 @@ def read(url: str) -> bytes:
         return data
 
 
-def canonical(url: str) -> bool:
+def canonical(url: str, site: Site = HUB) -> bool:
     parsed = urlsplit(url)
-    return (parsed.scheme == "https" and parsed.netloc == HOST and
-            parsed.path.startswith("/") and not parsed.query and not parsed.fragment)
+    prefix = urlsplit(site.root).path
+    return (parsed.scheme == "https" and parsed.netloc == site.host and
+            parsed.path.startswith(prefix) and not parsed.query and not parsed.fragment and
+            not any(part in (".", "..") for part in parsed.path.split("/")) and
+            "%" not in parsed.path and "\\" not in parsed.path)
 
 
-def entries(documents: list[bytes]) -> dict[str, str]:
+def entries(documents: list[bytes], site: Site = HUB) -> dict[str, str]:
     result = {}
     for document in documents:
         root = ElementTree.fromstring(document, forbid_dtd=True, forbid_entities=True, forbid_external=True)
@@ -105,8 +142,10 @@ def entries(documents: list[bytes]) -> dict[str, str]:
             raise ValueError("Expected URL sitemap")
         for item in root.findall("s:url", NS):
             loc = item.findtext("s:loc", "", NS).strip()
-            if not canonical(loc):
+            if not canonical(loc, site):
                 raise ValueError(f"Noncanonical URL: {loc}")
+            if site.pages and urlsplit(loc).path not in site.pages:
+                continue
             updated = item.findtext("s:lastmod", "", NS).strip()
             result[loc] = updated or result.get(loc, "")
     if not result or len(result) > MAX_URLS:
@@ -114,34 +153,35 @@ def entries(documents: list[bytes]) -> dict[str, str]:
     return result
 
 
-def snapshot(fetch=read) -> dict[str, str]:
-    result = entries([fetch(BASE + name) for name in MAPS])
+def snapshot(fetch=None, site: Site = HUB) -> dict[str, str]:
+    if fetch is None:
+        fetch = lambda url: read(url, site)
+    result = entries([fetch(site.root + name) for name in site.maps], site)
     for url, lastmod in list(result.items()):
-        # Fingerprint canonical content even for date-only lastmod or separate guides.
-        html = fetch(url)
         path = urlsplit(url).path
-        if path in ("/", "/tv/"):
+        html = b"" if site.guide_only else fetch(url)
+        if site == HUB and path in ("/", "/tv/"):
             parser = StableHTML()
             parser.feed(html.decode("utf-8"))
             parser.close()
             html = "".join(parser.parts).encode()
-        guide = fetch(BASE + GUIDES[path]) if path in GUIDES else b""
+        guide = fetch(site.root + site.guides[path]) if path in site.guides else b""
         digest = hashlib.sha256(html).hexdigest() + ":" + hashlib.sha256(guide).hexdigest()
         result[url] = f"{lastmod}:sha256:{digest}"
     return result
 
 
-def changes(previous: dict[str, str], current: dict[str, str]) -> list[str]:
+def changes(previous: dict[str, str], current: dict[str, str], site: Site = HUB) -> list[str]:
     return sorted(url for url in previous.keys() | current.keys()
-                  if canonical(url) and previous.get(url) != current.get(url))
+                  if canonical(url, site) and previous.get(url) != current.get(url))
 
 
-def submit(urls: list[str]) -> int:
-    if not urls or len(urls) > MAX_BATCH or not all(canonical(url) for url in urls):
+def submit(urls: list[str], site: Site = HUB) -> int:
+    if not urls or len(urls) > MAX_BATCH or not all(canonical(url, site) for url in urls):
         raise ValueError("Invalid IndexNow batch")
     if urlsplit(API).scheme != "https" or urlsplit(API).netloc != "api.indexnow.org":
         raise ValueError("Unexpected IndexNow endpoint")
-    payload = json.dumps({"host": HOST, "key": KEY, "keyLocation": KEY_URL, "urlList": urls}).encode()
+    payload = json.dumps({"host": site.host, "key": site.key, "keyLocation": site.key_url, "urlList": urls}).encode()
     request = Request(API, data=payload, headers={"Content-Type": "application/json; charset=utf-8"})
     with OPENER.open(request, timeout=30) as response:
         if response.status not in (200, 202):
@@ -149,16 +189,16 @@ def submit(urls: list[str]) -> int:
         return response.status
 
 
-def run(state: Path) -> None:
+def run(state: Path, site: Site = HUB) -> None:
     previous = json.loads(state.read_text()) if state.exists() else {}
-    if read(KEY_URL).decode().strip() != KEY:
+    if read(site.key_url, site).decode().strip() != site.key:
         raise ValueError("IndexNow verification file not live; retry after deployment")
-    current = snapshot()
-    pending = changes(previous, current)
-    print(f"Canonical URLs: {len(current)}; changed or removed: {len(pending)}")
+    current = snapshot(site=site)
+    pending = changes(previous, current, site)
+    print(f"{site.host}: {len(current)} canonical URLs; {len(pending)} changed or removed")
     for offset in range(0, len(pending), MAX_BATCH):
         batch = pending[offset:offset + MAX_BATCH]
-        status = submit(batch)
+        status = submit(batch, site)
         print(f"IndexNow accepted {len(batch)} URLs (HTTP {status})")
         for url in batch:
             if url in current:
@@ -170,4 +210,4 @@ def run(state: Path) -> None:
 
 
 if __name__ == "__main__":
-    run(Path(sys.argv[1]))
+    run(Path(sys.argv[1]), SITES[sys.argv[2]])

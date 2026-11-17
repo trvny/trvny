@@ -1,0 +1,49 @@
+---
+import DigestCard from './DigestCard.astro';
+import DigestMedia from './DigestMedia.astro';
+import { chartMax } from '../lib/digest-magazine.mjs';
+const { magazine, part } = Astro.props;
+---
+{part === 'lead' && <div class="magazine-lead">
+  {magazine.cover && <DigestMedia media={magazine.cover} eager={true} />}
+  {magazine.stats?.length > 0 && <dl class="stats">{magazine.stats.map(({ label, value }) => <div><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
+  {magazine.sections?.length > 0 && <nav class="quicklinks" aria-label="Sekcje wydania">
+    {magazine.sections.map((section, index) => <a href={'#magazine-' + index}><svg aria-hidden="true"><use href={'/assets/digest/section-icons.svg#' + section.kind}/></svg>{section.title}</a>)}
+  </nav>}
+</div>}
+{part === 'sections' && <div class="magazine-sections">
+  {magazine.sections?.map((section, index) => <section class:list={['magazine-section', 'kind-' + section.kind]} id={'magazine-' + index}>
+    <h2><svg aria-hidden="true"><use href={'/assets/digest/section-icons.svg#' + section.kind}/></svg>{section.title}</h2>
+    {section.intro && <p class="section-note">{section.intro}</p>}
+    {section.chart && <figure class="chart">
+      <figcaption>{section.chart.title} ({section.chart.unit})</figcaption>
+      {section.chart.items.map(item => <div class="chart-row">
+        <span>{item.label}</span><meter min="0" max={chartMax(section.chart.items)} value={item.value} aria-label={item.label}/><strong>{item.value} {section.chart.unit}</strong>
+      </div>)}
+    </figure>}
+    {section.cards?.length > 0 && <div class="card-grid">{section.cards.map(card => <DigestCard card={card}/>)}</div>}
+    {section.note && <p class="section-note">{section.note}</p>}
+  </section>)}
+  {magazine.note && <p class="section-note">{magazine.note}</p>}
+</div>}
+<style>
+  .magazine-lead { display: grid; gap: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(150px,100%),1fr)); gap: 10px; margin: 0; }
+  .stats div { border: 1px solid #273748; border-top: 3px solid var(--cyan); background: var(--panel); border-radius: 8px; padding: 16px; min-width: 0; }
+  .stats dt { font: 13px/1.4 system-ui,sans-serif; color: var(--muted); }
+  .stats dd { font: 700 clamp(21px,3vw,32px)/1.15 system-ui,sans-serif; color: var(--yellow); margin: 8px 0 0; overflow-wrap: anywhere; }
+  .quicklinks { display: flex; gap: 8px; flex-wrap: wrap; }
+  .quicklinks a { display: inline-flex; align-items: center; gap: 6px; font: 14px/1.4 system-ui,sans-serif; border: 1px solid #273748; border-radius: 999px; padding: 8px 12px; text-decoration: none; }
+  svg { width: 22px; height: 22px; flex: none; color: var(--cyan); }
+  .magazine-section { scroll-margin-top: 24px; }
+  .magazine-section h2 { display: flex; gap: 12px; align-items: center; }
+  .magazine-section h2 svg { width: 28px; height: 28px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(280px,100%),1fr)); gap: 16px; }
+  .kind-timeline .card-grid { grid-template-columns: 1fr; }
+  .section-note { color: var(--muted); font: 14px/1.65 system-ui,sans-serif; }
+  .chart { margin: 16px 0; padding: 16px; border: 1px solid #273748; border-radius: 12px; background: var(--panel); }
+  .chart figcaption { font: 700 16px/1.5 system-ui,sans-serif; margin-bottom: 12px; }
+  .chart-row { display: grid; grid-template-columns: minmax(70px,1fr) minmax(60px,2fr) auto; gap: 10px; align-items: center; padding: 8px 0; font: 14px/1.5 system-ui,sans-serif; }
+  .chart-row meter { width: 100%; accent-color: var(--cyan); }
+  @media(max-width:480px) { .chart-row { grid-template-columns: 1fr auto; } .chart-row meter { grid-row: 2; grid-column: 1/-1; } }
+</style>

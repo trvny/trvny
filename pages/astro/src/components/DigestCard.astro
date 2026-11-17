@@ -1,0 +1,31 @@
+---
+import DigestMedia from './DigestMedia.astro';
+const { card } = Astro.props;
+---
+<article class="digest-card">
+  {card.media && <DigestMedia media={card.media} />}
+  <div class="card-copy">
+    <h3>{card.title}</h3>
+    {card.price && <div class="offer-price"><strong>{card.price}</strong>{card.previousPrice && <del>{card.previousPrice}</del>}</div>}
+    {card.deadline && <p class="deadline">{card.deadline}</p>}
+    {card.facts?.length > 0 && <dl class="facts">{card.facts.map(({ label, value }) => <div><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
+    {card.body && <p>{card.body}</p>}
+    {card.links?.length > 0 && <div class="sources">{card.links.map(link => <a href={link.url}>{link.label} ↗</a>)}</div>}
+  </div>
+</article>
+<style>
+  .digest-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid #273748; border-radius: 14px; background: var(--panel); }
+  .card-copy { display: flex; flex-direction: column; flex: 1; padding: 18px; gap: 12px; }
+  .digest-card h3 { margin: 0; font: 700 19px/1.35 system-ui,sans-serif; color: var(--text); overflow-wrap: anywhere; }
+  .digest-card p { font: 15px/1.65 system-ui,sans-serif; margin: 0; white-space: pre-line; }
+  .offer-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; font-family: system-ui,sans-serif; }
+  .offer-price strong { font-size: 27px; color: var(--yellow); }
+  .offer-price del { color: var(--muted); font-size: 14px; }
+  .digest-card .deadline { color: var(--yellow); font-size: 13px; }
+  .facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 0; }
+  .facts div { min-width: 0; background: #121c28; border-radius: 6px; padding: 8px; }
+  .facts dt { font: 12px/1.4 system-ui,sans-serif; color: var(--muted); }
+  .facts dd { font: 600 14px/1.4 system-ui,sans-serif; margin: 3px 0 0; overflow-wrap: anywhere; }
+  .sources { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: auto; }
+  .sources a { font: 600 13px/1.45 system-ui,sans-serif; }
+</style>

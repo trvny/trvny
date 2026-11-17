@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-labelledby="title desc">
+  <title id="title">Microsoft 364</title><desc id="desc">An original editorial illustration of the outage joke.</desc>
+  <rect width="800" height="450" fill="#101926"/>
+  <path d="M0 385h800" stroke="#46e0e0" stroke-width="2"/>
+  <text x="48" y="70" font-family="monospace" font-size="24" fill="#aab1bb">SERVICE AVAILABILITY</text>
+  <text x="48" y="235" font-family="system-ui,sans-serif" font-size="116" font-weight="bold" fill="#e6e8ea">Microsoft</text>
+  <text x="50" y="345" font-family="monospace" font-size="100" font-weight="bold" fill="#f5e94e">364</text>
+  <text x="48" y="425" font-family="monospace" font-size="19" fill="#aab1bb">- 1 DAY / EDITORIAL REMIX</text>
+</svg>

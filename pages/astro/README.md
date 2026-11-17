@@ -70,3 +70,48 @@ branch protection permits. Existing CI on main stays enabled. Site code,
 schema, workflow and infrastructure changes retain normal PR checks/reviews.
 If branch protection requires a PR, use the existing digest PR gate; never
 weaken protection to force content through.
+
+### Visual magazine (optional frontmatter)
+
+Keep one Markdown file. Add structured data; Astro owns rendering. Legacy issues
+without `magazine` remain unchanged. Supported media: verified HTTPS images,
+GIFs, direct video files, or original local assets in `pages/site/assets/digest/`.
+Use media only with permission or a known reuse basis. Credit creator and link
+original source. Do not invent asset URLs, copy unlicensed images, or hotlink
+restricted media. No raw embed HTML, third-party scripts or autoplay.
+
+```yaml
+magazine:
+  cover:
+    src: "/assets/digest/example.webp"
+    alt: "Accessible caption"
+    credit: "Creator / license"
+    source: "https://example.org/source"
+  stats:
+    - label: "Distance"
+      value: "25.9 billion km"
+  sections:
+    - kind: freebies
+      title: "Freebies"
+      cards:
+        - title: "Game title"
+          body: "Claim requirements and region."
+          price: "0 PLN"
+          previousPrice: "49 PLN"
+          deadline: "Until 20 November, 17:00 CET (at publication)"
+          links:
+            - label: "Official store"
+              url: "https://example.org/store"
+```
+
+Section types: `news`, `memes`, `freebies`, `cars`, `timeline`, `data`.
+Cards: `title`, optional `body`, `media` (same as cover, optional
+`kind: video`), `price`, `previousPrice`, `deadline`, `facts` (label/value
+pairs), `links` (label/url). Sections accept optional `intro`, `note`,
+`chart` (title, unit, items with label and nonnegative numeric value).
+Optional magazine-wide `note`. Body text is plain, not executable Markdown.
+Move content into cards rather than repeating it in the Markdown body. Cards
+appear after body in listed order; cover and stats appear before body.
+Treat prices and deadlines as snapshots, not live availability. Prefer real
+meme media, licensed photos, original infographics and official store artwork;
+if unavailable, use source links and text rather than invented images.

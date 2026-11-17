@@ -154,6 +154,7 @@ media:
   credit: "Original channel"
 ```
 
+Omit `aspect` for embeds; each player has provider-specific dimensions.
 External player loads only after reader clicks; original link always visible.
 Use platform-provided embedding when enabled. Summarize important information
 in text and link unsupported, restricted or removed posts instead. No arbitrary

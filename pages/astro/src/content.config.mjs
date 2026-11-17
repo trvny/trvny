@@ -14,10 +14,12 @@ const media = z.object({
   alt: text,
   credit: text,
   source: text.refine(isHttpsUrl).optional(),
-  aspect: z.enum(['wide', 'square', 'portrait']).default('wide'),
+  aspect: z.enum(['wide', 'square', 'portrait']).optional(),
   transcript: text.optional(),
 }).refine(item => item.kind === 'embed' ? Boolean(digestEmbed(item.src)) : isDigestMediaUrl(item.src), {
   message: 'Use a supported official source URL or a valid digest media URL.',
+}).refine(item => item.kind !== 'embed' || item.aspect === undefined, {
+  message: 'Embeds use provider-specific dimensions; omit aspect.',
 }).refine(item => item.kind !== 'video' || Boolean(item.transcript), {
   message: 'Video requires a transcript or description of meaningful audio and visuals.',
 });

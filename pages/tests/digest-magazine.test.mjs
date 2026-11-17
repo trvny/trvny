@@ -24,12 +24,18 @@ test('chart has nonzero scale even for all-zero data', () => {
 });
 
 test('official source links produce restricted player URLs', () => {
-  assert.equal(digestEmbed('https://www.youtube.com/watch?v=M7lc1UVf-VE&autoplay=1').src,
-    'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE');
-  assert.equal(digestEmbed('https://youtu.be/M7lc1UVf-VE').provider, 'YouTube');
-  assert.equal(digestEmbed('https://vimeo.com/76979871').provider, 'Vimeo');
-  assert.equal(digestEmbed('https://www.tiktok.com/@scout2015/video/6718335390845095173').format, 'portrait');
-  assert.equal(digestEmbed('https://open.spotify.com/episode/7makk4oTQel546B0PZlDM5').format, 'audio');
+  const youtube = { provider: 'YouTube', src: 'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE', format: 'wide' };
+  assert.deepEqual(digestEmbed('https://www.youtube.com/watch?v=M7lc1UVf-VE&autoplay=1'), youtube);
+  assert.deepEqual(digestEmbed('https://youtu.be/M7lc1UVf-VE'), youtube);
+  assert.deepEqual(digestEmbed('https://vimeo.com/76979871?autoplay=1'), {
+    provider: 'Vimeo', src: 'https://player.vimeo.com/video/76979871?autoplay=0&dnt=1', format: 'wide',
+  });
+  assert.deepEqual(digestEmbed('https://www.tiktok.com/@scout2015/video/6718335390845095173'), {
+    provider: 'TikTok', src: 'https://www.tiktok.com/player/v1/6718335390845095173?autoplay=0&description=1', format: 'portrait',
+  });
+  assert.deepEqual(digestEmbed('https://open.spotify.com/episode/7makk4oTQel546B0PZlDM5'), {
+    provider: 'Spotify', src: 'https://open.spotify.com/embed/episode/7makk4oTQel546B0PZlDM5', format: 'audio',
+  });
   for (const url of ['https://youtube.com.evil.test/watch?v=M7lc1UVf-VE', 'https://www.youtube.com:444/watch?v=M7lc1UVf-VE', 'https://youtu.be/not-an-id', 'https://www.youtube.com/watch?v=%3Cscript%3E', 'https://example.org/embed', 'https://www.tiktok.com/@x/video/1234/anything', 'javascript:alert(1)']) {
     assert.equal(digestEmbed(url), null, url);
   }

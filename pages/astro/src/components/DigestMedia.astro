@@ -2,7 +2,7 @@
 import DigestEmbed from './DigestEmbed.astro';
 const { media, eager = false } = Astro.props;
 ---
-<figure class:list={['digest-media', 'aspect-' + media.aspect]}>
+<figure class:list={['digest-media', 'aspect-' + (media.aspect ?? 'wide')]}>
   {media.kind === 'embed' ? <DigestEmbed media={media}/> : media.kind === 'video' ? (
     <video controls playsinline preload="none" aria-label={media.alt}>
       <source src={media.src} />

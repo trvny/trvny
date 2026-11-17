@@ -202,9 +202,11 @@ function unchangedWebhookComment(comment: Awaited<ReturnType<typeof currentIssue
 
 // Publish machine-readable codes only; never echo command content or raw exceptions.
 export function safeGptomekError(reason: unknown): string {
-  return typeof reason === 'string' &&
-    /^[a-z][a-z0-9_]{0,99}(?::(?:[1-5][0-9]{2}|count=[0-9]+;max=[0-9]+))?$/.test(reason)
-    ? reason : 'unknown_error';
+  if (typeof reason !== 'string') return 'unknown_error';
+  if (/^[a-z][a-z0-9_]{0,99}(?::(?:[1-5][0-9]{2}|count=[0-9]+;max=[0-9]+))?$/.test(reason)) return reason;
+  // Patch diagnostics may contain repository paths or source details.
+  const patch = /^(patch_(?:context|old_eof|new_eof)_mismatch):/.exec(reason);
+  return patch?.[1] ?? 'unknown_error';
 }
 
 export async function markGptomekWebhookFailure(
@@ -219,8 +221,9 @@ export async function markGptomekWebhookFailure(
     const matching = (item: { body?: string; user?: { login?: string } }) =>
       item.user?.login === 'gptomek[bot]' && item.body?.endsWith(marker);
     // Reconcile a lost POST response before making another diagnostic.
+    const since = new Date(Date.parse(comment.createdAt!) - 1000).toISOString();
     const prior = await client.paginate<{ body?: string; user?: { login?: string } }>(
-      path + '?since=' + encodeURIComponent(comment.createdAt!), 'gptomek_find_error_receipt',
+      path + '?since=' + encodeURIComponent(since), 'gptomek_find_error_receipt',
       { stopWhen: items => items.some(matching) },
     );
     if (!prior.some(matching)) {

@@ -500,7 +500,10 @@ test('failure receipt contains bounded code, reconciles retries and preserves ed
         user: { login: 'trvny' }, created_at: '2026-11-17T00:00:00Z', updated_at: '2026-11-17T00:00:00Z' });
     }
     if (url.pathname === base + '/203/comments') {
-      if (method === 'GET') return Response.json(receipts);
+      if (method === 'GET') {
+        assert.equal(url.searchParams.get('since'), '2026-11-16T23:59:59.000Z');
+        return Response.json(receipts);
+      }
       receipts.push({ body: JSON.parse(String(init.body)).body, user: { login: 'gptomek[bot]' } });
       return Response.json({ id: 900 }, { status: 201 });
     }
@@ -512,6 +515,9 @@ test('failure receipt contains bounded code, reconciles retries and preserves ed
   };
   assert.equal(safeGptomekError('invalid_batch_steps:count=18;max=10'), 'invalid_batch_steps:count=18;max=10');
   assert.equal(safeGptomekError('secret value\n<unsafe>'), 'unknown_error');
+  assert.equal(safeGptomekError('patch_context_mismatch:file=private/path;line=7'), 'patch_context_mismatch');
+  assert.equal(safeGptomekError('patch_old_eof_mismatch: expected final newline; file=private/path'), 'patch_old_eof_mismatch');
+  assert.equal(safeGptomekError('patch_new_eof_mismatch: invalid marker; file=private/path'), 'patch_new_eof_mismatch');
   for (let n = 0; n < 2; n++) {
     await markGptomekWebhookFailure(commentId, digest, 'invalid_batch_steps:count=18;max=10', env, fetcher);
   }

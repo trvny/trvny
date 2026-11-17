@@ -232,3 +232,5 @@ The sitemap contains public human-facing hub routes. Service-specific machine-re
 ## Agent access
 
 On browser hosts implementing WebMCP, TRAVNY pages with the shared navigation expose `open_travny_destination`. It only starts navigation to destinations already present in the visible TRAVNY menu and does not accept arbitrary URLs.
+
+Additional read-only tools: `list_travny_destinations` (optional query), and `get_travny_agent_resources` (canonical machine-readable resources). No cross-origin tool access or arbitrary URLs.

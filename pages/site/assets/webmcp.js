@@ -59,10 +59,51 @@
     },
   };
 
-  try {
-    Promise.resolve(context.registerTool(tool, { signal: lifecycle.signal }))
-      .catch((error) => console.warn("TRAVNY WebMCP registration failed", error));
-  } catch (error) {
-    console.warn("TRAVNY WebMCP registration failed", error);
+
+  const readDestinations = {
+    name: "list_travny_destinations",
+    title: "List TRAVNY destinations",
+    description: "Find public projects and services in the current TRAVNY menu without navigating.",
+    inputSchema: {
+      type: "object",
+      properties: { query: { type: "string", maxLength: 100 } },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: false },
+    execute({ query = "" } = {}) {
+      if (typeof query !== "string" || query.length > 100) {
+        return { ok: false, error: "query must be a string of at most 100 characters." };
+      }
+      const needle = query.trim().toLowerCase();
+      return { ok: true, destinations: destinations.filter(({ label, url }) =>
+        (label + " " + url).toLowerCase().includes(needle)) };
+    },
+  };
+
+  const catalogue = {
+    name: "get_travny_agent_resources",
+    title: "Get TRAVNY agent resources",
+    description: "Discover machine-readable hub guides, publication feed, sitemap and structured project atlas.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, untrustedContentHint: false },
+    execute() {
+      const base = "https://travny.pages.dev";
+      return { resources: [
+        { name: "Concise guide", url: base + "/llms.txt" },
+        { name: "Full guide", url: base + "/llms-full.txt" },
+        { name: "Publications", url: base + "/teksty/feed.xml" },
+        { name: "Project atlas", url: base + "/teksty/githubowa-kraina/atlas.json" },
+        { name: "Sitemap", url: base + "/sitemap.xml" },
+      ] };
+    },
+  };
+
+  for (const definition of [tool, readDestinations, catalogue]) {
+    try {
+      Promise.resolve(context.registerTool(definition, { signal: lifecycle.signal }))
+        .catch((error) => console.warn("TRAVNY WebMCP registration failed", error));
+    } catch (error) {
+      console.warn("TRAVNY WebMCP registration failed", error);
+    }
   }
 })();

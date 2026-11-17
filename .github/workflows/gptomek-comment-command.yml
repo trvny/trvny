@@ -204,7 +204,7 @@ jobs:
             done
           # Prune diagnostic receipts only; never execute them.
           gh api --paginate 'repos/trvny/trvny/issues/203/comments?per_page=100' \
-            --jq '.[] | select(.user.login == "gptomek[bot]") | .id' |
+            --jq '.[] | select(.user.login == "gptomek[bot]" and (.body | test("<!-- gptomek-error:[0-9]+:[a-f0-9]{64} -->$"))) | .id' |
             while IFS= read -r receipt_id; do
               receipt="$(gh api "repos/trvny/trvny/issues/comments/${receipt_id}")"
               if jq -e --arg cutoff "$cutoff" '

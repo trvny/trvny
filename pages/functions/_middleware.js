@@ -1,3 +1,4 @@
+import { markdownPath, negotiateMarkdown, varyAccept } from "./_shared/markdown.js";
 import { NAV_BODY, pageShellHead } from "./_shared/page-shell.js";
 import { serviceFetch, WEATHER_STATE_URL } from "./_shared/service-fetch.js";
 
@@ -278,8 +279,15 @@ export async function onRequest(context) {
     return Response.redirect(url.toString(), 301);
   }
 
+  const markdown = await negotiateMarkdown(context, url);
+  if (markdown) return withPreviewNoindex(markdown, url.hostname);
+
   if (context.request.method !== "GET") {
-    return withPreviewNoindex(await context.next(), url.hostname);
+    const result = withPreviewNoindex(await context.next(), url.hostname);
+    if (context.request.method !== "HEAD" || !markdownPath(url.pathname)) return result;
+    const headers = new Headers(result.headers);
+    varyAccept(headers);
+    return new Response(null, { status: result.status, statusText: result.statusText, headers });
   }
 
   const page = identifyPage(url.pathname);
@@ -338,15 +346,13 @@ export async function onRequest(context) {
   headers.set("cache-control", "public, max-age=0, s-maxage=120, stale-while-revalidate=300");
   headers.set("content-language", pageLanguage);
 
-  const markdownPath =
-    page === "home" ? "/index.md" :
-      page === "tv" ? "/tv/index.md" :
-        page === "texts" ? "/teksty/index.md" :
-          page === "githubowa-kraina" ? "/teksty/githubowa-kraina/index.md" : null;
+  const alternate = markdownPath(url.pathname)
+    || (page === "githubowa-kraina" ? "/teksty/githubowa-kraina/index.md" : null);
+  if (markdownPath(url.pathname)) varyAccept(headers);
   headers.set(
     "link",
-    markdownPath
-      ? `<${markdownPath}>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"`
+    alternate
+      ? `<${alternate}>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"`
       : "</llms.txt>; rel=\"describedby\"",
   );
   if (isPreviewHost(url.hostname)) headers.set("x-robots-tag", "noindex, follow");

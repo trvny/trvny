@@ -1,4 +1,4 @@
-name: Run GPTomek JSON comment
+name: GPTomek JSON comment
 run-name: >-
   ${{ github.event_name == 'issue_comment' && format('GPTomek #{0}', github.event.comment.id) || 'GPTomek mailbox cleanup' }}
 
@@ -23,7 +23,7 @@ jobs:
       github.actor == 'trvny' &&
       github.event.comment.user.login == 'trvny'
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Execute mailbox command
         id: execute

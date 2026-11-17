@@ -31,11 +31,12 @@ type ThreadResponse = {
 };
 
 function isOwnReview(review: Review | null | undefined, headSha: string, appSlug: string): boolean {
-  const author = review?.author;
+  if (!review) return false;
+  const author = review.author;
   if (!author || author.__typename !== 'Bot') return false;
-  if (author.login?.replace(/\\[bot\\]$/u, '') !== appSlug) return false;
-  if (review?.commit?.oid?.toLowerCase() !== headSha.toLowerCase()) return false;
-  const marker = review.body?.match(/^<!-- kanarek-review:([a-f0-9]{40}):[a-f0-9]{40} -->\\r?\\n/iu);
+  if (author.login?.replace(/\[bot\]$/u, '') !== appSlug) return false;
+  if (review.commit?.oid?.toLowerCase() !== headSha.toLowerCase()) return false;
+  const marker = review.body?.match(/^<!-- kanarek-review:([a-f0-9]{40}):[a-f0-9]{40} -->\r?\n/iu);
   return marker?.[1]?.toLowerCase() === headSha.toLowerCase();
 }
 

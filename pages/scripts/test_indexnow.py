@@ -1,4 +1,7 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from defusedxml.common import DefusedXmlException
 
 import indexnow
@@ -60,6 +63,41 @@ class IndexNowTests(unittest.TestCase):
                                      guide if url.endswith("index.md") else b"<p>Page</p>")
 
         self.assertEqual(indexnow.changes(snapshot(b"old"), snapshot(b"new")), [indexnow.BASE + "/"])
+
+    def test_encoded_paths(self):
+        self.assertTrue(indexnow.canonical(indexnow.BASE + "/przeglad/%C5%BC/"))
+        for path in ["/%2e%2e/", "/a%2fb/", "/%252e%252e/"]:
+            self.assertFalse(indexnow.canonical(indexnow.BASE + path))
+
+    def test_widget_parser_recovers_and_weather_metadata_is_stable(self):
+        def stable(html):
+            parser = indexnow.StableHTML(live_weather=True)
+            parser.feed(html)
+            return "".join(parser.parts)
+
+        first = '<meta name="description" content="12C"><div id="nowCard"><span>12</div><p>guide</p>'
+        second = '<meta name="description" content="13C"><div id="nowCard"><span>13</div><p>guide</p>'
+        self.assertEqual(stable(first), stable(second))
+        self.assertIn("<p>guide</p>", stable(first))
+        self.assertNotEqual(stable(first), stable(second.replace(">guide<", ">new guide<")))
+
+    def test_state_only_advances_on_acceptance(self):
+        with TemporaryDirectory() as directory:
+            state = Path(directory) / "state.json"
+            current = {indexnow.BASE + "/": "new"}
+            with patch.object(indexnow, "read", return_value=b"wrong"), patch.object(indexnow, "submit") as submit:
+                with self.assertRaises(ValueError):
+                    indexnow.run(state)
+                submit.assert_not_called()
+                self.assertFalse(state.exists())
+            with patch.object(indexnow, "read", return_value=indexnow.HUB.key.encode()), patch.object(indexnow, "snapshot", return_value=current):
+                with patch.object(indexnow, "submit", side_effect=RuntimeError("failed")):
+                    with self.assertRaises(RuntimeError):
+                        indexnow.run(state)
+                    self.assertFalse(state.exists())
+                with patch.object(indexnow, "submit", return_value=200):
+                    indexnow.run(state)
+                self.assertIn("new", state.read_text(encoding="utf-8"))
 
     def test_no_duplicate_submission(self):
         old = {indexnow.BASE + "/": "same"}

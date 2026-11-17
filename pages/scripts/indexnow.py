@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from defusedxml import ElementTree
@@ -24,7 +24,7 @@ class Site:
     maps: tuple[str, ...] = ("sitemap.xml",)
     guides: dict[str, str] = field(default_factory=dict)
     pages: tuple[str, ...] = ()  # explicit HTML subset for mixed sitemaps
-    guide_only: bool = False  # live telemetry is not search content
+    live_weather: bool = False  # ignore live telemetry in the HTML fingerprint
 
     @property
     def host(self):
@@ -49,7 +49,7 @@ SITES = {
     "streambench": Site("https://streambench.travny.workers.dev/", "51cad3603d5fce8b8d6dd3c1a55e8142",
                        guides={"/": "index.md"}),
     "weather": Site("https://weather.travny.workers.dev/", "d715f047a08ac671e4dc69cc036a7410",
-                    guides={"/": "index.md"}, pages=("/",), guide_only=True),
+                    guides={"/": "index.md"}, pages=("/",), live_weather=True),
     "reactor": Site("https://shitpost-reactor.travny.workers.dev/", "3d7f6f7c227e7f3cd4010a286e1e6065",
                     pages=("/", "/archive")),
 }
@@ -76,26 +76,32 @@ OPENER = build_opener(NoRedirect())
 class StableHTML(HTMLParser):
     """Retain document content/metadata, ignoring the known live widget subtrees."""
 
-    def __init__(self):
+    def __init__(self, live_weather=False):
         super().__init__(convert_charrefs=False)
+        self.live_weather = live_weather
+        self.live_ids = LIVE_IDS | ({"nowCard", "airCard", "warnings", "entries"} if live_weather else set())
         self.parts: list[str] = []
         self.skipped: list[str] = []
 
     def handle_starttag(self, tag, attrs):
-        if self.skipped or dict(attrs).get("id") in LIVE_IDS:
+        attributes = dict(attrs)
+        if self.live_weather and tag == "meta" and (attributes.get("name") in {"description", "twitter:description"} or attributes.get("property") == "og:description"):
+            return
+        if self.skipped or attributes.get("id") in self.live_ids or (self.live_weather and tag == "script" and attributes.get("type") == "application/ld+json"):
             if tag not in VOID_TAGS:
                 self.skipped.append(tag)
         else:
             self.parts.append(self.get_starttag_text())
 
     def handle_startendtag(self, tag, attrs):
-        if not self.skipped and dict(attrs).get("id") not in LIVE_IDS:
+        if not self.skipped and dict(attrs).get("id") not in self.live_ids:
             self.parts.append(self.get_starttag_text())
 
     def handle_endtag(self, tag):
         if self.skipped:
-            if tag == self.skipped[-1]:
-                self.skipped.pop()
+            if tag in self.skipped:
+                while self.skipped.pop() != tag:
+                    pass
         else:
             self.parts.append(f"</{tag}>")
 
@@ -129,10 +135,13 @@ def read(url: str, site: Site = HUB) -> bytes:
 def canonical(url: str, site: Site = HUB) -> bool:
     parsed = urlsplit(url)
     prefix = urlsplit(site.root).path
+    decoded = unquote(parsed.path)
     return (parsed.scheme == "https" and parsed.netloc == site.host and
             parsed.path.startswith(prefix) and not parsed.query and not parsed.fragment and
-            not any(part in (".", "..") for part in parsed.path.split("/")) and
-            "%" not in parsed.path and "\\" not in parsed.path)
+            not any(part in (".", "..") for part in decoded.split("/")) and
+            decoded.startswith(prefix) and decoded.count("/") == parsed.path.count("/") and
+            "%" not in decoded and "\\" not in decoded and
+            not any(ord(char) < 32 for char in decoded))
 
 
 def entries(documents: list[bytes], site: Site = HUB) -> dict[str, str]:
@@ -160,9 +169,9 @@ def snapshot(fetch=None, site: Site = HUB) -> dict[str, str]:
     result = entries([fetch(site.root + name) for name in site.maps], site)
     for url, lastmod in list(result.items()):
         path = urlsplit(url).path
-        html = b"" if site.guide_only else fetch(url)
-        if site == HUB and path in ("/", "/tv/"):
-            parser = StableHTML()
+        html = fetch(url)
+        if (site == HUB and path in ("/", "/tv/")) or site.live_weather:
+            parser = StableHTML(live_weather=site.live_weather)
             parser.feed(html.decode("utf-8"))
             parser.close()
             html = "".join(parser.parts).encode()
@@ -207,7 +216,9 @@ def run(state: Path, site: Site = HUB) -> None:
             else:
                 previous.pop(url, None)
         state.parent.mkdir(parents=True, exist_ok=True)
-        state.write_text(json.dumps(previous, sort_keys=True) + "\n")
+        temporary = state.with_suffix(".tmp")
+        temporary.write_text(json.dumps(previous, sort_keys=True) + "\n", encoding="utf-8")
+        temporary.replace(state)
 
 
 if __name__ == "__main__":

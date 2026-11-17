@@ -5,6 +5,7 @@ import hashlib
 import json
 import sys
 from dataclasses import dataclass, field
+from functools import partial
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -155,7 +156,7 @@ def entries(documents: list[bytes], site: Site = HUB) -> dict[str, str]:
 
 def snapshot(fetch=None, site: Site = HUB) -> dict[str, str]:
     if fetch is None:
-        fetch = lambda url: read(url, site)
+        fetch = partial(read, site=site)
     result = entries([fetch(site.root + name) for name in site.maps], site)
     for url, lastmod in list(result.items()):
         path = urlsplit(url).path

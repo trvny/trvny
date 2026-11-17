@@ -75,10 +75,10 @@ weaken protection to force content through.
 
 Keep one Markdown file. Add structured data; Astro owns rendering. Legacy issues
 without `magazine` remain unchanged. Supported media: verified HTTPS images,
-GIFs, direct video files, or original local assets in `pages/astro/public/przeglad/assets/`.
+GIFs, direct video files, official source embeds, or original local assets in `pages/astro/public/przeglad/assets/`.
 Use media only with permission or a known reuse basis. Credit creator and link
 original source. Do not invent asset URLs, copy unlicensed images, or hotlink
-restricted media. No raw embed HTML, third-party scripts or autoplay.
+restricted media. No raw embed HTML, third-party scripts in the parent page, or autoplay.
 
 ```yaml
 magazine:
@@ -134,5 +134,35 @@ blocks, replace placeholders, remove unused ones. Never publish the template.
 - Local assets in Astro public's przeglad/assets/; shared dev/build URLs.
 - Timeline recaps may intentionally summarize article facts. No duplicated
   full sections. Do not pass off stock photos as actual listings.
+
+### Source embeds
+
+Use the existing media field with `kind: embed`, original public source URL,
+alt and credit. Renderer constructs official players; no iframe HTML, APIs,
+dependency or per-issue code. Supported source links:
+
+- YouTube watch, shorts, live and youtu.be (privacy-enhanced player).
+- Vimeo public numeric video URL.
+- TikTok full post URL (video or photo; resolve short links first).
+- Spotify track, album, playlist, episode, show, artist.
+
+```yaml
+media:
+  kind: embed
+  src: "https://www.youtube.com/watch?v=M7lc1UVf-VE"
+  alt: "Describe the actual video"
+  credit: "Original channel"
+```
+
+External player loads only after reader clicks; original link always visible.
+Use platform-provided embedding when enabled. Summarize important information
+in text and link unsupported, restricted or removed posts instead. No arbitrary
+iframes or remote script injection. Embed playback and availability depend on
+the provider; no guarantee of playback of restricted content.
+
+References: [YouTube](https://developers.google.com/youtube/player_parameters),
+[Vimeo](https://help.vimeo.com/hc/en-us/articles/12426259908881-How-to-embed-my-video/),
+[TikTok](https://developers.tiktok.com/docs/en/embed-player),
+[Spotify](https://developer.spotify.com/documentation/embeds/tutorials/creating-an-embed).
 
 One Markdown commit per edition; no per-issue code, CSS, workflow or feed changes.

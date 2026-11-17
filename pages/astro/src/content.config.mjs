@@ -2,20 +2,22 @@ import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
-import { isHttpsUrl, isDigestMediaUrl } from './lib/digest-magazine.mjs';
+import { isHttpsUrl, isDigestMediaUrl, digestEmbed } from './lib/digest-magazine.mjs';
 
 const text = z.string().trim().min(1);
 const link = z.object({ label: text, url: text.refine(isHttpsUrl) });
 const fact = z.object({ label: text, value: text });
 const sectionKind = z.enum(["news","memes","freebies","cars","timeline","data","poland","world","science","ai","games","football","music","film","local","weather","gallery"]);
 const media = z.object({
-  kind: z.enum(['image', 'video']).default('image'),
-  src: text.refine(isDigestMediaUrl),
+  kind: z.enum(['image', 'video', 'embed']).default('image'),
+  src: text,
   alt: text,
   credit: text,
   source: text.refine(isHttpsUrl).optional(),
   aspect: z.enum(['wide', 'square', 'portrait']).default('wide'),
   transcript: text.optional(),
+}).refine(item => item.kind === 'embed' ? Boolean(digestEmbed(item.src)) : isDigestMediaUrl(item.src), {
+  message: 'Use a supported official source URL or a valid digest media URL.',
 }).refine(item => item.kind !== 'video' || Boolean(item.transcript), {
   message: 'Video requires a transcript or description of meaningful audio and visuals.',
 });

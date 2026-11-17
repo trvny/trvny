@@ -1,8 +1,8 @@
 ---
 import DigestMedia from './DigestMedia.astro';
-const { card } = Astro.props;
+const { card, featured = false } = Astro.props;
 ---
-<article class="digest-card">
+<article class:list={['digest-card', { featured }]}>
   {card.media && <DigestMedia media={card.media} />}
   <div class="card-copy">
     {card.kicker && <span class="kicker">{card.kicker}</span>}
@@ -22,6 +22,7 @@ const { card } = Astro.props;
 </article>
 <style>
   .digest-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid #273748; border-radius: 14px; background: var(--panel); }
+  .digest-card.featured { grid-column: 1/-1; }
   .card-copy { display: flex; flex-direction: column; flex: 1; padding: 18px; gap: 12px; }
   .digest-card h3 { margin: 0; font: 700 19px/1.35 system-ui,sans-serif; color: var(--text); overflow-wrap: anywhere; }
   .digest-card p { font: 15px/1.65 system-ui,sans-serif; margin: 0; white-space: pre-line; }

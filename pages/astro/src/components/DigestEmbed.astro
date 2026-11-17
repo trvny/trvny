@@ -1,0 +1,45 @@
+---
+import { digestEmbed } from '../lib/digest-magazine.mjs';
+const { media } = Astro.props;
+const player = digestEmbed(media.src);
+---
+{player && <div class:list={['source-embed', 'format-' + player.format]} data-digest-embed>
+  <div class="player-slot">
+    <button type="button" class="load-player" hidden>
+      <span class="play-icon" aria-hidden="true">▶</span>
+      <strong>Odtwórz przez {player.provider}</strong>
+      <span class="privacy-note">Wczytanie połączy Cię z zewnętrznym serwisem.</span>
+    </button>
+    <template>
+      <iframe src={player.src} title={media.alt + ' · ' + player.provider}
+        sandbox="allow-scripts allow-same-origin allow-presentation"
+        allow="encrypted-media; fullscreen; picture-in-picture" allowfullscreen
+        referrerpolicy="strict-origin-when-cross-origin" loading="lazy"></iframe>
+    </template>
+  </div>
+  <a class="original" href={media.src}>Otwórz w {player.provider} ↗</a>
+</div>}
+<script>
+  for (const root of document.querySelectorAll('[data-digest-embed]')) {
+    const button = root.querySelector('button');
+    const template = root.querySelector('template');
+    if (!(button instanceof HTMLButtonElement) || !(template instanceof HTMLTemplateElement)) continue;
+    button.hidden = false;
+    button.addEventListener('click', () => {
+      button.replaceWith(template.content.cloneNode(true));
+      root.querySelector('iframe')?.focus();
+    }, { once: true });
+  }
+</script>
+<style>
+  .source-embed { min-width: 0; }
+  .player-slot:has(.load-player:not([hidden])), .player-slot:has(iframe) { background: #101926; border-radius: 10px; overflow: hidden; }
+  .load-player:not([hidden]) { width: 100%; min-height: 200px; aspect-ratio: 16/9; display: grid; align-content: center; justify-items: center; gap: 12px; padding: 16px; background: transparent; color: var(--text); border: 1px solid #273748; border-radius: 10px; font: 16px/1.5 system-ui,sans-serif; cursor: pointer; text-align: center; }
+  .load-player:focus-visible { outline: 3px solid var(--yellow); outline-offset: -4px; }
+  .play-icon { font-size: 36px; color: var(--cyan); }
+  .privacy-note { color: var(--muted); font-size: 12px; }
+  iframe { display: block; width: 100%; min-height: 200px; aspect-ratio: 16/9; border: 0; }
+  .format-portrait iframe, .format-portrait .load-player:not([hidden]) { aspect-ratio: 9/16; max-width: 360px; margin-inline: auto; }
+  .format-audio iframe, .format-audio .load-player:not([hidden]) { height: 352px; aspect-ratio: auto; }
+  .original { display: inline-block; margin: 8px 0; font: 13px/1.5 system-ui,sans-serif; }
+</style>

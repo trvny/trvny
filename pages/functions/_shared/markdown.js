@@ -1,5 +1,9 @@
 // Explicit Markdown variants only; never guess a filesystem path from Accept.
+const ATLAS = "/teksty/githubowa-kraina";
+const ATLAS_PATHS = new Set([ATLAS, ATLAS + "/", ATLAS + "/index.html"]);
+export const isStaticMarkdownPage = pathname => ATLAS_PATHS.has(pathname);
 const PATHS = new Map([
+  ...[...ATLAS_PATHS].map(path => [path, ATLAS + "/index.md"]),
   ["/", "/index.md"], ["/index.html", "/index.md"],
   ["/tv", "/tv/index.md"], ["/tv/", "/tv/index.md"], ["/tv/index.html", "/tv/index.md"],
   ["/teksty", "/teksty/index.md"], ["/teksty/", "/teksty/index.md"], ["/teksty/index.html", "/teksty/index.md"],
@@ -28,13 +32,22 @@ export function varyAccept(headers) {
   headers.set("vary", values.join(", "));
 }
 
+export function withMarkdownVary(response, pathname) {
+  if (!markdownPath(pathname)) return response;
+  const headers = new Headers(response.headers);
+  varyAccept(headers);
+  return new Response(response.body, {
+    status: response.status, statusText: response.statusText, headers,
+  });
+}
+
 export async function negotiateMarkdown(context, url) {
   const path = markdownPath(url.pathname);
   if (!path || !["GET", "HEAD"].includes(context.request.method)
     || !prefersMarkdown(context.request.headers.get("accept") || "")
     || !context.env?.ASSETS?.fetch) return null;
   const assetUrl = new URL(path, url.origin);
-  const asset = await context.env.ASSETS.fetch(new Request(assetUrl, { method: "GET" }));
+  const asset = await context.env.ASSETS.fetch(new Request(assetUrl, { method: context.request.method }));
   if (!asset.ok) return null;
   const headers = new Headers(asset.headers);
   for (const name of ["content-length", "content-encoding", "etag", "last-modified", "content-range"]) headers.delete(name);

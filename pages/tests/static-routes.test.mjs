@@ -30,10 +30,10 @@ test('HTML, discovery, redirects and dynamic endpoints retain middleware', () =>
   }
 });
 
-test('pre-rendered HTML aliases bypass Functions, legacy redirects do not', async () => {
+test('pre-rendered HTML bypasses Functions except negotiated Markdown guides', async () => {
   const { STATIC_PAGES, staticPaths } = await import('../scripts/build-static-shell.mjs');
   for (const page of STATIC_PAGES) {
-    for (const path of staticPaths(page)) assert.equal(invokes(path), false, path);
+    for (const path of staticPaths(page)) assert.equal(invokes(path), Boolean(page.markdown), path);
   }
   assert.equal(invokes('/teksty/token-worldcup/token-worldcup'), true);
   assert.equal(invokes('/teksty/githubowa-kraina/missing'), true);

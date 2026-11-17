@@ -89,8 +89,10 @@ export function staticHeaders() {
 export async function writeStaticShell(dir) {
   const routes = JSON.parse(await readFile(new URL("_routes.json", dir), "utf8"));
   for (const page of STATIC_PAGES) {
-    if (!staticPaths(page).every(path => routes.exclude.includes(path))) {
-      throw new Error("Static route exclusions missing: " + page.path);
+    const excluded = staticPaths(page).map(path => routes.exclude.includes(path));
+    // A pre-rendered Markdown counterpart needs Functions for Accept negotiation.
+    if (!excluded.every(value => value === !page.markdown)) {
+      throw new Error("Static route policy mismatch: " + page.path);
     }
   }
   const headersFile = new URL("_headers", dir);

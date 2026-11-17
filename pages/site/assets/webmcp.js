@@ -4,15 +4,17 @@
   const context = document.modelContext;
   if (!context?.registerTool) return;
 
-  const links = [...document.querySelectorAll(".trvny-nav-link[href]")].slice(0, 32);
-  const seen = new Set();
-  const destinations = links.flatMap((link) => {
-    const label = (link.firstChild?.textContent || link.textContent || "").trim();
-    if (!label || seen.has(label)) return [];
-    seen.add(label);
-    return [{ label, url: link.href }];
-  });
-  if (destinations.length === 0) return;
+  function currentDestinations() {
+    const links = [...document.querySelectorAll(".trvny-nav-link[href]")].slice(0, 32);
+    const seen = new Set();
+    return links.flatMap((link) => {
+      const label = (link.firstChild?.textContent || link.textContent || "").trim();
+      if (!label || seen.has(label)) return [];
+      seen.add(label);
+      return [{ label, url: link.href }];
+    });
+  }
+  if (currentDestinations().length === 0) return;
 
   const ownerKey = Symbol.for("trfny.hub.webmcp.lifecycle");
   const previous = globalThis[ownerKey];
@@ -28,7 +30,6 @@
     if (!event.persisted) cleanup();
   }, { signal: lifecycle.signal });
 
-  const names = destinations.map(({ label }) => label);
   const tool = {
     name: "open_travny_destination",
     title: "Open a TRAVNY destination",
@@ -38,15 +39,17 @@
       properties: {
         destination: {
           type: "string",
-          enum: names,
-          description: "Exact menu destination to open.",
+          description: "Exact current menu label from list_travny_destinations.",
         },
       },
       required: ["destination"],
       additionalProperties: false,
     },
     annotations: { readOnlyHint: false, untrustedContentHint: false },
-    execute({ destination } = {}) {
+    execute(input = {}) {
+      const destinations = currentDestinations();
+      const names = destinations.map(({ label }) => label);
+      const destination = input && typeof input === "object" ? input.destination : undefined;
       if (typeof destination !== "string") {
         return { ok: false, error: "destination must be a string.", availableDestinations: names };
       }
@@ -70,12 +73,16 @@
       additionalProperties: false,
     },
     annotations: { readOnlyHint: true, untrustedContentHint: false },
-    execute({ query = "" } = {}) {
+    execute(input = {}) {
+      if (!input || typeof input !== "object" || Array.isArray(input)) {
+        return { ok: false, error: "input must be an object." };
+      }
+      const { query = "" } = input;
       if (typeof query !== "string" || query.length > 100) {
         return { ok: false, error: "query must be a string of at most 100 characters." };
       }
       const needle = query.trim().toLowerCase();
-      return { ok: true, destinations: destinations.filter(({ label, url }) =>
+      return { ok: true, destinations: currentDestinations().filter(({ label, url }) =>
         (label + " " + url).toLowerCase().includes(needle)) };
     },
   };

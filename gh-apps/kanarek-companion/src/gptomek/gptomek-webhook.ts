@@ -123,8 +123,14 @@ export class GptomekWebhookJob {
       await this.state.storage.delete(JOB_KEY);
       return;
     }
-    // Re-arm before I/O; survive a reset between a side effect and persistence.
-    await this.state.storage.setAlarm(Date.now() + RETRY_MS[0]);
+    // Charge the attempt before I/O; resets consume the same retry budget.
+    if (job.attempts >= RETRY_MS.length + 1) {
+      await this.persist({ ...job, phase: 'stopped' }, RECEIPT_MS);
+      console.warn(JSON.stringify({ gptomek: 'webhook_stopped', commentId: job.commentId, phase: job.phase, attempts: job.attempts }));
+      return;
+    }
+    const attempts = job.attempts + 1;
+    await this.persist({ ...job, attempts }, RETRY_MS[Math.min(attempts - 1, RETRY_MS.length - 1)]);
     try {
       let phase: Job['phase'] = 'done';
       if (job.phase === 'failure') {
@@ -146,7 +152,6 @@ export class GptomekWebhookJob {
       await this.persist({ ...job, phase, attempts: 0 }, phase === 'done' ? RECEIPT_MS : 0);
       console.log(JSON.stringify({ gptomek: 'webhook_phase', commentId: job.commentId, phase }));
     } catch (error) {
-      const attempts = job.attempts + 1;
       const stopped = attempts > RETRY_MS.length;
       const failure = error instanceof GitHubApiError ? error.operation + ':' + error.status
         : error instanceof Error ? error.message : 'unknown_error';

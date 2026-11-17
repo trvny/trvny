@@ -33,12 +33,32 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
+      - name: Verify manual recovery target
+        id: verify
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ inputs.comment_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$COMMENT_ID" =~ ^[1-9][0-9]{0,15}$ ]] || exit 1
+          comment="$(gh api "repos/trvny/trvny/issues/comments/${COMMENT_ID}")"
+          jq -e '
+            .issue_url == "https://api.github.com/repos/trvny/trvny/issues/203" and
+            .user.login == "trvny" and .created_at == .updated_at and
+            (.body | test("^\\s*```gptomek[ \\t]*\\r?\\n[\\s\\S]*?\\r?\\n```\\s*$"))
+          ' <<<"$comment" >/dev/null
+          digest="$(jq -j .body <<<"$comment" | sha256sum | cut -d ' ' -f 1)"
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+
       - name: Execute mailbox command
         id: execute
         continue-on-error: true
         env:
           GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
           COMMENT_ID: ${{ inputs.comment_id || github.event.comment.id }}
+          COMMENT_DIGEST: ${{ steps.verify.outputs.digest }}
         shell: bash
         run: |
           set -euo pipefail
@@ -55,7 +75,7 @@ jobs:
               -X POST \
               -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
               -H "Content-Type: application/json" \
-              --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId}')" \
+              --data "$(jq -nc --argjson commentId "$COMMENT_ID" --arg digest "$COMMENT_DIGEST" '{commentId:$commentId} + (if $digest == "" then {} else {bodySha256:$digest} end)')" \
               https://automation.travny.workers.dev/gptomek/wake
           )" || curl_status=$?
           response="$(cat "$response_file")"
@@ -93,6 +113,7 @@ jobs:
         env:
           GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
           COMMENT_ID: ${{ inputs.comment_id || github.event.comment.id }}
+          COMMENT_DIGEST: ${{ steps.verify.outputs.digest }}
         shell: bash
         run: |
           set -euo pipefail
@@ -103,7 +124,7 @@ jobs:
               -X POST \
               -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
               -H "Content-Type: application/json" \
-              --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId,cleanup:true}')" \
+              --data "$(jq -nc --argjson commentId "$COMMENT_ID" --arg digest "$COMMENT_DIGEST" '{commentId:$commentId,cleanup:true} + (if $digest == "" then {} else {bodySha256:$digest} end)')" \
               https://automation.travny.workers.dev/gptomek/wake
           )"; then
             echo "::warning::Command succeeded; cleanup request failed. Safe to retry cleanup."
@@ -116,7 +137,7 @@ jobs:
 
       - name: Mark command failure
         if: >-
-          always() && (
+          always() && github.event_name == 'issue_comment' && (
             steps.execute.outcome == 'failure' ||
             steps.execute.outputs.state == 'gptomek-comment-error'
           )

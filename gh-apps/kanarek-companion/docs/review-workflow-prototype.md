@@ -54,6 +54,19 @@ free review provider. Expect mode `binding-smoke`, status `completed` and a posi
 provider count. Only router health and synthetic checkpoint serialization;
 no GitHub access or inference. Legacy alarms remain active.
 
+## Managed lifecycle (inactive)
+
+- Private `KanarekReviewWorkflowControl.manage(start|status|cancel|resume, job)`.
+- `KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED=false` by default; no public route.
+- Per-PR review DO persists reservation and terminal receipt; stable SHA-256 instance
+  ID (repo, PR, head, base). Unknown create reconciles by ID, never recreates.
+- One active instance; new target waits for previous termination. Freshness
+  check before start/resume; accepted legacy enqueue cancels stale managed work
+  only when control enabled. No Workflow restart of completed/errored instances.
+- Terminal receipts retain metadata only. Unknown create with no retrievable
+  instance needs explicit operator reconciliation; no automatic reset.
+- No automatic starts, paid calls, status gating or publication.
+
 ## Rollback
 
 - Keep the existing `WebhookReviewJob` alarm and `runWebhookReview` live.
@@ -69,8 +82,8 @@ no GitHub access or inference. Legacy alarms remain active.
   context collection exceeds CPU budget, move expensive work behind existing
   service/DO; consider R2 for larger snapshots.
 - Measure real free provider latency, context size and step consumption.
-- Add DO-owned instance identity (repository + PR + head + base), deduplication,
-  cancellation on supersession, completion reconciliation and status bridge.
+- Validate managed lifecycle against a live binding before enabling control.
+- Bridge settled results to DO-owned production status and publication.
 - Connect shared publication plan to DO-owned submission gate.
 - Paid inference: no automatic retry; durable receipt before live activation.
 - Keep stored source/evidence private; define retention and deletion before

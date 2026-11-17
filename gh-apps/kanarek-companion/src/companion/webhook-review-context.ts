@@ -81,12 +81,16 @@ const CONTEXT_TEXT_EXTENSIONS = new Set([
   '.yml',
 ]);
 
+import type { ReviewWorkflowBinding } from './review-workflow-lifecycle.ts';
+
 export interface WebhookReviewEnv extends ReviewServiceEnv {
   COMPANION_LOCK?: DurableObjectNamespace;
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_PRIVATE_KEY: string;
   KANAREK_REVIEW_JOBS?: DurableObjectNamespace;
+  KANAREK_FREE_REVIEW_PROTOTYPE?: ReviewWorkflowBinding;
+  KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED?: string;
   KANAREK_REVIEW_REPOSITORIES?: string;
   KANAREK_REPOSITORIES?: string;
   KANAREK_WEBHOOK_REVIEW_ENABLED?: string;

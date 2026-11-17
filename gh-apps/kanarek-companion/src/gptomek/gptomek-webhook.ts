@@ -64,7 +64,13 @@ function validJobTarget(value: unknown): value is JobTarget {
 
 // One object per comment. Only the existing mailbox lock executes commands.
 export class GptomekWebhookJob {
-  constructor(private readonly state: DurableObjectState, private readonly env: GptomekWebhookEnv) {}
+  private readonly state: DurableObjectState;
+  private readonly env: GptomekWebhookEnv;
+
+  constructor(state: DurableObjectState, env: GptomekWebhookEnv) {
+    this.state = state;
+    this.env = env;
+  }
 
   async fetch(request: Request): Promise<Response> {
     if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);

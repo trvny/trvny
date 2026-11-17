@@ -10,7 +10,8 @@ import {
   REVIEW_ROUTER_PAID_MODEL,
 } from '../../../core/review-service-protocol.ts';
 import { handleReviewRouterViaService } from './review-service.ts';
-import { repoPath } from '../tools/common.ts';
+import { repoPath, repositoryInScope, repositoryListAllows } from '../tools/common.ts';
+import { ReviewWorkflowLifecycle } from './review-workflow-lifecycle.ts';
 import {
   SHA_RE,
   MAX_PATCH_CHARS,
@@ -1312,6 +1313,18 @@ export function scheduleWebhookReviewWebhook(
   if (ctx) ctx.waitUntil(task);
 }
 
+export function assertFreeReviewWorkflowJob(job: unknown, env: WebhookReviewEnv): asserts job is StoredJob {
+  if (!validStoredJob(job) || job.phase === 'paid' ||
+      job.target.number <= 0 || job.target.installationId <= 0) {
+    throw new Error('invalid_free_review_job');
+  }
+  if (!repositoryInScope(job.target.repository) ||
+      !repositoryListAllows(env.KANAREK_REPOSITORIES, job.target.repository) ||
+      !repositoryListAllows(env.KANAREK_REVIEW_REPOSITORIES ?? env.KANAREK_REPOSITORIES, job.target.repository)) {
+    throw new Error('review_workflow_repository_out_of_scope');
+  }
+}
+
 export function validStoredJob(value: unknown): value is StoredJob {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const job = value as Partial<StoredJob>;
@@ -1455,8 +1468,44 @@ export class WebhookReviewJob {
     this.env = env;
   }
 
+  private workflowLifecycle(): ReviewWorkflowLifecycle | null {
+    const binding = this.env.KANAREK_FREE_REVIEW_PROTOTYPE;
+    if (this.env.KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED !== 'true' || !binding) return null;
+    return new ReviewWorkflowLifecycle(this.state.storage, binding, (target) => {
+      const signal = AbortSignal.timeout(30_000);
+      return reviewTargetIsCurrent(target, this.env, (input, init) => runtimeFetch(input, { ...init, signal }));
+    });
+  }
+
+  private async manageWorkflow(request: Request, action: string): Promise<Response> {
+    const lifecycle = this.workflowLifecycle();
+    if (!lifecycle) return Response.json({ error: 'review_workflow_control_disabled' }, { status: 503 });
+    if (request.method !== 'POST') return Response.json({ error: 'method_not_allowed' }, { status: 405 });
+    let job: unknown;
+    try {
+      job = await request.json();
+      assertFreeReviewWorkflowJob(job, this.env);
+    } catch {
+      return Response.json({ error: 'invalid_workflow_job' }, { status: 400 });
+    }
+    const queue = this.env.KANAREK_REVIEW_JOBS;
+    if (!queue || queue.idFromName(`${job.target.repository}#${job.target.number}`).toString() !== this.state.id.toString()) {
+      return Response.json({ error: 'workflow_job_identity_mismatch' }, { status: 400 });
+    }
+    switch (action) {
+      case 'start': return Response.json(await lifecycle.start(job));
+      case 'status': return Response.json(await lifecycle.status(job.target));
+      case 'cancel': return Response.json(await lifecycle.cancel(job.target));
+      case 'resume': return Response.json(await lifecycle.resume(job.target));
+      default: return Response.json({ error: 'not_found' }, { status: 404 });
+    }
+  }
+
   async fetch(request: Request): Promise<Response> {
     const pathname = new URL(request.url).pathname;
+    if (pathname.startsWith('/workflow/')) {
+      return this.manageWorkflow(request, pathname.slice('/workflow/'.length));
+    }
     if (request.method === 'GET' && pathname === '/status') {
       const job = await this.state.storage.get<StoredJob>(JOB_KEY);
       return Response.json({
@@ -1559,6 +1608,14 @@ export class WebhookReviewJob {
       MAX_DEBOUNCE_MS,
     );
     await this.state.storage.setAlarm(Date.now() + debounceMs);
+    // Manual instances only; never start a Workflow from a production webhook.
+    const lifecycle = this.workflowLifecycle();
+    if (lifecycle) {
+      try { await lifecycle.cancelIfStale(); } catch {
+        // The legacy alarm remains scheduled; later manage/status reconciles.
+        console.warn(JSON.stringify({ kanarekWebhookReview: 'workflow_cancel_unconfirmed' }));
+      }
+    }
     return Response.json({ ok: true, duplicate: false, queued: true });
   }
 

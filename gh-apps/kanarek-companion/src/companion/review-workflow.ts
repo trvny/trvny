@@ -6,7 +6,6 @@ import {
   type ReviewProviderPoolHealth,
 } from '../../../core/review-service-protocol.ts';
 import { reviewProviderPoolHealthViaService } from './review-service.ts';
-import { repositoryInScope, repositoryListAllows } from '../tools/common.ts';
 import { runtimeFetch, type ReviewFile, type WebhookReviewEnv } from './webhook-review-context.ts';
 import {
   askDecisionJudge,
@@ -17,6 +16,7 @@ import {
 } from './webhook-review-judge.ts';
 import {
   askReviewRouter,
+  assertFreeReviewWorkflowJob,
   emptySweepSkip,
   planReviewPublication,
   prepareWebhookReview,
@@ -24,7 +24,6 @@ import {
   reviewSweepMaxAttempts,
   reviewTargetIsCurrent,
   sweepReviewAttempts,
-  validStoredJob,
   type PreparedWebhookReview,
   type ReviewRouterOutcome,
   type ReviewSweepAttempt,
@@ -290,15 +289,7 @@ export async function runFreeReviewWorkflowPrototype(
   step: StepRunner,
   fetcher: typeof fetch = runtimeFetch,
 ) {
-  if (!validStoredJob(job) || job.phase === 'paid' ||
-      job.target.number <= 0 || job.target.installationId <= 0) {
-    throw new Error('invalid_free_review_job');
-  }
-  if (!repositoryInScope(job.target.repository) ||
-      !repositoryListAllows(env.KANAREK_REPOSITORIES, job.target.repository) ||
-      !repositoryListAllows(env.KANAREK_REVIEW_REPOSITORIES ?? env.KANAREK_REPOSITORIES, job.target.repository)) {
-    throw new Error('review_workflow_repository_out_of_scope');
-  }
+  assertFreeReviewWorkflowJob(job, env);
   if (!env.KANAREK_REVIEW_ROUTER_TOKEN?.trim()) throw new Error('router_unconfigured');
   const readOnlyFetch = workflowReadOnlyFetch(job.target, fetcher);
 

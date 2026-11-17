@@ -111,6 +111,15 @@ export class ReviewWorkflowLifecycle {
     }
   }
 
+  async cancelIfStale(): Promise<void> {
+    const active = await this.store.get<string>(ACTIVE);
+    if (!active) return;
+    const record = await this.store.get<ManagedReview>(recordKey(active));
+    if (record && !terminal(record.status) && !await this.current(record.target)) {
+      await this.cancelId(active);
+    }
+  }
+
   async start(job: StoredJob): Promise<ManagedReview> {
     if (job.phase === 'paid') throw new Error('review_workflow_free_only');
     const id = await reviewWorkflowInstanceId(job.target);

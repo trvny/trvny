@@ -1,6 +1,6 @@
 import { WorkerEntrypoint, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
 import { runFreeReviewWorkflowPrototype, runFreeReviewWorkflowSmoke } from './companion/review-workflow.ts';
-import type { StoredJob } from './companion/webhook-review.ts';
+import { assertFreeReviewWorkflowJob, type StoredJob } from './companion/webhook-review.ts';
 import {
   botekEngramSearch,
   botekEngramStatus,
@@ -99,6 +99,23 @@ export class KanarekFreeReviewPrototype extends WorkflowEntrypoint<RuntimeEnv, P
       return runFreeReviewWorkflowSmoke(this.env, step);
     }
     return runFreeReviewWorkflowPrototype(payload as StoredJob, this.env, step);
+  }
+}
+
+// Private service-binding RPC only. No public route or automatic trigger.
+export class KanarekReviewWorkflowControl extends WorkerEntrypoint<RuntimeEnv> {
+  async manage(action: 'start' | 'status' | 'cancel' | 'resume', job: StoredJob) {
+    assertFreeReviewWorkflowJob(job, this.env);
+    if (this.env.KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED !== 'true') {
+      throw new Error('review_workflow_control_disabled');
+    }
+    const queue = this.env.KANAREK_REVIEW_JOBS;
+    if (!queue) throw new Error('review_workflow_control_unconfigured');
+    const stub = queue.get(queue.idFromName(`${job.target.repository}#${job.target.number}`));
+    const response = await stub.fetch(`https://kanarek-review.internal/workflow/${action}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job),
+    });
+    return { status: response.status, body: await response.json() as JsonObject | null };
   }
 }
 

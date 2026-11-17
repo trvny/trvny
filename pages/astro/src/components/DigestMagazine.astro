@@ -28,7 +28,7 @@ const { magazine, part } = Astro.props;
       </div>)}
       {section.chart.source && <a class="chart-source" href={section.chart.source.url}>{section.chart.source.label}</a>}
     </figure>}
-    {section.cards?.length > 0 && <div class="card-grid">{section.cards.map(card => <DigestCard card={card}/>)}</div>}
+    {section.cards?.length > 0 && <div class="card-grid">{section.cards.map((card, index) => <DigestCard card={card} featured={section.layout === 'feature' && index === 0}/>)}</div>}
     {section.note && <p class="section-note">{section.note}</p>}
   </section>)}
   {magazine.note && <p class="section-note">{magazine.note}</p>}
@@ -47,7 +47,6 @@ const { magazine, part } = Astro.props;
   .magazine-section h2 svg { width: 28px; height: 28px; }
   .card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(280px,100%),1fr)); gap: 16px; }
   .kind-timeline .card-grid, .layout-list .card-grid { grid-template-columns: 1fr; }
-  .layout-feature .card-grid > :first-child { grid-column: 1/-1; }
   .section-note { color: var(--muted); font: 14px/1.65 system-ui,sans-serif; }
   .chart { margin: 16px 0; padding: 16px; border: 1px solid #273748; border-radius: 12px; background: var(--panel); }
   .chart figcaption { font: 700 16px/1.5 system-ui,sans-serif; margin-bottom: 12px; }

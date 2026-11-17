@@ -9,7 +9,7 @@ const decode = (text) => text.replace(/&(?:amp|lt|gt|quot|#39);/g, (entity) => (
 test('Astro pages publish breadcrumb trails matching their canonical paths', async () => {
   const dist = new URL('../astro/dist/', import.meta.url);
   const issues = (await readdir(new URL('przeglad/', dist), { withFileTypes: true }))
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(entry.name))
     .map((entry) => `przeglad/${entry.name}/`);
   for (const path of ['lab/', 'lab/field-notes/', 'przeglad/', ...issues]) {
     const html = await readFile(new URL(`${path}index.html`, dist), 'utf8');

@@ -1,7 +1,7 @@
 ---
 title: "CoCzyDziennik — YYYY-MM-DD"
 description: "Replace with verified lead."
-date: 2026-01-01
+date: "YYYY-MM-DD"
 draft: true
 magazine:
   cover:
@@ -19,6 +19,12 @@ magazine:
         - title: "Lead story"
           kicker: "Topic or date"
           body: "What happened. Why it matters."
+          # Optional: official provider link, not iframe code.
+          # media:
+          #   kind: embed
+          #   src: "https://www.youtube.com/watch?v=VIDEO_ID"
+          #   alt: "Describe the source video"
+          #   credit: "Source channel"
           links:
             - label: "Source"
               url: "https://example.org/"

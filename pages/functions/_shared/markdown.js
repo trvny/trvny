@@ -47,7 +47,12 @@ export async function negotiateMarkdown(context, url) {
     || !prefersMarkdown(context.request.headers.get("accept") || "")
     || !context.env?.ASSETS?.fetch) return null;
   const assetUrl = new URL(path, url.origin);
-  const asset = await context.env.ASSETS.fetch(new Request(assetUrl, { method: context.request.method }));
+  let asset;
+  try {
+    asset = await context.env.ASSETS.fetch(new Request(assetUrl, { method: context.request.method }));
+  } catch {
+    return null;
+  }
   if (!asset.ok) return null;
   const headers = new Headers(asset.headers);
   for (const name of ["content-length", "content-encoding", "etag", "last-modified", "content-range"]) headers.delete(name);

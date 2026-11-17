@@ -63,6 +63,7 @@ import {
   shouldAskAi,
 } from './quip.ts';
 import { isDependabotPullRequest, webhookReviewState } from './webhook-review.ts';
+import { liveReviewBadge } from './companion-review-threads.ts';
 import type { BankContext } from './companion-bank.ts';
 import type {
   CompanionEnv,
@@ -251,6 +252,16 @@ export async function refreshCompanion(
         target.repository,
         target.pullRequestNumber,
         pr.head.sha,
+      );
+  const aiReviewBadge = pr.merged || pr.state === 'closed'
+    ? reviewJobState.badge
+    : await liveReviewBadge(
+        client,
+        target.repository,
+        target.pullRequestNumber,
+        pr.head.sha,
+        env.GITHUB_APP_SLUG,
+        reviewJobState.badge,
       );
   const projectAreas = areas(changedFiles, target.repository);
   const prSize = size(pr);
@@ -509,7 +520,7 @@ export async function refreshCompanion(
     source,
     pool,
     ciRequired,
-    reviewJobState.badge,
+    aiReviewBadge,
   );
   const result = await upsert(
     client,

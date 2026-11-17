@@ -46,9 +46,11 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
    Replace placeholders with live values. Follow the [framing rules](docs/REFERENCE.md#raw-text-blocks).
    No raw blocks (e.g. `commit_tree`)? Close the fence after JSON; no markers.
    Never edit old commands.
-4. **Verify:** keep the comment ID. Check its Actions run and live state.
-   Success normally deletes the comment; 👎 means rejection or unconfirmed
-   transport, not proof that no write occurred. Do not resubmit blindly.
+4. **Verify:** keep the comment ID; check #203 receipts and live state.
+   Success normally deletes the command. 👎 + bot error receipt: inspect code,
+   fix the command, use a fresh ID for changed payload. No receipt and no
+   confirmed write? Inspect live state, then use [#203 issue-body wake](docs/REFERENCE.md#agent-recovery-issue-203-wake)
+   with the identical ID/payload within 7 days. Never blindly replay.
 5. **Finish:** open/update PR as `trvny`; fix valid reviews, resolve threads,
    recheck CI on final head. Rebase merge to preserve GPTomek attribution.
 
@@ -79,5 +81,5 @@ reactions in `trvny/*` and `travnie/*`. Open PRs as `trvny`. Not a shell.
 - [Devbox](../../.devcontainer/README.md#gptomek-remote-power-and-diagnostics):
   scoped dispatch, not shell access.
 
-Failure check: comment ID → `Run GPTomek JSON comment` Actions → run summary
-/ Worker logs → live repo/ref. GPTomek adds the Codex co-author trailer automatically.
+Failure check: #203 error receipt → live repo/ref → Worker logs if accessible.
+Actions only for manual fallback/rollback. GPTomek adds the Codex co-author trailer automatically.

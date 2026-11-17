@@ -202,3 +202,17 @@ jobs:
               gh api --method DELETE "repos/trvny/trvny/issues/comments/${comment_id}" >/dev/null
               echo "Removed expired GPTomek failure comment ${comment_id}"
             done
+          # Prune diagnostic receipts only; never execute them.
+          gh api --paginate 'repos/trvny/trvny/issues/203/comments?per_page=100' \
+            --jq '.[] | select(.user.login == "gptomek[bot]") | .id' |
+            while IFS= read -r receipt_id; do
+              receipt="$(gh api "repos/trvny/trvny/issues/comments/${receipt_id}")"
+              if jq -e --arg cutoff "$cutoff" '
+                .user.login == "gptomek[bot]" and
+                .created_at <= $cutoff and .updated_at <= $cutoff and
+                .created_at == .updated_at and
+                (.body | test("<!-- gptomek-error:[0-9]+:[a-f0-9]{64} -->$"))
+              ' <<<"$receipt" >/dev/null; then
+                gh api --method DELETE "repos/trvny/trvny/issues/comments/${receipt_id}" >/dev/null
+              fi
+            done

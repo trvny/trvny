@@ -2,9 +2,9 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
-from defusedxml.common import DefusedXmlException
 
 import indexnow
+from defusedxml.common import DefusedXmlException
 
 
 class IndexNowTests(unittest.TestCase):

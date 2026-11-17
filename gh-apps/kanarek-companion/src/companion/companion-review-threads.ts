@@ -86,7 +86,7 @@ export async function liveReviewBadge(
       const pr = response.data?.repository?.pullRequest;
       const threads = pr?.reviewThreads;
       const info = threads?.pageInfo;
-      if (response.errors?.length || pr?.headRefOid?.toLowerCase() !== headSha.toLowerCase() ||
+      if ((response.errors?.length ?? 0) > 0 || pr?.headRefOid?.toLowerCase() !== headSha.toLowerCase() ||
           !Array.isArray(threads?.nodes) || typeof info?.hasNextPage !== 'boolean') return fallback;
       for (const thread of threads.nodes) {
         if (!thread || typeof thread.isResolved !== 'boolean' || !Array.isArray(thread.comments?.nodes)) {

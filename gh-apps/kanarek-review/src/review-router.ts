@@ -2,7 +2,10 @@ import { bearerAuthorized } from '../../core/auth.ts';
 import { GROK_PAID_MODEL } from '../../core/xai-review.ts';
 import { prepareGroqFreeReview } from './groq-review.ts';
 import {
+  FREE_PROVIDER_IDS,
+  isFreeReviewProvider,
   REVIEW_PROVIDER_EXCLUDE_HEADER,
+  REVIEW_PROVIDER_ONLY_HEADER,
   REVIEW_ROUTER_CODE_REVIEW_MODEL,
   REVIEW_ROUTER_FREE_MODEL,
   REVIEW_ROUTER_JUDGE_MODEL,
@@ -59,17 +62,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_GEMINI_THINKING_LEVEL: 'high',
 } as const;
 const VERCEL_HY3_MODEL = 'tencent/hy3';
-// Known provider IDs; not a fallback queue.
-export const FREE_PROVIDER_IDS = [
-  'aihubmix',
-  'openrouter',
-  'ollama',
-  'groq',
-  'vercel',
-  'orcarouter',
-  'huggingface-publicai',
-  'gemini-standard',
-] as const;
+export { FREE_PROVIDER_IDS } from '../../core/review-service-protocol.ts';
 type FreeReviewProviderId = (typeof FREE_PROVIDER_IDS)[number] | 'workers-ai';
 type FreeTaskProfileId = 'general' | 'quip' | 'review' | 'judge' | 'shitpost';
 
@@ -1515,6 +1508,7 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
   }>;
   ready: boolean;
   freeOrder: ReviewProviderId[];
+  strictFreeReviewSelector: true;
   taskOrders: Record<FreeTaskProfileId, ReviewProviderId[]>;
 }> {
   const states = await Promise.all(
@@ -1592,6 +1586,7 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
     providers: states,
     ready: available > 0,
     freeOrder: freeProviderOrder(env),
+    strictFreeReviewSelector: true,
     taskOrders: {
       general: freeProviderOrder(env, 'general'),
       quip: freeProviderOrder(env, 'quip'),
@@ -2237,6 +2232,11 @@ export async function handleReviewRouterRequest(
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   const task = reviewRouterTaskProfile(input.model);
   const excluded = excludedProviders(request);
+  const onlyProvider = request.headers.get(REVIEW_PROVIDER_ONLY_HEADER)?.trim().toLowerCase();
+  if (onlyProvider !== undefined && (input.model !== REVIEW_ROUTER_CODE_REVIEW_MODEL ||
+    (!isFreeReviewProvider(onlyProvider) && onlyProvider !== 'workers-ai'))) {
+    return jsonError('Invalid free-review provider selection', 'invalid_provider_selection', 400);
+  }
   const allowPartial = request.headers.get('x-kanarek-review-partial-ok') === 'true';
   let configured = 0;
   let invalidRequests = 0;
@@ -2257,6 +2257,7 @@ export async function handleReviewRouterRequest(
         : []),
     ];
   for (const provider of orderedProviders) {
+    if (onlyProvider && (provider === 'workers-ai' ? provider : provider.id) !== onlyProvider) continue;
     if (provider === 'workers-ai') {
       if (excluded.has(provider)) continue;
     configured += 1;

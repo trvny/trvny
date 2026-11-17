@@ -18,7 +18,7 @@ import {
   taskProviderTimeoutMs,
 } from '../src/review-router.ts';
 import { ReviewProviderCooldownStore } from '../../core/review-cooldown-store.ts';
-import { REVIEW_PROVIDER_EXCLUDE_HEADER } from '../../core/review-service-protocol.ts';
+import { REVIEW_PROVIDER_EXCLUDE_HEADER, REVIEW_PROVIDER_ONLY_HEADER } from '../../core/review-service-protocol.ts';
 
 const base = 'https://kanarek-review.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
@@ -168,6 +168,50 @@ test('free router skips a successful provider response with no assistant content
     choices?: Array<{ message?: { content?: string } }>;
   };
   assert.equal(payload.choices?.[0]?.message?.content, 'fallback worked');
+});
+
+test('strict free-review provider selection never falls through to another gateway', async () => {
+  const urls: string[] = [];
+  const req = request(routerToken, {
+    model: 'kanarek-code-review-free', stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  });
+  req.headers.set(REVIEW_PROVIDER_ONLY_HEADER, 'orcarouter');
+  const response = await handleReviewRouterRequest(req, {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ROUTING: {
+      providerOrders: { review: ['openrouter', 'orcarouter'] },
+      taskModels: { orcarouter: { review: ['locked/free'] } },
+    },
+  }, ((input: RequestInfo | URL) => {
+    urls.push(String(input));
+    return Promise.resolve(new Response('forbidden', { status: 403 }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 502);
+  assert.deepEqual(urls, ['https://api.orcarouter.ai/v1/chat/completions']);
+});
+
+test('strict provider guard rejects paid aliases, paid IDs and invalid selectors without fetch', async () => {
+  const cases = [
+    ['kanarek-review-paid', 'orcarouter'],
+    ['kanarek-code-review-free', 'unknown-provider'],
+    ['kanarek-code-review-free', ''],
+    ['kanarek-code-review-free', 'xai'],
+    ['kanarek-code-review-free', 'deepseek'],
+    ['kanarek-code-review-free', 'gemini-flex'],
+  ];
+  let calls = 0;
+  for (const [model, selector] of cases) {
+    const req = request(routerToken, { model, stream: false, messages: [{ role: 'user', content: 'review' }] });
+    req.headers.set(REVIEW_PROVIDER_ONLY_HEADER, selector);
+    const response = await handleReviewRouterRequest(req, { ...auth, ORCAROUTER_API_KEY: 'key' }, (() => {
+      calls += 1;
+      throw new Error('must not fetch');
+    }) as typeof fetch);
+    assert.equal(response?.status, 400);
+    assert.equal((await response?.json() as { error: { code: string } }).error.code, 'invalid_provider_selection');
+  }
+  assert.equal(calls, 0);
 });
 
 test('free router preserves an explicit refusal instead of bypassing it', async () => {
@@ -1696,6 +1740,7 @@ test('provider health exposes budget classes and task queues', async () => {
     health.providers.find((provider) => provider.provider === 'vercel')?.budgetClass,
     'monthly-free-credit',
   );
+  assert.equal(health.strictFreeReviewSelector, true);
   assert.equal(health.taskOrders.review[0], 'openrouter');
   assert.equal(health.taskOrders.quip[0], 'vercel');
   assert.equal(health.taskOrders.shitpost[1], 'openrouter');

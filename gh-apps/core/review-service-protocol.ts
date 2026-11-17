@@ -15,13 +15,31 @@ export const REVIEW_ROUTER_PAID_MODEL = 'kanarek-review-paid';
 export const REVIEW_ROUTER_WORK_MODEL = 'kanarek-work-paid';
 export const REVIEW_WORKERS_AI_OVERRIDE_HEADER = 'x-kanarek-review-workers-ai-enabled';
 export const REVIEW_PROVIDER_EXCLUDE_HEADER = 'x-kanarek-review-exclude-provider';
+// Optional strict provider selection for durable free-review steps.
+export const REVIEW_PROVIDER_ONLY_HEADER = 'x-kanarek-review-only-provider';
 // Set on an exhausted paid response when a paid provider likely billed (unusable 200 or timeout).
 export const REVIEW_BILLED_PROVIDER_HEADER = 'x-kanarek-review-billed-provider';
+
+// Known provider IDs; not a fallback queue.
+export const FREE_PROVIDER_IDS = [
+  'aihubmix',
+  'openrouter',
+  'ollama',
+  'groq',
+  'vercel',
+  'orcarouter',
+  'huggingface-publicai',
+  'gemini-standard',
+] as const;
+export function isFreeReviewProvider(id: unknown): id is (typeof FREE_PROVIDER_IDS)[number] {
+  return typeof id === 'string' && FREE_PROVIDER_IDS.some((provider) => provider === id);
+}
 
 export type ReviewProviderPoolHealth = {
   available: number;
   configured: number;
   freeOrder?: string[];
+  strictFreeReviewSelector?: true;
   taskOrders?: Partial<Record<'general' | 'quip' | 'review' | 'judge' | 'shitpost', string[]>>;
   providers: Array<{
     available: boolean;

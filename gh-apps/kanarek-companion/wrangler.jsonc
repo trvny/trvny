@@ -17,6 +17,13 @@
       "service": "kanarek-review"
     }
   ],
+  "workflows": [
+    {
+      "name": "kanarek-free-review-prototype",
+      "binding": "KANAREK_FREE_REVIEW_PROTOTYPE",
+      "class_name": "KanarekFreeReviewPrototype"
+    }
+  ],
   "durable_objects": {
     "bindings": [
       {

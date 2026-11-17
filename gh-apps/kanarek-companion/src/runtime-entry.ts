@@ -1,4 +1,6 @@
-import { WorkerEntrypoint } from 'cloudflare:workers';
+import { WorkerEntrypoint, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
+import { runFreeReviewWorkflowPrototype, runFreeReviewWorkflowSmoke } from './companion/review-workflow.ts';
+import type { StoredJob } from './companion/webhook-review.ts';
 import {
   botekEngramSearch,
   botekEngramStatus,
@@ -84,6 +86,19 @@ export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
         return client.json(path, 'grok_agent_scoped_read');
       } };
     });
+  }
+}
+
+// Draft workflow. Only manual invocation; production webhooks still use the DO.
+type PrototypeParams = StoredJob | { mode: 'binding-smoke' };
+
+export class KanarekFreeReviewPrototype extends WorkflowEntrypoint<RuntimeEnv, PrototypeParams> {
+  async run(event: WorkflowEvent<PrototypeParams>, step: WorkflowStep) {
+    const payload = event.payload;
+    if (payload && typeof payload === 'object' && 'mode' in payload && payload.mode === 'binding-smoke') {
+      return runFreeReviewWorkflowSmoke(this.env, step);
+    }
+    return runFreeReviewWorkflowPrototype(payload as StoredJob, this.env, step);
   }
 }
 

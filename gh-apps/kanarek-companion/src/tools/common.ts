@@ -55,6 +55,23 @@ export function repositoryInScope(value: string): boolean {
   );
 }
 
+// `owner/repo` or `owner/*` entries, comma-separated.
+export function repositoryListAllows(
+  configured: string | undefined,
+  repository: string | null,
+): boolean {
+  if (!repository) return false;
+  return String(configured ?? 'trvny/trvny')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .some((entry) => {
+      if (entry === repository) return true;
+      if (!entry.endsWith('/*')) return false;
+      return repository.startsWith(`${entry.slice(0, -2)}/`);
+    });
+}
+
 export function repositoryOwner(repository: string): string {
   return repository.split('/')[0];
 }

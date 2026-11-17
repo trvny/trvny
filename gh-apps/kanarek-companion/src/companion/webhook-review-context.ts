@@ -87,6 +87,8 @@ export interface WebhookReviewEnv extends ReviewServiceEnv {
   GITHUB_APP_SLUG?: string;
   GITHUB_PRIVATE_KEY: string;
   KANAREK_REVIEW_JOBS?: DurableObjectNamespace;
+  KANAREK_REVIEW_REPOSITORIES?: string;
+  KANAREK_REPOSITORIES?: string;
   KANAREK_WEBHOOK_REVIEW_ENABLED?: string;
   KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS?: string;
   KANAREK_WEBHOOK_REVIEW_RETRY_DELAYS_MS?: string;

@@ -26,6 +26,8 @@ import { GPTOMEK_CONTROL_REPOSITORY, isGptomekFallbackPullRequest } from './gpto
 import { GPTOMEK_WEBHOOK_PATH, gptomekWebhookTarget, type GptomekWebhookEnv } from './gptomek/gptomek-webhook.ts';
 import { hasAiProvider } from './companion/quip.ts';
 import { json } from './json-response.ts';
+import { repositoryListAllows } from './tools/common.ts';
+export { repositoryListAllows } from './tools/common.ts';
 import { HEALTH_PATH, WEBHOOK_PATH } from './paths.ts';
 
 interface Env extends CompanionEnv, GptomekWebhookEnv {
@@ -177,23 +179,6 @@ function webhookMetadata(
     installationId:
       typeof installation?.id === 'number' ? installation.id : null,
   };
-}
-
-// `owner/repo` or `owner/*` entries, comma-separated.
-export function repositoryListAllows(
-  configured: string | undefined,
-  repository: string | null,
-): boolean {
-  if (!repository) return false;
-  return String(configured ?? 'trvny/trvny')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .some((entry) => {
-      if (entry === repository) return true;
-      if (!entry.endsWith('/*')) return false;
-      return repository.startsWith(`${entry.slice(0, -2)}/`);
-    });
 }
 
 export function repositoryAllowed(env: Env, repository: string | null): boolean {

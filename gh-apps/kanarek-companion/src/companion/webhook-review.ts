@@ -3,6 +3,7 @@ import { isGptomekFallbackPullRequest } from '../gptomek/gptomek-control.ts';
 import {
   REVIEW_BILLED_PROVIDER_HEADER,
   REVIEW_PROVIDER_EXCLUDE_HEADER,
+  REVIEW_PROVIDER_ONLY_HEADER,
   REVIEW_ROUTER_CODE_REVIEW_MODEL,
   REVIEW_ROUTER_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
@@ -110,7 +111,7 @@ const REVIEW_SYSTEM_PROMPT = [
   `At most ${MAX_FINDINGS} findings. If none, return exactly {"summary":"","findings":[]}.`,
 ].join('\n');
 
-interface ReviewTarget {
+export interface ReviewTarget {
   action: string;
   baseSha: string;
   beforeSha?: string;
@@ -124,7 +125,7 @@ interface ReviewTarget {
 
 type ReviewPhase = 'free' | 'paid';
 
-interface StoredJob {
+export interface StoredJob {
   attempt?: number;
   phase?: ReviewPhase;
   target: ReviewTarget;
@@ -437,12 +438,13 @@ export type ReviewRouterOutcome =
   | { kind: 'invalid'; provider: string }
   | { kind: 'unavailable' };
 
-async function askReviewRouter(
+export async function askReviewRouter(
   prompt: string,
   env: WebhookReviewEnv,
   routerModel = REVIEW_ROUTER_REVIEW_MODEL,
   excludedProviders: readonly string[] = [],
   signal?: AbortSignal,
+  onlyProvider?: string,
 ): Promise<ReviewRouterOutcome> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) return { kind: 'unavailable' };
@@ -455,6 +457,7 @@ async function askReviewRouter(
   if (excludedProviders.length) {
     headers[REVIEW_PROVIDER_EXCLUDE_HEADER] = excludedProviders.join(',');
   }
+  if (onlyProvider) headers[REVIEW_PROVIDER_ONLY_HEADER] = onlyProvider;
   const response = await handleReviewRouterViaService(
     new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_ROUTER_PATH}`, {
       method: 'POST',
@@ -576,29 +579,44 @@ export async function sweepReviewProviders(
   files: ReviewFile[],
   options: { budgetMs?: number; maxAttempts?: number; now?: () => number } = {},
 ): Promise<ReviewSweepResult> {
-  const maxAttempts = options.maxAttempts ?? REVIEW_SWEEP_MAX_ATTEMPTS;
   const budgetMs = options.budgetMs ?? DEFAULT_REVIEW_SWEEP_BUDGET_MS;
   const now = options.now ?? Date.now;
   const startedAt = now();
+  return sweepReviewAttempts(async (excluded) => {
+    const remainingMs = budgetMs - (now() - startedAt);
+    if (remainingMs <= 0) return { kind: 'stop' };
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), remainingMs);
+    try {
+      const outcome = await ask(excluded, deadline.signal);
+      return { kind: 'attempt', outcome, aborted: deadline.signal.aborted };
+    } finally {
+      clearTimeout(timer);
+    }
+  }, files, options.maxAttempts ?? REVIEW_SWEEP_MAX_ATTEMPTS);
+}
+
+export type ReviewSweepAttempt =
+  | { kind: 'stop' }
+  | { kind: 'attempt'; outcome: ReviewRouterOutcome; aborted: boolean };
+
+// Shared verdict logic. The attempt adapter owns deadlines and durable I/O.
+export async function sweepReviewAttempts(
+  ask: (excluded: readonly string[], index: number) => Promise<ReviewSweepAttempt>,
+  files: ReviewFile[],
+  maxAttempts: number,
+): Promise<ReviewSweepResult> {
   const excluded: string[] = [];
   let attempts = 0;
   let aborted = false;
   let last: ReviewSweepResult | null = null;
 
   while (attempts < maxAttempts) {
-    const remainingMs = budgetMs - (now() - startedAt);
-    if (remainingMs <= 0) break;
+    const attempt = await ask(excluded, attempts); // skipcq: JS-0032
+    if (attempt.kind === 'stop') break;
     attempts += 1;
-    const deadline = new AbortController();
-    const timer = setTimeout(() => deadline.abort(), remainingMs);
-    let outcome: ReviewRouterOutcome;
-    try {
-      // Sequential on purpose: each attempt excludes the previous provider.
-      outcome = await ask(excluded, deadline.signal); // skipcq: JS-0032
-    } finally {
-      clearTimeout(timer);
-    }
-    if (deadline.signal.aborted) {
+    const { outcome } = attempt;
+    if (attempt.aborted) {
       // Cut off mid-call: a paid provider may have billed. Callers see it via `aborted`.
       aborted = true;
       if (outcome.kind === 'invalid') excluded.push(outcome.provider);
@@ -684,6 +702,37 @@ export function reviewSourceBadge(provider: string, model: string | null): strin
 
 export function reviewPublicationDisposition(findings: readonly unknown[]): 'silent' | 'comment' {
   return findings.length ? 'comment' : 'silent';
+}
+
+export function planReviewPublication(
+  target: ReviewTarget,
+  generated: RouterReview,
+  publishFindings: ReviewFinding[],
+  paidPhase: boolean,
+  judged: JudgedFindings | null,
+  decisionMarker: string | null,
+) {
+  const provider = generated.provider;
+  if (reviewPublicationDisposition(publishFindings) === 'silent') {
+    const result: WebhookReviewResult = generated.partial
+      ? { reviewed: false, provider, findingCount: 0, skipped: 'paid_escalation_needed' }
+      : { reviewed: true, provider, findingCount: 0, skipped: judged ? 'no_findings_judged' : 'no_findings' };
+    return { kind: 'settled', result } as const;
+  }
+  const summary = generated.parsed.summary || '发现了需要处理的问题。🐤';
+  const severity = { high: '高', medium: '中', low: '低' } as const;
+  const payload = {
+    commit_id: target.headSha,
+    event: 'COMMENT',
+    body: `${reviewMarker(target)}${decisionMarker ? `\n${decisionMarker}` : ''}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceBadge(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceBadge(judged.provider, judged.model)}` : ''}\n\n${summary}${generated.partial ? '\n\n_此免费模型只检查了部分变更，其余文件未纳入本次扫描。_' : ''}`,
+    comments: publishFindings.map((finding) => ({
+      path: finding.path,
+      line: finding.line,
+      side: 'RIGHT',
+      body: `**${severity[finding.severity]} · ${finding.title}**\n\n${finding.body}`,
+    })),
+  };
+  return { kind: 'comment', payload } as const;
 }
 
 export function reviewDisposition(
@@ -831,37 +880,31 @@ function targetStillCurrent(
   );
 }
 
-export async function runWebhookReview(
+export type PreparedWebhookReview =
+  | { kind: 'finished'; result: WebhookReviewResult }
+  | {
+    kind: 'ready';
+    reviewInput: string;
+    verifiableFiles: ReviewFile[];
+    diffChars: number;
+    contextChars: number;
+  };
+
+export async function prepareWebhookReview(
   job: StoredJob,
   env: WebhookReviewEnv,
+  client: Awaited<ReturnType<typeof createInstallationClient>>,
   fetcher: typeof fetch = runtimeFetch,
-  submitGate?: ReviewSubmitGate,
-): Promise<WebhookReviewResult> {
+): Promise<PreparedWebhookReview> {
   const target = job.target;
-  const alarmStartedAt = Date.now();
-  if (!env.KANAREK_REVIEW_ROUTER_TOKEN?.trim()) {
-    return { reviewed: false, provider: null, findingCount: 0, skipped: 'router_unconfigured' };
-  }
-
-  const client = await createInstallationClient(
-    env.GITHUB_APP_ID,
-    env.GITHUB_PRIVATE_KEY,
-    target.installationId,
-    fetcher,
-  );
   const pr = await currentPullRequest(client, target);
   if (!targetStillCurrent(pr, target)) {
-    return { reviewed: false, provider: null, findingCount: 0, skipped: 'stale_or_unreviewable' };
+    return { kind: 'finished', result: { reviewed: false, provider: null, findingCount: 0, skipped: 'stale_or_unreviewable' } };
   }
 
   const appSlug = env.GITHUB_APP_SLUG?.trim() || 'kanarek-companion';
   if (await existingSubmittedReview(client, target, appSlug)) {
-    return {
-      reviewed: true,
-      provider: null,
-      findingCount: 0,
-      skipped: 'already_submitted',
-    };
+    return { kind: 'finished', result: { reviewed: true, provider: null, findingCount: 0, skipped: 'already_submitted' } };
   }
 
   const paidPhase = job.phase === 'paid';
@@ -891,12 +934,7 @@ export async function runWebhookReview(
   const verifiableFiles = paidPhase ? selectReviewEvidenceFiles(rawFiles) : files;
   const inputState = reviewInputState(rawFiles, files.length);
   if (inputState !== 'reviewable') {
-    return {
-      reviewed: false,
-      provider: null,
-      findingCount: 0,
-      skipped: inputState,
-    };
+    return { kind: 'finished', result: { reviewed: false, provider: null, findingCount: 0, skipped: inputState } };
   }
 
   const [context, callers, dependencyEvidence] = await Promise.all([
@@ -918,7 +956,6 @@ export async function runWebhookReview(
     fetchReviewDependencyEvidence(files, fetcher),
   ]);
 
-  const reviewEnv = reviewRouterEnvForAttempt(env, job.attempt);
   const reviewInput = reviewPrompt(
     target.number,
     pr.title,
@@ -930,6 +967,48 @@ export async function runWebhookReview(
     changeInventory,
     paidPhase ? { repository: target.repository, headSha: target.headSha } : undefined,
   );
+  return {
+    kind: 'ready', reviewInput, verifiableFiles,
+    diffChars: files.reduce((total, file) => total + file.patch.length, 0),
+    contextChars: context.files.reduce((total, file) => total + file.content.length, 0),
+  };
+}
+
+export async function reviewTargetIsCurrent(
+  target: ReviewTarget,
+  env: WebhookReviewEnv,
+  fetcher: typeof fetch = runtimeFetch,
+): Promise<boolean> {
+  const client = await createInstallationClient(
+    env.GITHUB_APP_ID, env.GITHUB_PRIVATE_KEY, target.installationId, fetcher,
+  );
+  return targetStillCurrent(await currentPullRequest(client, target), target);
+}
+
+export async function runWebhookReview(
+  job: StoredJob,
+  env: WebhookReviewEnv,
+  fetcher: typeof fetch = runtimeFetch,
+  submitGate?: ReviewSubmitGate,
+): Promise<WebhookReviewResult> {
+  const target = job.target;
+  const alarmStartedAt = Date.now();
+  if (!env.KANAREK_REVIEW_ROUTER_TOKEN?.trim()) {
+    return { reviewed: false, provider: null, findingCount: 0, skipped: 'router_unconfigured' };
+  }
+
+  const client = await createInstallationClient(
+    env.GITHUB_APP_ID,
+    env.GITHUB_PRIVATE_KEY,
+    target.installationId,
+    fetcher,
+  );
+  const prepared = await prepareWebhookReview(job, env, client, fetcher);
+  if (prepared.kind === 'finished') return prepared.result;
+  const { reviewInput, verifiableFiles, diffChars, contextChars } = prepared;
+  const paidPhase = job.phase === 'paid';
+  const appSlug = env.GITHUB_APP_SLUG?.trim() || 'kanarek-companion';
+  const reviewEnv = reviewRouterEnvForAttempt(env, job.attempt);
   const sweep = await sweepReviewProviders(
     (excluded, signal) => askReviewRouter(
       reviewInput,
@@ -983,11 +1062,8 @@ export async function runWebhookReview(
       headSha: target.headSha,
       provider: generated.provider,
       model: generated.model,
-      diffChars: files.reduce((total, file) => total + file.patch.length, 0),
-      contextChars: context.files.reduce(
-        (total, file) => total + file.content.length,
-        0,
-      ),
+      diffChars,
+      contextChars,
     }));
   }
   if (disposition === 'clean') {
@@ -1098,44 +1174,20 @@ export async function runWebhookReview(
       };
     }
 
-    // Clean is a settled review result, not a GitHub Review. The quip status owns it.
-    if (reviewPublicationDisposition(publishFindings) === 'silent') {
-      if (generated.partial) {
-        return {
-          reviewed: false,
+    const plan = planReviewPublication(target, generated, publishFindings, paidPhase, judged, decisionMarker);
+    if (plan.kind === 'settled') {
+      if (plan.result.reviewed) {
+        console.info(JSON.stringify({
+          kanarekWebhookReview: 'clean_silent',
+          repository: target.repository,
+          pullRequestNumber: target.number,
+          headSha: target.headSha,
           provider: generated.provider,
-          findingCount: 0,
-          skipped: 'paid_escalation_needed',
-        };
+        }));
       }
-      console.info(JSON.stringify({
-        kanarekWebhookReview: 'clean_silent',
-        repository: target.repository,
-        pullRequestNumber: target.number,
-        headSha: target.headSha,
-        provider: generated.provider,
-      }));
-      return {
-        reviewed: true,
-        provider: generated.provider,
-        findingCount: 0,
-        skipped: judged ? 'no_findings_judged' : 'no_findings',
-      };
+      return plan.result;
     }
-
-    const summary = generated.parsed.summary || '发现了需要处理的问题。🐤';
-    const severity = { high: '高', medium: '中', low: '低' } as const;
-    const payload = {
-      commit_id: target.headSha,
-      event: 'COMMENT',
-      body: `${reviewMarker(target)}${decisionMarker ? `\n${decisionMarker}` : ''}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceBadge(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceBadge(judged.provider, judged.model)}` : ''}\n\n${summary}${generated.partial ? '\n\n_此免费模型只检查了部分变更，其余文件未纳入本次扫描。_' : ''}`,
-      comments: publishFindings.map((finding) => ({
-        path: finding.path,
-        line: finding.line,
-        side: 'RIGHT',
-        body: `**${severity[finding.severity]} · ${finding.title}**\n\n${finding.body}`,
-      })),
-    };
+    const { payload } = plan;
 
     try {
       await client.json<unknown>(
@@ -1260,7 +1312,7 @@ export function scheduleWebhookReviewWebhook(
   if (ctx) ctx.waitUntil(task);
 }
 
-function validStoredJob(value: unknown): value is StoredJob {
+export function validStoredJob(value: unknown): value is StoredJob {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const job = value as Partial<StoredJob>;
   const target = job.target as Partial<ReviewTarget> | undefined;

@@ -1,7 +1,7 @@
 import { GitHubApiError } from '../../../core/github-app.ts';
 import type { CompanionEnv, CompanionResult, CompanionTarget } from '../companion/companion-types.ts';
 import { json } from '../json-response.ts';
-import { GPTOMEK_CONTROL_ISSUE, commentBodySha256, markGptomekWebhookFailure } from './gptomek-issue.ts';
+import { GPTOMEK_CONTROL_ISSUE, commentBodySha256, markGptomekWebhookFailure, safeGptomekError } from './gptomek-issue.ts';
 import { GPTOMEK_CONTROL_REPOSITORY } from './gptomek-control.ts';
 
 export const GPTOMEK_WEBHOOK_PATH = '/webhooks/gptomek';
@@ -25,6 +25,7 @@ interface JobTarget {
 type Job = JobTarget & {
   phase: 'execute' | 'cleanup' | 'failure' | 'done' | 'stopped';
   attempts: number;
+  commandError?: string;
 };
 
 function object(value: unknown): Record<string, unknown> {
@@ -133,8 +134,9 @@ export class GptomekWebhookJob {
     await this.persist({ ...job, attempts }, RETRY_MS[Math.min(attempts - 1, RETRY_MS.length - 1)]);
     try {
       let phase: Job['phase'] = 'done';
+      let commandError = job.commandError;
       if (job.phase === 'failure') {
-        await markGptomekWebhookFailure(job.commentId, job.bodySha256, this.env);
+        await markGptomekWebhookFailure(job.commentId, job.bodySha256, commandError ?? 'unknown_error', this.env);
       } else {
         const result = await this.refresh(job);
         if (result.state === 'gptomek-comment-ok') {
@@ -145,11 +147,12 @@ export class GptomekWebhookJob {
           }
         } else if (result.state === 'gptomek-comment-error' && job.phase === 'execute') {
           phase = 'failure';
+          commandError = safeGptomekError(result.commandError);
         } else if (!['gptomek-comment-missing', 'gptomek-comment-stale'].includes(result.state)) {
           throw new Error('unexpected_mailbox_state');
         }
       }
-      await this.persist({ ...job, phase, attempts: 0 }, phase === 'done' ? RECEIPT_MS : 0);
+      await this.persist({ ...job, phase, attempts: 0, ...(commandError ? { commandError } : {}) }, phase === 'done' ? RECEIPT_MS : 0);
       console.log(JSON.stringify({ gptomek: 'webhook_phase', commentId: job.commentId, phase }));
     } catch (error) {
       const stopped = attempts > RETRY_MS.length;

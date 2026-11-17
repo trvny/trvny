@@ -478,8 +478,8 @@ raw-v1 example123
 
 ## Troubleshooting
 
-- **👎 on #203:** find `GPTomek #<comment ID>` in Actions; inspect the wake
-  result and live ref/PR. A transport failure may follow an applied write.
+- **👎 on #203:** find bot receipt `GPTomek #<comment ID>` on #203; inspect
+  error code and live ref/PR. A transport failure may follow an applied write.
   Retry identical payload only when safe and within retention. For a failed
   batch, inspect completed steps before building a changed command with a new
   ID.
@@ -506,31 +506,38 @@ raw-v1 example123
 - **Successful command, comment still present:** cleanup warning/edited comment;
   check commit first.
 
-Investigate in order: comment ID → `Run GPTomek JSON comment` Actions →
-run summary / Worker logs (`commentId`, `wireFormat`) → **live ref/PR/review
-state**. A posted comment is not evidence of execution.
+Investigate: comment ID → #203 bot error receipt → **live ref/PR/review state** →
+Worker logs (`commentId`, `wireFormat`) if available. Actions summaries only for
+fallback runs. A posted comment is not evidence of execution.
 
 ## Transport internals and recovery
 
 **Normal:** `trvny` posts one fenced `raw-v1` command to
 [Issue #203](https://github.com/trvny/trvny/issues/203).
-[Workflow](../../../.github/workflows/gptomek-comment-command.yml) sends its
-**comment ID** to authenticated `POST /gptomek/wake`. Worker independently
+Signed GitHub App webhook enqueues its **comment ID**. Worker independently
 fetches/verifies issue, author and payload, then executes under checkpointed
 Durable Object locking. One comment per command; no shared command overwritten.
+[Actions](../../../.github/workflows/gptomek-comment-command.yml) is manual fallback/rollback.
 
-### Direct webhook (staged cutover)
+### Direct webhook
 
 - GPTomek App: configure webhook `https://automation.travny.workers.dev/webhooks/gptomek`; subscribe to Issue comment. Dedicated matching `GPTOMEK_WEBHOOK_SECRET` Worker secret. Never share the secret in comments/chat.
 - Default standby: signed ping works; comments do not execute until Worker `GPTOMEK_WEBHOOK_PRIMARY=true` (runtime secret/setting). Set repository Actions variable `GPTOMEK_WEBHOOK_PRIMARY=true` at cutover to skip automatic command jobs. Keep `/gptomek/wake` and manual workflow dispatch `comment_id` for recovery. Rollback: remove both activation flags; keep checkpoint state.
-- Signed `issue_comment.created`, exact issue/owner/installation, unedited body digest. Per-comment Durable Object persists job before ACK; alarm executes via existing serialized mailbox lock and checkpoint. Separate cleanup/failure phase. Bounded transport retries, no new Cron Triggers. Failed commands receive bot 👎; uncertain exhausted transport retains source and logs stopped job.
-- Missing delivery (no durable receipt): inspect App delivery, re-deliver or dispatch fallback using original comment ID, after checking live branch. Manual dispatch validates the unedited command and forwards its digest; errors are in the run summary, not a manual-target reaction. GitHub reaction writes have no compare-and-set; never edit a posted command. Existing daily Actions cleanup unchanged in cadence. Do not replay old failed commands automatically.
+- Signed `issue_comment.created`, exact issue/owner/installation, unedited body digest. Per-comment Durable Object persists job before ACK; alarm executes via existing serialized mailbox lock and checkpoint. Separate cleanup/failure phase. Bounded transport retries, no new Cron Triggers. Failed commands receive a bot error receipt and 👎; uncertain exhausted transport retains source and logs stopped job.
+- Missing delivery (no durable receipt): prefer agent issue-body wake below; humans can inspect App delivery, re-deliver or dispatch fallback using original comment ID, after checking live branch. Manual dispatch validates the unedited command and forwards its digest; errors are in the run summary, not a manual-target reaction. GitHub reaction writes have no compare-and-set; never edit a posted command. Existing daily Actions cleanup unchanged in cadence. Do not replay old failed commands automatically.
+
+### Agent recovery: issue #203 wake
+
+- No success/receipt after checking live refs/reviews and allowing webhook retry: use existing issue-body mailbox, **not** a new changed command. Do not wake a known rejection or `command_outcome_uncertain`; inspect/fix first. Only identical parsed command ID and payload within 7-day checkpoint retention; preserve expected SHA and raw blocks' decoded content.
+- Read #203 body; if another `<!-- gptomek-command:` marker exists, do not overwrite. Serialize mailbox writes. Preserve existing body/result.
+- Decode `raw-v1` to the original complete JSON command (resolve raw references to strings). Encode its UTF-8 JSON as unpadded base64url. Append `<!-- gptomek-command:BASE64URL -->` to #203 body via GitHub issue update as `trvny`. Body edit wakes existing Issues webhook. Toggle `gptomek-wake` label (remove/add based on current state) if needed, only while the same marker remains.
+- Read `<!-- gptomek-result:BASE64URL -->` on #203; decode UTF-8 JSON. Confirm matching command ID and live state. Success removes marker. Never overwrite another pending mailbox command; never blindly replay expired or uncertain IDs. Manual Actions/Redeliver for human recovery; #176 last resort only.
+- Do not edit the original source comment. The original webhook may still arrive; shared checkpoints prevent duplicate successful commands within retention.
 
 **Results and cleanup:** A successful acknowledged execution gets a second
 cleanup wake, which reuses the checkpoint and deletes the unchanged, unedited
 source comment. Failure may leave 👎 and a result envelope; daily cleanup removes
-qualifying failed, unedited commands older than **7 days** without executing
-them. Deterministically stale/permanently invalid failures may discard a marker
+qualifying failed, unedited commands and bot error receipts older than **7 days** without executing them. Deterministically stale/permanently invalid failures may discard a marker
 earlier. Cleanup has an unavoidable GitHub GET/DELETE race; cleanup warnings do
 **not** undo side effects. Result envelope is `<!-- gptomek-result:... -->`;
 bot-authored comments/replies carry command markers for replay guards.

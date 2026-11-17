@@ -200,11 +200,36 @@ function unchangedWebhookComment(comment: Awaited<ReturnType<typeof currentIssue
   return digest === expected && !!comment.createdAt && comment.createdAt === comment.updatedAt;
 }
 
-export async function markGptomekWebhookFailure(commentId: number, expected: string, env: CompanionEnv, fetcher: typeof fetch = runtimeFetch): Promise<void> {
+// Publish machine-readable codes only; never echo command content or raw exceptions.
+export function safeGptomekError(reason: unknown): string {
+  return typeof reason === 'string' &&
+    /^[a-z][a-z0-9_]{0,99}(?::(?:[1-5][0-9]{2}|count=[0-9]+;max=[0-9]+))?$/.test(reason)
+    ? reason : 'unknown_error';
+}
+
+export async function markGptomekWebhookFailure(
+  commentId: number, expected: string, reason: string, env: CompanionEnv, fetcher: typeof fetch = runtimeFetch,
+): Promise<void> {
   try {
     const comment = await currentIssueComment(commentId, env, fetcher);
     if (!unchangedWebhookComment(comment, await commentBodySha256(comment.body), expected)) return;
     const client = await controlClient(env, fetcher);
+    const marker = `<!-- gptomek-error:${commentId}:${expected} -->`;
+    const path = `/repos/${CONTROL_REPOSITORY}/issues/${GPTOMEK_CONTROL_ISSUE}/comments`;
+    const matching = (item: { body?: string; user?: { login?: string } }) =>
+      item.user?.login === 'gptomek[bot]' && item.body?.endsWith(marker);
+    // Reconcile a lost POST response before making another diagnostic.
+    const prior = await client.paginate<{ body?: string; user?: { login?: string } }>(
+      path + '?since=' + encodeURIComponent(comment.createdAt!), 'gptomek_find_error_receipt',
+      { stopWhen: items => items.some(matching) },
+    );
+    if (!prior.some(matching)) {
+      await client.json(path, 'gptomek_publish_error_receipt', {
+        method: 'POST',
+        body: JSON.stringify({ body: `GPTomek #${commentId}: [command](https://github.com/${CONTROL_REPOSITORY}/issues/${GPTOMEK_CONTROL_ISSUE}#issuecomment-${commentId}) rejected.\n\n` +
+          'Error: `' + safeGptomekError(reason) + '`\n\n' + marker }),
+      });
+    }
     await client.json(`/repos/${CONTROL_REPOSITORY}/issues/comments/${commentId}/reactions`, 'gptomek_mark_webhook_failure', {
       method: 'POST', body: JSON.stringify({ content: '-1' }),
     });
@@ -257,7 +282,7 @@ export async function handleGptomekCommentControl(
       }
       throw error;
     }
-    // Cleanup only after Actions observed the first, durably acknowledged wake.
+    // Cleanup only after the transport observed the first, durably acknowledged wake.
     const commentCleanup = target.cleanupComment && result.result?.ok && result.result.deduplicated
       ? await cleanupCompletedComment(comment, env, fetcher)
       : null;

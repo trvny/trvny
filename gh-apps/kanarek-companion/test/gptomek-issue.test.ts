@@ -10,6 +10,8 @@ import {
   handleGptomekCommentControl,
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
+  markGptomekWebhookFailure,
+  safeGptomekError,
 } from '../src/gptomek/gptomek-issue.ts';
 import worker, {
   companionTargets,
@@ -471,4 +473,55 @@ test('rejects a control comment authored by someone else before command executio
     /invalid_gptomek_control_comment/,
   );
   assert.equal(calls.some((call) => call.includes('/reactions')), false);
+});
+
+
+test('failure receipt contains bounded code, reconciles retries and preserves edited source', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  const env = { GPTOMEK_APP_ID: '4524407', GPTOMEK_INSTALLATION_ID: '152126523',
+    GPTOMEK_PRIVATE_KEY: privateKey } as CompanionEnv;
+  const commentId = 779;
+  const body = 'source payload';
+  const digest = createHash('sha256').update(body).digest('hex');
+  const receipts: Array<{ body: string; user: { login: string } }> = [];
+  let reactions = 0;
+  let edited = false;
+  const fetcher: typeof fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url);
+    const method = init.method ?? 'GET';
+    if (url.pathname === '/app/installations/152126523/access_tokens') {
+      return Response.json({ token: 'token', expires_at: '2099-01-01T00:00:00Z' });
+    }
+    const base = '/repos/trvny/trvny/issues';
+    if (method === 'GET' && url.pathname === base + '/comments/779') {
+      return Response.json({ id: commentId, body: edited ? 'edited' : body,
+        issue_url: 'https://api.github.com/repos/trvny/trvny/issues/203',
+        user: { login: 'trvny' }, created_at: '2026-11-17T00:00:00Z', updated_at: '2026-11-17T00:00:00Z' });
+    }
+    if (url.pathname === base + '/203/comments') {
+      if (method === 'GET') return Response.json(receipts);
+      receipts.push({ body: JSON.parse(String(init.body)).body, user: { login: 'gptomek[bot]' } });
+      return Response.json({ id: 900 }, { status: 201 });
+    }
+    if (method === 'POST' && url.pathname === base + '/comments/779/reactions') {
+      reactions++;
+      return Response.json({ id: 1 });
+    }
+    return new Response('unexpected request', { status: 500 });
+  };
+  assert.equal(safeGptomekError('invalid_batch_steps:count=18;max=10'), 'invalid_batch_steps:count=18;max=10');
+  assert.equal(safeGptomekError('secret value\n<unsafe>'), 'unknown_error');
+  for (let n = 0; n < 2; n++) {
+    await markGptomekWebhookFailure(commentId, digest, 'invalid_batch_steps:count=18;max=10', env, fetcher);
+  }
+  assert.equal(receipts.length, 1);
+  assert.match(receipts[0].body, /invalid_batch_steps:count=18;max=10/);
+  assert.ok(receipts[0].body.includes('<!-- gptomek-error:779:' + digest + ' -->'));
+  assert.ok(!receipts[0].body.includes(body));
+  assert.equal(reactions, 2);
+  edited = true;
+  await markGptomekWebhookFailure(commentId, digest, 'invalid_comment_command', env, fetcher);
+  assert.equal(receipts.length, 1);
+  assert.equal(reactions, 2);
 });

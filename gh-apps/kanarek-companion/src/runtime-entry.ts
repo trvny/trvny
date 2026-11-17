@@ -1,6 +1,7 @@
 import { WorkerEntrypoint, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
 import { runFreeReviewWorkflowPrototype, runFreeReviewWorkflowSmoke } from './companion/review-workflow.ts';
 import { assertFreeReviewWorkflowJob, type StoredJob } from './companion/webhook-review.ts';
+import { reviewWorkflowInstanceId, type ManagedWorkflowParams } from './companion/review-workflow-lifecycle.ts';
 import {
   botekEngramSearch,
   botekEngramStatus,
@@ -90,13 +91,33 @@ export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
 }
 
 // Draft workflow. Only manual invocation; production webhooks still use the DO.
-type PrototypeParams = StoredJob | { mode: 'binding-smoke' };
+type PrototypeParams = StoredJob | { mode: 'binding-smoke' } | ManagedWorkflowParams;
+
+async function managedReviewAuthorized(env: RuntimeEnv, job: StoredJob, signal: AbortSignal): Promise<boolean> {
+  const queue = env.KANAREK_REVIEW_JOBS;
+  if (!queue || env.KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED !== 'true' || signal.aborted) return false;
+  const stub = queue.get(queue.idFromName(`${job.target.repository}#${job.target.number}`));
+  const response = await stub.fetch('https://kanarek-review.internal/workflow/authorize', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job), signal,
+  });
+  if (!response.ok) { await response.body?.cancel(); return false; }
+  const body = await response.json() as { authorized?: boolean };
+  return !signal.aborted && body.authorized === true;
+}
 
 export class KanarekFreeReviewPrototype extends WorkflowEntrypoint<RuntimeEnv, PrototypeParams> {
   async run(event: WorkflowEvent<PrototypeParams>, step: WorkflowStep) {
     const payload = event.payload;
     if (payload && typeof payload === 'object' && 'mode' in payload && payload.mode === 'binding-smoke') {
       return runFreeReviewWorkflowSmoke(this.env, step);
+    }
+    if (payload && typeof payload === 'object' && 'mode' in payload && payload.mode === 'managed') {
+      assertFreeReviewWorkflowJob(payload.job, this.env);
+      if (event.instanceId !== await reviewWorkflowInstanceId(payload.job.target)) {
+        throw new Error('review_workflow_instance_identity_mismatch');
+      }
+      return runFreeReviewWorkflowPrototype(payload.job, this.env, step, undefined,
+        (signal) => managedReviewAuthorized(this.env, payload.job, signal));
     }
     return runFreeReviewWorkflowPrototype(payload as StoredJob, this.env, step);
   }

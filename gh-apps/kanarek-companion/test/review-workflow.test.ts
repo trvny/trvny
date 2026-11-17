@@ -49,6 +49,18 @@ const manualJob: StoredJob = {
   },
 };
 
+test('revoked managed instance skips before GitHub or inference I/O', async () => {
+  const { step, calls } = journal();
+  const env: WebhookReviewEnv = {
+    GITHUB_APP_ID: '1', GITHUB_PRIVATE_KEY: '', KANAREK_REVIEW_ROUTER_TOKEN: 'test-token',
+    KANAREK_REVIEW_REPOSITORIES: 'trvny/trvny',
+  };
+  const fetcher: typeof fetch = async () => { throw new Error('unexpected I/O'); };
+  const result = await runFreeReviewWorkflowPrototype(manualJob, env, step, fetcher, async () => false);
+  assert.deepEqual(result, { mode: 'prototype', status: 'skipped', reason: 'managed_workflow_cancelled' });
+  assert.deepEqual(calls, ['prepare']);
+});
+
 test('manual workflow rejects out-of-scope and paid jobs before I/O', async () => {
   const { step, calls } = journal();
   const env: WebhookReviewEnv = {

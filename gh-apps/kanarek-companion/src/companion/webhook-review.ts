@@ -1493,6 +1493,7 @@ export class WebhookReviewJob {
       return Response.json({ error: 'workflow_job_identity_mismatch' }, { status: 400 });
     }
     switch (action) {
+      case 'authorize': return Response.json({ authorized: await lifecycle.canRun(job.target) });
       case 'start': return Response.json(await lifecycle.start(job));
       case 'status': return Response.json(await lifecycle.status(job.target));
       case 'cancel': return Response.json(await lifecycle.cancel(job.target));

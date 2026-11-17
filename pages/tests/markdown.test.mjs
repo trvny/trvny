@@ -53,3 +53,12 @@ test("atlas variants negotiate Markdown without rewriting pre-rendered HTML", as
   assert.equal(redirect.status, 301);
   assert.equal(redirect.headers.get("vary"), "Accept");
 });
+
+
+test("failed Markdown asset fetch falls back to HTML", async () => {
+  const request = new Request("https://travny.pages.dev/teksty/githubowa-kraina/", { headers: { accept: "text/markdown" } });
+  const env = { ASSETS: { fetch: async () => { throw new Error("asset unavailable"); } } };
+  const response = await onRequest({ request, env, next: async () => new Response("<html>fallback</html>") });
+  assert.equal(await response.text(), "<html>fallback</html>");
+  assert.equal(response.headers.get("vary"), "Accept");
+});

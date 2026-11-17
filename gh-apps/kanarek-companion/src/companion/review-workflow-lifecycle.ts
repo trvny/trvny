@@ -25,6 +25,13 @@ export interface ManagedReview {
 }
 
 const ACTIVE = 'review-workflow:active';
+const ENQUEUE_GENERATION = 'review-workflow:enqueue-generation';
+
+// Call inside the transaction that records an accepted webhook target.
+export async function noteReviewWorkflowEnqueue(store: Pick<DurableObjectTransaction, 'get' | 'put'>): Promise<void> {
+  const generation = await store.get<number>(ENQUEUE_GENERATION) ?? 0;
+  await store.put(ENQUEUE_GENERATION, generation + 1);
+}
 const recordKey = (id: string) => `review-workflow:record:${id}`;
 const terminal = (status: ManagedReview['status']): boolean =>
   status === 'complete' || status === 'errored' || status === 'terminated';
@@ -92,7 +99,7 @@ export class ReviewWorkflowLifecycle {
         try { await instance.terminate(); } catch { /* Re-read: may already be terminal. */ }
         status = await instance.status();
       }
-      return this.observe(id, observedStatus(status.status), status.output);
+      return await this.observe(id, observedStatus(status.status), status.output);
     } catch {
       // Missing/expired instance and transport outage are indistinguishable.
       return this.observe(id, 'unknown');
@@ -127,6 +134,7 @@ export class ReviewWorkflowLifecycle {
     const existing = await this.store.get<ManagedReview>(recordKey(id));
     if (existing && existing.status !== 'reserved') return (await this.reconcile(id)) ?? existing;
 
+    const observedGeneration = await this.store.get<number>(ENQUEUE_GENERATION);
     const observedActive = await this.store.get<string>(ACTIVE);
     if (!await this.current(job.target)) throw new Error('review_workflow_stale_target');
     if (observedActive && observedActive !== id) {
@@ -137,6 +145,9 @@ export class ReviewWorkflowLifecycle {
       }
     }
     const reservation = await this.store.transaction(async (txn) => {
+      if (await txn.get<number>(ENQUEUE_GENERATION) !== observedGeneration) {
+        throw new Error('review_workflow_enqueue_changed');
+      }
       const record = await txn.get<ManagedReview>(recordKey(id));
       if (record) return { record };
       const active = await txn.get<string>(ACTIVE);
@@ -161,6 +172,9 @@ export class ReviewWorkflowLifecycle {
       const dispatch = await this.store.transaction(async (txn) => {
         const record = await txn.get<ManagedReview>(recordKey(id));
         if (!record || record.status !== 'reserved' || record.cancelRequested || await txn.get<string>(ACTIVE) !== id) return false;
+        if (await txn.get<number>(ENQUEUE_GENERATION) !== observedGeneration) {
+          throw new Error('review_workflow_enqueue_changed');
+        }
         await txn.put(recordKey(id), { ...record, status: 'starting' });
         return true;
       });
@@ -176,7 +190,9 @@ export class ReviewWorkflowLifecycle {
     return this.store.transaction(async (txn) => {
       if (await txn.get<string>(ACTIVE) !== id) return false;
       const record = await txn.get<ManagedReview>(recordKey(id));
-      return Boolean(record && !record.cancelRequested && record.status !== 'reserved' && !terminal(record.status));
+      // Starting is the durably claimed create; the entrypoint verifies its actual instance ID.
+      return Boolean(record && !record.cancelRequested &&
+        ['starting', 'queued', 'running', 'paused', 'waiting', 'waitingForPause'].includes(record.status));
     });
   }
 

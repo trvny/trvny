@@ -11,7 +11,7 @@ export function isHttpsUrl(value) {
 
 export function isDigestMediaUrl(value) {
   return isHttpsUrl(value) ||
-    /^\/assets\/digest\/[a-zA-Z0-9_-]+\.(?:svg|png|webp|jpe?g|gif|avif|mp4|webm)$/u.test(value);
+    /^\/przeglad\/assets\/[a-zA-Z0-9_-]+\.(?:svg|png|webp|jpe?g|gif|avif|mp4|webm)$/u.test(value);
 }
 
 export function chartMax(items) {

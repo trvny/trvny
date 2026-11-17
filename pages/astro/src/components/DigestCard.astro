@@ -5,11 +5,18 @@ const { card } = Astro.props;
 <article class="digest-card">
   {card.media && <DigestMedia media={card.media} />}
   <div class="card-copy">
+    {card.kicker && <span class="kicker">{card.kicker}</span>}
     <h3>{card.title}</h3>
+    {card.score && <div class="score">
+      <span>{card.score.home}</span><strong>{card.score.result}</strong><span>{card.score.away}</span>
+      {card.score.detail && <small>{card.score.detail}</small>}
+    </div>}
+    {card.quote && <blockquote>{card.quote.text}<footer>{card.quote.attribution}</footer></blockquote>}
     {card.price && <div class="offer-price"><strong>{card.price}</strong>{card.previousPrice && <del>{card.previousPrice}</del>}</div>}
     {card.deadline && <p class="deadline">{card.deadline}</p>}
     {card.facts?.length > 0 && <dl class="facts">{card.facts.map(({ label, value }) => <div><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
     {card.body && <p>{card.body}</p>}
+    {card.gallery?.length > 0 && <div class="gallery">{card.gallery.map(media => <DigestMedia media={media}/>)}</div>}
     {card.links?.length > 0 && <div class="sources">{card.links.map(link => <a href={link.url}>{link.label} ↗</a>)}</div>}
   </div>
 </article>
@@ -24,8 +31,15 @@ const { card } = Astro.props;
   .digest-card .deadline { color: var(--yellow); font-size: 13px; }
   .facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 0; }
   .facts div { min-width: 0; background: #121c28; border-radius: 6px; padding: 8px; }
-  .facts dt { font: 12px/1.4 system-ui,sans-serif; color: var(--muted); }
+  .facts dt { font: 12px/1.4 system-ui,sans-serif; color: var(--muted); overflow-wrap: anywhere; }
   .facts dd { font: 600 14px/1.4 system-ui,sans-serif; margin: 3px 0 0; overflow-wrap: anywhere; }
   .sources { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: auto; }
   .sources a { font: 600 13px/1.45 system-ui,sans-serif; }
+  .kicker { color: var(--cyan); font: 600 12px/1.5 system-ui,sans-serif; text-transform: uppercase; }
+  .score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; text-align: center; align-items: center; padding: 14px 4px; background: #121c28; border-radius: 8px; font: 600 14px/1.4 system-ui,sans-serif; overflow-wrap: anywhere; }
+  .score strong { color: var(--yellow); font-size: 28px; }
+  .score small { grid-column: 1/-1; color: var(--muted); }
+  blockquote { margin: 0; border-left: 3px solid var(--pink); padding: 8px 12px; font: 17px/1.6 system-ui,sans-serif; }
+  blockquote footer { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(140px,100%),1fr)); gap: 10px; }
 </style>

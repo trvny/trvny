@@ -8,18 +8,25 @@ const { magazine, part } = Astro.props;
   {magazine.cover && <DigestMedia media={magazine.cover} eager={true} />}
   {magazine.stats?.length > 0 && <dl class="stats">{magazine.stats.map(({ label, value }) => <div><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
   {magazine.sections?.length > 0 && <nav class="quicklinks" aria-label="Sekcje wydania">
-    {magazine.sections.map((section, index) => <a href={'#magazine-' + index}><svg aria-hidden="true"><use href={'/assets/digest/section-icons.svg#' + section.kind}/></svg>{section.title}</a>)}
+    {magazine.sections.map((section, index) => <a href={'#magazine-' + index}><svg aria-hidden="true"><use href={'/przeglad/assets/section-icons.svg#' + section.kind}/></svg>{section.title}</a>)}
   </nav>}
 </div>}
 {part === 'sections' && <div class="magazine-sections">
-  {magazine.sections?.map((section, index) => <section class:list={['magazine-section', 'kind-' + section.kind]} id={'magazine-' + index}>
-    <h2><svg aria-hidden="true"><use href={'/assets/digest/section-icons.svg#' + section.kind}/></svg>{section.title}</h2>
+  {magazine.sections?.map((section, index) => <section class:list={['magazine-section', 'kind-' + section.kind, 'layout-' + section.layout]} id={'magazine-' + index}>
+    <h2><svg aria-hidden="true"><use href={'/przeglad/assets/section-icons.svg#' + section.kind}/></svg>{section.title}</h2>
     {section.intro && <p class="section-note">{section.intro}</p>}
+    {section.gallery?.length > 0 && <div class="gallery">{section.gallery.map(media => <DigestMedia media={media}/>)}</div>}
+    {section.table && <div class="table-scroll" tabindex="0" role="region" aria-label={section.table.title}><table>
+      <caption>{section.table.title}</caption>
+      <thead><tr>{section.table.columns.map(col => <th scope="col">{col}</th>)}</tr></thead>
+      <tbody>{section.table.rows.map(row => <tr>{row.map((cell, i) => i === 0 ? <th scope="row">{cell}</th> : <td>{cell}</td>)}</tr>)}</tbody>
+    </table></div>}
     {section.chart && <figure class="chart">
       <figcaption>{section.chart.title} ({section.chart.unit})</figcaption>
       {section.chart.items.map(item => <div class="chart-row">
         <span>{item.label}</span><meter min="0" max={chartMax(section.chart.items)} value={item.value} aria-label={item.label}/><strong>{item.value} {section.chart.unit}</strong>
       </div>)}
+      {section.chart.source && <a class="chart-source" href={section.chart.source.url}>{section.chart.source.label}</a>}
     </figure>}
     {section.cards?.length > 0 && <div class="card-grid">{section.cards.map(card => <DigestCard card={card}/>)}</div>}
     {section.note && <p class="section-note">{section.note}</p>}
@@ -39,11 +46,21 @@ const { magazine, part } = Astro.props;
   .magazine-section h2 { display: flex; gap: 12px; align-items: center; }
   .magazine-section h2 svg { width: 28px; height: 28px; }
   .card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(280px,100%),1fr)); gap: 16px; }
-  .kind-timeline .card-grid { grid-template-columns: 1fr; }
+  .kind-timeline .card-grid, .layout-list .card-grid { grid-template-columns: 1fr; }
+  .layout-feature .card-grid > :first-child { grid-column: 1/-1; }
   .section-note { color: var(--muted); font: 14px/1.65 system-ui,sans-serif; }
   .chart { margin: 16px 0; padding: 16px; border: 1px solid #273748; border-radius: 12px; background: var(--panel); }
   .chart figcaption { font: 700 16px/1.5 system-ui,sans-serif; margin-bottom: 12px; }
   .chart-row { display: grid; grid-template-columns: minmax(70px,1fr) minmax(60px,2fr) auto; gap: 10px; align-items: center; padding: 8px 0; font: 14px/1.5 system-ui,sans-serif; }
   .chart-row meter { width: 100%; accent-color: var(--cyan); }
   @media(max-width:480px) { .chart-row { grid-template-columns: 1fr auto; } .chart-row meter { grid-row: 2; grid-column: 1/-1; } }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(240px,100%),1fr)); gap: 14px; margin: 16px 0; }
+  .table-scroll { overflow-x: auto; margin: 16px 0; border: 1px solid #273748; border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; font: 14px/1.5 system-ui,sans-serif; text-align: left; }
+  caption { padding: 12px; font-weight: 700; text-align: left; }
+  th, td { padding: 10px 12px; border-top: 1px solid #273748; overflow-wrap: anywhere; }
+  thead th { background: #121c28; color: var(--cyan); }
+  tbody tr:nth-child(even) { background: var(--panel); }
+  .chart-source { display: inline-block; font: 12px/1.5 system-ui,sans-serif; margin-top: 10px; }
+  .stats dt, .chart-row span, .chart-row strong { overflow-wrap: anywhere; }
 </style>

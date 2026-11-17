@@ -75,7 +75,7 @@ weaken protection to force content through.
 
 Keep one Markdown file. Add structured data; Astro owns rendering. Legacy issues
 without `magazine` remain unchanged. Supported media: verified HTTPS images,
-GIFs, direct video files, or original local assets in `pages/site/assets/digest/`.
+GIFs, direct video files, or original local assets in `pages/astro/public/przeglad/assets/`.
 Use media only with permission or a known reuse basis. Credit creator and link
 original source. Do not invent asset URLs, copy unlicensed images, or hotlink
 restricted media. No raw embed HTML, third-party scripts or autoplay.
@@ -83,7 +83,7 @@ restricted media. No raw embed HTML, third-party scripts or autoplay.
 ```yaml
 magazine:
   cover:
-    src: "/assets/digest/example.webp"
+    src: "/przeglad/assets/editorial-cover.svg"
     alt: "Accessible caption"
     credit: "Creator / license"
     source: "https://example.org/source"
@@ -104,7 +104,9 @@ magazine:
               url: "https://example.org/store"
 ```
 
-Section types: `news`, `memes`, `freebies`, `cars`, `timeline`, `data`.
+Section types: `news`, `memes`, `freebies`, `cars`, `timeline`, `data`,
+`poland`, `world`, `science`, `ai`, `games`,
+`football`, `music`, `film`, `local`, `weather`, `gallery`.
 Cards: `title`, optional `body`, `media` (same as cover, optional
 `kind: video`), `price`, `previousPrice`, `deadline`, `facts` (label/value
 pairs), `links` (label/url). Sections accept optional `intro`, `note`,
@@ -115,3 +117,22 @@ appear after body in listed order; cover and stats appear before body.
 Treat prices and deadlines as snapshots, not live availability. Prefer real
 meme media, licensed photos, original infographics and official store artwork;
 if unavailable, use source links and text rather than invented images.
+
+### Editorial kit
+
+Start from [examples/digest-issue.md](examples/digest-issue.md). Copy useful
+blocks, replace placeholders, remove unused ones. Never publish the template.
+
+- Section layout: grid (default), list, feature (first card full width).
+- Card extras: kicker, quote (text/attribution), score (home/away/result/detail),
+  gallery (media list). Sections also support gallery and table (title,
+  columns, rows). Chart source: label/url.
+- Media aspect: wide, square, portrait. Video requires transcript describing
+  meaningful audio and visuals. No autoplay. Local SVG icons for every kind.
+- Generic cover: /przeglad/assets/editorial-cover.svg, editorial art, not a
+  photograph. Use real, verified, credited media when available.
+- Local assets in Astro public's przeglad/assets/; shared dev/build URLs.
+- Timeline recaps may intentionally summarize article facts. No duplicated
+  full sections. Do not pass off stock photos as actual listings.
+
+One Markdown commit per edition; no per-issue code, CSS, workflow or feed changes.

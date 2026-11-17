@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+<title id="title">CoCzyDziennik editorial cover</title>
+<defs><linearGradient id="bg"><stop stop-color="#08111e"/><stop offset="1" stop-color="#18243a"/></linearGradient><pattern id="grid" width="46" height="46" patternUnits="userSpaceOnUse"><path d="M46 0H0v46" fill="none" stroke="#26364a"/></pattern></defs>
+<rect width="1200" height="675" fill="url(#bg)"/><rect width="1200" height="675" fill="url(#grid)"/>
+<g fill="none" stroke="#46e0e0" opacity=".6"><circle cx="1000" cy="300" r="232"/><circle cx="1000" cy="300" r="160"/><ellipse cx="1000" cy="300" rx="232" ry="75" transform="rotate(-24 1000 300)"/></g>
+<g fill="#f5e94e"><circle cx="1000" cy="68" r="7"/><circle cx="850" cy="300" r="5"/><circle cx="1120" cy="395" r="7"/></g>
+<path d="M64 130h88v6H64zM64 538h1068v5H64z" fill="#46e0e0"/><path d="M420 538h356v5H420z" fill="#f5e94e"/><path d="M776 538h356v5H776z" fill="#e85ad0"/>
+<text x="64" y="105" font-family="monospace" font-size="30" fill="#aab1bb">TRAVNY / EDITORIAL</text>
+<text x="60" y="305" font-family="system-ui,sans-serif" font-size="94" font-weight="800" fill="#f5e94e">CoCzyDziennik</text>
+<text x="64" y="388" font-family="monospace" font-size="32" fill="#46e0e0">NEWS · SCIENCE · CULTURE · TECH</text>
+</svg>

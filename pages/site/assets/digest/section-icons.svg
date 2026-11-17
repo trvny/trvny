@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="news" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h5v5H7zM15 8h3m-3 4h3M7 16h11"/></g></symbol>
+  <symbol id="memes" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 9h.1m7.9 0h.1M7 14q5 7 10 0"/></g></symbol>
+  <symbol id="freebies" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8C3 8 5 0 10 4l2 4zm0 0c9 0 7-8 2-4l-2 4z"/></g></symbol>
+  <symbol id="cars" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m3 12 3-6h12l3 6v6H3zM3 12h18M5 18v3m14-3v3M6 15h2m8 0h2"/></g></symbol>
+  <symbol id="timeline" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18M7 14h3m4 0h3m-10 4h3"/></g></symbol>
+  <symbol id="data" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 3v18h18M7 17v-5m5 5V7m5 10V4"/></g></symbol>
+</svg>

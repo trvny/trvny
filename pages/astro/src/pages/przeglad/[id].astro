@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import DigestLayout from '../../layouts/DigestLayout.astro';
+import DigestMagazine from '../../components/DigestMagazine.astro';
 export async function getStaticPaths() {
   const issues = await getCollection('digests', ({ data }) => !data.draft);
   return issues.map((issue) => ({ params: { id: issue.id }, props: { issue } }));
@@ -10,12 +11,14 @@ const { Content } = await render(issue);
 const date = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'long', timeZone: 'UTC' }).format(issue.data.date);
 ---
 <DigestLayout title={issue.data.title} description={issue.data.description} article={true}>
-  <article class="article">
+  <article class:list={['article', { 'magazine-issue': issue.data.magazine }]}>
     <p class="date"><time datetime={issue.data.date.toISOString()}>{date}</time></p>
     <h1>{issue.data.title}</h1>
     <p class="lede">{issue.data.description}</p>
     <div class="rule"></div>
-    <Content />
+    {issue.data.magazine && <DigestMagazine magazine={issue.data.magazine} part="lead"/>}
+    <div class="digest-prose"><Content /></div>
+    {issue.data.magazine && <DigestMagazine magazine={issue.data.magazine} part="sections"/>}
     <p><a href="/przeglad/">Wszystkie wydania</a></p>
   </article>
 </DigestLayout>

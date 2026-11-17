@@ -1,0 +1,20 @@
+---
+const { media, eager = false } = Astro.props;
+---
+<figure class="digest-media">
+  {media.kind === 'video' ? (
+    <video controls playsinline preload="none" aria-label={media.alt}>
+      <source src={media.src} />
+      <a href={media.src}>{media.alt}</a>
+    </video>
+  ) : (
+    <img src={media.src} alt={media.alt} loading={eager ? 'eager' : 'lazy'}
+      decoding="async" referrerpolicy="no-referrer" />
+  )}
+  <figcaption>{media.alt} · {media.source ? <a href={media.source}>{media.credit}</a> : media.credit}</figcaption>
+</figure>
+<style>
+  .digest-media { margin: 0; min-width: 0; }
+  .digest-media img, .digest-media video { display: block; width: 100%; max-height: 520px; object-fit: contain; background: #0a111b; border-radius: 10px; }
+  .digest-media figcaption { color: var(--muted); font: 12px/1.5 system-ui,sans-serif; padding: 8px 2px; overflow-wrap: anywhere; }
+</style>

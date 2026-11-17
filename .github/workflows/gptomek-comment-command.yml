@@ -8,6 +8,11 @@ on: # yamllint disable-line rule:truthy
   schedule:
     - cron: '23 3 * * *'
   workflow_dispatch:
+    inputs:
+      comment_id:
+        description: 'Existing #203 comment ID (manual recovery; inspect live state first)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,11 +22,14 @@ jobs:
     permissions:
       issues: write
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 203 &&
-      github.event.issue.user.login == 'trvny' &&
-      github.actor == 'trvny' &&
-      github.event.comment.user.login == 'trvny'
+      github.actor == 'trvny' && (
+        (github.event_name == 'issue_comment' &&
+         vars.GPTOMEK_WEBHOOK_PRIMARY != 'true' &&
+         github.event.issue.number == 203 &&
+         github.event.issue.user.login == 'trvny' &&
+         github.event.comment.user.login == 'trvny') ||
+        (github.event_name == 'workflow_dispatch' && inputs.comment_id != '')
+      )
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
@@ -30,11 +38,12 @@ jobs:
         continue-on-error: true
         env:
           GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
-          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_ID: ${{ inputs.comment_id || github.event.comment.id }}
         shell: bash
         run: |
           set -euo pipefail
           : "${GPTOMEK_WAKE_TOKEN:?GPTOMEK_WAKE_TOKEN must be configured}"
+          [[ "$COMMENT_ID" =~ ^[1-9][0-9]{0,15}$ ]] || exit 1
           response_file="$(mktemp)"
           trap 'rm -f "$response_file"' EXIT
           # A seekable output file keeps only the final attempt's body.
@@ -83,7 +92,7 @@ jobs:
           steps.execute.outputs.duplicate != 'true'
         env:
           GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
-          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_ID: ${{ inputs.comment_id || github.event.comment.id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -113,7 +122,7 @@ jobs:
           )
         env:
           GH_TOKEN: ${{ github.token }}
-          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_ID: ${{ inputs.comment_id || github.event.comment.id }}
         shell: bash
         run: |
           gh api \
@@ -134,7 +143,7 @@ jobs:
   cleanup:
     permissions:
       issues: write
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.comment_id == '')
     runs-on: ubuntu-slim
     timeout-minutes: 25
     steps:
@@ -145,14 +154,14 @@ jobs:
         run: |
           set -euo pipefail
           cutoff="$(date -u -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')"
-          # Only failure reactions from this workflow qualify, not user reactions.
+          # Only transport bot failure reactions qualify, not user reactions.
           gh api --paginate 'repos/trvny/trvny/issues/203/comments?per_page=100' \
             --jq '.[] | select(.user.login == "trvny" and ((.reactions["-1"] // 0) > 0)) | .id' |
             while IFS= read -r comment_id; do
               bot_reactions="$(
                 gh api --paginate \
                   "repos/trvny/trvny/issues/comments/${comment_id}/reactions?per_page=100" \
-                  --jq '.[] | select(.user.login == "github-actions[bot]" and .content == "-1") | .id'
+                  --jq '.[] | select((.user.login == "github-actions[bot]" or .user.login == "gptomek[bot]") and .content == "-1") | .id'
               )"
               [[ -n "$bot_reactions" ]] || continue
 

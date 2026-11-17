@@ -185,11 +185,32 @@ async function cleanupCompletedComment(
   }
 }
 
-async function commentBodySha256(body: string): Promise<string> {
+export async function commentBodySha256(body: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body));
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+}
+
+function missingControlComment(error: unknown): boolean {
+  return error instanceof GitHubApiError && error.operation === 'gptomek_get_control_comment' && error.status === 404;
+}
+
+function unchangedWebhookComment(comment: Awaited<ReturnType<typeof currentIssueComment>>, digest: string, expected: string): boolean {
+  return digest === expected && !!comment.createdAt && comment.createdAt === comment.updatedAt;
+}
+
+export async function markGptomekWebhookFailure(commentId: number, expected: string, env: CompanionEnv, fetcher: typeof fetch = runtimeFetch): Promise<void> {
+  try {
+    const comment = await currentIssueComment(commentId, env, fetcher);
+    if (!unchangedWebhookComment(comment, await commentBodySha256(comment.body), expected)) return;
+    const client = await controlClient(env, fetcher);
+    await client.json(`/repos/${CONTROL_REPOSITORY}/issues/comments/${commentId}/reactions`, 'gptomek_mark_webhook_failure', {
+      method: 'POST', body: JSON.stringify({ content: '-1' }),
+    });
+  } catch (error) {
+    if (!missingControlComment(error) && !(error instanceof GitHubApiError && error.operation === 'gptomek_mark_webhook_failure' && error.status === 404)) throw error;
+  }
 }
 
 export async function handleGptomekCommentControl(
@@ -213,6 +234,9 @@ export async function handleGptomekCommentControl(
     const comment = await currentIssueComment(target.commentId, env, fetcher);
     audit = { commentId: comment.id, wireFormat: commentWireFormat(comment.body), bodyChars: comment.body.length };
     const commentBodyHash = await commentBodySha256(comment.body);
+    if (target.expectedCommentBodySha256 && !unchangedWebhookComment(comment, commentBodyHash, target.expectedCommentBodySha256)) {
+      return { changed: false, commentId: target.commentId, quipSource: 'preset', state: 'gptomek-comment-stale' };
+    }
     let result;
     try {
       result = await handleGptomekCommentCommand(comment.body, env, fetcher, audit);
@@ -247,6 +271,9 @@ export async function handleGptomekCommentControl(
       state: result.result?.ok ? 'gptomek-comment-ok' : 'gptomek-comment-error',
     };
   } catch (error) {
+    if (target.expectedCommentBodySha256 && missingControlComment(error)) {
+      return { changed: false, commentId: target.commentId, quipSource: 'preset', state: 'gptomek-comment-missing' };
+    }
     console.error(
       JSON.stringify({
         gptomek: 'comment_control_failed',

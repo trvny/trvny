@@ -23,11 +23,12 @@ import {
   isGptomekControlIssueEvent,
 } from './gptomek/gptomek-issue.ts';
 import { GPTOMEK_CONTROL_REPOSITORY, isGptomekFallbackPullRequest } from './gptomek/gptomek-control.ts';
+import { GPTOMEK_WEBHOOK_PATH, gptomekWebhookTarget, type GptomekWebhookEnv } from './gptomek/gptomek-webhook.ts';
 import { hasAiProvider } from './companion/quip.ts';
 import { json } from './json-response.ts';
 import { HEALTH_PATH, WEBHOOK_PATH } from './paths.ts';
 
-interface Env extends CompanionEnv {
+interface Env extends CompanionEnv, GptomekWebhookEnv {
   COMPANION_LOCK: DurableObjectNamespace;
   GITHUB_WEBHOOK_SECRET: string;
   GROK_REVIEW_DISPATCH_ENABLED?: string;
@@ -397,7 +398,9 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
           typeof target.commentId === 'number' &&
           Number.isInteger(target.commentId) &&
           target.commentId > 0 &&
-          (target.cleanupComment === undefined || typeof target.cleanupComment === 'boolean')
+          (target.cleanupComment === undefined || typeof target.cleanupComment === 'boolean') &&
+          (target.expectedCommentBodySha256 === undefined ||
+            (typeof target.expectedCommentBodySha256 === 'string' && /^[a-f0-9]{64}$/.test(target.expectedCommentBodySha256)))
         )
       ),
   );
@@ -590,6 +593,36 @@ function scheduleGrokReview(
   if (ctx) ctx.waitUntil(task);
   else void task;
   return true;
+}
+
+async function handleGptomekWebhook(request: Request, env: Env): Promise<Response> {
+  if (!env.GPTOMEK_WEBHOOK_SECRET) return json({ error: 'webhook_not_configured' }, 503);
+  const body = await readLimitedBody(request);
+  if (!body) return json({ error: 'payload_too_large' }, 413);
+  if (!await verifyWebhookSignature(env.GPTOMEK_WEBHOOK_SECRET, request.headers.get('x-hub-signature-256'), body)) {
+    return json({ error: 'invalid_signature' }, 401);
+  }
+  const event = request.headers.get('x-github-event');
+  if (event === 'ping') return json({ accepted: true, event });
+  if (env.GPTOMEK_WEBHOOK_PRIMARY !== 'true') return json({ accepted: true, queued: false, reason: 'standby' }, 202);
+  let payload: unknown;
+  try { payload = JSON.parse(new TextDecoder().decode(body)); } catch { return json({ error: 'invalid_json' }, 400); }
+  const target = await gptomekWebhookTarget(event, payload, env);
+  if (!target) return json({ accepted: true, queued: false }, 202);
+  if (!env.GPTOMEK_WEBHOOK_JOBS) return json({ error: 'webhook_jobs_not_configured' }, 503);
+  try {
+    const id = env.GPTOMEK_WEBHOOK_JOBS.idFromName(String(target.commentId));
+    const result = await env.GPTOMEK_WEBHOOK_JOBS.get(id).fetch('https://gptomek-webhook.internal/enqueue', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(target),
+    });
+    if (!result.ok) return json({ error: 'webhook_enqueue_failed' }, 502);
+    const receipt = await result.json() as { ok?: boolean; duplicate?: boolean };
+    if (!receipt.ok) return json({ error: 'webhook_enqueue_unconfirmed' }, 502);
+    return json({ accepted: true, queued: true, duplicate: receipt.duplicate === true }, 202);
+  } catch (error) {
+    console.error(JSON.stringify({ gptomek: 'webhook_enqueue_failed', commentId: target.commentId, failure: operationFailure(error) }));
+    return json({ error: 'webhook_enqueue_failed' }, 502);
+  }
 }
 
 async function handleWebhook(
@@ -1067,6 +1100,11 @@ const worker = {
         return json({ error: 'unauthorized' }, 401);
       }
       return wakeGptomekControlIssue(request, env);
+    }
+
+    if (url.pathname === GPTOMEK_WEBHOOK_PATH) {
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+      return handleGptomekWebhook(request, env);
     }
 
     if (url.pathname === WEBHOOK_PATH) {

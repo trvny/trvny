@@ -10,9 +10,10 @@ test('digest links reject unsafe protocols, credentials and ambiguous paths', ()
 });
 
 test('digest media allows dedicated assets and HTTPS only', () => {
-  assert.equal(isDigestMediaUrl('/assets/digest/meme.svg'), true);
+  assert.equal(isDigestMediaUrl('/przeglad/assets/meme.svg'), true);
   assert.equal(isDigestMediaUrl('https://example.org/clip.mp4'), true);
-  for (const value of ['/assets/digest/../other.svg', '/assets/digest/%2e%2e.svg', '/assets/digest/a.html', 'data:image/svg+xml,x', '//example.org/a.png']) {
+  assert.equal(isDigestMediaUrl('/assets/digest/meme.svg'), false);
+  for (const value of ['/przeglad/assets/../other.svg', '/przeglad/assets/%2e%2e.svg', '/przeglad/assets/a.html', 'data:image/svg+xml,x', '//example.org/a.png']) {
     assert.equal(isDigestMediaUrl(value), false, value);
   }
 });

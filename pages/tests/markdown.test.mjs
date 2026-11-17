@@ -18,7 +18,7 @@ test("negotiate only known public guides and preserve HEAD semantics", async () 
   });
   const env = { ASSETS: { fetch: async req => {
     calls.push(new URL(req.url).pathname);
-    return new Response("# TRAVNY", { headers: { etag: "old", "content-type": "text/plain" } });
+    return new Response(req.method === "HEAD" ? null : "# TRAVNY", { headers: { etag: "old", "content-type": "text/plain" } });
   } } };
   const url = new URL(request("/tv/").url);
   const result = await negotiateMarkdown({ request: request("/tv/"), env }, url);
@@ -30,4 +30,26 @@ test("negotiate only known public guides and preserve HEAD semantics", async () 
   assert.equal(await head.text(), "");
   assert.equal(await negotiateMarkdown({ request: request("/api/test"), env }, new URL(request("/api/test").url)), null);
   assert.deepEqual(calls, ["/tv/index.md", "/tv/index.md"]);
+});
+
+
+import { onRequest } from "../functions/_middleware.js";
+
+test("atlas variants negotiate Markdown without rewriting pre-rendered HTML", async () => {
+  const origin = "https://travny.pages.dev";
+  for (const suffix of ["", "/", "/index.html"]) {
+    const path = "/teksty/githubowa-kraina" + suffix;
+    const env = { ASSETS: { fetch: async req => {
+      assert.equal(new URL(req.url).pathname, "/teksty/githubowa-kraina/index.md");
+      return new Response("# Atlas");
+    } } };
+    const md = await onRequest({ request: new Request(origin + path, { headers: { accept: "text/markdown" } }), env });
+    assert.equal(await md.text(), "# Atlas");
+    const html = await onRequest({ request: new Request(origin + path), next: async () => new Response("<html>shell</html>", { headers: { "content-type": "text/html" } }) });
+    assert.equal(await html.text(), "<html>shell</html>");
+    assert.equal(html.headers.get("vary"), "Accept");
+  }
+  const redirect = await onRequest({ request: new Request("https://trfny.com/tv/", { headers: { accept: "text/markdown" } }) });
+  assert.equal(redirect.status, 301);
+  assert.equal(redirect.headers.get("vary"), "Accept");
 });

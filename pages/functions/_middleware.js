@@ -1,4 +1,4 @@
-import { markdownPath, negotiateMarkdown, varyAccept } from "./_shared/markdown.js";
+import { isStaticMarkdownPage, markdownPath, negotiateMarkdown, varyAccept, withMarkdownVary } from "./_shared/markdown.js";
 import { NAV_BODY, pageShellHead } from "./_shared/page-shell.js";
 import { serviceFetch, WEATHER_STATE_URL } from "./_shared/service-fetch.js";
 
@@ -262,7 +262,7 @@ export async function onRequest(context) {
     url.protocol = "https:";
     url.hostname = CANONICAL_HOST;
     url.port = "";
-    return Response.redirect(url.toString(), 301);
+    return withMarkdownVary(Response.redirect(url.toString(), 301), url.pathname);
   }
 
   if ((context.request.method === "GET" || context.request.method === "HEAD")
@@ -282,12 +282,17 @@ export async function onRequest(context) {
   const markdown = await negotiateMarkdown(context, url);
   if (markdown) return withPreviewNoindex(markdown, url.hostname);
 
+  // The atlas already has the build-time shell. Do not inject it a second time.
+  if (isStaticMarkdownPage(url.pathname)) {
+    const asset = await context.next();
+    return withPreviewNoindex(withMarkdownVary(asset, url.pathname), url.hostname);
+  }
+
   if (context.request.method !== "GET") {
     const result = withPreviewNoindex(await context.next(), url.hostname);
-    if (context.request.method !== "HEAD" || !markdownPath(url.pathname)) return result;
-    const headers = new Headers(result.headers);
-    varyAccept(headers);
-    return new Response(null, { status: result.status, statusText: result.statusText, headers });
+    return context.request.method === "HEAD"
+      ? withMarkdownVary(result, url.pathname)
+      : result;
   }
 
   const page = identifyPage(url.pathname);
@@ -305,7 +310,7 @@ export async function onRequest(context) {
 
   const contentType = assetResponse.headers.get("content-type") || "";
   if (!assetResponse.ok || !contentType.includes("text/html")) {
-    return withPreviewNoindex(assetResponse, url.hostname);
+    return withPreviewNoindex(withMarkdownVary(assetResponse, url.pathname), url.hostname);
   }
 
   const online = channels.filter((channel) => channel.status === true).length;

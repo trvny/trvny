@@ -78,6 +78,8 @@ class IndexNowTests(unittest.TestCase):
         first = '<meta name="description" content="12C"><div id="nowCard"><span>12</div><p>guide</p>'
         second = '<meta name="description" content="13C"><div id="nowCard"><span>13</div><p>guide</p>'
         self.assertEqual(stable(first), stable(second))
+        self.assertEqual(stable(first.replace('12C">', '12C" />')), stable(second.replace('13C">', '13C" />')))
+        self.assertEqual(stable(first), stable(first.replace('12C">', '12C" />')))
         self.assertIn("<p>guide</p>", stable(first))
         self.assertNotEqual(stable(first), stable(second.replace(">guide<", ">new guide<")))
 

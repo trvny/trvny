@@ -83,18 +83,26 @@ class StableHTML(HTMLParser):
         self.parts: list[str] = []
         self.skipped: list[str] = []
 
+    def volatile(self, tag, attributes):
+        return attributes.get("id") in self.live_ids or (
+            self.live_weather and (
+                tag == "meta" and (
+                    attributes.get("name") in {"description", "twitter:description"}
+                    or attributes.get("property") == "og:description"
+                )
+                or tag == "script" and attributes.get("type") == "application/ld+json"
+            )
+        )
+
     def handle_starttag(self, tag, attrs):
-        attributes = dict(attrs)
-        if self.live_weather and tag == "meta" and (attributes.get("name") in {"description", "twitter:description"} or attributes.get("property") == "og:description"):
-            return
-        if self.skipped or attributes.get("id") in self.live_ids or (self.live_weather and tag == "script" and attributes.get("type") == "application/ld+json"):
+        if self.skipped or self.volatile(tag, dict(attrs)):
             if tag not in VOID_TAGS:
                 self.skipped.append(tag)
         else:
             self.parts.append(self.get_starttag_text())
 
     def handle_startendtag(self, tag, attrs):
-        if not self.skipped and dict(attrs).get("id") not in self.live_ids:
+        if not self.skipped and not self.volatile(tag, dict(attrs)):
             self.parts.append(self.get_starttag_text())
 
     def handle_endtag(self, tag):

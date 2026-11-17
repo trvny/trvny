@@ -100,7 +100,10 @@ async function managedReviewAuthorized(env: RuntimeEnv, job: StoredJob, signal: 
   const response = await stub.fetch('https://kanarek-review.internal/workflow/authorize', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job), signal,
   });
-  if (!response.ok) { await response.body?.cancel(); return false; }
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error('review_workflow_authorize_unavailable');
+  }
   const body = await response.json() as { authorized?: boolean };
   return !signal.aborted && body.authorized === true;
 }

@@ -61,11 +61,13 @@ no GitHub access or inference. Legacy alarms remain active.
 - Bind a trusted operator Worker to service `automation`, entrypoint
   `KanarekReviewWorkflowControl` before using control; no caller binding or public
   route in this rollout.
-- Per-PR review DO persists reservation and terminal receipt; stable SHA-256 instance
-  ID (repo, PR, head, base). Unknown create reconciles by ID, never recreates.
-- One active instance; new target waits for previous termination. Freshness
-  check before start/resume; accepted legacy enqueue cancels stale managed work
-  only when control enabled. No Workflow restart of completed/errored instances.
+- Per-PR review DO persists reservation and observed terminal receipt; stable
+  SHA-256 instance ID (repo, PR, head, base). Unknown create reconciles by ID,
+  never recreates. Poll status before instance retention expires.
+- One active instance; new target rejected until previous termination. Freshness
+  check before start/resume. Accepted legacy enqueue invalidates overlapping
+  reservations and cancels stale managed work only when control enabled.
+  No Workflow restart of completed/errored instances.
 - Managed payload binds to actual Workflow instance ID; DO permission required
   before preparation and each new inference stage. Revocation survives restart.
   In-flight requests may finish; cancellation cannot undo sent provider I/O.
@@ -89,7 +91,8 @@ no GitHub access or inference. Legacy alarms remain active.
   service/DO; consider R2 for larger snapshots.
 - Measure real free provider latency, context size and step consumption.
 - Validate managed lifecycle against a live binding before enabling control.
-- Bridge settled results to DO-owned production status and publication.
+- Persist terminal receipt via durable completion/reconciliation, even without
+  operator polling; then bridge settled results to DO-owned status and publication.
 - Connect shared publication plan to DO-owned submission gate.
 - Paid inference: no automatic retry; durable receipt before live activation.
 - Keep stored source/evidence private; define retention and deletion before

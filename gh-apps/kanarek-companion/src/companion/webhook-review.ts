@@ -11,7 +11,7 @@ import {
 } from '../../../core/review-service-protocol.ts';
 import { handleReviewRouterViaService } from './review-service.ts';
 import { repoPath, repositoryInScope, repositoryListAllows } from '../tools/common.ts';
-import { ReviewWorkflowLifecycle } from './review-workflow-lifecycle.ts';
+import { noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle } from './review-workflow-lifecycle.ts';
 import {
   SHA_RE,
   MAX_PATCH_CHARS,
@@ -1492,13 +1492,23 @@ export class WebhookReviewJob {
     if (!queue || queue.idFromName(`${job.target.repository}#${job.target.number}`).toString() !== this.state.id.toString()) {
       return Response.json({ error: 'workflow_job_identity_mismatch' }, { status: 400 });
     }
-    switch (action) {
-      case 'authorize': return Response.json({ authorized: await lifecycle.canRun(job.target) });
-      case 'start': return Response.json(await lifecycle.start(job));
-      case 'status': return Response.json(await lifecycle.status(job.target));
-      case 'cancel': return Response.json(await lifecycle.cancel(job.target));
-      case 'resume': return Response.json(await lifecycle.resume(job.target));
-      default: return Response.json({ error: 'not_found' }, { status: 404 });
+    try {
+      switch (action) {
+        case 'authorize': return Response.json({ authorized: await lifecycle.canRun(job.target) });
+        case 'start': return Response.json(await lifecycle.start(job));
+        case 'status': return Response.json(await lifecycle.status(job.target));
+        case 'cancel': return Response.json(await lifecycle.cancel(job.target));
+        case 'resume': return Response.json(await lifecycle.resume(job.target));
+        default: return Response.json({ error: 'not_found' }, { status: 404 });
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      if (['review_workflow_enqueue_changed', 'review_workflow_active_changed',
+        'review_workflow_stale_target', 'review_workflow_previous_current',
+        'review_workflow_previous_unsettled'].includes(code)) {
+        return Response.json({ error: code }, { status: 409 });
+      }
+      return Response.json({ error: 'review_workflow_control_unavailable' }, { status: 503 });
     }
   }
 
@@ -1593,7 +1603,7 @@ export class WebhookReviewJob {
       return Response.json({ ok: true, stale: true, queued: false });
     }
 
-    await this.state.storage.put({
+    const queuedJob = {
       [JOB_KEY]: {
         ...job,
         attempt: 0,
@@ -1601,7 +1611,15 @@ export class WebhookReviewJob {
         tieBreakPredecessorSha: enqueueDecision.tieBreakPredecessorSha,
       },
       [STATUS_KEY]: 'queued',
-    });
+    };
+    if (this.workflowLifecycle()) {
+      await this.state.storage.transaction(async (transaction) => {
+        await noteReviewWorkflowEnqueue(transaction);
+        await transaction.put(queuedJob);
+      });
+    } else {
+      await this.state.storage.put(queuedJob);
+    }
     const debounceMs = configuredInteger(
       this.env.KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS,
       DEFAULT_DEBOUNCE_MS,

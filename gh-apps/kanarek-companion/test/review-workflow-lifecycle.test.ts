@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
+import { noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
 import type { ReviewTarget, StoredJob } from '../src/companion/webhook-review.ts';
 
 const job: StoredJob = { target: {
@@ -52,7 +52,8 @@ function fixture() {
   const controller = (current?: (target: ReviewTarget) => Promise<boolean>) => new ReviewWorkflowLifecycle(
     store as unknown as DurableObjectStorage, workflow, current ?? (async (target) => fresh && (currentHead === undefined || target.headSha === currentHead)),
   );
-  return { data, instances, calls, controller, setFresh: (value: boolean) => { fresh = value; },
+  const noteEnqueue = () => store.transaction((txn) => noteReviewWorkflowEnqueue(txn as unknown as DurableObjectTransaction));
+  return { data, instances, calls, controller, noteEnqueue, setFresh: (value: boolean) => { fresh = value; },
     setHead: (head: string) => { currentHead = head; },
     holdCreate: (wait: Promise<void>, entered: () => void) => { createWait = wait; createEntered = entered; },
     loseResponse: () => { ambiguous = true; }, failCreate: () => { missing = true; } };
@@ -62,6 +63,7 @@ test('instance identity binds repo, PR, head and base, not webhook delivery', as
   const id = await reviewWorkflowInstanceId(job.target);
   assert.match(id, /^review-[a-f0-9]{64}$/);
   assert.equal(id, await reviewWorkflowInstanceId({ ...job.target, delivery: 'other' }));
+  assert.equal(id, await reviewWorkflowInstanceId({ ...job.target, repository: 'TRVNY/trvny' }));
   for (const target of [updated.target, { ...job.target, baseSha: 'd'.repeat(40) },
     { ...job.target, number: 43 }, { ...job.target, repository: 'travnie/other' }]) {
     assert.notEqual(id, await reviewWorkflowInstanceId(target));
@@ -89,6 +91,20 @@ test('old start cannot cancel a newer active instance after delayed freshness', 
   release(true);
   await assert.rejects(oldStart, /active_changed/);
   assert.deepEqual(f.calls, ['create:' + newer.id]);
+});
+
+test('accepted webhook invalidates pending freshness even before active reservation', async () => {
+  const f = fixture();
+  let enter!: () => void;
+  let release!: (value: boolean) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const delayed = new Promise<boolean>((resolve) => { release = resolve; });
+  const start = f.controller(async () => { enter(); return delayed; }).start(job);
+  await entered;
+  await f.noteEnqueue();
+  release(true);
+  await assert.rejects(start, /enqueue_changed/);
+  assert.deepEqual(f.calls, []);
 });
 
 test('cancel during create revokes durable permission before the instance exists', async () => {
@@ -121,6 +137,7 @@ test('unknown reservation fails closed across reset and blocks supersession', as
   const f = fixture();
   f.failCreate();
   assert.equal((await f.controller().start(job)).status, 'unknown');
+  assert.equal(await f.controller().canRun(job.target), false);
   assert.equal((await f.controller().start(job)).status, 'unknown');
   f.setHead(updated.target.headSha);
   await assert.rejects(f.controller().start(updated), /previous_unsettled/);

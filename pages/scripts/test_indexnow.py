@@ -49,6 +49,18 @@ class IndexNowTests(unittest.TestCase):
         doc = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://weather.travny.workers.dev/</loc></url><url><loc>https://weather.travny.workers.dev/feed.atom</loc></url></urlset>'
         self.assertEqual(indexnow.entries([doc], weather), {weather.root: ""})
 
+    def test_removed_url(self):
+        self.assertEqual(indexnow.changes({indexnow.BASE + "/old/": "x"}, {}), [indexnow.BASE + "/old/"])
+
+    def test_undated_guide_change(self):
+        doc = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://travny.pages.dev/</loc></url></urlset>'
+
+        def snapshot(guide):
+            return indexnow.snapshot(lambda url: doc if url.endswith("sitemap.xml") else
+                                     guide if url.endswith("index.md") else b"<p>Page</p>")
+
+        self.assertEqual(indexnow.changes(snapshot(b"old"), snapshot(b"new")), [indexnow.BASE + "/"])
+
     def test_no_duplicate_submission(self):
         old = {indexnow.BASE + "/": "same"}
         self.assertEqual(indexnow.changes(old, old), [])

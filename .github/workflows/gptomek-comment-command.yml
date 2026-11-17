@@ -1,6 +1,6 @@
 name: GPTomek JSON comment
 run-name: >-
-  ${{ github.event_name == 'issue_comment' && format('GPTomek #{0}', github.event.comment.id) || 'GPTomek mailbox cleanup' }}
+  ${{ github.event_name == 'issue_comment' && format('GPTomek #{0}', github.event.comment.id) || (github.event_name == 'workflow_dispatch' && inputs.comment_id != '' && format('GPTomek #{0} manual', inputs.comment_id)) || 'GPTomek mailbox cleanup' }}
 
 on: # yamllint disable-line rule:truthy
   issue_comment:
@@ -125,6 +125,7 @@ jobs:
           COMMENT_ID: ${{ inputs.comment_id || github.event.comment.id }}
         shell: bash
         run: |
+          [[ "$COMMENT_ID" =~ ^[1-9][0-9]{0,15}$ ]] || exit 0
           gh api \
             --method POST \
             "repos/trvny/trvny/issues/comments/${COMMENT_ID}/reactions" \

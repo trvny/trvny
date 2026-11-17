@@ -25,6 +25,7 @@ import {
   isDependabotPullRequest,
   nextReviewPhase,
   parseReviewJson,
+  planReviewPublication,
   reviewInvalidOutputDiagnostic,
   reviewOutputTokens,
   reviewContinuationJob,
@@ -423,6 +424,30 @@ test('deletion-only code patches stay reviewable without inline anchors', () => 
   assert.equal(files.length, 1);
   assert.equal(files[0]?.rightLines.size, 0);
   assert.equal(reviewInputState([{ filename: 'src/deleted.ts', patch: files[0]?.patch }], files.length), 'reviewable');
+});
+
+test('shared publication plan preserves markers, findings and partial-clean escalation', () => {
+  const target = {
+    action: 'synchronize', baseSha: base, delivery: 'delivery-1', headSha: headA,
+    installationId: 123, number: 21, repository: 'travnie/llmbench',
+  };
+  const generated = { provider: 'openrouter', model: 'test', parsed: { summary: '摘要', findings: [] } };
+  const finding = {
+    path: 'src/a.ts', line: 2, severity: 'high' as const, existingCode: 'x',
+    title: '问题', body: '描述',
+  };
+  const comment = planReviewPublication(target, generated, [finding], false, null, '<!-- l2 -->');
+  assert.equal(comment.kind, 'comment');
+  if (comment.kind !== 'comment') throw new Error('expected comment');
+  assert.equal(comment.payload.commit_id, headA);
+  assert.ok(comment.payload.body.startsWith(reviewMarker(target) + '\n<!-- l2 -->'));
+  assert.deepEqual(comment.payload.comments, [{ path: 'src/a.ts', line: 2, side: 'RIGHT', body: '**高 · 问题**\n\n描述' }]);
+  assert.deepEqual(planReviewPublication(target, generated, [], false, null, null), {
+    kind: 'settled', result: { reviewed: true, provider: 'openrouter', findingCount: 0, skipped: 'no_findings' },
+  });
+  assert.deepEqual(planReviewPublication(target, { ...generated, partial: true }, [], false, null, null), {
+    kind: 'settled', result: { reviewed: false, provider: 'openrouter', findingCount: 0, skipped: 'paid_escalation_needed' },
+  });
 });
 
 test('review submission marker is target-specific and bot-authenticated', () => {

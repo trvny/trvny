@@ -84,15 +84,16 @@ class StableHTML(HTMLParser):
         self.skipped: list[str] = []
 
     def volatile(self, tag, attributes):
-        return attributes.get("id") in self.live_ids or (
-            self.live_weather and (
-                tag == "meta" and (
-                    attributes.get("name") in {"description", "twitter:description"}
-                    or attributes.get("property") == "og:description"
-                )
-                or tag == "script" and attributes.get("type") == "application/ld+json"
-            )
-        )
+        if attributes.get("id") in self.live_ids:
+            return True
+        if not self.live_weather:
+            return False
+        if tag == "meta":
+            return (attributes.get("name") in {"description", "twitter:description"}
+                    or attributes.get("property") == "og:description")
+        if tag == "script":
+            return attributes.get("type") == "application/ld+json"
+        return False
 
     def handle_starttag(self, tag, attrs):
         if self.skipped or self.volatile(tag, dict(attrs)):

@@ -521,10 +521,10 @@ Durable Object locking. One comment per command; no shared command overwritten.
 
 ### Direct webhook (staged cutover)
 
-- GPTomek App: active webhook `https://automation.travny.workers.dev/webhooks/gptomek`; subscribe to Issue comment. Dedicated matching `GPTOMEK_WEBHOOK_SECRET` Worker secret. Never share the secret in comments/chat.
+- GPTomek App: configure webhook `https://automation.travny.workers.dev/webhooks/gptomek`; subscribe to Issue comment. Dedicated matching `GPTOMEK_WEBHOOK_SECRET` Worker secret. Never share the secret in comments/chat.
 - Default standby: signed ping works; comments do not execute until Worker `GPTOMEK_WEBHOOK_PRIMARY=true` (runtime secret/setting). Set repository Actions variable `GPTOMEK_WEBHOOK_PRIMARY=true` at cutover to skip automatic command jobs. Keep `/gptomek/wake` and manual workflow dispatch `comment_id` for recovery. Rollback: remove both activation flags; keep checkpoint state.
 - Signed `issue_comment.created`, exact issue/owner/installation, unedited body digest. Per-comment Durable Object persists job before ACK; alarm executes via existing serialized mailbox lock and checkpoint. Separate cleanup/failure phase. Bounded transport retries, no new Cron Triggers. Failed commands receive bot 👎; uncertain exhausted transport retains source and logs stopped job.
-- Missing delivery (no durable receipt): inspect App delivery, re-deliver or dispatch fallback using original comment ID, after checking live branch. Existing daily Actions cleanup unchanged in cadence. Do not replay old failed commands automatically.
+- Missing delivery (no durable receipt): inspect App delivery, re-deliver or dispatch fallback using original comment ID, after checking live branch. Manual dispatch validates the unedited command and forwards its digest; errors are in the run summary, not a manual-target reaction. GitHub reaction writes have no compare-and-set; never edit a posted command. Existing daily Actions cleanup unchanged in cadence. Do not replay old failed commands automatically.
 
 **Results and cleanup:** A successful acknowledged execution gets a second
 cleanup wake, which reuses the checkpoint and deletes the unchanged, unedited

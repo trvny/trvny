@@ -770,6 +770,7 @@ function health(env: Env, method: string): Response {
 async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Response> {
   let commentId: number | null = null;
   let cleanupComment = false;
+  let expectedCommentBodySha256: string | undefined;
   if ((request.headers.get('content-type') ?? '').includes('application/json')) {
     let payload: unknown;
     try {
@@ -800,6 +801,11 @@ async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Resp
       return json({ ok: false, error: 'invalid_cleanup_flag' }, 400);
     }
     commentId = typeof value === 'number' ? value : null;
+    const digest = (payload as { bodySha256?: unknown } | null)?.bodySha256;
+    if (digest !== undefined && (commentId === null || typeof digest !== 'string' || !/^[a-f0-9]{64}$/.test(digest))) {
+      return json({ ok: false, error: 'invalid_comment_digest' }, 400);
+    }
+    expectedCommentBodySha256 = typeof digest === 'string' ? digest : undefined;
     cleanupComment = cleanup === true;
     if (cleanupComment && commentId === null) {
       return json({ ok: false, error: 'cleanup_requires_comment_id' }, 400);
@@ -821,7 +827,8 @@ async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Resp
     pullRequestNumber: GPTOMEK_CONTROL_ISSUE,
     repository: GPTOMEK_CONTROL_REPOSITORY,
     sourceEvent: commentId === null ? 'issues' : 'gptomek_comment',
-    ...(commentId === null ? {} : { commentId, ...(cleanupComment ? { cleanupComment } : {}) }),
+    ...(commentId === null ? {} : { commentId, ...(cleanupComment ? { cleanupComment } : {}),
+      ...(expectedCommentBodySha256 ? { expectedCommentBodySha256 } : {}) }),
   };
   try {
     const id = env.COMPANION_LOCK.idFromName(

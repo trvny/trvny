@@ -384,6 +384,7 @@ test('webhook job persists before ACK, retries transport and separates acknowled
       get: () => ({ fetch: async (_url: string, init: RequestInit) => {
         const target = JSON.parse(String(init.body));
         calls.push(target);
+        assert.ok((data.get('job') as { attempts: number }).attempts > 0);
         if (calls.length === 1) return Response.json({ ok: false }, { status: 502 });
         return Response.json({ ok: true, result: {
           state: 'gptomek-comment-ok', commentCleanup: target.cleanupComment ? 'deleted' : null,
@@ -399,6 +400,9 @@ test('webhook job persists before ACK, retries transport and separates acknowled
   assert.notEqual(alarm, null);
   assert.equal(calls.length, 0);
   assert.deepEqual(await (await make().fetch(request())).json(), { ok: true, duplicate: true });
+  assert.equal((await make().fetch(new Request('https://internal/enqueue', {
+    method: 'POST', body: JSON.stringify({ commentId: 777, installationId: 123, bodySha256: 'b'.repeat(64) }),
+  }))).status, 409);
   await make().alarm();
   assert.equal((data.get('job') as { phase: string }).phase, 'execute');
   await make().alarm();
@@ -407,4 +411,9 @@ test('webhook job persists before ACK, retries transport and separates acknowled
   assert.equal((data.get('job') as { phase: string }).phase, 'done');
   assert.deepEqual(calls.map(c => c.cleanupComment), [false, false, true]);
   assert.ok(calls.every(c => c.expectedCommentBodySha256 === 'a'.repeat(64)));
+  // Simulate restart after the last charged attempt, before result persistence.
+  data.set('job', { ...(data.get('job') as object), phase: 'execute', attempts: 7 });
+  await make().alarm();
+  assert.equal((data.get('job') as { phase: string }).phase, 'stopped');
+  assert.equal(calls.length, 3);
 });

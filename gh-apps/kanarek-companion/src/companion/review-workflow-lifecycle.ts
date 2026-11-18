@@ -82,8 +82,8 @@ export class ReviewWorkflowLifecycle {
       if (!record) throw new Error('review_workflow_record_missing');
       if (terminal(record.status)) return record;
       // A concurrent get() during create can report missing before dispatch settles.
-      // Keep its durable authorization; only the dispatch owner settles an unknown create.
-      if (record.status === 'starting' && status === 'unknown' && !settleCreate) return record;
+      // Keep last known status during outages; only dispatch settles an ambiguous create.
+      if (status === 'unknown' && (record.status !== 'starting' || !settleCreate)) return record;
       const next: ManagedReview = {
         ...record, status,
         needsPaid: status === 'complete' && !record.cancelRequested && needsPaid(output),

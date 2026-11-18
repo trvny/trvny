@@ -6,10 +6,11 @@ import {
   REVIEW_PROVIDER_ONLY_HEADER,
   REVIEW_ROUTER_CODE_REVIEW_MODEL,
   REVIEW_ROUTER_PATH,
+  REVIEW_ROUTER_PAID_ONCE_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
 } from '../../../core/review-service-protocol.ts';
-import { handleReviewRouterViaService } from './review-service.ts';
+import { handleReviewRouterViaService, reviewPaidOnceViaService } from './review-service.ts';
 import { repoPath, repositoryInScope, repositoryListAllows } from '../tools/common.ts';
 import { noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle } from './review-workflow-lifecycle.ts';
 import {
@@ -446,7 +447,11 @@ export async function askReviewRouter(
   excludedProviders: readonly string[] = [],
   signal?: AbortSignal,
   onlyProvider?: string,
+  paidOnce = false,
 ): Promise<ReviewRouterOutcome> {
+  if (paidOnce && (routerModel !== REVIEW_ROUTER_PAID_MODEL || onlyProvider)) {
+    throw new Error('invalid_strict_paid_review_request');
+  }
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) return { kind: 'unavailable' };
 
@@ -459,8 +464,10 @@ export async function askReviewRouter(
     headers[REVIEW_PROVIDER_EXCLUDE_HEADER] = excludedProviders.join(',');
   }
   if (onlyProvider) headers[REVIEW_PROVIDER_ONLY_HEADER] = onlyProvider;
-  const response = await handleReviewRouterViaService(
-    new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_ROUTER_PATH}`, {
+  const route = paidOnce ? REVIEW_ROUTER_PAID_ONCE_PATH : REVIEW_ROUTER_PATH;
+  const send = paidOnce ? reviewPaidOnceViaService : handleReviewRouterViaService;
+  const response = await send(
+    new Request(`${INTERNAL_REVIEW_ORIGIN}${route}`, {
       method: 'POST',
       headers,
       signal,

@@ -3,6 +3,7 @@ import {
   REVIEW_DECISION_PATH,
   REVIEW_ROUTER_MODELS_PATH,
   REVIEW_ROUTER_PATH,
+  REVIEW_ROUTER_PAID_ONCE_PATH,
   REVIEW_SERVICE_INTERNAL_BEARER,
   REVIEW_SERVICE_TRUST_HEADER,
   REVIEW_SERVICE_TRUST_VALUE,
@@ -53,6 +54,16 @@ export async function handleReviewRouterViaService(
   env: ReviewServiceEnv,
 ): Promise<Response | null> {
   if (!reviewRouterRequest(request)) return null;
+  return authorizedServiceRequest(request, env);
+}
+
+// Internal caller only; deliberately excluded from the public adapter's paths.
+export async function reviewPaidOnceViaService(request: Request, env: ReviewServiceEnv): Promise<Response | null> {
+  if (new URL(request.url).pathname !== REVIEW_ROUTER_PAID_ONCE_PATH) return null;
+  return authorizedServiceRequest(request, env);
+}
+
+async function authorizedServiceRequest(request: Request, env: ReviewServiceEnv): Promise<Response> {
   if (!bearerAuthorized(request, env.KANAREK_REVIEW_ROUTER_TOKEN)) return unavailable(401);
   const service = env.KANAREK_REVIEW_SERVICE;
   if (!service) return unavailable();

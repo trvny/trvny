@@ -183,6 +183,7 @@
             "particle-ai/particle-1:free",
             "recursive/flint-v1.0:free",
             "dots-studio/dots-3-note-preview:free",
+            "inclusionai/ling-3.2-flash:free",
             "cohere/north-mini-code:free",
             "openrouter/free"
           ],
@@ -215,6 +216,7 @@
             "thinkingmachines/inkling-2-small:free",
             "nvidia/nemotron-3-ultra-550b-a55b:free",
             "nvidia/nemotron-3.5-super-vl:free",
+            "inclusionai/ling-3.2-flash:free",
             "openrouter/free"
           ]
         },
@@ -227,7 +229,9 @@
           "review": [
             "tencent/hy4-flash",
             "xiaomi/mimo-v2.6-flash",
-            "poolside/laguna-s-2.1-free"
+            "poolside/laguna-s-2.1-free",
+            "alibaba/qwen3.8-omni-flash",
+            "alibaba/qwen3-coder-30b-a3b"
           ],
           "judge": [
             "meta/muse-ember",
@@ -277,7 +281,8 @@
           "inception/mercury-decide:free",
           "baseten/mammoth-1:free",
           "baseten/elephant-1:free",
-          "respan/span-01-lite:free"
+          "respan/span-01-lite:free",
+          "perplexity/pplx-decider-flash-v1.3:free"
         ],
         "qwencloud": [
           "decision-model-preview"

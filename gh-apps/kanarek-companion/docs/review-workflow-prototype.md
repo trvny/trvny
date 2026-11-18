@@ -63,7 +63,8 @@ no GitHub access or inference. Legacy alarms remain active.
   route in this rollout.
 - Per-PR review DO persists reservation and observed terminal receipt; stable
   SHA-256 instance ID (repo, PR, head, base). Unknown create reconciles by ID,
-  never recreates. Poll status before instance retention expires.
+  never recreates. Concurrent missing status does not revoke an in-flight create.
+  Poll status before instance retention expires.
 - One active instance; new target rejected until previous termination. Freshness
   check before start/resume. Accepted legacy enqueue invalidates overlapping
   reservations and cancels stale managed work only when control enabled.

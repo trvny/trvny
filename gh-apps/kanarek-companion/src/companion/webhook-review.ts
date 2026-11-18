@@ -1508,6 +1508,10 @@ export class WebhookReviewJob {
         'review_workflow_previous_unsettled'].includes(code)) {
         return Response.json({ error: code }, { status: 409 });
       }
+      console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+        JSON.stringify({ kanarekWebhookReview: 'workflow_control_failed', action,
+          error: /^review_workflow_[a-z_]+$/.test(code) ? code : 'unexpected_error' }),
+      );
       return Response.json({ error: 'review_workflow_control_unavailable' }, { status: 503 });
     }
   }
@@ -1614,7 +1618,7 @@ export class WebhookReviewJob {
     };
     if (this.workflowLifecycle()) {
       await this.state.storage.transaction(async (transaction) => {
-        await noteReviewWorkflowEnqueue(transaction);
+        await noteReviewWorkflowEnqueue(transaction, job.target);
         await transaction.put(queuedJob);
       });
     } else {

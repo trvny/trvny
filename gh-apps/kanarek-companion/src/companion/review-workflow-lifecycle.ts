@@ -28,9 +28,23 @@ const ACTIVE = 'review-workflow:active';
 const ENQUEUE_GENERATION = 'review-workflow:enqueue-generation';
 
 // Call inside the transaction that records an accepted webhook target.
-export async function noteReviewWorkflowEnqueue(store: Pick<DurableObjectTransaction, 'get' | 'put'>): Promise<void> {
+export async function noteReviewWorkflowEnqueue(
+  store: Pick<DurableObjectTransaction, 'get' | 'put'>,
+  target?: ReviewTarget,
+): Promise<void> {
   const generation = await store.get<number>(ENQUEUE_GENERATION) ?? 0;
   await store.put(ENQUEUE_GENERATION, generation + 1);
+  if (!target) return;
+  const active = await store.get<string>(ACTIVE);
+  if (!active) return;
+  const record = await store.get<ManagedReview>(recordKey(active));
+  if (!record || terminal(record.status)) return;
+  if (record.target.headSha === target.headSha && record.target.baseSha === target.baseSha) return;
+  // Revoke before releasing the same transaction that accepts the successor.
+  await store.put(recordKey(active), {
+    ...record, cancelRequested: true, needsPaid: false,
+    status: record.status === 'reserved' ? 'terminated' : record.status,
+  });
 }
 const recordKey = (id: string) => `review-workflow:record:${id}`;
 const terminal = (status: ManagedReview['status']): boolean =>
@@ -126,7 +140,7 @@ export class ReviewWorkflowLifecycle {
     const active = await this.store.get<string>(ACTIVE);
     if (!active) return;
     const record = await this.store.get<ManagedReview>(recordKey(active));
-    if (record && !terminal(record.status) && !await this.current(record.target)) {
+    if (record && !terminal(record.status) && (record.cancelRequested || !await this.current(record.target))) {
       await this.cancelId(active);
     }
   }

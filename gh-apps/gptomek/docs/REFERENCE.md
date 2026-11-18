@@ -35,7 +35,7 @@ SHAs.
 
 One wire format for every operation, including batches:
 
-1. Open the `gptomek` fence. Next line: `raw-v1 <boundary>` (8–64 ASCII
+1. Open the `gptomek` fence. Next line: `raw-v1 <boundary>` (1–64 ASCII
    letters, digits, `_` or `-`). Then the JSON header.
 2. Put file contents, patches and comment/reply bodies in raw blocks. Use
    `{"raw":1}` for the first block, `{"raw":2}` for the next, etc. Applies to
@@ -45,7 +45,8 @@ One wire format for every operation, including batches:
    text across supported slots (e.g. multiple review replies). Every supplied
    block must be referenced at least once.
 3. Put `--<boundary>--` on its own line before, between and after blocks.
-   Choose a boundary absent from the content as a marker line. With no blocks,
+   Choose a boundary absent from the content as a marker line; prefer a longer
+   boundary if the text might contain a short marker. With no blocks,
    close the fence directly after the JSON (e.g. `commit_tree`). A single
    redundant marker is tolerated for zero blocks, not missing references.
    Use consistent framing EOL (LF or

@@ -1,6 +1,6 @@
 // Transport decoding only. Command validation and checkpointing stay downstream.
 const COMMENT_COMMAND_RE = /^\s*```gptomek[ \t]*\r?\n([\s\S]*?)\r?\n```\s*$/;
-const RAW_PREAMBLE_RE = /^raw-v1 ([A-Za-z0-9_-]{8,64})(\r?\n)/;
+const RAW_PREAMBLE_RE = /^raw-v1 ([A-Za-z0-9_-]{1,64})(\r?\n)/;
 const MAX_RAW_BLOCKS = 320; // 10 batch steps × 32 file slots
 
 function record(value: unknown): value is Record<string, unknown> {

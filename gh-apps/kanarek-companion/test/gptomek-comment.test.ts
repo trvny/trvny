@@ -89,8 +89,20 @@ test('CRLF framing preserves arbitrary block endings without normalizing content
   assert.deepEqual(decodeGptomekComment(raw(common).replaceAll('\n', '\r\n')), common);
 });
 
+test('boundaries from one to 64 characters preserve raw blocks', () => {
+  const header = { ...common, op: 'reply_review', body: { raw: 1 } };
+  const body = 'unchanged\n--other--\n';
+  for (const shortBoundary of ['x', 'ccdn17x', 'a'.repeat(64)]) {
+    const framed = raw(header, body).replaceAll(boundary, shortBoundary);
+    assert.deepEqual(decodeGptomekComment(framed), { ...header, body });
+    assert.throws(() => decodeGptomekComment(
+      raw(header, 'a\n--' + boundary + '--\nb').replaceAll(boundary, shortBoundary),
+    ), /invalid_comment_raw_unused_block/);
+  }
+});
+
 test('bounds and dangling delimiters are rejected before execution', () => {
-  for (const invalid of ['short', 'a'.repeat(65), 'bad boundary']) {
+  for (const invalid of ['', 'a'.repeat(65), 'bad boundary', 'x!']) {
     assert.throws(() => decodeGptomekComment(raw(common).replace(boundary, invalid)), /invalid_comment_raw_framing/);
   }
   assert.throws(() => decodeGptomekComment(raw(common, ...Array(321).fill('x'))), /invalid_comment_raw_framing/);
@@ -100,7 +112,7 @@ test('bounds and dangling delimiters are rejected before execution', () => {
 test('audit identifies valid envelopes and malformed raw preambles', () => {
   assert.equal(commentWireFormat(envelope(common)), 'legacy-json');
   assert.equal(commentWireFormat(raw(common)), 'raw-v1');
-  assert.equal(commentWireFormat(raw(common).replace(boundary, 'short')), 'raw-v1');
+  assert.equal(commentWireFormat(raw(common).replace(boundary, '')), 'raw-v1');
   assert.equal(commentWireFormat(raw(common).replaceAll('\n', '\r\n')), 'raw-v1');
   assert.equal(commentWireFormat(raw(common) + '\nextra'), 'unknown');
   assert.equal(commentWireFormat('unrelated comment'), 'unknown');

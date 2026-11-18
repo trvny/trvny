@@ -17,6 +17,7 @@ function fixture() {
   let currentHead: string | undefined;
   let ambiguous = false;
   let missing = false;
+  let statusUnavailable = false;
   let createWait: Promise<void> | undefined;
   let createEntered: (() => void) | undefined;
   let tail = Promise.resolve();
@@ -43,7 +44,7 @@ function fixture() {
       if (!instances.has(id)) throw new Error('missing');
       return {
         id,
-        async status() { return instances.get(id)!; },
+        async status() { if (statusUnavailable) throw new Error('status unavailable'); return instances.get(id)!; },
         async terminate() { calls.push('cancel:' + id); instances.set(id, { status: 'terminated' }); },
         async resume() { calls.push('resume:' + id); instances.set(id, { status: 'running' }); },
       };
@@ -56,6 +57,7 @@ function fixture() {
   return { data, instances, calls, controller, noteEnqueue, setFresh: (value: boolean) => { fresh = value; },
     setHead: (head: string) => { currentHead = head; },
     holdCreate: (wait: Promise<void>, entered: () => void) => { createWait = wait; createEntered = entered; },
+    statusUnavailable: (value: boolean) => { statusUnavailable = value; },
     loseResponse: () => { ambiguous = true; }, failCreate: () => { missing = true; } };
 }
 
@@ -211,4 +213,17 @@ test('resume only paused and current; stale target cancels without resume', asyn
   assert.equal((await f.controller().resume(job.target))?.status, 'terminated');
   assert.deepEqual(f.calls, ['create:' + first.id, 'resume:' + first.id, 'cancel:' + first.id]);
   await assert.rejects(f.controller().start(updated), /stale_target/);
+});
+
+
+test('status outage preserves known authorization but explicit cancellation revokes it', async () => {
+  const f = fixture();
+  await f.controller().start(job);
+  f.statusUnavailable(true);
+  assert.equal((await f.controller().status(job.target))?.status, 'queued');
+  assert.equal(await f.controller().canRun(job.target), true);
+  await f.controller().cancel(job.target);
+  assert.equal(await f.controller().canRun(job.target), false);
+  f.statusUnavailable(false);
+  assert.equal((await f.controller().status(job.target))?.status, 'terminated');
 });

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
+import type { StoredJob } from '../src/companion/webhook-review.ts';
 import test from 'node:test';
 
 import {
@@ -597,6 +599,51 @@ test('review skips Dependabot without queueing or requesting model work', async 
   }
   await Promise.all(tasks);
   assert.equal(queued.length, accepted.length);
+});
+
+test('managed workflow routes fail closed and accepted enqueue revokes the old reservation', async () => {
+  const initial = queuedJob(headA, base) as unknown as StoredJob;
+  const id = await reviewWorkflowInstanceId(initial.target);
+  const { state, values, alarms } = fakeState({
+    'review-workflow:active': id,
+    ['review-workflow:record:' + id]: {
+      id, target: initial.target, status: 'running', cancelRequested: false, needsPaid: false,
+    },
+  });
+  const doState = { ...state, id: 'travnie/llmbench#21' } as unknown as DurableObjectState;
+  const request = (action: string, body: unknown) => new Request('https://kanarek-review.internal/' + action, {
+    method: 'POST', body: JSON.stringify(body),
+  });
+  const disabled = new WebhookReviewJob(doState, {} as WebhookReviewEnv);
+  assert.equal((await disabled.fetch(request('workflow/authorize', initial))).status, 503);
+  let status = 'running';
+  const binding: ReviewWorkflowBinding = {
+    async create() { throw new Error('unexpected_create'); },
+    async get(instanceId) {
+      return {
+        id: instanceId,
+        async status() { return { status }; },
+        async terminate() { status = 'terminated'; },
+        async resume() { throw new Error('unexpected_resume'); },
+      };
+    },
+  };
+  const enabled = new WebhookReviewJob(doState, {
+    KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED: 'true',
+    KANAREK_FREE_REVIEW_PROTOTYPE: binding,
+    KANAREK_REPOSITORIES: 'travnie/*',
+    KANAREK_REVIEW_REPOSITORIES: 'travnie/*',
+    KANAREK_REVIEW_JOBS: fakeNamespace(async () => Response.json({})),
+  } as WebhookReviewEnv);
+  assert.equal((await enabled.fetch(request('workflow/authorize', {
+    ...initial, target: { ...initial.target, number: 22 },
+  }))).status, 400);
+  assert.deepEqual(await (await enabled.fetch(request('workflow/authorize', initial))).json(), { authorized: true });
+  assert.equal((await enabled.fetch(request('enqueue', queuedJob(headB, base)))).status, 200);
+  assert.deepEqual(await (await enabled.fetch(request('workflow/authorize', initial))).json(), { authorized: false });
+  assert.equal(status, 'terminated');
+  assert.equal((values.get('review-workflow:record:' + id) as { cancelRequested: boolean }).cancelRequested, true);
+  assert.equal(alarms.length, 1);
 });
 
 test('webhook review job debounces to the newest head', async () => {

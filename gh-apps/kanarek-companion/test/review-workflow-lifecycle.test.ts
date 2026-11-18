@@ -52,7 +52,7 @@ function fixture() {
   const controller = (current?: (target: ReviewTarget) => Promise<boolean>) => new ReviewWorkflowLifecycle(
     store as unknown as DurableObjectStorage, workflow, current ?? (async (target) => fresh && (currentHead === undefined || target.headSha === currentHead)),
   );
-  const noteEnqueue = () => store.transaction((txn) => noteReviewWorkflowEnqueue(txn as unknown as DurableObjectTransaction));
+  const noteEnqueue = (target?: ReviewTarget) => store.transaction((txn) => noteReviewWorkflowEnqueue(txn as unknown as DurableObjectTransaction, target));
   return { data, instances, calls, controller, noteEnqueue, setFresh: (value: boolean) => { fresh = value; },
     setHead: (head: string) => { currentHead = head; },
     holdCreate: (wait: Promise<void>, entered: () => void) => { createWait = wait; createEntered = entered; },
@@ -122,6 +122,18 @@ test('concurrent missing status during create cannot revoke authorization', asyn
   release();
   assert.equal((await pending).status, 'queued');
   assert.equal(f.calls.filter((call) => call.startsWith('create:')).length, 1);
+});
+
+test('accepted successor revokes in-flight permission before cancellation I/O', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  await f.noteEnqueue(job.target);
+  assert.equal(await f.controller().canRun(job.target), true);
+  await f.noteEnqueue(updated.target);
+  assert.equal(await f.controller().canRun(job.target), false);
+  assert.equal(f.instances.get(first.id)?.status, 'queued');
+  await f.controller().cancelIfStale();
+  assert.equal(f.instances.get(first.id)?.status, 'terminated');
 });
 
 test('cancel during create revokes durable permission before the instance exists', async () => {

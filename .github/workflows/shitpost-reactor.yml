@@ -99,6 +99,9 @@ jobs:
           SHITPOST_OUTPUT_DIR: ${{ runner.temp }}/shitpost-reactor
         run: npm run publish
 
+      - name: Notify IndexNow of the updated Reactor archive
+        run: node ../../.github/scripts/indexnow.cjs reactor
+
       - name: Upload draft
         if: always()
         uses: actions/upload-artifact@v7

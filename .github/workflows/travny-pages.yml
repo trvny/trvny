@@ -16,6 +16,7 @@ on: # yamllint disable-line rule:truthy
       - "pages/scripts/sitemap-variants.mjs"
       - "pages/scripts/build-badge-previews.mjs"
       - "pages/scripts/build-static-shell.mjs"
+      - ".github/scripts/indexnow*.cjs"
       - ".github/workflows/travny-pages.yml"
   pull_request:
     branches: [main]
@@ -32,6 +33,7 @@ on: # yamllint disable-line rule:truthy
       - "pages/scripts/sitemap-variants.mjs"
       - "pages/scripts/build-badge-previews.mjs"
       - "pages/scripts/build-static-shell.mjs"
+      - ".github/scripts/indexnow*.cjs"
       - ".github/workflows/travny-pages.yml"
   workflow_dispatch:
     inputs:
@@ -58,6 +60,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' }}
     outputs:
       pages_deploy_expected: ${{ steps.deploy_scope.outputs.pages_deploy_expected }}
+      indexnow_urls: ${{ steps.deploy_scope.outputs.indexnow_urls }}
     runs-on: ubuntu-slim
     timeout-minutes: 10
     defaults:
@@ -84,6 +87,7 @@ jobs:
       - run: npm --prefix astro run build
       - run: npx --yes eslint@10.12.0 .
       - run: node --test tests/*.test.mjs
+      - run: node --test ../.github/scripts/indexnow.test.cjs
       - run: npx --yes wrangler@4.160.0 deploy --config worker/wrangler.jsonc --dry-run --outdir "$RUNNER_TEMP/hub-worker"
 
       - name: Detect Pages deployment changes
@@ -95,6 +99,8 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          urls=$(node ../.github/scripts/indexnow.cjs hub-changes "$BEFORE_SHA" "$HEAD_SHA")
+          echo "indexnow_urls=$urls" >> "$GITHUB_OUTPUT"
           if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
             echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
           else
@@ -147,6 +153,7 @@ jobs:
       # Source of truth for where the project builds from. Leaves
       # production_deployments_enabled alone so the toggle modes stick.
       - name: Assert Git source and build settings
+        id: pages_settings
         if: ${{ github.event_name == 'push' || inputs.mode == 'assert' }}
         shell: bash
         run: |
@@ -177,11 +184,11 @@ jobs:
                 "${endpoint}/deployments?per_page=10" | jq -r --arg sha "$GITHUB_SHA" '
                   [.result[] | select(.deployment_trigger.metadata.commit_hash == $sha)][0]
                   | if . == null then "pending"
-                    elif .is_skipped then "done"
+                    elif .is_skipped then "skipped"
                     elif .latest_stage.status == "success" then "done"
                     elif (.latest_stage.status | IN("failure", "canceled")) then "failed"
                     else "pending" end')
-              if [[ "$state" == "done" ]]; then settled=true; break; fi
+              if [[ "$state" == "done" || "$state" == "skipped" ]]; then settled=true; break; fi
               if [[ "$state" == "failed" ]]; then
                 echo "::error::Cloudflare deployment for ${GITHUB_SHA} failed."
                 exit 1
@@ -210,6 +217,23 @@ jobs:
             done
             [[ "$status" == "deploy/success" ]] || { echo "::error::Redeploy ${id} still ${status} after 5 min."; exit 1; }
           fi
+
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$DEPLOY_EXPECTED" == "true" && "${state:-}" == "done" ]]; then
+            echo "indexnow_ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.pages_settings.outputs.indexnow_ready == 'true' }}
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Notify IndexNow of published changes
+        if: ${{ steps.pages_settings.outputs.indexnow_ready == 'true' }}
+        env:
+          INDEXNOW_URLS: ${{ needs.check.outputs.indexnow_urls }}
+        run: node .github/scripts/indexnow.cjs hub "$INDEXNOW_URLS"
 
       - name: Check dedicated WAF token
         id: waf_token

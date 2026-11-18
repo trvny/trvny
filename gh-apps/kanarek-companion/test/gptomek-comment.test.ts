@@ -32,6 +32,29 @@ test('patch, review reply and batch hydrate only supported slots', () => {
   }
 });
 
+test('raw blocks can be reused across files and batch steps', () => {
+  const file = 'complete file\n';
+  const reply = 'Fixed in this commit.';
+  const command = { id: 'shared-blocks', repository: 'trvny/trvny', op: 'batch', steps: [
+    { op: 'commit_files', branch: common.branch, expectedHeadSha: common.expectedHeadSha, message: common.message, files: [
+      { path: 'one', content: { raw: 1 } }, { path: 'two', content: { raw: 1 } },
+    ] },
+    ...[123, 456, 789].flatMap(commentId => [
+      { op: 'reply_review', pullRequestNumber: 42, commentId, body: { raw: 2 } },
+      { op: 'react_review_comment', commentId, reaction: '+1' },
+    ]),
+  ] };
+  const expected = { ...command, steps: [
+    { ...command.steps[0], files: [{ path: 'one', content: file }, { path: 'two', content: file }] },
+    ...[123, 456, 789].flatMap(commentId => [
+      { op: 'reply_review', pullRequestNumber: 42, commentId, body: reply },
+      { op: 'react_review_comment', commentId, reaction: '+1' },
+    ]),
+  ] };
+  assert.deepEqual(decodeGptomekComment(raw(command, file, reply)), decodeGptomekComment(envelope(expected)));
+  assert.throws(() => decodeGptomekComment(raw(command, file, reply, 'unused')), /invalid_comment_raw_unused_block/);
+});
+
 test('bad references, unused slots, collision and extra text fail closed', () => {
   const patch = (ref: unknown) => ({ ...common, op: 'apply_patch', patch: ref });
   for (const ref of [{ raw: 0 }, { raw: 2 }, { raw: 1.5 }, { raw: '1' }, { raw: 1, other: true }]) {
@@ -39,7 +62,6 @@ test('bad references, unused slots, collision and extra text fail closed', () =>
   }
   assert.throws(() => decodeGptomekComment(raw(patch('inline'), 'extra')), /invalid_comment_raw_unused_block/);
   assert.throws(() => decodeGptomekComment(raw(patch({ raw: 1 }), `a${marker}b`)), /invalid_comment_raw_unused_block/);
-  assert.throws(() => decodeGptomekComment(raw({ ...common, op: 'commit_files', files: [{ content: { raw: 1 } }, { content: { raw: 1 } }] }, 'text')), /invalid_comment_raw_reference/);
   assert.throws(() => decodeGptomekComment(raw(patch({ raw: 1 }), 'text').replace(marker.slice(0, -1) + '\n```', '\n```')), /invalid_comment_raw_framing/);
   assert.throws(() => decodeGptomekComment(raw(patch({ raw: 1 }), 'text') + '\nextra'), /invalid_comment_command/);
   assert.throws(() => decodeGptomekComment('```gptomek\nnot JSON\n```'), /invalid_comment_command_json/);

@@ -33,7 +33,7 @@ function decodeRaw(payload: string, preamble: RegExpMatchArray): unknown {
     if (!record(value)) return value;
     const index = value.raw;
     if (Object.keys(value).length !== 1 || typeof index !== 'number' || !Number.isInteger(index)
-      || index < 1 || index > parts.length || used.has(index)) {
+      || index < 1 || index > parts.length) {
       throw new Error('invalid_comment_raw_reference');
     }
     used.add(index);

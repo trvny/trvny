@@ -100,7 +100,10 @@ jobs:
         run: npm run publish
 
       - name: Notify IndexNow of the updated Reactor archive
-        run: node ../../.github/scripts/indexnow.cjs reactor
+        continue-on-error: true
+        uses: ./.github/actions/indexnow
+        with:
+          site: reactor
 
       - name: Upload draft
         if: always()

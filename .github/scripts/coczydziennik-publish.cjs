@@ -226,7 +226,6 @@ async function run({ github, context, core }) {
   if (!merged.merged || !merged.sha) throw Error('GitHub did not confirm rebase merge');
   core.info(`Merged PR #${number} as ${merged.sha}`);
   const url = await confirmPublication(core, target.date, merged.sha, effectiveUpdated);
-  await notify('hub', digestUrls(target.date), { log: core.info, warn: core.warning });
   const marker = `<!-- coczydziennik-published:${target.date} -->`;
   const comments = await github.paginate(github.rest.issues.listComments, {
     owner: OWNER, repo: REPO, issue_number: number, per_page: 100,
@@ -236,6 +235,7 @@ async function run({ github, context, core }) {
       body: `Published and verified: ${url}\n\nChecks, review threads, Cloudflare Pages production deployment, /teksty/ and Atom confirmed.\n${marker}` });
   }
   await core.summary.addHeading('CoCzyDziennik published').addLink(url, url).write();
+  await notify('hub', digestUrls(target.date), { log: core.info, warn: core.warning });
 }
 
 module.exports = { run, digestTarget, workflowGate, resolveNumber };

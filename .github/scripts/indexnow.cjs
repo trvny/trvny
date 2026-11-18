@@ -41,7 +41,8 @@ function canonical(site, url) {
   const target = new URL(url);
   return target.origin === root.origin && target.href === url &&
     !target.search && !target.hash && !target.username && !target.password &&
-    target.pathname.startsWith(root.pathname);
+    target.pathname.startsWith(root.pathname) &&
+    !/%(?:2f|5c|25|00)/i.test(target.pathname);
 }
 
 async function notify(name, urls, { fetchImpl = fetch, log = console.log, warn = console.warn } = {}) {
@@ -77,7 +78,7 @@ if (require.main === module) {
     const [before, head] = args;
     const validBefore = /^[0-9a-f]{40}$/.test(before) && !/^0+$/.test(before);
     if (!/^[0-9a-f]{40}$/.test(head)) throw Error('Invalid deployed commit');
-    const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 });
     const sitemap = git('show', head + ':pages/site/sitemap.xml');
     const changed = validBefore
       ? git('diff', '--no-renames', '--name-only', '-z', before, head, '--').split('\0')

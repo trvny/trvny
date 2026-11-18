@@ -235,6 +235,11 @@ jobs:
             fi
           fi
 
+          # Explicit assert is also a manual notification retry for live production.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -z "$indexnow_head" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+            indexnow_head=$(jq -r 'if .result.canonical_deployment.latest_stage.status == "success" then .result.canonical_deployment.deployment_trigger.metadata.commit_hash // "" else "" end' <<<"$live")
+            indexnow_before=""
+          fi
           if [[ "$indexnow_head" =~ ^[0-9a-f]{40}$ ]]; then
             {
               echo "indexnow_ready=true"

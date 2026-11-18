@@ -33,7 +33,10 @@
 <!--OPEN_PRS:START-->
 | Repozytorium | PR | Tytuł | Autor | Stan | Aktualizacja |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1440](https://github.com/trvny/trvny/pull/1440) | feat(kanarek): prototype checkpointed review workflow | @trvny | wersja robocza | 2026-11-15 |
+| trvny/feedseek | [#628](https://github.com/trvny/feedseek/pull/628) | fix: abort impersonated HTML transfers at byte cap | @trvny | gotowy | 2026-11-17 |
+| trvny/trvny | [#1461](https://github.com/trvny/trvny/pull/1461) | feat(kanarek): manage manual Workflow lifecycle from review DO | @trvny | gotowy | 2026-11-17 |
+| trvny/trvny | [#1462](https://github.com/trvny/trvny/pull/1462) | feat(kanarek): persist paid review reservation and single-submission receipt | @trvny | wersja robocza | 2026-11-17 |
+| trvny/trvny | [#1478](https://github.com/trvny/trvny/pull/1478) | feat(digest): illustrated magazine layouts | @trvny | gotowy | 2026-11-17 |
 <!--OPEN_PRS:END-->
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
@@ -91,19 +94,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝“In an information economy, the most valuable company assets drive themselves home every night.  If they are not treated well, they do not return the next morning.”— Peter Chang❞</i>
+<i>❝Imagination is eye of the soul. — Anonymous❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 Ostatnio w eterze
 
 <!--README_FEED:START-->
-- [How Climate Change Is Reshaping India’s Demographic Dividend](https://carnegieendowment.org/research/2026/11/how-climate-change-is-reshaping-indias-demographic-dividend)
-- ["Promocja" na Black Weeks może być pułapką. Jak w 30 sekund sprawdzić najniższą cenę z 30 dni?](https://antyweb.pl/promocje-black-weeks-jak-sprawdzic)
-- [Tłumacz AI po polsku: DeepL czy Google i ile naprawdę przetłumaczysz za darmo](https://promptowy.com/tlumacz-ai-po-polsku-darmowe-limity/)
-- [Gregg Popovich surprises San Antonio H-E-B shoppers by paying for their groceries](https://sports.yahoo.com/articles/gregg-popovich-surprises-san-antonio-183353536.html)
-- [LSU guard Milaysia Fulwiley arrested; accused of hitting officer with vehicle, fleeing scene](https://sports.yahoo.com/womens-college-basketball/article/lsu-guard-milaysia-fulwiley-arrested-accused-of-hitting-officer-with-vehicle-fleeing-scene-183348603.html)
-- [Mike Vrabel reacts to Drake Maye injury, Patriots' loss vs. Lions](https://sports.yahoo.com/articles/mike-vrabel-reacts-drake-maye-183143056.html)
+- [Apple ma ogromne problemy. Nie działają kluczowe usługi](https://antyweb.pl/apple-ma-ogromne-problemy-nie-dzialaja-kluczowe-uslugi)
+- [Instagram Live z OBS bez rozciągniętej gry. Pionowy układ 9:16 krok po kroku](https://promptowy.com/instagram-live-obs-pion-9-16/)
+- [Gemini 4 Carbon: API, cena i czy jest za darmo \(Python, curl, OpenRouter\)](https://promptowy.com/gemini-4-carbon-api-cena/)
+- [Co umie Gemini 4 Carbon: 12 zadań z promptami i wynikami](https://promptowy.com/gemini-4-carbon-co-umie/)
+- [Gemini 4 Hydrogen za darmo: gdzie działa bez płacenia, limity, API i plany w Polsce](https://promptowy.com/gemini-4-hydrogen-za-darmo/)
+- [Gemini czy ChatGPT? Gemini 4 Hydrogen kontra GPT-6.2 Sol - test 7 zadań po polsku](https://promptowy.com/gemini-vs-chatgpt-hydrogen-vs-gpt-6-2-sol/)
 <!--README_FEED:END-->
 
 <div align="center">

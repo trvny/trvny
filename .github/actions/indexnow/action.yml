@@ -1,0 +1,13 @@
+name: IndexNow publication notification
+description: Notify IndexNow after a successful canonical publication
+inputs:
+  site:
+    description: Canonical site identifier
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        INDEXNOW_SITE: ${{ inputs.site }}
+      run: node "$GITHUB_ACTION_PATH/../../scripts/indexnow.cjs" "$INDEXNOW_SITE"

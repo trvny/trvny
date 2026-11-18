@@ -1,6 +1,7 @@
 'use strict';
 
 // PR gate + existing Pages deployment. Run trusted code from main only.
+const { notify, digestUrls } = require('./indexnow.cjs');
 const OWNER = 'trvny';
 const REPO = 'trvny';
 const REQUIRED = ['TRAVNY Pages', 'MegaLinter'];
@@ -182,6 +183,7 @@ async function run({ github, context, core }) {
       const source = { date, path: `pages/astro/src/content/digests/${date}.md` };
       const updated = await checkSource(github, { head: { sha: pr.merge_commit_sha } }, source);
       const url = await confirmPublication(core, date, pr.merge_commit_sha, updated);
+      await notify('hub', digestUrls(date), { log: core.info, warn: core.warning });
       return core.info(`Publication reverified: ${url}`);
     }
     return core.info(`PR #${number} already closed.`);
@@ -224,6 +226,7 @@ async function run({ github, context, core }) {
   if (!merged.merged || !merged.sha) throw Error('GitHub did not confirm rebase merge');
   core.info(`Merged PR #${number} as ${merged.sha}`);
   const url = await confirmPublication(core, target.date, merged.sha, effectiveUpdated);
+  await notify('hub', digestUrls(target.date), { log: core.info, warn: core.warning });
   const marker = `<!-- coczydziennik-published:${target.date} -->`;
   const comments = await github.paginate(github.rest.issues.listComments, {
     owner: OWNER, repo: REPO, issue_number: number, per_page: 100,

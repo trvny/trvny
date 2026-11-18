@@ -185,7 +185,7 @@ jobs:
             for _ in $(seq 1 30); do
               state=$(curl --fail-with-body --silent --show-error "${auth[@]}" \
                 "${endpoint}/deployments?per_page=10" | jq -r --arg sha "$GITHUB_SHA" '
-                  [.result[] | select(.deployment_trigger.metadata.commit_hash == $sha)][0]
+                  [.result[] | select(.environment == "production" and .deployment_trigger.metadata.commit_hash == $sha)][0]
                   | if . == null then "pending"
                     elif .is_skipped then "skipped"
                     elif .latest_stage.status == "success" then "done"

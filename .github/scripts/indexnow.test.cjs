@@ -25,17 +25,11 @@ test('shared site changes select static canonical routes', () => {
 });
 
 test('submit scoped URLs once; failures do not fail publishing', async () => {
-  let count = 0;
+  const requests = [];
   const options = {
     log() {}, warn() {},
     fetchImpl: async (url, init) => {
-      count++;
-      assert.equal(url, 'https://api.indexnow.org/indexnow');
-      assert.equal(init.redirect, 'error');
-      const payload = JSON.parse(init.body);
-      assert.equal(payload.host, 'trvny.github.io');
-      assert.deepEqual(payload.urlList, ['https://trvny.github.io/feedseek/']);
-      assert.match(payload.keyLocation, /^https:\/\/trvny\.github\.io\/feedseek\//);
+      requests.push({ url, init });
       return { status: 202 };
     },
   };
@@ -43,6 +37,13 @@ test('submit scoped URLs once; failures do not fail publishing', async () => {
   assert.equal(await notify('feedseek', [root, root], options), true);
   assert.equal(await notify('feedseek', ['https://trvny.github.io/other/'], options), false);
   assert.equal(await notify('feedseek', [root + 'guide%2Fintro'], options), false);
-  assert.equal(count, 1);
+  assert.equal(requests.length, 1);
+  const { url, init } = requests[0];
+  assert.equal(url, 'https://api.indexnow.org/indexnow');
+  assert.equal(init.redirect, 'error');
+  const payload = JSON.parse(init.body);
+  assert.equal(payload.host, 'trvny.github.io');
+  assert.deepEqual(payload.urlList, [root]);
+  assert.match(payload.keyLocation, /^https:\/\/trvny\.github\.io\/feedseek\//);
   assert.equal(await notify('hub', undefined, { ...options, fetchImpl: async () => ({ status: 429 }) }), false);
 });

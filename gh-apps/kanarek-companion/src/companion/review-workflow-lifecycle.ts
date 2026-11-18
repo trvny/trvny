@@ -242,3 +242,33 @@ export class ReviewWorkflowLifecycle {
     return this.reconcile(id);
   }
 }
+
+// Retry transient authorization failures, never inference. Exhaustion fails closed.
+export async function requestManagedReviewAuthorization(
+  request: (signal: AbortSignal) => Promise<Response>,
+  signal: AbortSignal,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < 3 && !signal.aborted; attempt += 1) {
+    let response: Response;
+    try {
+      response = await request(signal);
+    } catch {
+      continue;
+    }
+    if (response.status === 409 || response.status === 503) {
+      await response.body?.cancel().catch(() => {});
+      continue;
+    }
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      throw new Error('review_workflow_authorize_unavailable');
+    }
+    try {
+      const body = await response.json() as { authorized?: boolean };
+      return !signal.aborted && body?.authorized === true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}

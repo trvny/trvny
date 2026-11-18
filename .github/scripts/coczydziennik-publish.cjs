@@ -235,7 +235,8 @@ async function run({ github, context, core }) {
       body: `Published and verified: ${url}\n\nChecks, review threads, Cloudflare Pages production deployment, /teksty/ and Atom confirmed.\n${marker}` });
   }
   await core.summary.addHeading('CoCzyDziennik published').addLink(url, url).write();
-  // Pages deployment hook owns normal notification; explicit retry above can re-notify.
+  // GITHUB_TOKEN merges do not trigger push workflows. Notify after public verification.
+  await notify('hub', digestUrls(target.date), { log: core.info, warn: core.warning });
 }
 
 module.exports = { run, digestTarget, workflowGate, resolveNumber };

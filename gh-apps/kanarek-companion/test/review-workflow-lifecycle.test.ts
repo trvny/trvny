@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
+import { requestManagedReviewAuthorization, noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
 import type { ReviewTarget, StoredJob } from '../src/companion/webhook-review.ts';
 
 const job: StoredJob = { target: {
@@ -226,4 +226,34 @@ test('status outage preserves known authorization but explicit cancellation revo
   assert.equal(await f.controller().canRun(job.target), false);
   f.statusUnavailable(false);
   assert.equal((await f.controller().status(job.target))?.status, 'terminated');
+});
+
+
+test('managed authorization retries conflict and transport failures without authorizing stale work', async () => {
+  const signal = new AbortController().signal;
+  let attempts = 0;
+  assert.equal(await requestManagedReviewAuthorization(async () => {
+    attempts += 1;
+    if (attempts === 1) return new Response(null, { status: 409 });
+    if (attempts === 2) throw new Error('transport');
+    return Response.json({ authorized: true });
+  }, signal), true);
+  assert.equal(attempts, 3);
+  attempts = 0;
+  assert.equal(await requestManagedReviewAuthorization(async () => {
+    attempts += 1;
+    return new Response(null, { status: 503 });
+  }, signal), false);
+  assert.equal(attempts, 3);
+  attempts = 0;
+  assert.equal(await requestManagedReviewAuthorization(async () => {
+    attempts += 1;
+    return Response.json({ authorized: false });
+  }, signal), false);
+  assert.equal(attempts, 1);
+  const aborted = new AbortController();
+  aborted.abort();
+  assert.equal(await requestManagedReviewAuthorization(async () => {
+    assert.fail('authorization must not run after abort');
+  }, aborted.signal), false);
 });

@@ -1,7 +1,7 @@
 import { WorkerEntrypoint, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
 import { runFreeReviewWorkflowPrototype, runFreeReviewWorkflowSmoke } from './companion/review-workflow.ts';
 import { assertFreeReviewWorkflowJob, type StoredJob } from './companion/webhook-review.ts';
-import { reviewWorkflowInstanceId, type ManagedWorkflowParams } from './companion/review-workflow-lifecycle.ts';
+import { requestManagedReviewAuthorization, reviewWorkflowInstanceId, type ManagedWorkflowParams } from './companion/review-workflow-lifecycle.ts';
 import {
   botekEngramSearch,
   botekEngramStatus,
@@ -97,15 +97,12 @@ async function managedReviewAuthorized(env: RuntimeEnv, job: StoredJob, signal: 
   const queue = env.KANAREK_REVIEW_JOBS;
   if (!queue || env.KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED !== 'true' || signal.aborted) return false;
   const stub = queue.get(queue.idFromName(`${job.target.repository}#${job.target.number}`));
-  const response = await stub.fetch('https://kanarek-review.internal/workflow/authorize', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job), signal,
-  });
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new Error('review_workflow_authorize_unavailable');
-  }
-  const body = await response.json() as { authorized?: boolean };
-  return !signal.aborted && body.authorized === true;
+  return requestManagedReviewAuthorization((requestSignal) => stub.fetch(
+    'https://kanarek-review.internal/workflow/authorize', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(job), signal: requestSignal,
+    },
+  ), signal);
 }
 
 export class KanarekFreeReviewPrototype extends WorkflowEntrypoint<RuntimeEnv, PrototypeParams> {

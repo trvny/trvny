@@ -52,7 +52,7 @@ function fixture() {
   const controller = (current?: (target: ReviewTarget) => Promise<boolean>) => new ReviewWorkflowLifecycle(
     store as unknown as DurableObjectStorage, workflow, current ?? (async (target) => fresh && (currentHead === undefined || target.headSha === currentHead)),
   );
-  const noteEnqueue = (target?: ReviewTarget) => store.transaction((txn) => noteReviewWorkflowEnqueue(txn as unknown as DurableObjectTransaction, target));
+  const noteEnqueue = () => store.transaction((txn) => noteReviewWorkflowEnqueue(txn as unknown as DurableObjectTransaction));
   return { data, instances, calls, controller, noteEnqueue, setFresh: (value: boolean) => { fresh = value; },
     setHead: (head: string) => { currentHead = head; },
     holdCreate: (wait: Promise<void>, entered: () => void) => { createWait = wait; createEntered = entered; },
@@ -124,14 +124,17 @@ test('concurrent missing status during create cannot revoke authorization', asyn
   assert.equal(f.calls.filter((call) => call.startsWith('create:')).length, 1);
 });
 
-test('accepted successor revokes in-flight permission before cancellation I/O', async () => {
+test('delayed enqueue does not cancel current manual review; stale target cannot authorize', async () => {
   const f = fixture();
-  const first = await f.controller().start(job);
-  await f.noteEnqueue(job.target);
-  assert.equal(await f.controller().canRun(job.target), true);
-  await f.noteEnqueue(updated.target);
-  assert.equal(await f.controller().canRun(job.target), false);
+  f.setHead(updated.target.headSha);
+  const first = await f.controller().start(updated);
+  await f.noteEnqueue();
+  assert.equal(await f.controller().canRun(updated.target), true);
+  await f.controller().cancelIfStale();
   assert.equal(f.instances.get(first.id)?.status, 'queued');
+  f.setHead(job.target.headSha);
+  await f.noteEnqueue();
+  assert.equal(await f.controller().canRun(updated.target), false);
   await f.controller().cancelIfStale();
   assert.equal(f.instances.get(first.id)?.status, 'terminated');
 });

@@ -601,7 +601,7 @@ test('review skips Dependabot without queueing or requesting model work', async 
   assert.equal(queued.length, accepted.length);
 });
 
-test('managed workflow routes fail closed and accepted enqueue revokes the old reservation', async () => {
+test('managed workflow routes fail closed and enqueue invalidates freshness', async () => {
   const initial = queuedJob(headA, base) as unknown as StoredJob;
   const id = await reviewWorkflowInstanceId(initial.target);
   const { state, values, alarms } = fakeState({
@@ -640,9 +640,11 @@ test('managed workflow routes fail closed and accepted enqueue revokes the old r
   }))).status, 400);
   assert.deepEqual(await (await enabled.fetch(request('workflow/authorize', initial))).json(), { authorized: true });
   assert.equal((await enabled.fetch(request('enqueue', queuedJob(headB, base)))).status, 200);
-  assert.deepEqual(await (await enabled.fetch(request('workflow/authorize', initial))).json(), { authorized: false });
-  assert.equal(status, 'terminated');
-  assert.equal((values.get('review-workflow:record:' + id) as { cancelRequested: boolean }).cancelRequested, true);
+  // Without a successful GitHub freshness check, no authorization or cancellation.
+  assert.equal(values.get('review-workflow:enqueue-generation'), 1);
+  assert.equal((await enabled.fetch(request('workflow/authorize', initial))).status, 503);
+  assert.equal(status, 'running');
+  assert.equal((values.get('review-workflow:record:' + id) as { cancelRequested: boolean }).cancelRequested, false);
   assert.equal(alarms.length, 1);
 });
 

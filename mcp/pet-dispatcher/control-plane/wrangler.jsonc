@@ -2,7 +2,7 @@
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "pet-dispatcher-control",
   "main": "entry.ts",
-  "compatibility_date": "2026-09-01",
+  "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": true,
   "preview_urls": false,
@@ -13,11 +13,14 @@
     "enabled": true,
     "logs": {
       "enabled": true,
-      "head_sampling_rate": 1,
+      "head_sampling_rate": 0.1,
       "persist": false,
       // Connector compatibility can place MCP_CONNECTOR_TOKEN in /mcp/<token>.
       // Keep invocation logs off so that secret URL never lands in Worker logs.
       "invocation_logs": false
+    },
+    "issue_detection": {
+      "enabled": true
     },
     "traces": {
       "enabled": false

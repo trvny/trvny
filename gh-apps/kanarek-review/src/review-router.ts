@@ -13,6 +13,7 @@ import {
   REVIEW_ROUTER_QUIP_MODEL,
   REVIEW_ROUTER_SHITPOST_MODEL,
   REVIEW_ROUTER_PATH,
+  REVIEW_ROUTER_PAID_ONCE_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
   REVIEW_ROUTER_WORK_MODEL,
@@ -2214,7 +2215,8 @@ export async function handleReviewRouterRequest(
       ],
     }, { headers: { 'cache-control': 'no-store' } });
   }
-  if (url.pathname !== REVIEW_ROUTER_PATH) return null;
+  const paidOnce = url.pathname === REVIEW_ROUTER_PAID_ONCE_PATH;
+  if (url.pathname !== REVIEW_ROUTER_PATH && !paidOnce) return null;
   if (request.method !== 'POST') return jsonError('Method not allowed', 'method_not_allowed', 405);
   if (!authorized(request, env)) return jsonError('Unauthorized', 'unauthorized', 401);
 
@@ -2228,6 +2230,10 @@ export async function handleReviewRouterRequest(
   }
 
   const paidOnly = input.model === REVIEW_ROUTER_PAID_MODEL;
+  if (paidOnce && (!paidOnly || input.stream === true)) {
+    return jsonError('Single paid submission requires non-streaming paid review', 'invalid_request', 400);
+  }
+  let attemptedPaidProvider: string | null = null;
   const workOnly = input.model === REVIEW_ROUTER_WORK_MODEL;
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   const task = reviewRouterTaskProfile(input.model);
@@ -2257,6 +2263,7 @@ export async function handleReviewRouterRequest(
         : []),
     ];
   for (const provider of orderedProviders) {
+    if (paidOnce && attemptedPaidProvider !== null) break;
     if (onlyProvider && (provider === 'workers-ai' ? provider : provider.id) !== onlyProvider) continue;
     if (provider === 'workers-ai') {
       if (excluded.has(provider)) continue;
@@ -2373,7 +2380,9 @@ export async function handleReviewRouterRequest(
         }));
         break;
       }
+      if (paidOnce && outboundAttempts > 0) break;
       const attempt = attempts[attemptIndex];
+      if (paidOnce && attempt.fallbackModels?.length) continue;
       const modelKey = modelCooldownId(provider.id, attempt.model);
       // A fallback-chain attempt spans several models; its failure blames none.
       const singleModel = supportsModelCooldown && !attempt.fallbackModels?.length;
@@ -2474,6 +2483,7 @@ export async function handleReviewRouterRequest(
           break;
         }
         outboundAttempts += 1;
+        if (paidOnce) attemptedPaidProvider = provider.id;
         const response = provider.id === 'xai'
           ? await xaiReviewRpcResponse(env, outboundInput)
           : await fetcher(provider.url, {
@@ -2662,7 +2672,7 @@ export async function handleReviewRouterRequest(
   if (!configured) {
     return jsonError('Review router is not configured', 'review_router_unconfigured', 503);
   }
-  if (invalidRequests === configured) {
+  if (invalidRequests === configured && attemptedPaidProvider === null) {
     return jsonError(diagnosticMessage('Invalid review request', failures), 'invalid_request', 400);
   }
   const exhausted = jsonError(
@@ -2672,7 +2682,7 @@ export async function handleReviewRouterRequest(
       ? 429
       : 502,
   );
-  const billed = billedPaidProvider(failures);
+  const billed = attemptedPaidProvider ?? billedPaidProvider(failures);
   if (billed) exhausted.headers.set(REVIEW_BILLED_PROVIDER_HEADER, billed);
   return exhausted;
 }

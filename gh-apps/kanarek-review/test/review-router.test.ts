@@ -18,7 +18,7 @@ import {
   taskProviderTimeoutMs,
 } from '../src/review-router.ts';
 import { ReviewProviderCooldownStore } from '../../core/review-cooldown-store.ts';
-import { REVIEW_PROVIDER_EXCLUDE_HEADER, REVIEW_PROVIDER_ONLY_HEADER } from '../../core/review-service-protocol.ts';
+import { REVIEW_PROVIDER_EXCLUDE_HEADER, REVIEW_PROVIDER_ONLY_HEADER, REVIEW_ROUTER_PAID_ONCE_PATH, REVIEW_BILLED_PROVIDER_HEADER } from '../../core/review-service-protocol.ts';
 
 const base = 'https://kanarek-review.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
@@ -538,6 +538,40 @@ test('paid review contract skips the free pool and gives DeepSeek the heavy reas
     maxTokens: 131_072,
     reasoningEffort: 'high',
   }]);
+});
+
+test('strict paid path never falls back after an outbound submission', async () => {
+  for (const failure of ['network', 'http', 'invalid'] as const) {
+    const calls: string[] = [];
+    const req = new Request('https://kanarek-review.example' + REVIEW_ROUTER_PAID_ONCE_PATH, {
+      method: 'POST', headers: { Authorization: `Bearer ${routerToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'kanarek-review-paid', stream: false,
+        messages: [{ role: 'user', content: 'review' }] }),
+    });
+    const response = await handleReviewRouterRequest(req, {
+      ...auth, DEEPSEEK_API_KEY: 'deepseek-key', GEMINI_API_KEY: 'gemini-key',
+      KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
+    }, (async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      if (failure === 'network') throw new Error('connection lost');
+      if (failure === 'http') return new Response('balance', { status: 402 });
+      return Response.json({ choices: [{ message: { content: ' ' } }] });
+    }) as typeof fetch);
+    assert.equal(response?.ok, false);
+    assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), 'deepseek');
+    assert.deepEqual(calls, ['https://api.deepseek.com/chat/completions']);
+  }
+});
+
+test('strict paid path rejects free aliases before outbound I/O', async () => {
+  const req = new Request('https://kanarek-review.example' + REVIEW_ROUTER_PAID_ONCE_PATH, {
+    method: 'POST', headers: { Authorization: `Bearer ${routerToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'kanarek-code-review-free', stream: false,
+      messages: [{ role: 'user', content: 'review' }] }),
+  });
+  const response = await handleReviewRouterRequest(req, { ...auth, DEEPSEEK_API_KEY: 'key' },
+    async () => { throw new Error('unexpected I/O'); });
+  assert.equal(response?.status, 400);
 });
 
 test('paid review contract falls through from DeepSeek to native Gemini Interactions', async () => {

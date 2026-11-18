@@ -76,6 +76,18 @@ no GitHub access or inference. Legacy alarms remain active.
   instance needs explicit operator reconciliation; no automatic reset.
 - No automatic starts, paid calls, status gating or publication.
 
+## Paid-stage receipt (not activated)
+
+- Reserve in the PR DO before the paid submission. Existing reserved, settled
+  or uncertain record blocks every replay, even after a crash.
+- Private versioned paid-once router path; skip unavailable candidates before
+  I/O, no fallback after the first submission. Legacy routes unchanged.
+- Store bounded verified publication plan or stop receipt; no GitHub writes.
+- Activation requires exclusive DO ownership and verified free escalation in the
+  reservation transaction. Paid stage refuses active/unset legacy flag. No
+  callable paid entrypoint in this rollout.
+- A reserved/uncertain receipt requires manual reconciliation, never retry.
+
 ## Rollback
 
 - Keep the existing `WebhookReviewJob` alarm and `runWebhookReview` live.

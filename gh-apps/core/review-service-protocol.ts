@@ -2,6 +2,8 @@ export const REVIEW_SERVICE_TRUST_HEADER = 'x-kanarek-review-service-binding';
 export const REVIEW_SERVICE_TRUST_VALUE = 'kanarek-review-v1';
 export const REVIEW_SERVICE_INTERNAL_BEARER = 'kanarek-review-service-binding-v1';
 export const REVIEW_ROUTER_PATH = '/review-router/v1/chat/completions';
+// Versioned, private single paid submission. Old routers reject this path.
+export const REVIEW_ROUTER_PAID_ONCE_PATH = '/review-router/v1/paid-once/chat/completions';
 export const REVIEW_ROUTER_MODELS_PATH = '/review-router/v1/models';
 export const REVIEW_DECISION_PATH = '/review-router/v1/systemone';
 // Backward-compatible general free contract used by existing shared callers.

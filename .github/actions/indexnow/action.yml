@@ -4,10 +4,21 @@ inputs:
   site:
     description: Canonical site identifier
     required: true
+  urls:
+    description: Optional JSON array of canonical URLs (defaults to site entry points)
+    required: false
+    default: ''
 runs:
   using: composite
   steps:
     - shell: bash
       env:
         INDEXNOW_SITE: ${{ inputs.site }}
-      run: node "$GITHUB_ACTION_PATH/../../scripts/indexnow.cjs" "$INDEXNOW_SITE"
+        INDEXNOW_URLS: ${{ inputs.urls }}
+      run: |
+        script="$GITHUB_ACTION_PATH/../../scripts/indexnow.cjs"
+        if [[ -n "$INDEXNOW_URLS" ]]; then
+          node "$script" "$INDEXNOW_SITE" "$INDEXNOW_URLS"
+        else
+          node "$script" "$INDEXNOW_SITE"
+        fi

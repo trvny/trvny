@@ -12,7 +12,7 @@ import {
 } from './specialists/botek-specialists.ts';
 import { createAppJwt, createInstallationClient, repositoryInstallationId } from '../../core/github-app.ts';
 import { githubReadAllowed } from './gptomek/github-gateway.ts';
-import { requestGrokReview } from './companion/xai-review-rpc.ts';
+import { requestGrokReview, requestGrokReviewOnce } from './companion/xai-review-rpc.ts';
 import runtime, { actionFetch, type RuntimeEnv } from './runtime.ts';
 import type { JsonObject } from './tools/common.ts';
 
@@ -64,6 +64,10 @@ export class GptomekSignerEntrypoint extends WorkerEntrypoint<RuntimeEnv> {
 }
 
 export class KanarekXaiReviewRpc extends WorkerEntrypoint<RuntimeEnv> {
+  async completeReviewOnce(input: unknown, deadlineAt: number) {
+    return requestGrokReviewOnce(input, this.env.XAI_API_KEY, fetch, deadlineAt);
+  }
+
   async completeReview(input: unknown, deadlineAt: number) {
     return requestGrokReview(input, this.env.XAI_API_KEY, fetch, deadlineAt, async (repository) => {
       const boundedFetch: typeof fetch = (url, init = {}) => {

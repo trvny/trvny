@@ -496,7 +496,8 @@ export async function askReviewRouter(
     );
     await response?.body?.cancel();
     // A paid provider generated but the router discarded it: an answer, not an outage.
-    return billed ? { kind: 'invalid', provider: billed } : { kind: 'unavailable' };
+    // A failed paid-once response cannot establish a settled outcome.
+    return !paidOnce && billed ? { kind: 'invalid', provider: billed } : { kind: 'unavailable' };
   }
 
   const provider = response.headers.get('x-kanarek-review-provider') ?? 'free-router';
@@ -511,7 +512,7 @@ export async function askReviewRouter(
         provider,
       }),
     );
-    return { kind: 'invalid', provider };
+    return paidOnce ? { kind: 'unavailable' } : { kind: 'invalid', provider };
   }
   const parsed = parseReviewJson(completionText(payload));
   if (!parsed || !reviewTextIsChinese(parsed)) {

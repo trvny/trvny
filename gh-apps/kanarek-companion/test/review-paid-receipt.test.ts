@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { executePaidReviewOnce, runStrictPaidReviewStage } from '../src/companion/review-paid-receipt.ts';
 import type { ReviewTarget } from '../src/companion/webhook-review.ts';
-import { REVIEW_ROUTER_PAID_ONCE_PATH } from '../../core/review-service-protocol.ts';
+import { REVIEW_BILLED_PROVIDER_HEADER, REVIEW_ROUTER_PAID_ONCE_PATH } from '../../core/review-service-protocol.ts';
 
 function fixture() {
   const data = new Map<string, unknown>();
@@ -79,5 +79,22 @@ test('strict paid stage refuses active legacy runner and uses only versioned rou
   const first = await runStrictPaidReviewStage(f.store, target, 'review', [], disabled, yes, yes);
   assert.equal(first.state, 'settled');
   assert.deepEqual(await runStrictPaidReviewStage(f.store, target, 'review', [], disabled, yes, yes), first);
+  assert.equal(calls, 1);
+});
+
+test('failed billed router response remains uncertain and is never replayed', async () => {
+  const f = fixture();
+  let calls = 0;
+  const env = {
+    GITHUB_APP_ID: '', GITHUB_PRIVATE_KEY: '', KANAREK_REVIEW_ROUTER_TOKEN: 'token',
+    KANAREK_WEBHOOK_REVIEW_ENABLED: 'false',
+    KANAREK_REVIEW_SERVICE: { async fetch() {
+      calls += 1;
+      return new Response(null, { status: 502, headers: { [REVIEW_BILLED_PROVIDER_HEADER]: 'deepseek' } });
+    } },
+  };
+  const run = () => runStrictPaidReviewStage(f.store, target, 'review', [], env, yes, yes);
+  assert.equal((await run()).state, 'uncertain');
+  assert.equal((await run()).state, 'uncertain');
   assert.equal(calls, 1);
 });

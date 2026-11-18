@@ -563,6 +563,24 @@ test('strict paid path never falls back after an outbound submission', async () 
   }
 });
 
+test('strict paid xAI route never invokes the legacy RPC', async () => {
+  const calls: string[] = [];
+  const req = new Request('https://kanarek-review.example' + REVIEW_ROUTER_PAID_ONCE_PATH, {
+    method: 'POST', headers: { Authorization: `Bearer ${routerToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'kanarek-review-paid', stream: false,
+      messages: [{ role: 'user', content: 'review' }] }),
+  });
+  const response = await handleReviewRouterRequest(req, {
+    ...auth, KANAREK_REVIEW_XAI_MODEL: 'grok-4.7',
+    XAI_REVIEW_RPC: {
+      async completeReview() { calls.push('legacy'); return { status: 502, payload: {} }; },
+      async completeReviewOnce() { calls.push('once'); return { status: 502, payload: {} }; },
+    },
+  }, async () => { calls.push('unexpected fetch'); throw new Error('unexpected I/O'); });
+  assert.equal(response?.ok, false);
+  assert.deepEqual(calls, ['once']);
+});
+
 test('strict paid path rejects free aliases before outbound I/O', async () => {
   const req = new Request('https://kanarek-review.example' + REVIEW_ROUTER_PAID_ONCE_PATH, {
     method: 'POST', headers: { Authorization: `Bearer ${routerToken}`, 'Content-Type': 'application/json' },

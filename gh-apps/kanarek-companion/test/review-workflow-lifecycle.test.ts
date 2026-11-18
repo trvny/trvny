@@ -107,6 +107,23 @@ test('accepted webhook invalidates pending freshness even before active reservat
   assert.deepEqual(f.calls, []);
 });
 
+test('concurrent missing status during create cannot revoke authorization', async () => {
+  const f = fixture();
+  let enter!: () => void;
+  let release!: () => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const wait = new Promise<void>((resolve) => { release = resolve; });
+  f.holdCreate(wait, enter);
+  const pending = f.controller().start(job);
+  await entered;
+  assert.equal((await f.controller().status(job.target))?.status, 'starting');
+  assert.equal((await f.controller().start(job)).status, 'starting');
+  assert.equal(await f.controller().canRun(job.target), true);
+  release();
+  assert.equal((await pending).status, 'queued');
+  assert.equal(f.calls.filter((call) => call.startsWith('create:')).length, 1);
+});
+
 test('cancel during create revokes durable permission before the instance exists', async () => {
   const f = fixture();
   let enter!: () => void;

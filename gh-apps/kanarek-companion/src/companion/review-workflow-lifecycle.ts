@@ -74,11 +74,14 @@ export class ReviewWorkflowLifecycle {
     this.current = current;
   }
 
-  private observe(id: string, status: ObservedStatus, output?: unknown): Promise<ManagedReview> {
+  private observe(id: string, status: ObservedStatus, output?: unknown, settleCreate = false): Promise<ManagedReview> {
     return this.store.transaction(async (txn) => {
       const record = await txn.get<ManagedReview>(recordKey(id));
       if (!record) throw new Error('review_workflow_record_missing');
       if (terminal(record.status)) return record;
+      // A concurrent get() during create can report missing before dispatch settles.
+      // Keep its durable authorization; only the dispatch owner settles an unknown create.
+      if (record.status === 'starting' && status === 'unknown' && !settleCreate) return record;
       const next: ManagedReview = {
         ...record, status,
         needsPaid: status === 'complete' && !record.cancelRequested && needsPaid(output),
@@ -88,7 +91,7 @@ export class ReviewWorkflowLifecycle {
     });
   }
 
-  private async reconcile(id: string): Promise<ManagedReview | null> {
+  private async reconcile(id: string, settleCreate = false): Promise<ManagedReview | null> {
     const record = await this.store.get<ManagedReview>(recordKey(id));
     if (!record || terminal(record.status) || record.status === 'reserved') return record ?? null;
     try {
@@ -99,10 +102,10 @@ export class ReviewWorkflowLifecycle {
         try { await instance.terminate(); } catch { /* Re-read: may already be terminal. */ }
         status = await instance.status();
       }
-      return await this.observe(id, observedStatus(status.status), status.output);
+      return await this.observe(id, observedStatus(status.status), status.output, settleCreate);
     } catch {
       // Missing/expired instance and transport outage are indistinguishable.
-      return this.observe(id, 'unknown');
+      return this.observe(id, 'unknown', undefined, settleCreate);
     }
   }
 
@@ -180,6 +183,7 @@ export class ReviewWorkflowLifecycle {
       });
       if (dispatch) {
         try { await this.workflow.create({ id, params: { mode: 'managed', job } }); } catch { /* Reconcile by ID. */ }
+        return (await this.reconcile(id, true)) ?? reservation.record;
       }
     }
     return (await this.reconcile(id)) ?? reservation.record;

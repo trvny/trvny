@@ -24,6 +24,17 @@ test('shared site changes select static canonical routes', () => {
   ]);
 });
 
+test('shared layouts include tracked digest routes and prefixed sitemap routes', () => {
+  assert.deepEqual(hubUrls(['pages/astro/src/layouts/DigestLayout.astro'],
+    '<s:loc>https://travny.pages.dev/</s:loc>', '',
+    ['pages/astro/src/content/digests/2026-11-18.md', 'pages/astro/src/content/digests/README.md']), [
+    'https://travny.pages.dev/',
+    'https://travny.pages.dev/przeglad/',
+    'https://travny.pages.dev/przeglad/2026-11-18/',
+    'https://travny.pages.dev/teksty/',
+  ]);
+});
+
 test('submit scoped URLs once; failures do not fail publishing', async () => {
   const requests = [];
   const options = {

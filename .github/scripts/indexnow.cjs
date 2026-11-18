@@ -21,7 +21,7 @@ function digestUrls(date) {
   return [HUB + '/przeglad/' + date + '/', HUB + '/przeglad/', HUB + '/teksty/'];
 }
 
-function hubUrls(paths, sitemap, previousSitemap = '') {
+function hubUrls(paths, sitemap, previousSitemap = '', digestFiles = []) {
   const urls = new Set();
   let shared = false;
   for (const path of paths) {
@@ -30,9 +30,17 @@ function hubUrls(paths, sitemap, previousSitemap = '') {
     else if (path.startsWith('pages/token-worldcup/')) urls.add(HUB + '/teksty/token-worldcup/');
     else if (sitePath.test(path)) shared = true;
   }
-  // Changed shared site assets may affect several static pages. The checked-in
-  // sitemap contains only permanent routes; never fetch/crawl historical issues.
-  if (shared) for (const match of (sitemap + previousSitemap).matchAll(/<loc>([^<]+)<\/loc>/g)) urls.add(match[1]);
+  // Shared builds affect static routes and generated digest permalinks.
+  // Enumerate tracked sources at the deployed revision; no network crawl.
+  if (shared) {
+    for (const xml of [sitemap, previousSitemap]) {
+      for (const match of xml.matchAll(/<(?:[\w.-]+:)?loc>([^<]+)<\/(?:[\w.-]+:)?loc>/g)) urls.add(match[1]);
+    }
+    for (const path of digestFiles) {
+      const digest = digestPath.exec(path);
+      if (digest) digestUrls(digest[1]).forEach(url => urls.add(url));
+    }
+  }
   return [...urls].sort();
 }
 
@@ -88,7 +96,8 @@ if (require.main === module) {
       try { previousSitemap = git('show', before + ':pages/site/sitemap.xml'); }
       catch { /* No prior sitemap. */ }
     }
-    process.stdout.write(JSON.stringify(hubUrls(changed, sitemap, previousSitemap)));
+    const digestFiles = git('ls-tree', '-r', '--name-only', '-z', head, '--', 'pages/astro/src/content/digests/').split('\0');
+    process.stdout.write(JSON.stringify(hubUrls(changed, sitemap, previousSitemap, digestFiles)));
   } else {
     const urls = args.length ? JSON.parse(args[0]) : undefined;
     void notify(name, urls, { warn: message => console.warn('::warning::' + message) });

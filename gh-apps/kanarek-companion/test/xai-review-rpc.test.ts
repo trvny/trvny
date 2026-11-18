@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { grokReviewRequest, requestGrokReview } from '../src/companion/xai-review-rpc.ts';
+import { grokReviewRequest, requestGrokReview, requestGrokReviewOnce } from '../src/companion/xai-review-rpc.ts';
 
 const review = {
   model: 'grok-4.7',
@@ -194,4 +194,20 @@ test('Grok never retries paid agent HTTP 502 or 504', async () => {
     assert.equal(result.status, status);
     assert.equal(calls, 1);
   }
+});
+
+test('single paid Grok RPC bypasses tool mode and never retries a rejection', async () => {
+  const scoped = { ...review, messages: [review.messages[0], { role: 'user', content: JSON.stringify({
+    review_scope: { repository: 'trvny/trvny', head_sha: 'a'.repeat(40) },
+    pull_request: { number: 17 }, diff: 'changed line',
+  }) }] };
+  let calls = 0;
+  const result = await requestGrokReviewOnce(scoped, 'dummy', async (_url, init) => {
+    calls += 1;
+    assert.equal(init?.redirect, 'error');
+    assert.equal(JSON.parse(String(init?.body)).tools, undefined);
+    return new Response(null, { status: 403 });
+  });
+  assert.equal(result.status, 403);
+  assert.equal(calls, 1);
 });

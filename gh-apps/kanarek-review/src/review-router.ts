@@ -274,11 +274,10 @@ export interface ReviewRouterEnv {
   HUGGINGFACE_API_KEY?: string;
   DEEPSEEK_API_KEY?: string;
   GEMINI_API_KEY?: string;
-  XAI_REVIEW_RPC?: { completeReview(input: Record<string, unknown>, deadlineAt: number): Promise<{
-    status: number;
-    payload: Record<string, unknown>;
-    retryAfter?: string;
-  }> };
+  XAI_REVIEW_RPC?: {
+    completeReview(input: Record<string, unknown>, deadlineAt: number): Promise<XaiRpcResult>;
+    completeReviewOnce?(input: Record<string, unknown>, deadlineAt: number): Promise<XaiRpcResult>;
+  };
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_WORK_TIMEOUT_MS?: string;
   KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS?: string;
@@ -641,11 +640,17 @@ const XAI_BILLED_FAILURE_CODES = new Set([
 ]);
 const XAI_BILLED_HEADER = 'x-kanarek-xai-billed';
 
-export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObject): Promise<Response> {
+type XaiRpcResult = { status: number; payload: Record<string, unknown>; retryAfter?: string };
+
+export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObject, paidOnce = false): Promise<Response> {
   if (!env.XAI_REVIEW_RPC) {
     return Response.json({ error: { message: 'xai_rpc_unavailable' } }, { status: 503 });
   }
-  const result = await env.XAI_REVIEW_RPC.completeReview(input, Date.now() + 285_000);
+  // Separate RPC method: older deployments fail closed instead of ignoring a flag.
+  const result = paidOnce
+    ? await env.XAI_REVIEW_RPC.completeReviewOnce?.(input, Date.now() + 285_000)
+    : await env.XAI_REVIEW_RPC.completeReview(input, Date.now() + 285_000);
+  if (!result) return Response.json({ error: { message: 'xai_once_unavailable' } }, { status: 503 });
   const status = Number.isInteger(result?.status) && result.status >= 200 && result.status <= 599
     ? result.status : 502;
   const headers = new Headers({ 'cache-control': 'no-store', 'content-type': 'application/json' });
@@ -2485,7 +2490,7 @@ export async function handleReviewRouterRequest(
         outboundAttempts += 1;
         if (paidOnce) attemptedPaidProvider = provider.id;
         const response = provider.id === 'xai'
-          ? await xaiReviewRpcResponse(env, outboundInput)
+          ? await xaiReviewRpcResponse(env, outboundInput, paidOnce)
           : await fetcher(provider.url, {
           method: 'POST',
           headers: {
@@ -2496,6 +2501,7 @@ export async function handleReviewRouterRequest(
             ...provider.headers,
           },
           body: JSON.stringify(outboundInput),
+          ...(paidOnce ? { redirect: 'error' as const } : {}),
           signal: controller.signal,
         });
         if (response.ok) {

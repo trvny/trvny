@@ -147,3 +147,14 @@ export async function requestGrokReview(
     },
   };
 }
+
+// One direct Responses submission, no tool rounds, fallback or redirects.
+export function requestGrokReviewOnce(
+  input: unknown,
+  apiKey: string | undefined,
+  fetcher: typeof fetch = fetch,
+  deadlineAt = Date.now() + 240_000,
+): Promise<XaiReviewRpcResult> {
+  const singleFetch: typeof fetch = (url, init) => fetcher(url, { ...init, redirect: 'error' });
+  return requestGrokReview(input, apiKey, singleFetch, deadlineAt);
+}

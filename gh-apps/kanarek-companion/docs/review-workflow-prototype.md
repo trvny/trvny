@@ -86,6 +86,9 @@ no GitHub access or inference. Legacy alarms remain active.
 - Activation requires exclusive DO ownership and verified free escalation in the
   reservation transaction. Paid stage refuses active/unset legacy flag. No
   callable paid entrypoint in this rollout.
+- Failed paid-once router responses are conservatively uncertain, even if a
+  billed provider is identified. A successful, parsed but invalid review can settle.
+- xAI uses a separate non-agentic single-submission RPC; older bindings fail closed.
 - A reserved/uncertain receipt requires manual reconciliation, never retry.
 
 ## Rollback

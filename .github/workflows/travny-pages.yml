@@ -272,9 +272,9 @@ jobs:
           INDEXNOW_HEAD: ${{ steps.pages_settings.outputs.indexnow_head }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Use the previous successful push run rather than the immediately
-          # preceding push; concurrency can replace an unstarted queued run.
-          # No new persistent cache or scanner.
+          # Combine the immediate deployment diff with the catch-up diff.
+          # An older successful run alone can conceal a deployed rollback.
+          urls=$(node .github/scripts/indexnow.cjs hub-changes "$INDEXNOW_BEFORE" "$INDEXNOW_HEAD")
           if [[ "$GITHUB_EVENT_NAME" == "push" && -n "$INDEXNOW_BEFORE" ]]; then
             prior=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/travny-pages.yml/runs?branch=main&event=push&status=success&per_page=20" \
               --jq '.workflow_runs[].head_sha' || true)
@@ -285,8 +285,9 @@ jobs:
                 break
               fi
             done <<<"$prior"
+            catchup=$(node .github/scripts/indexnow.cjs hub-changes "$INDEXNOW_BEFORE" "$INDEXNOW_HEAD")
+            urls=$(jq -cn --argjson immediate "$urls" --argjson catchup "$catchup" '$immediate + $catchup | unique')
           fi
-          urls=$(node .github/scripts/indexnow.cjs hub-changes "$INDEXNOW_BEFORE" "$INDEXNOW_HEAD")
           node .github/scripts/indexnow.cjs hub "$urls"
 
       - name: Check dedicated WAF token

@@ -230,13 +230,17 @@ jobs:
               # Preserve a successfully published push diff; otherwise use the recovery diff.
               if [[ -z "$indexnow_head" ]]; then indexnow_before="$previous"; fi
               indexnow_head="$deployed"
+              # Same-commit rebuild changes the published output, not the Git tree.
+              if [[ "$indexnow_before" == "$indexnow_head" ]]; then indexnow_before=""; fi
             fi
           fi
 
           if [[ "$indexnow_head" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "indexnow_ready=true" >> "$GITHUB_OUTPUT"
-            echo "indexnow_before=$indexnow_before" >> "$GITHUB_OUTPUT"
-            echo "indexnow_head=$indexnow_head" >> "$GITHUB_OUTPUT"
+            {
+              echo "indexnow_ready=true"
+              echo "indexnow_before=$indexnow_before"
+              echo "indexnow_head=$indexnow_head"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v7

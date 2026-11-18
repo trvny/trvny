@@ -41,7 +41,9 @@ One wire format for every operation, including batches:
    `{"raw":1}` for the first block, `{"raw":2}` for the next, etc. Applies to
    `files[].content`, `patch`, `replyBody`, `comment`/`reply_review` `body`, also
    inside `steps`. Keep `content:null` for deletion and structured metadata
-   (including `operator_action.body`) in JSON. Each block referenced once.
+   (including `operator_action.body`) in JSON. Reuse a raw reference for identical
+   text across supported slots (e.g. multiple review replies). Every supplied
+   block must be referenced at least once.
 3. Put `--<boundary>--` on its own line before, between and after blocks.
    Choose a boundary absent from the content as a marker line. With no blocks,
    close the fence directly after the JSON (e.g. `commit_tree`). A single

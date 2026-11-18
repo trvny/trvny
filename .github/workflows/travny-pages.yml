@@ -56,6 +56,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   check:
@@ -240,6 +241,13 @@ jobs:
             indexnow_head=$(jq -r 'if .result.canonical_deployment.latest_stage.status == "success" then .result.canonical_deployment.deployment_trigger.metadata.commit_hash // "" else "" end' <<<"$live")
             indexnow_before=""
           fi
+          # A queued push run may be superseded before it starts. If this push
+          # needed no new deployment, the current successful production revision
+          # can still contain unpublished notification scope from that run.
+          if [[ "$GITHUB_EVENT_NAME" == "push" && -z "$indexnow_head" ]]; then
+            indexnow_head=$(jq -r 'if .result.canonical_deployment.latest_stage.status == "success" then .result.canonical_deployment.deployment_trigger.metadata.commit_hash // "" else "" end' <<<"$live")
+            indexnow_before="$BEFORE_SHA"
+          fi
           if [[ "$indexnow_head" =~ ^[0-9a-f]{40}$ ]]; then
             {
               echo "indexnow_ready=true"
@@ -262,7 +270,22 @@ jobs:
         env:
           INDEXNOW_BEFORE: ${{ steps.pages_settings.outputs.indexnow_before }}
           INDEXNOW_HEAD: ${{ steps.pages_settings.outputs.indexnow_head }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # Use the previous successful push run rather than the immediately
+          # preceding push; concurrency can replace an unstarted queued run.
+          # No new persistent cache or scanner.
+          if [[ "$GITHUB_EVENT_NAME" == "push" && -n "$INDEXNOW_BEFORE" ]]; then
+            prior=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/travny-pages.yml/runs?branch=main&event=push&status=success&per_page=20" \
+              --jq '.workflow_runs[].head_sha' || true)
+            INDEXNOW_BEFORE=""
+            while IFS= read -r sha; do
+              if [[ "$sha" =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$sha" "$INDEXNOW_HEAD" 2>/dev/null; then
+                INDEXNOW_BEFORE="$sha"
+                break
+              fi
+            done <<<"$prior"
+          fi
           urls=$(node .github/scripts/indexnow.cjs hub-changes "$INDEXNOW_BEFORE" "$INDEXNOW_HEAD")
           node .github/scripts/indexnow.cjs hub "$urls"
 

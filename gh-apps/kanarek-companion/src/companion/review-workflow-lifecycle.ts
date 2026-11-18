@@ -22,29 +22,17 @@ export interface ManagedReview {
   status: ObservedStatus | 'reserved' | 'starting';
   cancelRequested: boolean;
   needsPaid: boolean;
+  enqueueGeneration?: number;
 }
 
 const ACTIVE = 'review-workflow:active';
 const ENQUEUE_GENERATION = 'review-workflow:enqueue-generation';
 
 // Call inside the transaction that records an accepted webhook target.
-export async function noteReviewWorkflowEnqueue(
-  store: Pick<DurableObjectTransaction, 'get' | 'put'>,
-  target?: ReviewTarget,
-): Promise<void> {
+export async function noteReviewWorkflowEnqueue(store: Pick<DurableObjectTransaction, 'get' | 'put'>): Promise<void> {
   const generation = await store.get<number>(ENQUEUE_GENERATION) ?? 0;
+  // A queued event can be delayed; it invalidates freshness, not the review.
   await store.put(ENQUEUE_GENERATION, generation + 1);
-  if (!target) return;
-  const active = await store.get<string>(ACTIVE);
-  if (!active) return;
-  const record = await store.get<ManagedReview>(recordKey(active));
-  if (!record || terminal(record.status)) return;
-  if (record.target.headSha === target.headSha && record.target.baseSha === target.baseSha) return;
-  // Revoke before releasing the same transaction that accepts the successor.
-  await store.put(recordKey(active), {
-    ...record, cancelRequested: true, needsPaid: false,
-    status: record.status === 'reserved' ? 'terminated' : record.status,
-  });
 }
 const recordKey = (id: string) => `review-workflow:record:${id}`;
 const terminal = (status: ManagedReview['status']): boolean =>
@@ -175,6 +163,7 @@ export class ReviewWorkflowLifecycle {
       }
       const next: ManagedReview = {
         id, target: job.target, status: 'reserved', cancelRequested: false, needsPaid: false,
+        enqueueGeneration: observedGeneration,
       };
       await txn.put(recordKey(id), next);
       await txn.put(ACTIVE, id);
@@ -192,7 +181,7 @@ export class ReviewWorkflowLifecycle {
         if (await txn.get<number>(ENQUEUE_GENERATION) !== observedGeneration) {
           throw new Error('review_workflow_enqueue_changed');
         }
-        await txn.put(recordKey(id), { ...record, status: 'starting' });
+        await txn.put(recordKey(id), { ...record, status: 'starting', enqueueGeneration: observedGeneration });
         return true;
       });
       if (dispatch) {
@@ -205,12 +194,29 @@ export class ReviewWorkflowLifecycle {
 
   async canRun(target: ReviewTarget): Promise<boolean> {
     const id = await reviewWorkflowInstanceId(target);
+    const allowed = (record: ManagedReview | undefined): record is ManagedReview =>
+      Boolean(record && !record.cancelRequested &&
+        ['starting', 'queued', 'running', 'paused', 'waiting', 'waitingForPause'].includes(record.status));
+    const snapshot = await this.store.transaction(async (txn) => {
+      if (await txn.get<string>(ACTIVE) !== id) return null;
+      const record = await txn.get<ManagedReview>(recordKey(id));
+      if (!allowed(record)) return null;
+      return { record, generation: await txn.get<number>(ENQUEUE_GENERATION) };
+    });
+    if (!snapshot) return false;
+    if (snapshot.record.enqueueGeneration === snapshot.generation) return true;
+    // Verify against GitHub, not the potentially delayed legacy webhook.
+    const fresh = await this.current(snapshot.record.target);
     return this.store.transaction(async (txn) => {
       if (await txn.get<string>(ACTIVE) !== id) return false;
       const record = await txn.get<ManagedReview>(recordKey(id));
-      // Starting is the durably claimed create; the entrypoint verifies its actual instance ID.
-      return Boolean(record && !record.cancelRequested &&
-        ['starting', 'queued', 'running', 'paused', 'waiting', 'waitingForPause'].includes(record.status));
+      if (!allowed(record)) return false;
+      if (await txn.get<number>(ENQUEUE_GENERATION) !== snapshot.generation) {
+        throw new Error('review_workflow_enqueue_changed');
+      }
+      if (!fresh) return false;
+      await txn.put(recordKey(id), { ...record, enqueueGeneration: snapshot.generation });
+      return true;
     });
   }
 

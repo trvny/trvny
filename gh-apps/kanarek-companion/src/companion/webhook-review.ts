@@ -1618,7 +1618,7 @@ export class WebhookReviewJob {
     };
     if (this.workflowLifecycle()) {
       await this.state.storage.transaction(async (transaction) => {
-        await noteReviewWorkflowEnqueue(transaction, job.target);
+        await noteReviewWorkflowEnqueue(transaction);
         await transaction.put(queuedJob);
       });
     } else {

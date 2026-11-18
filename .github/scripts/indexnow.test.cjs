@@ -10,7 +10,14 @@ test('digest-only publication selects the permalink and directories', () => {
 });
 
 test('shared site changes select static canonical routes', () => {
-  assert.deepEqual(hubUrls(['pages/site/assets/app.js'], '<loc>https://travny.pages.dev/</loc>'), ['https://travny.pages.dev/']);
+  const home = '<loc>https://travny.pages.dev/</loc>';
+  const removed = '<loc>https://travny.pages.dev/old/</loc>';
+  assert.deepEqual(hubUrls(['pages/site/assets/app.js'], home, home + removed), [
+    'https://travny.pages.dev/', 'https://travny.pages.dev/old/',
+  ]);
+  assert.deepEqual(hubUrls(['pages/token-worldcup/token-worldcup.html'], home), [
+    'https://travny.pages.dev/teksty/token-worldcup/',
+  ]);
 });
 
 test('submit scoped URLs once; failures do not fail publishing', async () => {

@@ -95,15 +95,17 @@ jobs:
           npm run generate
 
       - name: Publish to public feed
+        id: publish
         env:
           SHITPOST_OUTPUT_DIR: ${{ runner.temp }}/shitpost-reactor
         run: npm run publish
 
-      - name: Notify IndexNow of the updated Reactor archive
+      - name: Notify IndexNow of the published Reactor post
         continue-on-error: true
         uses: ./.github/actions/indexnow
         with:
           site: reactor
+          urls: ${{ steps.publish.outputs.indexnow_urls }}
 
       - name: Upload draft
         if: always()

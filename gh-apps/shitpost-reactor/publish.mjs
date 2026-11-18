@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PUBLIC_ORIGIN, PUBLISH_AUDIENCE } from './urls.mjs';
@@ -58,6 +58,15 @@ export async function main() {
     record,
   });
   process.stdout.write(`published: ${result.url}\n`);
+  // Optional publication notification; never invalidate a successful publish.
+  if (process.env.GITHUB_OUTPUT && typeof result.url === 'string') {
+    try {
+      const urls = JSON.stringify([PUBLIC_ORIGIN + '/', PUBLIC_ORIGIN + '/archive', result.url]);
+      await appendFile(process.env.GITHUB_OUTPUT, `indexnow_urls=${urls}\n`);
+    } catch {
+      process.stderr.write('IndexNow output unavailable\n');
+    }
+  }
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : '';

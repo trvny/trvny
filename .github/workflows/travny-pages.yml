@@ -5,6 +5,7 @@ on: # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - "pages/site/**"
+      - "pages/token-worldcup/**"
       - "pages/papagenerator/**"
       - "pages/astro/**"
       - "pages/functions/**"
@@ -22,6 +23,7 @@ on: # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - "pages/site/**"
+      - "pages/token-worldcup/**"
       - "pages/papagenerator/**"
       - "pages/astro/**"
       - "pages/functions/**"
@@ -60,7 +62,6 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' }}
     outputs:
       pages_deploy_expected: ${{ steps.deploy_scope.outputs.pages_deploy_expected }}
-      indexnow_urls: ${{ steps.deploy_scope.outputs.indexnow_urls }}
     runs-on: ubuntu-slim
     timeout-minutes: 10
     defaults:
@@ -99,13 +100,11 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          urls=$(node ../.github/scripts/indexnow.cjs hub-changes "$BEFORE_SHA" "$HEAD_SHA")
-          echo "indexnow_urls=$urls" >> "$GITHUB_OUTPUT"
           if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
             echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
           else
             changed="$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")"
-            if grep -Eq '^pages/(astro/|site/|papagenerator/|functions/|scripts/(sitemap-variants|build-badge-previews|build-static-shell)\.mjs$|build\.sh$)' <<<"$changed"; then
+            if grep -Eq '^pages/(astro/|site/|token-worldcup/|papagenerator/|functions/|scripts/(sitemap-variants|build-badge-previews|build-static-shell)\.mjs$|build\.sh$)' <<<"$changed"; then
               echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
             else
               echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"
@@ -154,6 +153,8 @@ jobs:
       # production_deployments_enabled alone so the toggle modes stick.
       - name: Assert Git source and build settings
         id: pages_settings
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
         if: ${{ github.event_name == 'push' || inputs.mode == 'assert' }}
         shell: bash
         run: |
@@ -177,6 +178,8 @@ jobs:
           # built with an older build command, redeploy. Retryable via mode=assert.
           want=$(jq -r '.result.build_config.build_command' <<<"$updated")
           auth=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          indexnow_before=""
+          indexnow_head=""
           if [[ "$GITHUB_EVENT_NAME" == "push" && "$DEPLOY_EXPECTED" == "true" ]]; then
             settled=false
             for _ in $(seq 1 30); do
@@ -199,10 +202,15 @@ jobs:
               echo "::error::Deployment for ${GITHUB_SHA} not finished after 5 min; rerun with mode=assert."
               exit 1
             fi
+            if [[ "$state" == "done" ]]; then
+              indexnow_before="$BEFORE_SHA"
+              indexnow_head="$GITHUB_SHA"
+            fi
           fi
-          live=$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint" \
-            | jq -r '.result.canonical_deployment.build_config.build_command // ""')
-          if [[ "$live" != "$want" ]]; then
+          live=$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint")
+          live_command=$(jq -r '.result.canonical_deployment.build_config.build_command // ""' <<<"$live")
+          if [[ "$live_command" != "$want" ]]; then
+            previous=$(jq -r '.result.canonical_deployment.deployment_trigger.metadata.commit_hash // ""' <<<"$live")
             id=$(curl --fail-with-body --silent --show-error -X POST "${auth[@]}" \
               -F branch=main "${endpoint}/deployments" | jq -er '.result.id')
             echo "Live deployment used an older build command; redeploy ${id} started."
@@ -216,10 +224,19 @@ jobs:
               sleep 10
             done
             [[ "$status" == "deploy/success" ]] || { echo "::error::Redeploy ${id} still ${status} after 5 min."; exit 1; }
+            deployed=$(curl --fail-with-body --silent --show-error "${auth[@]}" "${endpoint}/deployments/${id}" \
+              | jq -r '.result.deployment_trigger.metadata.commit_hash // ""')
+            if [[ "$deployed" =~ ^[0-9a-f]{40}$ ]]; then
+              # Preserve a successfully published push diff; otherwise use the recovery diff.
+              if [[ -z "$indexnow_head" ]]; then indexnow_before="$previous"; fi
+              indexnow_head="$deployed"
+            fi
           fi
 
-          if [[ "$GITHUB_EVENT_NAME" == "push" && "$DEPLOY_EXPECTED" == "true" && "${state:-}" == "done" ]]; then
+          if [[ "$indexnow_head" =~ ^[0-9a-f]{40}$ ]]; then
             echo "indexnow_ready=true" >> "$GITHUB_OUTPUT"
+            echo "indexnow_before=$indexnow_before" >> "$GITHUB_OUTPUT"
+            echo "indexnow_head=$indexnow_head" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v7
@@ -227,13 +244,18 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+          fetch-depth: 0
           sparse-checkout: .github/scripts
 
       - name: Notify IndexNow of published changes
         if: ${{ steps.pages_settings.outputs.indexnow_ready == 'true' }}
+        continue-on-error: true
         env:
-          INDEXNOW_URLS: ${{ needs.check.outputs.indexnow_urls }}
-        run: node .github/scripts/indexnow.cjs hub "$INDEXNOW_URLS"
+          INDEXNOW_BEFORE: ${{ steps.pages_settings.outputs.indexnow_before }}
+          INDEXNOW_HEAD: ${{ steps.pages_settings.outputs.indexnow_head }}
+        run: |
+          urls=$(node .github/scripts/indexnow.cjs hub-changes "$INDEXNOW_BEFORE" "$INDEXNOW_HEAD")
+          node .github/scripts/indexnow.cjs hub "$urls"
 
       - name: Check dedicated WAF token
         id: waf_token

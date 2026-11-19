@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { requestManagedReviewAuthorization, noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
+import { requestManagedReviewAuthorization, reviewWorkflowCompletion, noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
 import type { ReviewTarget, StoredJob } from '../src/companion/webhook-review.ts';
 
 const job: StoredJob = { target: {
@@ -256,4 +256,49 @@ test('managed authorization retries conflict and transport failures without auth
   assert.equal(await requestManagedReviewAuthorization(async () => {
     assert.fail('authorization must not run after abort');
   }, aborted.signal), false);
+});
+
+test('final step persists bounded completion without status polling; replay is idempotent', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  const receipt = reviewWorkflowCompletion({
+    mode: 'prototype', status: 'completed',
+    publication: { kind: 'escalate', findingCount: 0, text: 'discard me' },
+    prompt: 'discard me',
+  });
+  assert.deepEqual(receipt, { status: 'completed', publication: 'escalate', findingCount: 0 });
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), true);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), true);
+  const record = f.data.get('review-workflow:record:' + first.id);
+  assert.equal(JSON.stringify(record).includes('discard me'), false);
+  f.instances.delete(first.id);
+  const saved = await f.controller().status(job.target);
+  assert.deepEqual(saved?.completion, receipt);
+  assert.equal(saved?.needsPaid, false);
+  assert.equal(saved?.status, 'queued');
+  await assert.rejects(f.controller().recordCompletion(job.target, { ...receipt!, publication: 'silent' }), /completion_conflict/);
+  await assert.rejects(f.controller().recordCompletion(job.target, { ...receipt!, findingCount: -1 }), /invalid_completion/);
+});
+
+test('cancelled or superseded Workflow cannot write a completion receipt', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  const receipt = { status: 'skipped', publication: null, findingCount: 0 };
+  await f.controller().cancel(job.target);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  await f.controller().start(updated);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  assert.equal(JSON.stringify(f.data.get('review-workflow:record:' + first.id)).includes('"completion"'), false);
+});
+
+test('observed completion requires agreement with the durable receipt before escalation', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  await f.controller().recordCompletion(job.target, { status: 'completed', publication: 'silent', findingCount: 0 });
+  f.instances.set(first.id, { status: 'complete', output: {
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
+  } });
+  const saved = await f.controller().status(job.target);
+  assert.equal(saved?.needsPaid, false);
+  assert.equal(saved?.completion?.publication, 'silent');
 });

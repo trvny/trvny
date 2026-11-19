@@ -16,12 +16,49 @@ export interface ReviewWorkflowBinding {
   get(id: string): Promise<Handle>;
 }
 
+export type ReviewWorkflowCompletion = {
+  status: 'completed' | 'budget' | 'stale' | 'skipped';
+  publication: 'comment' | 'silent' | 'escalate' | 'skip' | null;
+  findingCount: number;
+};
+
+// Bounded metadata only; never persist source, prompts or review text here.
+export function parseReviewWorkflowCompletion(value: unknown): ReviewWorkflowCompletion | null {
+  const receipt = objectValue(value);
+  const { status, publication, findingCount } = receipt;
+  if (status !== 'completed' && status !== 'budget' && status !== 'stale' && status !== 'skipped') return null;
+  if (publication !== 'comment' && publication !== 'silent' && publication !== 'escalate' &&
+      publication !== 'skip' && publication !== null) return null;
+  if (typeof findingCount !== 'number' || !Number.isSafeInteger(findingCount) ||
+      findingCount < 0 || findingCount > 10_000) return null;
+  if (status === 'skipped' ? publication !== null || findingCount !== 0 : publication === null) return null;
+  if (status === 'stale' && (publication !== 'skip' || findingCount !== 0)) return null;
+  return { status, publication, findingCount };
+}
+
+export function reviewWorkflowCompletion(output: unknown): ReviewWorkflowCompletion | null {
+  const result = objectValue(output);
+  if (result.mode !== 'prototype') return null;
+  if (result.status === 'skipped') {
+    return { status: 'skipped', publication: null, findingCount: 0 };
+  }
+  const publication = objectValue(result.publication);
+  return parseReviewWorkflowCompletion({
+    status: result.status, publication: publication.kind, findingCount: publication.findingCount,
+  });
+}
+
+function sameCompletion(a: ReviewWorkflowCompletion, b: ReviewWorkflowCompletion): boolean {
+  return a.status === b.status && a.publication === b.publication && a.findingCount === b.findingCount;
+}
+
 export interface ManagedReview {
   id: string;
   target: ReviewTarget;
   status: ObservedStatus | 'reserved' | 'starting';
   cancelRequested: boolean;
   needsPaid: boolean;
+  completion?: ReviewWorkflowCompletion;
   enqueueGeneration?: number;
 }
 
@@ -84,10 +121,13 @@ export class ReviewWorkflowLifecycle {
       // A concurrent get() during create can report missing before dispatch settles.
       // Keep last known status during outages; only dispatch settles an ambiguous create.
       if (status === 'unknown' && (record.status !== 'starting' || !settleCreate)) return record;
+      const observed = status === 'complete' ? reviewWorkflowCompletion(output) : null;
       const next: ManagedReview = {
         ...record, status,
-        needsPaid: status === 'complete' && !record.cancelRequested && needsPaid(output),
+        needsPaid: status === 'complete' && !record.cancelRequested && needsPaid(output) &&
+          (!record.completion || Boolean(observed && sameCompletion(record.completion, observed))),
       };
+      if (!next.completion && observed) next.completion = observed;
       await txn.put(recordKey(id), next);
       return next;
     });
@@ -216,6 +256,25 @@ export class ReviewWorkflowLifecycle {
       }
       if (!fresh) return false;
       await txn.put(recordKey(id), { ...record, enqueueGeneration: snapshot.generation });
+      return true;
+    });
+  }
+
+  // Final Workflow step, before returning to the engine. Idempotent metadata
+  // receipt only: engine status and paid authorization remain separate.
+  async recordCompletion(target: ReviewTarget, input: unknown): Promise<boolean> {
+    const completion = parseReviewWorkflowCompletion(input);
+    if (!completion) throw new Error('review_workflow_invalid_completion');
+    const id = await reviewWorkflowInstanceId(target);
+    return this.store.transaction(async (txn) => {
+      const record = await txn.get<ManagedReview>(recordKey(id));
+      if (!record || await txn.get<string>(ACTIVE) !== id || record.cancelRequested) return false;
+      if (record.completion) {
+        if (!sameCompletion(record.completion, completion)) throw new Error('review_workflow_completion_conflict');
+        return true;
+      }
+      if (terminal(record.status) || record.status === 'reserved' || record.status === 'unknown') return false;
+      await txn.put(recordKey(id), { ...record, completion });
       return true;
     });
   }

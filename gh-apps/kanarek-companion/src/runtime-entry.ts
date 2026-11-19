@@ -1,7 +1,7 @@
 import { WorkerEntrypoint, WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
 import { runFreeReviewWorkflowPrototype, runFreeReviewWorkflowSmoke } from './companion/review-workflow.ts';
 import { assertFreeReviewWorkflowJob, type StoredJob } from './companion/webhook-review.ts';
-import { requestManagedReviewAuthorization, reviewWorkflowInstanceId, type ManagedWorkflowParams } from './companion/review-workflow-lifecycle.ts';
+import { requestManagedReviewAuthorization, reviewWorkflowCompletion, reviewWorkflowInstanceId, type ManagedWorkflowParams } from './companion/review-workflow-lifecycle.ts';
 import {
   botekEngramSearch,
   botekEngramStatus,
@@ -120,8 +120,31 @@ export class KanarekFreeReviewPrototype extends WorkflowEntrypoint<RuntimeEnv, P
       if (event.instanceId !== await reviewWorkflowInstanceId(payload.job.target)) {
         throw new Error('review_workflow_instance_identity_mismatch');
       }
-      return runFreeReviewWorkflowPrototype(payload.job, this.env, step, undefined,
+      const result = await runFreeReviewWorkflowPrototype(payload.job, this.env, step, undefined,
         (signal) => managedReviewAuthorized(this.env, payload.job, signal));
+      const receipt = reviewWorkflowCompletion(result);
+      if (!receipt) throw new Error('review_workflow_invalid_completion');
+      // Retry storage only, never inference or publication.
+      await step.do('persist-completion-receipt', {
+        retries: { limit: 3, delay: '5 seconds' }, timeout: '1 minute',
+      }, async () => {
+        const queue = this.env.KANAREK_REVIEW_JOBS;
+        if (!queue || this.env.KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED !== 'true') return false;
+        const { repository, number } = payload.job.target;
+        const stub = queue.get(queue.idFromName(`${repository}#${number}`));
+        const response = await stub.fetch('https://kanarek-review.internal/workflow/complete', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ job: payload.job, receipt }), signal: AbortSignal.timeout(30_000),
+        });
+        if (!response.ok) {
+          await response.body?.cancel();
+          throw new Error('review_workflow_completion_unavailable');
+        }
+        const body = await response.json() as { stored?: boolean };
+        if (typeof body.stored !== 'boolean') throw new Error('review_workflow_completion_invalid_response');
+        return body.stored;
+      });
+      return result;
     }
     return runFreeReviewWorkflowPrototype(payload as StoredJob, this.env, step);
   }

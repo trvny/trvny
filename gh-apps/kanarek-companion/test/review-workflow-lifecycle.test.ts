@@ -335,3 +335,22 @@ test('completion write rechecks freshness and enqueue generation before storing'
   f.setFresh(true);
   assert.equal(await f.controller().recordCompletion(job.target, receipt), true);
 });
+
+test('verified engine completion recovers an ambiguous start without re-creating it', async () => {
+  const f = fixture();
+  f.failCreate();
+  const first = await f.controller().start(job);
+  assert.equal(first.status, 'unknown');
+  const receipt = { status: 'completed', publication: 'escalate', findingCount: 0 };
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  f.instances.set(first.id, { status: 'complete', output: {
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
+  } });
+  const recovered = await f.controller().status(job.target);
+  assert.deepEqual(recovered?.completion, receipt);
+  assert.equal(recovered?.status, 'complete');
+  assert.equal(recovered?.needsPaid, true);
+  f.instances.delete(first.id);
+  assert.deepEqual(await f.controller().start(job), recovered);
+  assert.equal(f.calls.length, 1);
+});

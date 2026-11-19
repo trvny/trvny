@@ -146,7 +146,7 @@ export class ReviewWorkflowLifecycle {
       if (completion) {
         try {
           // Backfill old instances via the same guarded receipt writer.
-          confirmed = await this.recordCompletion(record.target, completion);
+          confirmed = await this.writeCompletion(record.target, completion, true);
         } catch (error) {
           if (!(error instanceof Error) || error.message !== 'review_workflow_completion_conflict') throw error;
           // Keep the original receipt; engine completion alone cannot authorize escalation.
@@ -273,10 +273,17 @@ export class ReviewWorkflowLifecycle {
   async recordCompletion(target: ReviewTarget, input: unknown): Promise<boolean> {
     const completion = parseReviewWorkflowCompletion(input);
     if (!completion) throw new Error('review_workflow_invalid_completion');
+    return this.writeCompletion(target, completion, false);
+  }
+
+  // Only reconciliation of a verified engine completion may recover an unknown start.
+  private async writeCompletion(target: ReviewTarget, completion: ReviewWorkflowCompletion,
+    engineComplete: boolean): Promise<boolean> {
     const id = await reviewWorkflowInstanceId(target);
     const eligible = (record: ManagedReview | undefined): record is ManagedReview =>
       Boolean(record && !record.cancelRequested &&
-        (record.completion || (!terminal(record.status) && record.status !== 'reserved' && record.status !== 'unknown')));
+        (record.completion !== undefined || (!terminal(record.status) && record.status !== 'reserved' &&
+          (record.status !== 'unknown' || engineComplete))));
     const snapshot = await this.store.transaction(async (txn) => {
       const record = await txn.get<ManagedReview>(recordKey(id));
       if (!eligible(record) || await txn.get<string>(ACTIVE) !== id) return null;

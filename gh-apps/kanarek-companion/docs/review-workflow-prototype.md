@@ -74,8 +74,10 @@ no GitHub access or inference. Legacy alarms remain active.
   In-flight requests may finish; cancellation cannot undo sent provider I/O.
 - Final managed Workflow step persists bounded completion metadata in its PR DO
   without operator polling. Exact replay is idempotent; conflicting replay fails.
-  Cancellation or supersession rejects the write. This is not engine completion,
-  paid authorization or publication; reconcile engine status separately.
+  Recheck GitHub freshness and enqueue generation before the write; cancellation
+  or supersession rejects it. Missing persistence retries and fails closed.
+  This is not engine completion, paid authorization or publication; reconcile
+  engine status separately with the same guarded backfill.
 - Terminal receipts retain metadata only. Unknown create with no retrievable
   instance needs explicit operator reconciliation; no automatic reset.
 - No automatic starts, paid calls, status gating or publication.

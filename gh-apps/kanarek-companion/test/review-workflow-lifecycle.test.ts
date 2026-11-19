@@ -192,7 +192,7 @@ test('terminal receipt survives instance expiry; escalation metadata only', asyn
   const f = fixture();
   const first = await f.controller().start(job);
   f.instances.set(first.id, { status: 'complete', output: {
-    mode: 'prototype', status: 'completed', publication: { kind: 'escalate' },
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
     secret: 'not stored',
   } });
   const complete = await f.controller().status(job.target);
@@ -301,4 +301,37 @@ test('observed completion requires agreement with the durable receipt before esc
   const saved = await f.controller().status(job.target);
   assert.equal(saved?.needsPaid, false);
   assert.equal(saved?.completion?.publication, 'silent');
+});
+
+test('engine completion racing cancellation cannot backfill receipt', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  f.instances.set(first.id, { status: 'complete', output: {
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
+  } });
+  const saved = await f.controller().cancel(job.target);
+  assert.equal(saved?.status, 'complete');
+  assert.equal(saved?.cancelRequested, true);
+  assert.equal(saved?.needsPaid, false);
+  assert.equal(saved?.completion, undefined);
+});
+
+test('completion write rechecks freshness and enqueue generation before storing', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  const receipt = { status: 'completed', publication: 'escalate', findingCount: 0 };
+  let enter!: () => void;
+  let release!: (value: boolean) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const delayed = new Promise<boolean>((resolve) => { release = resolve; });
+  const pending = f.controller(async () => { enter(); return delayed; }).recordCompletion(job.target, receipt);
+  await entered;
+  await f.noteEnqueue();
+  release(true);
+  await assert.rejects(pending, /enqueue_changed/);
+  assert.equal(JSON.stringify(f.data.get('review-workflow:record:' + first.id)).includes('"completion"'), false);
+  f.setFresh(false);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  f.setFresh(true);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), true);
 });

@@ -93,13 +93,6 @@ function observedStatus(value: string): ObservedStatus {
   }
 }
 
-function needsPaid(output: unknown): boolean {
-  const result = objectValue(output);
-  return result.mode === 'prototype' &&
-    (result.status === 'completed' || result.status === 'budget') &&
-    objectValue(result.publication).kind === 'escalate';
-}
-
 // One controller per PR DO. Reservation survives runtime reset and Workflow expiry.
 // Ambiguous create: reconcile by ID, never issue another create for that target.
 export class ReviewWorkflowLifecycle {
@@ -113,7 +106,8 @@ export class ReviewWorkflowLifecycle {
     this.current = current;
   }
 
-  private observe(id: string, status: ObservedStatus, output?: unknown, settleCreate = false): Promise<ManagedReview> {
+  private observe(id: string, status: ObservedStatus, output?: unknown, settleCreate = false,
+    completionConfirmed = false): Promise<ManagedReview> {
     return this.store.transaction(async (txn) => {
       const record = await txn.get<ManagedReview>(recordKey(id));
       if (!record) throw new Error('review_workflow_record_missing');
@@ -124,10 +118,12 @@ export class ReviewWorkflowLifecycle {
       const observed = status === 'complete' ? reviewWorkflowCompletion(output) : null;
       const next: ManagedReview = {
         ...record, status,
-        needsPaid: status === 'complete' && !record.cancelRequested && needsPaid(output) &&
-          (!record.completion || Boolean(observed && sameCompletion(record.completion, observed))),
+        needsPaid: status === 'complete' && !record.cancelRequested && completionConfirmed &&
+          Boolean(observed && record.completion && sameCompletion(record.completion, observed) &&
+            (observed.status === 'completed' || observed.status === 'budget') && observed.publication === 'escalate') &&
+          await txn.get<string>(ACTIVE) === id &&
+          record.enqueueGeneration === await txn.get<number>(ENQUEUE_GENERATION),
       };
-      if (!next.completion && observed) next.completion = observed;
       await txn.put(recordKey(id), next);
       return next;
     });
@@ -144,7 +140,19 @@ export class ReviewWorkflowLifecycle {
         try { await instance.terminate(); } catch { /* Re-read: may already be terminal. */ }
         status = await instance.status();
       }
-      return await this.observe(id, observedStatus(status.status), status.output, settleCreate);
+      const observed = observedStatus(status.status);
+      const completion = observed === 'complete' ? reviewWorkflowCompletion(status.output) : null;
+      let confirmed = false;
+      if (completion) {
+        try {
+          // Backfill old instances via the same guarded receipt writer.
+          confirmed = await this.recordCompletion(record.target, completion);
+        } catch (error) {
+          if (!(error instanceof Error) || error.message !== 'review_workflow_completion_conflict') throw error;
+          // Keep the original receipt; engine completion alone cannot authorize escalation.
+        }
+      }
+      return await this.observe(id, observed, status.output, settleCreate, confirmed);
     } catch {
       // Missing/expired instance and transport outage are indistinguishable.
       return this.observe(id, 'unknown', undefined, settleCreate);
@@ -266,15 +274,29 @@ export class ReviewWorkflowLifecycle {
     const completion = parseReviewWorkflowCompletion(input);
     if (!completion) throw new Error('review_workflow_invalid_completion');
     const id = await reviewWorkflowInstanceId(target);
+    const eligible = (record: ManagedReview | undefined): record is ManagedReview =>
+      Boolean(record && !record.cancelRequested &&
+        (record.completion || (!terminal(record.status) && record.status !== 'reserved' && record.status !== 'unknown')));
+    const snapshot = await this.store.transaction(async (txn) => {
+      const record = await txn.get<ManagedReview>(recordKey(id));
+      if (!eligible(record) || await txn.get<string>(ACTIVE) !== id) return null;
+      return { target: record.target, generation: await txn.get<number>(ENQUEUE_GENERATION) };
+    });
+    if (!snapshot) return false;
+    const fresh = await this.current(snapshot.target);
     return this.store.transaction(async (txn) => {
       const record = await txn.get<ManagedReview>(recordKey(id));
-      if (!record || await txn.get<string>(ACTIVE) !== id || record.cancelRequested) return false;
-      if (record.completion) {
-        if (!sameCompletion(record.completion, completion)) throw new Error('review_workflow_completion_conflict');
-        return true;
+      if (!eligible(record) || await txn.get<string>(ACTIVE) !== id) return false;
+      if (await txn.get<number>(ENQUEUE_GENERATION) !== snapshot.generation) {
+        throw new Error('review_workflow_enqueue_changed');
       }
-      if (terminal(record.status) || record.status === 'reserved' || record.status === 'unknown') return false;
-      await txn.put(recordKey(id), { ...record, completion });
+      if (!fresh) return false;
+      if (record.completion && !sameCompletion(record.completion, completion)) {
+        throw new Error('review_workflow_completion_conflict');
+      }
+      if (!record.completion || record.enqueueGeneration !== snapshot.generation) {
+        await txn.put(recordKey(id), { ...record, completion, enqueueGeneration: snapshot.generation });
+      }
       return true;
     });
   }

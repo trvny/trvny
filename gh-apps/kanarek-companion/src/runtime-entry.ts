@@ -125,11 +125,13 @@ export class KanarekFreeReviewPrototype extends WorkflowEntrypoint<RuntimeEnv, P
       const receipt = reviewWorkflowCompletion(result);
       if (!receipt) throw new Error('review_workflow_invalid_completion');
       // Retry storage only, never inference or publication.
-      await step.do('persist-completion-receipt', {
+      const stored = await step.do('persist-completion-receipt', {
         retries: { limit: 3, delay: '5 seconds' }, timeout: '1 minute',
       }, async () => {
         const queue = this.env.KANAREK_REVIEW_JOBS;
-        if (!queue || this.env.KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED !== 'true') return false;
+        if (!queue || this.env.KANAREK_REVIEW_WORKFLOW_MANAGED_ENABLED !== 'true') {
+          throw new Error('review_workflow_completion_unavailable');
+        }
         const { repository, number } = payload.job.target;
         const stub = queue.get(queue.idFromName(`${repository}#${number}`));
         const response = await stub.fetch('https://kanarek-review.internal/workflow/complete', {
@@ -144,6 +146,9 @@ export class KanarekFreeReviewPrototype extends WorkflowEntrypoint<RuntimeEnv, P
         if (typeof body.stored !== 'boolean') throw new Error('review_workflow_completion_invalid_response');
         return body.stored;
       });
+      if (!stored) {
+        return { mode: 'prototype', status: 'skipped', reason: 'managed_workflow_completion_revoked' } as const;
+      }
       return result;
     }
     return runFreeReviewWorkflowPrototype(payload as StoredJob, this.env, step);

@@ -1490,8 +1490,16 @@ export class WebhookReviewJob {
     if (!lifecycle) return Response.json({ error: 'review_workflow_control_disabled' }, { status: 503 });
     if (request.method !== 'POST') return Response.json({ error: 'method_not_allowed' }, { status: 405 });
     let job: unknown;
+    let receipt: unknown;
     try {
-      job = await request.json();
+      const input: unknown = await request.json();
+      if (action === 'complete') {
+        const completion = objectValue(input);
+        job = completion.job;
+        receipt = completion.receipt;
+      } else {
+        job = input;
+      }
       assertFreeReviewWorkflowJob(job, this.env);
     } catch {
       return Response.json({ error: 'invalid_workflow_job' }, { status: 400 });
@@ -1503,6 +1511,7 @@ export class WebhookReviewJob {
     try {
       switch (action) {
         case 'authorize': return Response.json({ authorized: await lifecycle.canRun(job.target) });
+        case 'complete': return Response.json({ stored: await lifecycle.recordCompletion(job.target, receipt) });
         case 'start': return Response.json(await lifecycle.start(job));
         case 'status': return Response.json(await lifecycle.status(job.target));
         case 'cancel': return Response.json(await lifecycle.cancel(job.target));
@@ -1513,8 +1522,11 @@ export class WebhookReviewJob {
       const code = error instanceof Error ? error.message : '';
       if (['review_workflow_enqueue_changed', 'review_workflow_active_changed',
         'review_workflow_stale_target', 'review_workflow_previous_current',
-        'review_workflow_previous_unsettled'].includes(code)) {
+        'review_workflow_previous_unsettled', 'review_workflow_completion_conflict'].includes(code)) {
         return Response.json({ error: code }, { status: 409 });
+      }
+      if (code === 'review_workflow_invalid_completion') {
+        return Response.json({ error: code }, { status: 400 });
       }
       console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
         JSON.stringify({ kanarekWebhookReview: 'workflow_control_failed', action,

@@ -72,6 +72,12 @@ no GitHub access or inference. Legacy alarms remain active.
 - Managed payload binds to actual Workflow instance ID; DO permission required
   before preparation and each new inference stage. Revocation survives restart.
   In-flight requests may finish; cancellation cannot undo sent provider I/O.
+- Final managed Workflow step persists bounded completion metadata in its PR DO
+  without operator polling. Exact replay is idempotent; conflicting replay fails.
+  Recheck GitHub freshness and enqueue generation before the write; cancellation
+  or supersession rejects it. Missing persistence retries and fails closed.
+  This is not engine completion, paid authorization or publication; reconcile
+  engine status separately with the same guarded backfill.
 - Terminal receipts retain metadata only. Unknown create with no retrievable
   instance needs explicit operator reconciliation; no automatic reset.
 - No automatic starts, paid calls, status gating or publication.
@@ -107,8 +113,9 @@ no GitHub access or inference. Legacy alarms remain active.
   service/DO; consider R2 for larger snapshots.
 - Measure real free provider latency, context size and step consumption.
 - Validate managed lifecycle against a live binding before enabling control.
-- Persist terminal receipt via durable completion/reconciliation, even without
-  operator polling; then bridge settled results to DO-owned status and publication.
+- Reconcile engine-terminal failures and cancellation without operator polling;
+  bridge settled results to DO-owned status and publication. The managed final
+  step already persists its logical completion metadata.
 - Connect shared publication plan to DO-owned submission gate.
 - Paid inference: no automatic retry; durable receipt before live activation.
 - Keep stored source/evidence private; define retention and deletion before

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { requestManagedReviewAuthorization, noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
+import { requestManagedReviewAuthorization, reviewWorkflowCompletion, noteReviewWorkflowEnqueue, ReviewWorkflowLifecycle, reviewWorkflowInstanceId, type ReviewWorkflowBinding } from '../src/companion/review-workflow-lifecycle.ts';
 import type { ReviewTarget, StoredJob } from '../src/companion/webhook-review.ts';
 
 const job: StoredJob = { target: {
@@ -192,7 +192,7 @@ test('terminal receipt survives instance expiry; escalation metadata only', asyn
   const f = fixture();
   const first = await f.controller().start(job);
   f.instances.set(first.id, { status: 'complete', output: {
-    mode: 'prototype', status: 'completed', publication: { kind: 'escalate' },
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
     secret: 'not stored',
   } });
   const complete = await f.controller().status(job.target);
@@ -256,4 +256,101 @@ test('managed authorization retries conflict and transport failures without auth
   assert.equal(await requestManagedReviewAuthorization(async () => {
     assert.fail('authorization must not run after abort');
   }, aborted.signal), false);
+});
+
+test('final step persists bounded completion without status polling; replay is idempotent', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  const receipt = reviewWorkflowCompletion({
+    mode: 'prototype', status: 'completed',
+    publication: { kind: 'escalate', findingCount: 0, text: 'discard me' },
+    prompt: 'discard me',
+  });
+  assert.deepEqual(receipt, { status: 'completed', publication: 'escalate', findingCount: 0 });
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), true);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), true);
+  const record = f.data.get('review-workflow:record:' + first.id);
+  assert.equal(JSON.stringify(record).includes('discard me'), false);
+  f.instances.delete(first.id);
+  const saved = await f.controller().status(job.target);
+  assert.deepEqual(saved?.completion, receipt);
+  assert.equal(saved?.needsPaid, false);
+  assert.equal(saved?.status, 'queued');
+  await assert.rejects(f.controller().recordCompletion(job.target, { ...receipt!, publication: 'silent' }), /completion_conflict/);
+  await assert.rejects(f.controller().recordCompletion(job.target, { ...receipt!, findingCount: -1 }), /invalid_completion/);
+});
+
+test('cancelled or superseded Workflow cannot write a completion receipt', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  const receipt = { status: 'skipped', publication: null, findingCount: 0 };
+  await f.controller().cancel(job.target);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  await f.controller().start(updated);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  assert.equal(JSON.stringify(f.data.get('review-workflow:record:' + first.id)).includes('"completion"'), false);
+});
+
+test('observed completion requires agreement with the durable receipt before escalation', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  await f.controller().recordCompletion(job.target, { status: 'completed', publication: 'silent', findingCount: 0 });
+  f.instances.set(first.id, { status: 'complete', output: {
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
+  } });
+  const saved = await f.controller().status(job.target);
+  assert.equal(saved?.needsPaid, false);
+  assert.equal(saved?.completion?.publication, 'silent');
+});
+
+test('engine completion racing cancellation cannot backfill receipt', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  f.instances.set(first.id, { status: 'complete', output: {
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
+  } });
+  const saved = await f.controller().cancel(job.target);
+  assert.equal(saved?.status, 'complete');
+  assert.equal(saved?.cancelRequested, true);
+  assert.equal(saved?.needsPaid, false);
+  assert.equal(saved?.completion, undefined);
+});
+
+test('completion write rechecks freshness and enqueue generation before storing', async () => {
+  const f = fixture();
+  const first = await f.controller().start(job);
+  const receipt = { status: 'completed', publication: 'escalate', findingCount: 0 };
+  let enter!: () => void;
+  let release!: (value: boolean) => void;
+  const entered = new Promise<void>((resolve) => { enter = resolve; });
+  const delayed = new Promise<boolean>((resolve) => { release = resolve; });
+  const pending = f.controller(async () => { enter(); return delayed; }).recordCompletion(job.target, receipt);
+  await entered;
+  await f.noteEnqueue();
+  release(true);
+  await assert.rejects(pending, /enqueue_changed/);
+  assert.equal(JSON.stringify(f.data.get('review-workflow:record:' + first.id)).includes('"completion"'), false);
+  f.setFresh(false);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  f.setFresh(true);
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), true);
+});
+
+test('verified engine completion recovers an ambiguous start without re-creating it', async () => {
+  const f = fixture();
+  f.failCreate();
+  const first = await f.controller().start(job);
+  assert.equal(first.status, 'unknown');
+  const receipt = { status: 'completed', publication: 'escalate', findingCount: 0 };
+  assert.equal(await f.controller().recordCompletion(job.target, receipt), false);
+  f.instances.set(first.id, { status: 'complete', output: {
+    mode: 'prototype', status: 'completed', publication: { kind: 'escalate', findingCount: 0 },
+  } });
+  const recovered = await f.controller().status(job.target);
+  assert.deepEqual(recovered?.completion, receipt);
+  assert.equal(recovered?.status, 'complete');
+  assert.equal(recovered?.needsPaid, true);
+  f.instances.delete(first.id);
+  assert.deepEqual(await f.controller().start(job), recovered);
+  assert.equal(f.calls.length, 1);
 });

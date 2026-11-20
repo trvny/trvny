@@ -100,7 +100,7 @@
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.1,
-      "persist": true,
+      "persist": false,
       "invocation_logs": false
     },
     "traces": {
@@ -115,7 +115,7 @@
     "GREMLIN_ANCHOR_FOLDER_ID": "01a07f52-1e05-7eeb-b9fe-53f7d75b3164",
     "KANAREK_AI_ENABLED": "true",
     "KANAREK_AI_PERCENT": "25",
-    "KANAREK_FREE_ROUTER_ENABLED": "true",
+    "KANAREK_FREE_ROUTER_ENABLED": "false",
     "KANAREK_FREE_ROUTER_MAX_TOKENS": "2048",
     "KANAREK_PROVIDER_ORDER": "gemini,openai,xai,openai-fallback,anthropic,free-router",
     "KANAREK_PROVIDER_TIMEOUT_MS": "10000",
@@ -141,8 +141,8 @@
     "KANAREK_OPENAI_ENABLED": "true",
     "KANAREK_OPENAI_MODEL": "gpt-6-luna",
     "KANAREK_OPENAI_FALLBACK_MODEL": "gpt-5.4-nano",
-    "KANAREK_OPENAI_MAX_OUTPUT_TOKENS": "2048",
-    "KANAREK_OPENAI_REASONING": "low",
+    "KANAREK_OPENAI_MAX_OUTPUT_TOKENS": "4096",
+    "KANAREK_OPENAI_REASONING": "medium",
     "KANAREK_ANTHROPIC_ENABLED": "true",
     "KANAREK_ANTHROPIC_MODEL": "claude-haiku-5-5",
     "KANAREK_ANTHROPIC_MAX_TOKENS": "2048",
@@ -152,8 +152,8 @@
     "KANAREK_GEMINI_THINKING_LEVEL": "low",
     "KANAREK_XAI_ENABLED": "true",
     "KANAREK_XAI_MODEL": "grok-4.7",
-    "KANAREK_XAI_MAX_OUTPUT_TOKENS": "2048",
-    "KANAREK_XAI_REASONING": "low",
+    "KANAREK_XAI_MAX_OUTPUT_TOKENS": "4096",
+    "KANAREK_XAI_REASONING": "medium",
     "KANAREK_XAI_PROMPT_CACHE_KEY": "kanarek-quip-v1"
   }
 }

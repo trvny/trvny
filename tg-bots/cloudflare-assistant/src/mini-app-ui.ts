@@ -220,7 +220,7 @@ const MINI_APP_HTML = `<!doctype html>
         <span class="muted">narzędzia</span>
       </div>
       <div class="tool-grid">
-        <button class="tool-card" type="button" data-tool-url="https://codebench.trfny.com">
+        <button class="tool-card" type="button" data-tool-url="https://codebench.bartek.lol">
           <span class="tool-icon" aria-hidden="true">🔳</span>
           <span class="tool-name">Codebench</span>
           <span class="tool-desc">QR i kody kreskowe</span>
@@ -592,7 +592,7 @@ const MINI_APP_HTML = `<!doctype html>
       const requestController = new AbortController();
       const requestTimer = setTimeout(() => requestController.abort(), 8_000);
       try {
-        const response = await fetch("https://travny.pages.dev/api/radio-now", {
+        const response = await fetch("https://bartek.lol/api/radio-now", {
           cache: "no-store", signal: requestController.signal,
         });
         if (!response.ok) throw new Error("metadata unavailable");

@@ -29,7 +29,7 @@ test("radio data is read only from the existing TRAVNY metadata endpoint", async
     called.push({ url, init });
     return Promise.resolve(trackResponse());
   });
-  assert.equal(called[0].url, "https://travny.pages.dev/api/radio-now");
+  assert.equal(called[0].url, "https://bartek.lol/api/radio-now");
   assert.equal(called[0].init.redirect, "error");
   assert.match(called[0].init.headers["user-agent"], /Botek\/1\.0/u);
   assert.equal(result.title, "Song");
@@ -61,7 +61,7 @@ test("legacy relay redirects GET to the fixed Pages source without Worker fetch"
   const outbound = t.mock.method(globalThis, "fetch", () => { throw new Error("unexpected worker fetch"); });
   const redirect = await radioNowResponse(new Request("https://bot/mini-app/api/radio-now"));
   assert.equal(redirect.status, 307);
-  assert.equal(redirect.headers.get("location"), "https://travny.pages.dev/api/radio-now");
+  assert.equal(redirect.headers.get("location"), "https://bartek.lol/api/radio-now");
   assert.equal(redirect.headers.get("cache-control"), "no-store");
   assert.equal(outbound.mock.callCount(), 0);
 });

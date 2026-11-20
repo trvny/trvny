@@ -39,3 +39,14 @@ test("stable hub and preview hosts stay outside alias routing", async () => {
     assert.equal(result.headers.get("x-robots-tag"), host.startsWith("preview.") ? "noindex, follow" : null);
   }
 });
+
+test("legacy Pages API clients still receive the original response", async () => {
+  const original = Response.json({ title: "Example" }, {
+    headers: { "access-control-allow-origin": "https://tg-assistant.travny.workers.dev" },
+  });
+  const result = await onRequest({
+    request: new Request("https://travny.pages.dev/api/radio-now"),
+    next: async () => original,
+  });
+  assert.equal(result, original);
+});

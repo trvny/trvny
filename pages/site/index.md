@@ -14,7 +14,7 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
   Paradise metadata: `/api/radio-now`; other stations: `/api/radio-station?station=bbc1`.
 - [Bench Lab](https://bartek.lol/lab/): Streambench, Codebench and Docbench carousel.
 - [TVPI](https://bartek.lol/tv/): browser page for stable TVP IPTV entry points and playlists.
-- [Weather](https://weather.travny.workers.dev/): multi-source local weather for Kościelec in Chrzanów.
+- [Weather](https://weather.bartek.lol/): multi-source local weather for Kościelec in Chrzanów.
 - [Feedseek](https://trvny.github.io/feedseek/): enhanced Atom/RSS directory, JSON Feed sidecars, OPML and Reader.
 - [Streambench](https://streambench.bartek.lol/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
 - [Codebench](https://codebench.bartek.lol/): local-first QR and barcode studio.

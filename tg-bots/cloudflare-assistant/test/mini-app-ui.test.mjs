@@ -29,10 +29,10 @@ test("renders Bench launch tiles through Telegram openLink", async () => {
   const response = miniAppHtmlResponse();
   const html = await response.text();
 
-  assert.match(html, /https:\/\/codebench\.trfny\.com/u);
+  assert.match(html, /https:\/\/codebench\.bartek\.lol/u);
   assert.match(html, /https:\/\/streambench\.travny\.workers\.dev/u);
   assert.match(html, /data-radio-open/u);
-  assert.match(html, /https:\/\/travny\.pages\.dev\/api\/radio-now/u);
+  assert.match(html, /https:\/\/bartek\.lol\/api\/radio-now/u);
   assert.match(html, /https:\/\/stream\.radioparadise\.com\/aac-320/u);
   assert.match(html, /https:\/\/docbench\.travny\.workers\.dev/u);
   assert.match(html, /id="doc-open"/u);

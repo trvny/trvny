@@ -1,9 +1,10 @@
 import { publicationLang } from "./publication-lang.js";
 
-const SHITPOST_ORIGIN = "https://shitpost-reactor.travny.workers.dev";
+const SHITPOST_ORIGIN = "https://shitpost.bartek.lol";
+const WORKER_ORIGIN = "https://shitpost-reactor.travny.workers.dev";
 export const REACTOR_HOME_URL = `${SHITPOST_ORIGIN}/`;
-export const SHITPOST_FEED_URL = `${SHITPOST_ORIGIN}/feed.json`;
-const SOURCE_ORIGINS = new Set([SHITPOST_ORIGIN, "https://shitpost.trfny.com"]);
+export const SHITPOST_FEED_URL = `${WORKER_ORIGIN}/feed.json`;
+const SOURCE_ORIGINS = new Set([SHITPOST_ORIGIN, WORKER_ORIGIN, "https://shitpost.trfny.com"]);
 const UNDATED_UPDATED = "1970-01-01T00:00:00.000Z";
 const MAX_SOURCE_ITEMS = 500;
 

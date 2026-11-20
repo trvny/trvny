@@ -4,7 +4,7 @@
 const { execFileSync } = require('node:child_process');
 
 const HUB = 'https://bartek.lol';
-const REACTOR = 'https://shitpost-reactor.travny.workers.dev';
+const REACTOR = 'https://shitpost.bartek.lol';
 const FEEDSEEK = 'https://trvny.github.io/feedseek/';
 // Public ownership proof files, not authentication secrets.
 const SITES = {

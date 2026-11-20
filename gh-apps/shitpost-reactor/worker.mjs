@@ -5,7 +5,7 @@ import {
   SHITPOST_TEXT_HARD_MAX_CHARS,
 } from './limits.mjs';
 import { fitMemeCaption, getMemeTemplate, memeImageUrl, normalizeMemeLook } from './templates.mjs';
-import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
+import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, WORKER_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
 import { OUTPUT_LANGUAGES } from './languages.mjs';
 
 const FEED_TITLE = 'Reactor';
@@ -601,7 +601,7 @@ Canonical site: ${SITE_URL}/
 - [Atom 1.0](${SITE_URL}/atom.xml)
 - [JSON Feed 1.1](${SITE_URL}/feed.json)
 
-Canonical pages, feed links, publishing and discovery use the Workers origin independently of the temporary custom-domain registration. Existing Atom feed IDs and entry identifiers are preserved, including legacy URL strings. The old custom host redirects public GET/HEAD requests; authenticated publishers retain their fixed OIDC audience for compatibility.
+Canonical pages, feed links and discovery use the public domain. Publishing accepts the original Worker URL. Existing Atom feed IDs and entry identifiers are preserved, including legacy URL strings. The old custom host redirects public GET/HEAD requests; authenticated publishers retain their fixed OIDC audience for compatibility.
 
 ## Content
 
@@ -878,14 +878,14 @@ async function publish(request, env) {
   }
   await saveEditorial();
   const publishedAt = new Date().toISOString();
-  const post = { ...source, id, published_at: publishedAt, url: `${SITE_URL}/posts/${id}` };
+  const post = { ...source, id, published_at: publishedAt, url: `${WORKER_ORIGIN}/posts/${id}` };
   await env.FEED.put(`posts/${id}.json`, `${JSON.stringify(post, null, 2)}\n`, {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
     customMetadata: { published_at: publishedAt, run_id: String(claims.run_id) },
   });
   await ensureIndexed(env, post);
 
-  return response(`${JSON.stringify({ ok: true, id, url: post.url, duplicate: false })}\n`, 'application/json; charset=utf-8', { status: 201, cache: 'no-store' });
+  return response(`${JSON.stringify({ ok: true, id, url: publicPostUrl(post), duplicate: false })}\n`, 'application/json; charset=utf-8', { status: 201, cache: 'no-store' });
 }
 
 async function handleGet(url, env) {

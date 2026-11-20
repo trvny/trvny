@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import { test } from 'node:test';
 import worker, { renderAtom, renderJsonFeed, renderRss } from '../worker.mjs';
 
-const stable = 'https://shitpost-reactor.travny.workers.dev';
+const stable = 'https://shitpost.bartek.lol';
 const legacy = 'https://shitpost.trfny.com';
 const post = {
   id: 'gh-123-1',
@@ -139,7 +139,7 @@ test('signed legacy-audience publishing works on both hosts; retries preserve ol
   const result = await publish(stable, await token(999), fresh);
   assert.equal(result.status, 201);
   assert.equal((await result.json()).url, `${stable}/posts/gh-999-1`);
-  assert.equal(fresh.objects.get('posts/gh-999-1.json').url, `${stable}/posts/gh-999-1`);
+  assert.equal(fresh.objects.get('posts/gh-999-1.json').url, 'https://shitpost-reactor.travny.workers.dev/posts/gh-999-1');
   const rejected = await publish(stable, await token(1000, stable), fresh);
   assert.equal(rejected.status, 401);
   assert.equal(fresh.postWrites, 1);

@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { getLatestShitpost, getShitposts } from "../functions/_shared/shitpost.js";
 import { onRequestGet, onRequestHead } from "../functions/teksty/feed.xml.js";
 
-const origin = "https://shitpost-reactor.travny.workers.dev";
+const origin = "https://shitpost.bartek.lol";
+const reactorWorker = "https://shitpost-reactor.travny.workers.dev";
 const legacy = "https://shitpost.trfny.com";
 const first = {
   id: `${legacy}/posts/gh-12-34`,
@@ -106,7 +107,7 @@ test("Reactor rollout accepts both origins without changing old entry IDs", asyn
     requested = url;
     return fakeFetch([old, { ...first, date_modified: "2026-10-10T15:00:00Z" }])();
   });
-  assert.equal(requested, `${origin}/feed.json`);
+  assert.equal(requested, `${reactorWorker}/feed.json`);
   assert.equal(posts.length, 1);
   assert.equal(posts[0].id, first.id);
   assert.equal(posts[0].url, first.url);
@@ -234,6 +235,6 @@ test("Atom reads Reactor through the configured binding", async t => {
   const response = await onRequestGet(ctx);
   assert.equal(response.status, 200);
   assert.match(await response.text(), /First post &amp; &lt;payload&gt;/);
-  assert.deepEqual(calls, [origin + "/feed.json"]);
+  assert.deepEqual(calls, [reactorWorker + "/feed.json"]);
   assert.equal(publicFetch.mock.callCount(), 0);
 });

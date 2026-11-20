@@ -24,11 +24,11 @@ test('public feed title and icon metadata stay aligned', () => {
   assert.match(rss, /<title>Reactor<\/title>/);
   assert.match(rss, /<image>[\s\S]*favicon-96x96\.png/);
   assert.match(atom, /<title>Reactor<\/title>/);
-  assert.match(atom, /<icon>https:\/\/shitpost-reactor\.travny\.workers\.dev\/favicon\.svg<\/icon>/);
-  assert.match(atom, /<logo>https:\/\/shitpost-reactor\.travny\.workers\.dev\/icon-512\.png<\/logo>/);
+  assert.match(atom, /<icon>https:\/\/shitpost\.bartek\.lol\/favicon\.svg<\/icon>/);
+  assert.match(atom, /<logo>https:\/\/shitpost\.bartek\.lol\/icon-512\.png<\/logo>/);
   assert.equal(json.title, 'Reactor');
-  assert.equal(json.favicon, 'https://shitpost-reactor.travny.workers.dev/favicon-32x32.png');
-  assert.equal(json.icon, 'https://shitpost-reactor.travny.workers.dev/icon-512.png');
+  assert.equal(json.favicon, 'https://shitpost.bartek.lol/favicon-32x32.png');
+  assert.equal(json.icon, 'https://shitpost.bartek.lol/icon-512.png');
 });
 
 test('individual posts expose truthful BlogPosting schema and publication date', async () => {
@@ -45,15 +45,15 @@ test('individual posts expose truthful BlogPosting schema and publication date',
   assert.ok(match, 'BlogPosting data must be inside the document head');
   const schema = JSON.parse(match[1]);
   assert.equal(schema['@type'], 'BlogPosting');
-  assert.equal(schema['@id'], 'https://shitpost-reactor.travny.workers.dev/posts/gh-123-1#post');
-  assert.equal(schema.mainEntityOfPage['@id'], 'https://shitpost-reactor.travny.workers.dev/posts/gh-123-1');
+  assert.equal(schema['@id'], 'https://shitpost.bartek.lol/posts/gh-123-1#post');
+  assert.equal(schema.mainEntityOfPage['@id'], 'https://shitpost.bartek.lol/posts/gh-123-1');
   assert.equal(schema.headline, 'deploy przeszedł. aplikacja nie.');
   assert.equal(schema.articleBody, post.content.text);
   assert.equal(schema.datePublished, post.published_at);
   assert.deepEqual(schema.author, {
     '@type': 'Organization',
     name: 'Reactor',
-    url: 'https://shitpost-reactor.travny.workers.dev/',
+    url: 'https://shitpost.bartek.lol/',
   });
   assert.match(html, /<time datetime="2026-10-01T18:01:00.000Z">/);
 });
@@ -68,8 +68,8 @@ test('sitemap stays fixed and never reads archive storage', async () => {
   assert.equal(response.status, 200);
   const xml = await response.text();
   assert.deepEqual([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]), [
-    'https://shitpost-reactor.travny.workers.dev/',
-    'https://shitpost-reactor.travny.workers.dev/archive',
+    'https://shitpost.bartek.lol/',
+    'https://shitpost.bartek.lol/archive',
   ]);
   assert.doesNotMatch(xml, /<lastmod>/);
 });
@@ -123,7 +123,7 @@ test('robots policy explicitly welcomes AI crawlers and everyone else', async ()
   assert.match(text, /User-agent: Google-Extended/);
   assert.match(text, /User-agent: Applebot-Extended/);
   assert.match(text, /User-agent: \*\nContent-Signal: ai-train=yes, search=yes, ai-input=yes\nAllow: \//);
-  assert.match(text, /Sitemap: https:\/\/shitpost-reactor\.travny\.workers\.dev\/sitemap\.xml/);
+  assert.match(text, /Sitemap: https:\/\/shitpost\.bartek\.lol\/sitemap\.xml/);
 });
 
 test('llms.txt exposes canonical feeds and discovery routes', async () => {
@@ -134,10 +134,10 @@ test('llms.txt exposes canonical feeds and discovery routes', async () => {
   assert.match(text, /RSS 2\.0/);
   assert.match(text, /Atom 1\.0/);
   assert.match(text, /JSON Feed 1\.1/);
-  assert.match(text, /^- \[RSS 2\.0\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/rss\.xml\)$/m);
-  assert.match(text, /^- \[Atom 1\.0\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/atom\.xml\)$/m);
-  assert.match(text, /^- \[JSON Feed 1\.1\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/feed\.json\)$/m);
-  assert.match(text, /^- \[Full archive\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/archive\)$/m);
+  assert.match(text, /^- \[RSS 2\.0\]\(https:\/\/shitpost\.bartek\.lol\/rss\.xml\)$/m);
+  assert.match(text, /^- \[Atom 1\.0\]\(https:\/\/shitpost\.bartek\.lol\/atom\.xml\)$/m);
+  assert.match(text, /^- \[JSON Feed 1\.1\]\(https:\/\/shitpost\.bartek\.lol\/feed\.json\)$/m);
+  assert.match(text, /^- \[Full archive\]\(https:\/\/shitpost\.bartek\.lol\/archive\)$/m);
   assert.match(text, /Existing Atom feed IDs and entry identifiers are preserved/);
   assert.match(text, /Robots policy/);
   assert.match(text, /site\.webmanifest/);

@@ -2,10 +2,10 @@
 
 > An interactive atlas of public trvny and travnie projects.
 
-Page: <https://travny.pages.dev/teksty/githubowa-kraina/>
-Structured region data: <https://travny.pages.dev/teksty/githubowa-kraina/atlas.json>
+Page: <https://bartek.lol/teksty/githubowa-kraina/>
+Structured region data: <https://bartek.lol/teksty/githubowa-kraina/atlas.json>
 Languages: PL, EN, RU, ZH. The separate infrastructure map is English.
-Infrastructure map: <https://travny.pages.dev/teksty/githubowa-kraina/universe.html>
+Infrastructure map: <https://bartek.lol/teksty/githubowa-kraina/universe.html>
 
 Choose a region, then a place for its description and destination. Project repositories remain the authority for current details.
 
@@ -70,7 +70,7 @@ Stable entry points for TVP IPTV streams.
 
 Project: <https://github.com/trvny/tvpi>
 
-- [TV player](https://travny.pages.dev/tv/): Open the TVP channels from the TRAVNY hub.
+- [TV player](https://bartek.lol/tv/): Open the TVP channels from the TRAVNY hub.
 - [Stable playlist](https://tvpi.travny.workers.dev/playlist.m3u): A saveable M3U with Worker endpoints for each channel.
 - [Residential refresh](https://github.com/trvny/tvpi): A Polish home connection can refresh upstream manifests. Continuous availability is not guaranteed.
 
@@ -80,9 +80,9 @@ A shared home for tools, utilities and experiments.
 
 Project: <https://github.com/travnie/twojstar>
 
-- [Codebench](https://codebench.travny.workers.dev/): Generate, scan and export QR codes and barcodes in the browser.
-- [Streambench](https://streambench.travny.workers.dev/): A local-first workshop for IPTV, radio, playlists and streams.
-- [Docbench](https://docbench.travny.workers.dev/): Work with documents and PDFs locally in the browser.
+- [Codebench](https://codebench.bartek.lol/): Generate, scan and export QR codes and barcodes in the browser.
+- [Streambench](https://streambench.bartek.lol/): A local-first workshop for IPTV, radio, playlists and streams.
+- [Docbench](https://docbench.bartek.lol/): Work with documents and PDFs locally in the browser.
 - [Weather Feed](https://weather.travny.workers.dev/): Local weather, air quality and alerts for Kościelec and Chrzanów.
 - [Feedboard](https://github.com/travnie/twojstar/tree/main/feedboard): Windows 11 feed widget and settings application.
 - [Paint.NET plugins](https://github.com/travnie/twojstar/tree/main/paintdotnet): Image tools including ICO and AI Restore plugins.

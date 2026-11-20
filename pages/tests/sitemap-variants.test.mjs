@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, mkdtemp, mkdir, copyFile, rm } from "node:fs/promises";
+import { readFile, mkdtemp, mkdir, copyFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -25,21 +25,26 @@ test("built sitemap includes hub, published digests and subdomain pages", async 
     assert.ok(urls.has("https://shitpost.bartek.lol/archive"));
     assert.deepEqual(root.filter(({ url }) => url.startsWith("https://bartek.lol/przeglad/") &&
       url !== "https://bartek.lol/przeglad/"), digests);
+
+    await writeFile(join(dir, "przeglad/sitemap.xml"), "<urlset></urlset>");
+    await writeSitemap(pathToFileURL(dir + "/"));
+    const rebuilt = sitemapEntries(await readFile(join(dir, "sitemap.xml"), "utf8"));
+    assert.deepEqual(rebuilt, root.filter(entry => !digests.some(digest => digest.url === entry.url)));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
-test("combined XML preserves URL escaping and latest supplied date", () => {
-  const loc = "<loc>https://bartek.lol/?a=1&amp;b=2</loc>";
+test("combined XML preserves URL escaping and published digest dates", () => {
+  const loc = "<loc>https://bartek.lol/przeglad/2026-11-01/?a=1&amp;b=2</loc>";
   const first = `<urlset><url>${loc}</url></urlset>`;
   const second = `<urlset><url>${loc}<lastmod>2026-11-01</lastmod></url></urlset>`;
   const combined = combineSitemaps(first, second);
   assert.ok(combined.includes(loc));
   assert.deepEqual(sitemapEntries(combined), [{
-    url: "https://bartek.lol/?a=1&b=2",
+    url: "https://bartek.lol/przeglad/2026-11-01/?a=1&b=2",
     lastmod: "2026-11-01",
   }]);
   const foreign = first.replace("bartek.lol", "example.bartek.lol.evil.example");
-  assert.throws(() => combineSitemaps(foreign), /Foreign sitemap URL/);
+  assert.throws(() => combineSitemaps(foreign, second), /Foreign sitemap URL/);
 });

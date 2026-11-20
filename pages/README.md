@@ -2,7 +2,8 @@
 
 [![Pages CI](https://github.com/trvny/trvny/actions/workflows/travny-pages.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/travny-pages.yml) [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare_Pages-F38020?style=flat-square&logo=cloudflarepages&logoColor=white)](https://developers.cloudflare.com/pages/) [![Astro](https://img.shields.io/badge/Astro-BC52EE?style=flat-square&logo=astro&logoColor=white)](https://astro.build/)
 
-**Canonical hub:** [travny.pages.dev](https://bartek.lol). Cloudflare Pages project `travny`, repository root `pages/`, build `build.sh`, output `site/`, Functions `functions/`.
+**Canonical hub:** [bartek.lol](https://bartek.lol). Cloudflare Pages project
+`travny`, root `pages/`, build `build.sh`, output `site/`, Functions `functions/`.
 
 ## Source map
 
@@ -38,8 +39,8 @@ headers are build output. CI rejects committed shell markers in tracked HTML.
 Keep dynamic HTML,
 discovery, feeds, redirects and APIs in middleware. Avoid broad
 extension globs: dynamic SVG badges and JSON routes share those extensions.
-Cloudflare redirects `travny.pages.dev`, `www.bartek.lol`, `trfny.com` and
-`www.trfny.com` to `bartek.lol`, path/query kept.
+`bartek.lol` and `travny.pages.dev` serve the hub directly. Cloudflare redirects
+`www.bartek.lol`, `trfny.com` and `www.trfny.com` to the canonical hub.
 Feedseek lives at `rss.bartek.lol`. Legacy `trfny.com/f/*` and cross-site
 sitemap exceptions keep their routing.
 
@@ -47,8 +48,8 @@ Keep this rule while static paths bypass middleware. `tvpi.pages.dev` uses
 its own Pages project. Cloudflare Pages defaults to `X-Robots-Tag: noindex`
 for preview deployments, independent of middleware.
 
-Domain property: `/sitemap-cross-site.xml` collects Hub, digest, Bench, Weather
-and Reactor maps. `/sitemap-index.xml` covers apex routes.
+Submit `https://bartek.lol/sitemap.xml` for the domain property. Build appends
+published digests to the hub and public subdomain URLs in `site/sitemap.xml`.
 
 ## Hub backend
 

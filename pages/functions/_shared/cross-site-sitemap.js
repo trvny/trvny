@@ -1,24 +1,24 @@
-// Cross-site submission for verified properties; source maps remain canonical.
+// Sitemap aliases and the legacy verified-domain index.
 import { ORIGIN } from "./page-seo.js";
 
 const LEGACY_ORIGIN = "https://trfny.com";
 const INDEX = "/sitemap-cross-site.xml";
-const HUB_MAPS = [
+const LEGACY_MAPS = new Map([
   ["/sitemaps/travny.xml", { asset: "/sitemap.xml" }],
   ["/sitemaps/digests.xml", { asset: "/przeglad/sitemap.xml" }],
-];
-const MAPS_BY_ORIGIN = new Map([
-  [LEGACY_ORIGIN, new Map([
-    ...HUB_MAPS,
-    ["/sitemaps/feedseek.xml", { url: "https://trvny.github.io/feedseek/sitemap.xml" }],
-  ])],
-  [ORIGIN, new Map([
-    ...HUB_MAPS,
-    ...["codebench", "docbench", "streambench", "weather", "shitpost"].map((service) => [
-      `/sitemaps/${service}.xml`,
-      { url: `https://${service}.${new URL(ORIGIN).hostname}/sitemap.xml` },
-    ]),
-  ])],
+  ["/sitemaps/feedseek.xml", { url: "https://trvny.github.io/feedseek/sitemap.xml" }],
+]);
+const HUB_ORIGINS = new Set([ORIGIN, "https://travny.pages.dev"]);
+const RETIRED_MAPS = new Set([
+  INDEX,
+  "/sitemap-index.xml",
+  "/przeglad/sitemap.xml",
+  "/sitemap.txt",
+  "/sitemap.json",
+  "/sitemap-atom.xml",
+  "/sitemap-rss.xml",
+  ...["travny", "digests", "codebench", "docbench", "streambench", "weather", "shitpost"]
+    .map(name => `/sitemaps/${name}.xml`),
 ]);
 
 function xml(body, method) {
@@ -32,17 +32,20 @@ function xml(body, method) {
 
 export async function crossSiteSitemap(context, url, fetchImpl = fetch) {
   const method = context.request.method;
-  const sources = MAPS_BY_ORIGIN.get(url.origin);
-  if (!sources || !["GET", "HEAD"].includes(method)) return null;
+  if (!["GET", "HEAD"].includes(method)) return null;
+  if (HUB_ORIGINS.has(url.origin) && RETIRED_MAPS.has(url.pathname)) {
+    return Response.redirect(url.origin + "/sitemap.xml" + url.search, 301);
+  }
+  if (url.origin !== LEGACY_ORIGIN) return null;
 
   if (url.pathname === INDEX) {
-    const entries = [...sources.keys()].map(path => `  <sitemap><loc>${url.origin}${path}</loc></sitemap>`);
+    const entries = [...LEGACY_MAPS.keys()].map(path => `  <sitemap><loc>${url.origin}${path}</loc></sitemap>`);
     return xml(['<?xml version="1.0" encoding="UTF-8"?>',
       '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
       ...entries, "</sitemapindex>", ""].join("\n"), method);
   }
 
-  const source = sources.get(url.pathname);
+  const source = LEGACY_MAPS.get(url.pathname);
   if (!source) return null;
   try {
     const response = source.asset

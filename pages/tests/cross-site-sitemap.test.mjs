@@ -60,17 +60,22 @@ test("upstream failure stays retryable, and non-map routes fall through", async 
   assert.equal(await crossSiteSitemap(post, new URL(post.request.url)), null);
 });
 
-
-test("bartek.lol domain index includes human-facing Worker maps on the same origin", async () => {
-  const apex = "https://bartek.lol";
-  const index = await crossSiteSitemap(context("/sitemap-cross-site.xml"), new URL(apex + "/sitemap-cross-site.xml"));
-  const locations = [...(await index.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-  assert.deepEqual(locations, ["travny", "digests", "codebench", "docbench", "streambench", "weather", "shitpost"].map((name) => `${apex}/sitemaps/${name}.xml`));
-  for (const name of ["codebench", "docbench", "streambench", "weather", "shitpost"]) {
-    const child = await crossSiteSitemap(context(`/sitemaps/${name}.xml`), new URL(`${apex}/sitemaps/${name}.xml`), async (url) => {
-      assert.equal(url, `https://${name}.bartek.lol/sitemap.xml`);
-      return source();
-    });
-    assert.equal(child.status, 200);
+test("retired hub maps redirect to sitemap.xml on their original host", async () => {
+  for (const host of ["bartek.lol", "travny.pages.dev"]) {
+    const base = `https://${host}`;
+    for (const path of [
+      "/sitemap-index.xml", "/sitemap-cross-site.xml", "/przeglad/sitemap.xml",
+      "/sitemap.txt", "/sitemap.json", "/sitemap-atom.xml", "/sitemap-rss.xml",
+      "/sitemaps/travny.xml", "/sitemaps/digests.xml", "/sitemaps/codebench.xml",
+      "/sitemaps/docbench.xml", "/sitemaps/streambench.xml", "/sitemaps/weather.xml",
+      "/sitemaps/shitpost.xml",
+    ]) {
+      const result = await onRequest({
+        request: new Request(base + path + "?test=1"),
+        next: () => { throw new Error("Unexpected middleware fallback"); },
+      });
+      assert.equal(result.status, 301);
+      assert.equal(result.headers.get("location"), base + "/sitemap.xml?test=1");
+    }
   }
 });

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { onRequest } from "../functions/_middleware.js";
 
 test("custom domain aliases redirect to the durable hub", async () => {
-  for (const origin of ["https://travny.pages.dev", "https://trfny.com", "https://www.trfny.com", "http://trfny.com", "https://www.bartek.lol"]) {
+  for (const origin of ["https://trfny.com", "https://www.trfny.com", "http://trfny.com", "https://www.bartek.lol"]) {
     for (const [path, target] of [
       ["/", "https://bartek.lol/"],
       ["/index.html", "https://bartek.lol/index.html"],
@@ -26,7 +26,7 @@ test("custom domain aliases redirect to the durable hub", async () => {
 });
 
 test("stable hub and preview hosts stay outside alias routing", async () => {
-  for (const host of ["bartek.lol", "preview.travny.pages.dev"]) {
+  for (const host of ["bartek.lol", "travny.pages.dev", "preview.travny.pages.dev"]) {
     const result = await onRequest({
       request: new Request(`https://${host}/sitemap.xml`),
       next: async () => new Response("hub sitemap", { headers: { "content-type": "application/xml" } }),

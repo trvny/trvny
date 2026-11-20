@@ -20,7 +20,7 @@ const TV_WORKER = "https://tvpi.travny.workers.dev";
 
 // Edge rules also cover static paths that bypass Functions.
 const CANONICAL_HOST = new URL(ORIGIN).hostname;
-const REDIRECT_HOSTS = new Set(["travny.pages.dev", "tvpi.pages.dev", "trfny.com", "www.trfny.com", "www.bartek.lol"]);
+const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "trfny.com", "www.trfny.com", "www.bartek.lol"]);
 const FEED_ALIAS_HOSTS = new Set(["trfny.com", "www.trfny.com"]);
 const PREVIEW_SUFFIX = ".travny.pages.dev";
 
@@ -246,12 +246,7 @@ export async function onRequest(context) {
     return Response.redirect(destination.href, 301);
   }
 
-  // Permanent, path- and query-preserving move. 301 (not 302) is what lets
-  // Search Console transfer ranking signals to the new host; Google asks for
-  // these redirects to stay up at least a year after the move.
-  // Existing clients reject redirects and depend on the original API responses.
-  const legacyApi = url.hostname === "travny.pages.dev" && url.pathname.startsWith("/api/");
-  if (REDIRECT_HOSTS.has(url.hostname) && !legacyApi) {
+  if (REDIRECT_HOSTS.has(url.hostname)) {
     url.protocol = "https:";
     url.hostname = CANONICAL_HOST;
     url.port = "";

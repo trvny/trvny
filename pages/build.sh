@@ -22,7 +22,7 @@ cp -R astro/dist/lab site/
 cp -R astro/dist/przeglad site/
 if [ -d astro/dist/_astro ]; then cp -R astro/dist/_astro site/; fi
 
-# Alternate sitemap formats from the canonical root and digest maps.
+# Add generated digest URLs to the hub sitemap.
 node scripts/sitemap-variants.mjs
 
 # Pre-render default badges for the catalogue; live and custom routes stay dynamic.

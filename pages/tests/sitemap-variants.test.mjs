@@ -4,55 +4,42 @@ import { readFile, mkdtemp, mkdir, copyFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { escapeXml, sitemapEntries, sitemapVariants, writeSitemapVariants } from "../scripts/sitemap-variants.mjs";
+import { combineSitemaps, sitemapEntries, writeSitemap } from "../scripts/sitemap-variants.mjs";
 
-test("alternate sitemaps cover both canonical XML maps", async () => {
-  const documents = await Promise.all(["../site/sitemap.xml", "../astro/dist/przeglad/sitemap.xml"].map(path => readFile(new URL(path, import.meta.url), "utf8")));
-  const entries = sitemapEntries(...documents);
-  const variants = sitemapVariants(entries);
-  assert.deepEqual(variants["sitemap.txt"].trim().split("\n"), entries.map(entry => entry.url));
-  assert.deepEqual(JSON.parse(variants["sitemap.json"]), entries);
-  assert.equal((variants["sitemap-atom.xml"].match(/<entry>/g) || []).length, entries.length);
-  assert.equal((variants["sitemap-rss.xml"].match(/<item>/g) || []).length, entries.length);
-  const robots = await readFile(new URL("../site/robots.txt", import.meta.url), "utf8");
-  for (const [name, content] of Object.entries(variants)) {
-    if (name.endsWith(".json")) {
-      assert.ok(!robots.includes("Sitemap: https://bartek.lol/" + name));
-      continue;
-    }
-    assert.ok(robots.includes("Sitemap: https://bartek.lol/" + name));
-    for (const { url } of entries) assert.ok(content.includes(name.endsWith(".xml") ? escapeXml(url) : url));
-  }
-});
-test("XML URL escaping round trips", () => {
-  const url = "https://bartek.lol/?a=1&b=2";
-  const entries = sitemapEntries("<urlset><url><loc>https://bartek.lol/?a=1&amp;b=2</loc></url></urlset>");
-  assert.equal(entries[0].url, url);
-  assert.match(sitemapVariants(entries)["sitemap-atom.xml"], /a=1&amp;b=2/);
-  assert.match(sitemapVariants(entries)["sitemap-rss.xml"], /a=1&amp;b=2/);
-  assert.match(sitemapVariants(entries)["sitemap-atom.xml"], /<summary>.*<\/summary>/);
-});
-
-test("write all variants of built root and digest maps", async () => {
+test("built sitemap includes hub, published digests and subdomain pages", async () => {
   const dir = await mkdtemp(join(tmpdir(), "sitemap-"));
   try {
     await mkdir(join(dir, "przeglad"));
     await copyFile(new URL("../site/sitemap.xml", import.meta.url), join(dir, "sitemap.xml"));
     await copyFile(new URL("../astro/dist/przeglad/sitemap.xml", import.meta.url), join(dir, "przeglad/sitemap.xml"));
-    await writeSitemapVariants(pathToFileURL(dir + "/"));
-    for (const name of ["sitemap.txt", "sitemap.json", "sitemap-atom.xml", "sitemap-rss.xml"]) {
-      assert.ok((await readFile(join(dir, name), "utf8")).length > 0);
+    await writeSitemap(pathToFileURL(dir + "/"));
+
+    const root = sitemapEntries(await readFile(join(dir, "sitemap.xml"), "utf8"));
+    const digests = sitemapEntries(await readFile(join(dir, "przeglad/sitemap.xml"), "utf8"));
+    const urls = new Set(root.map(({ url }) => url));
+    assert.equal(urls.size, root.length);
+    assert.ok(urls.has("https://bartek.lol/"));
+    for (const service of ["codebench", "docbench", "streambench", "weather", "shitpost"]) {
+      assert.ok(urls.has(`https://${service}.bartek.lol/`));
     }
+    assert.ok(urls.has("https://shitpost.bartek.lol/archive"));
+    assert.deepEqual(root.filter(({ url }) => url.startsWith("https://bartek.lol/przeglad/") &&
+      url !== "https://bartek.lol/przeglad/"), digests);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
-test("Atom snapshots advance and verified dates are preserved", () => {
-  const entries = [{ url: "https://bartek.lol/" }, { url: "https://bartek.lol/przeglad/1/", lastmod: "2026-11-01" }];
-  const date = "2026-11-15T00:00:00Z";
-  const variants = sitemapVariants(entries, date);
-  assert.ok(variants["sitemap-atom.xml"].includes(date));
-  assert.ok(variants["sitemap-atom.xml"].includes("2026-11-01T00:00:00.000Z"));
-  assert.match(variants["sitemap-rss.xml"], /<pubDate>Sun, 01 Nov 2026/);
+test("combined XML preserves URL escaping and latest supplied date", () => {
+  const loc = "<loc>https://bartek.lol/?a=1&amp;b=2</loc>";
+  const first = `<urlset><url>${loc}</url></urlset>`;
+  const second = `<urlset><url>${loc}<lastmod>2026-11-01</lastmod></url></urlset>`;
+  const combined = combineSitemaps(first, second);
+  assert.ok(combined.includes(loc));
+  assert.deepEqual(sitemapEntries(combined), [{
+    url: "https://bartek.lol/?a=1&b=2",
+    lastmod: "2026-11-01",
+  }]);
+  const foreign = first.replace("bartek.lol", "example.bartek.lol.evil.example");
+  assert.throws(() => combineSitemaps(foreign), /Foreign sitemap URL/);
 });

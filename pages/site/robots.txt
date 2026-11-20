@@ -43,10 +43,4 @@ User-agent: *
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 
-Sitemap: https://bartek.lol/sitemap-index.xml
 Sitemap: https://bartek.lol/sitemap.xml
-
-Sitemap: https://bartek.lol/przeglad/sitemap.xml
-Sitemap: https://bartek.lol/sitemap.txt
-Sitemap: https://bartek.lol/sitemap-atom.xml
-Sitemap: https://bartek.lol/sitemap-rss.xml

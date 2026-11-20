@@ -131,8 +131,7 @@ test("robots explicitly allow mainstream search and Mistral agents", async () =>
   assert.ok(wildcard[0].includes("Allow: /"));
   assert.ok(!wildcard[0].some(line => /^\s*disallow:/i.test(line)));
   assert.ok(wildcard[0].includes("Content-Signal: ai-train=yes, search=yes, ai-input=yes"));
-  assert.ok(robots.includes("Sitemap: https://bartek.lol/sitemap.xml"));
-  assert.ok(robots.includes("Sitemap: https://bartek.lol/przeglad/sitemap.xml"));
+  assert.deepEqual(robots.match(/^Sitemap:.*$/gm), ["Sitemap: https://bartek.lol/sitemap.xml"]);
 });
 
 

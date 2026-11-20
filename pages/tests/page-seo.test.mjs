@@ -145,10 +145,9 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   const links = tiles.map(match => new URL(match[1], site.url).href);
   assert.equal(site.mainEntity["@id"], list["@id"]);
   const creator = graph.find(node => node["@type"] === "Person" && node["@id"] === site.creator["@id"]);
-  const footer = html.match(/<footer>([\s\S]*?)<\/footer>/)[1].replace(/<!--[\s\S]*?-->/g, "");
-  const [, byline, profile] = footer.match(
-    /<span id="creator" lang="en">([^<]+)<a href="([^"]+)" rel="author">GitHub<\/a>\s*<\/span>/,
-  );
+  const footer = html.match(/<footer>([\s\S]*?)<\/footer>/)[1];
+  const bylineMarkup = /<!--[\s\S]*?-->|<span id="creator" lang="en">([^<]+)<a href="([^"]+)" rel="author">GitHub<\/a>\s*<\/span>/g;
+  const [, byline, profile] = [...footer.matchAll(bylineMarkup)].find(match => match[1]);
   assert.equal(creator.name, "Bartek");
   assert.equal(creator.url, site.url + "#creator");
   assert.ok(creator.alternateName.includes("travny"));

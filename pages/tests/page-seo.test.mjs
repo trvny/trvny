@@ -145,14 +145,16 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   const links = tiles.map(match => new URL(match[1], site.url).href);
   assert.equal(site.mainEntity["@id"], list["@id"]);
   const creator = graph.find(node => node["@type"] === "Person" && node["@id"] === site.creator["@id"]);
-  const footer = html.match(/<footer>[\s\S]*?<\/footer>/)[0];
+  const footer = html.match(/<footer>([\s\S]*?)<\/footer>/)[1].replace(/<!--[\s\S]*?-->/g, "");
+  const [, byline, profile] = footer.match(
+    /<span id="creator" lang="en">([^<]+)<a href="([^"]+)" rel="author">GitHub<\/a>\s*<\/span>/,
+  );
   assert.equal(creator.name, "Bartek");
   assert.equal(creator.url, site.url + "#creator");
+  assert.ok(creator.alternateName.includes("travny"));
   assert.deepEqual(creator.sameAs, ["https://github.com/trvny"]);
-  assert.ok(footer.includes('id="creator"'));
-  assert.ok(footer.includes(creator.name));
-  assert.ok(footer.includes(creator.description));
-  assert.ok(footer.includes(`href="${creator.sameAs[0]}"`));
+  assert.equal(byline.trim(), `${creator.name} · ${creator.description}`);
+  assert.equal(profile, creator.sameAs[0]);
   assert.deepEqual(list.itemListElement.map(entry => entry.item.url), links);
   assert.deepEqual(list.itemListElement.map(entry => entry.position), links.map((_, i) => i + 1));
   for (const [i, { item }] of list.itemListElement.entries()) {

@@ -1,6 +1,7 @@
 import { isStaticMarkdownPage, markdownPath, negotiateMarkdown, varyAccept, withMarkdownVary } from "./_shared/markdown.js";
 import { NAV_BODY, pageShellHead } from "./_shared/page-shell.js";
 import { serviceFetch, WEATHER_STATE_URL } from "./_shared/service-fetch.js";
+import { crossSiteSitemap } from "./_shared/cross-site-sitemap.js";
 
 const CHANNELS = [
   { id: "399697", no: "101", slug: "tvp1", tag: "TVP1", name: "TVP 1 HD" },
@@ -246,6 +247,9 @@ function withPreviewNoindex(response, hostname) {
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
+
+  const sitemap = await crossSiteSitemap(context, url);
+  if (sitemap) return sitemap;
 
   // Mirror the zone rule when a request reaches Functions directly.
   if (FEED_ALIAS_HOSTS.has(url.hostname) && url.pathname.startsWith("/f/")) {

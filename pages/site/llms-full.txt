@@ -58,6 +58,8 @@ Papagenerator adds meme stickers to local images and exports PNG in the browser.
 - Human index: https://travny.pages.dev/teksty/
 - Markdown index: https://travny.pages.dev/teksty/index.md
 - Tokenowy Mundial AI: https://travny.pages.dev/teksty/token-worldcup/
+- English benchmark report: https://travny.pages.dev/teksty/token-worldcup/en/
+- Exact benchmark corpus and counts: https://travny.pages.dev/teksty/token-worldcup/dataset.json
 - GitHubowa Kraina: https://travny.pages.dev/teksty/githubowa-kraina/
 - Grass Mud Horse (English / Polish in one article): https://travny.pages.dev/teksty/grass-mud-horse/
 - Main Atom feed (articles, CoCzyDziennik and Reactor entries): https://travny.pages.dev/teksty/feed.xml

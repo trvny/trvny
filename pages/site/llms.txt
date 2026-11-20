@@ -15,7 +15,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Badges](https://travny.pages.dev/badges/): ecosystem, bot, AI and live status/counter SVG badges with copyable Markdown/HTML; catalogue JSON at `/badge/index.json`
 - [Teksty](https://travny.pages.dev/teksty/) · [Markdown guide](https://travny.pages.dev/teksty/index.md): unified publication directory including CoCzyDziennik and Reactor
 - [CoCzyDziennik archive](https://travny.pages.dev/przeglad/): dated issue permalinks; publication feed remains under Teksty
-- [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): token-count comparison for equivalent text in 27 languages using `o200k_base`
+- [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): six tokenizer configurations on equivalent text in 27 languages · [English report](https://travny.pages.dev/teksty/token-worldcup/en/) · [dataset](https://travny.pages.dev/teksty/token-worldcup/dataset.json)
 - [GitHubowa Kraina](https://travny.pages.dev/teksty/githubowa-kraina/) · interactive atlas in PL, EN, RU or ZH · [English Markdown guide](https://travny.pages.dev/teksty/githubowa-kraina/index.md); [structured data](https://travny.pages.dev/teksty/githubowa-kraina/atlas.json) · [English infrastructure map](https://travny.pages.dev/teksty/githubowa-kraina/universe.html)
 - [Grass Mud Horse (English / Polish)](https://travny.pages.dev/teksty/grass-mud-horse/): one bilingual article about Chinese internet slang and censorship; switch PL / EN in-page
 

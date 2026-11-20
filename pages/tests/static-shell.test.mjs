@@ -6,10 +6,15 @@ import { join, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { STATIC_PAGES, staticPaths, renderStaticShell, staticHeaders, writeStaticShell } from "../scripts/build-static-shell.mjs";
 
+import { worldcupData, renderWorldcupPolish, renderWorldcupEnglish } from "../scripts/worldcup-seo.mjs";
+
 const root = new URL("../", import.meta.url);
 const stripShell = html => html.replace(/<!-- hub-shell:head:start -->[\s\S]*?<!-- hub-shell:head:end -->/, "")
   .replace(/<!-- hub-shell:body:start -->[\s\S]*?<!-- hub-shell:body:end -->/, "");
-const source = async page => stripShell(await readFile(new URL(page.source ?? "site/" + page.file, root), "utf8"));
+const source = async page => {
+  const html = stripShell(await readFile(new URL(page.source ?? "site/" + page.file, root), "utf8"));
+  return page.generatedFrom ? renderWorldcupEnglish(html) : html;
+};
 
 test("each real static HTML source receives one shared shell and preserves its content", async () => {
   for (const page of STATIC_PAGES) {
@@ -20,7 +25,7 @@ test("each real static HTML source receives one shared shell and preserves its c
     assert.equal(rendered.match(/src="\/assets\/nav.js"/g)?.length, 1, page.file);
     assert.equal(rendered.match(/src="\/assets\/webmcp.js"/g)?.length, 1, page.file);
     const original = stripShell(rendered);
-    assert.equal(original, html, page.file);
+    assert.equal(original, page.page === "token-worldcup" ? renderWorldcupPolish(html) : html, page.file);
     if (page.page === "papagenerator" || page.page === "token-worldcup") {
       assert.ok(rendered.includes('rel="canonical" href="https://travny.pages.dev' + page.path + '"'));
     }
@@ -43,6 +48,8 @@ test("build writes all documents and static headers; repeat build is stable", as
   }
   await writeStaticShell(dir);
   await writeStaticShell(dir);
+  const rows = worldcupData(await readFile(new URL("teksty/token-worldcup/index.html", dir), "utf8"));
+  assert.deepEqual(JSON.parse(await readFile(new URL("teksty/token-worldcup/dataset.json", dir), "utf8")), rows);
   const headers = await readFile(new URL("_headers", dir), "utf8");
   assert.equal(headers, staticHeaders());
   const blocks = new Map();
@@ -69,4 +76,25 @@ test("build writes all documents and static headers; repeat build is stable", as
   await writeFile(new URL("_headers", dir), "/manual\n  X-Example: keep\n");
   await assert.rejects(writeStaticShell(dir), /Refusing to overwrite/);
   assert.equal(await readFile(new URL("_headers", dir), "utf8"), "/manual\n  X-Example: keep\n");
+});
+
+test("worldcup exposes the same corpus in HTML, English report and Dataset schema", async () => {
+  const raw = await readFile(new URL("token-worldcup/token-worldcup.html", root), "utf8");
+  const rows = worldcupData(raw);
+  const pl = renderWorldcupPolish(raw), en = renderWorldcupEnglish(raw);
+  assert.equal(renderWorldcupPolish(pl), pl);
+  for (const row of rows) {
+    assert.ok(pl.includes('>' + row.name + '</td>'));
+    assert.ok(en.includes('>' + row.name + '</th>'));
+  }
+  for (const html of [pl,en]) {
+    assert.match(html, /"@type":"Article"/);
+    assert.match(html, /"@type":"Dataset"/);
+    assert.match(html, /dataset\.json/);
+  }
+  assert.equal((pl.match(/<tbody id="tableBody">[\s\S]*?<\/tbody>/)[0].match(/<tr>/g) || []).length, rows.length);
+  assert.equal((en.match(/<tbody>[\s\S]*?<\/tbody>/)[0].match(/<tr>/g) || []).length, rows.length);
+  const url = "https://travny.pages.dev/teksty/token-worldcup/en/";
+  assert.ok(en.includes('rel="canonical" href="' + url + '"'));
+  assert.ok((await readFile(new URL("site/sitemap.xml", root), "utf8")).includes("<loc>" + url + "</loc>"));
 });

@@ -43,9 +43,10 @@ User-agent: *
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 
-Sitemap: https://travny.pages.dev/sitemap.xml
+Sitemap: https://bartek.lol/sitemap-index.xml
+Sitemap: https://bartek.lol/sitemap.xml
 
-Sitemap: https://travny.pages.dev/przeglad/sitemap.xml
-Sitemap: https://travny.pages.dev/sitemap.txt
-Sitemap: https://travny.pages.dev/sitemap-atom.xml
-Sitemap: https://travny.pages.dev/sitemap-rss.xml
+Sitemap: https://bartek.lol/przeglad/sitemap.xml
+Sitemap: https://bartek.lol/sitemap.txt
+Sitemap: https://bartek.lol/sitemap-atom.xml
+Sitemap: https://bartek.lol/sitemap-rss.xml

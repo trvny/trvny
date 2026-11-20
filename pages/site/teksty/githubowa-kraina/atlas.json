@@ -446,7 +446,7 @@
         {
           "name": "TV player",
           "description": "Open the TVP channels from the TRAVNY hub.",
-          "url": "https://travny.pages.dev/tv/",
+          "url": "https://bartek.lol/tv/",
           "translations": {
             "pl": {
               "name": "Odtwarzacz TV",
@@ -522,7 +522,7 @@
         {
           "name": "Codebench",
           "description": "Generate, scan and export QR codes and barcodes in the browser.",
-          "url": "https://codebench.travny.workers.dev/",
+          "url": "https://codebench.bartek.lol/",
           "translations": {
             "pl": {
               "name": "Codebench",
@@ -541,7 +541,7 @@
         {
           "name": "Streambench",
           "description": "A local-first workshop for IPTV, radio, playlists and streams.",
-          "url": "https://streambench.travny.workers.dev/",
+          "url": "https://streambench.bartek.lol/",
           "translations": {
             "pl": {
               "name": "Streambench",
@@ -560,7 +560,7 @@
         {
           "name": "Docbench",
           "description": "Work with documents and PDFs locally in the browser.",
-          "url": "https://docbench.travny.workers.dev/",
+          "url": "https://docbench.bartek.lol/",
           "translations": {
             "pl": {
               "name": "Docbench",

@@ -2,7 +2,7 @@
 
 > Public hub for TVP IPTV, local weather, enhanced feeds, browser workbenches and small technical publications.
 
-Canonical site: https://travny.pages.dev/. The `trfny.com` alias redirects here; preview deployment aliases stay noindex.
+Canonical site: https://bartek.lol/. `travny.pages.dev` and `trfny.com` redirect here; preview deployment aliases stay noindex.
 
 TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub organization hosts companion projects. [GitHub profile](https://github.com/trvny) · [Organization](https://github.com/travnie).
 
@@ -12,24 +12,24 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
   and BBC Radio 1. Live tracks or programmes where available; station logos as
   fallback.
   Paradise metadata: `/api/radio-now`; other stations: `/api/radio-station?station=bbc1`.
-- [Bench Lab](https://travny.pages.dev/lab/): Streambench, Codebench and Docbench carousel.
-- [TVPI](https://travny.pages.dev/tv/): browser page for stable TVP IPTV entry points and playlists.
+- [Bench Lab](https://bartek.lol/lab/): Streambench, Codebench and Docbench carousel.
+- [TVPI](https://bartek.lol/tv/): browser page for stable TVP IPTV entry points and playlists.
 - [Weather](https://weather.travny.workers.dev/): multi-source local weather for Kościelec in Chrzanów.
 - [Feedseek](https://trvny.github.io/feedseek/): enhanced Atom/RSS directory, JSON Feed sidecars, OPML and Reader.
-- [Streambench](https://streambench.travny.workers.dev/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
-- [Codebench](https://codebench.travny.workers.dev/): local-first QR and barcode studio.
-- [Docbench](https://docbench.travny.workers.dev/): local-first document and PDF studio.
-- [Papagenerator](https://travny.pages.dev/papagenerator/): browser-only meme and PNG sticker editor, maintained in [trvny/trvny](https://github.com/trvny/trvny/tree/main/pages/papagenerator).
-- [Badges](https://travny.pages.dev/badges/): ecosystem, bot, AI and live
+- [Streambench](https://streambench.bartek.lol/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
+- [Codebench](https://codebench.bartek.lol/): local-first QR and barcode studio.
+- [Docbench](https://docbench.bartek.lol/): local-first document and PDF studio.
+- [Papagenerator](https://bartek.lol/papagenerator/): browser-only meme and PNG sticker editor, maintained in [trvny/trvny](https://github.com/trvny/trvny/tree/main/pages/papagenerator).
+- [Badges](https://bartek.lol/badges/): ecosystem, bot, AI and live
   status/counter SVG badges with copyable Markdown and HTML.
-- [Teksty](https://travny.pages.dev/teksty/): the unified publication directory for essays, experiments, CoCzyDziennik news editions and Reactor notes, including GitHubowa Kraina and Tokenowy Mundial AI.
+- [Teksty](https://bartek.lol/teksty/): the unified publication directory for essays, experiments, CoCzyDziennik news editions and Reactor notes, including GitHubowa Kraina and Tokenowy Mundial AI.
 
 ## Discovery
 
-- [Unified publications · Atom](https://travny.pages.dev/teksty/feed.xml): articles, CoCzyDziennik and editorial commentary
-- [Concise LLM guide](https://travny.pages.dev/llms.txt)
-- [Full LLM guide](https://travny.pages.dev/llms-full.txt)
-- [Sitemap](https://travny.pages.dev/sitemap.xml)
-- [Robots policy](https://travny.pages.dev/robots.txt)
-- [Web manifest](https://travny.pages.dev/site.webmanifest)
+- [Unified publications · Atom](https://bartek.lol/teksty/feed.xml): articles, CoCzyDziennik and editorial commentary
+- [Concise LLM guide](https://bartek.lol/llms.txt)
+- [Full LLM guide](https://bartek.lol/llms-full.txt)
+- [Sitemap](https://bartek.lol/sitemap.xml)
+- [Robots policy](https://bartek.lol/robots.txt)
+- [Web manifest](https://bartek.lol/site.webmanifest)
 - [Source](https://github.com/trvny/trvny/tree/main/pages)

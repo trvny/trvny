@@ -43,10 +43,13 @@ test("build writes all documents and static headers; repeat build is stable", as
   const dir = pathToFileURL(path + "/");
   await writeFile(new URL("_routes.json", dir), await readFile(new URL("site/_routes.json", root)));
   for (const page of STATIC_PAGES) {
+    if (page.generatedFrom) continue;
     await mkdir(dirname(join(path, page.file)), { recursive: true });
     await writeFile(new URL(page.file, dir), await source(page));
   }
+  await assert.rejects(readFile(new URL("teksty/token-worldcup/en/index.html", dir)), { code: "ENOENT" });
   await writeStaticShell(dir);
+  assert.match(await readFile(new URL("teksty/token-worldcup/en/index.html", dir), "utf8"), /AI Token Worldcup/);
   await writeStaticShell(dir);
   const rows = worldcupData(await readFile(new URL("teksty/token-worldcup/index.html", dir), "utf8"));
   assert.deepEqual(JSON.parse(await readFile(new URL("teksty/token-worldcup/dataset.json", dir), "utf8")), rows);

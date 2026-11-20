@@ -14,7 +14,7 @@ const SITES = {
 };
 
 const digestPath = /^pages\/astro\/src\/content\/digests\/(\d{4}-\d{2}-\d{2})\.md$/;
-const sitePath = /^pages\/(?:site\/|astro\/|papagenerator\/|functions\/|token-worldcup\/|scripts\/(?:sitemap-variants|build-badge-previews|build-static-shell)\.mjs$|build\.sh$)/;
+const sitePath = /^pages\/(?:site\/|astro\/|papagenerator\/|functions\/|token-worldcup\/|scripts\/(?:sitemap-variants|build-badge-previews|build-static-shell|worldcup-seo)\.mjs$|build\.sh$)/;
 
 function digestUrls(date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw Error('Invalid digest date');
@@ -27,7 +27,10 @@ function hubUrls(paths, sitemap, previousSitemap = '', digestFiles = []) {
   for (const path of paths) {
     const digest = digestPath.exec(path);
     if (digest) digestUrls(digest[1]).forEach(url => urls.add(url));
-    else if (path.startsWith('pages/token-worldcup/')) urls.add(HUB + '/teksty/token-worldcup/');
+    else if (path.startsWith('pages/token-worldcup/') || path === 'pages/scripts/worldcup-seo.mjs') {
+      urls.add(HUB + '/teksty/token-worldcup/');
+      urls.add(HUB + '/teksty/token-worldcup/en/');
+    }
     else if (sitePath.test(path)) shared = true;
   }
   // Shared builds affect static routes and generated digest permalinks.

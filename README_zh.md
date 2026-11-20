@@ -31,12 +31,7 @@
 ## 🔀 开放的拉取请求
 
 <!--OPEN_PRS:START-->
-| 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#628](https://github.com/trvny/feedseek/pull/628) | fix: abort impersonated HTML transfers at byte cap | @trvny | 就绪 | 2026-11-17 |
-| trvny/trvny | [#1461](https://github.com/trvny/trvny/pull/1461) | feat(kanarek): manage manual Workflow lifecycle from review DO | @trvny | 就绪 | 2026-11-17 |
-| trvny/trvny | [#1462](https://github.com/trvny/trvny/pull/1462) | feat(kanarek): persist paid review reservation and single-submission receipt | @trvny | 草稿 | 2026-11-17 |
-| trvny/trvny | [#1478](https://github.com/trvny/trvny/pull/1478) | feat(digest): illustrated magazine layouts | @trvny | 就绪 | 2026-11-17 |
+没有开放的拉取请求。🎉
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
@@ -94,19 +89,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝Imagination is eye of the soul. — Anonymous❞</i>
+<i>❝Study me as much as you like, you will not know me, for I differ in a hundred ways from what you see me to be. Put yourself behind my eyes and see me as I see myself, for I have chosen to dwell in a place you cannot see. — Rumi❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 最近播报
 
 <!--README_FEED:START-->
-- [Apple ma ogromne problemy. Nie działają kluczowe usługi](https://antyweb.pl/apple-ma-ogromne-problemy-nie-dzialaja-kluczowe-uslugi)
-- [Instagram Live z OBS bez rozciągniętej gry. Pionowy układ 9:16 krok po kroku](https://promptowy.com/instagram-live-obs-pion-9-16/)
-- [Gemini 4 Carbon: API, cena i czy jest za darmo \(Python, curl, OpenRouter\)](https://promptowy.com/gemini-4-carbon-api-cena/)
-- [Co umie Gemini 4 Carbon: 12 zadań z promptami i wynikami](https://promptowy.com/gemini-4-carbon-co-umie/)
-- [Gemini 4 Hydrogen za darmo: gdzie działa bez płacenia, limity, API i plany w Polsce](https://promptowy.com/gemini-4-hydrogen-za-darmo/)
-- [Gemini czy ChatGPT? Gemini 4 Hydrogen kontra GPT-6.2 Sol - test 7 zadań po polsku](https://promptowy.com/gemini-vs-chatgpt-hydrogen-vs-gpt-6-2-sol/)
+- [Like A Complete \(Known\) Unknown? A Brief History of Nuclear Weaponization](https://carnegieendowment.org/research/2026/11/a-brief-history-of-nuclear-weaponization)
+- [Ranking graczy GTA 6: top 50 według procentu ukończenia - PSN, Xbox i checklista](https://promptowy.com/gta-6-ranking-graczy/)
+- [Quiz GTA 6: wyzwanie dnia i 7 quizów - mapa, auta, 100%, Miami, postacie](https://promptowy.com/gta-6-quiz/)
+- [Quiz: prawdziwe Miami czy Leonida z GTA 6? Zgadnij po zdjęciu](https://promptowy.com/gta-6-quiz-miami-czy-leonida/)
+- [Quiz GTA 6: czy zrobisz 100%? 12 pytań o progi, kolekcje i trofea](https://promptowy.com/gta-6-quiz-100-procent/)
+- [Quiz GTA: ile wiesz o serii Grand Theft Auto? 15 pytań od 1997 roku](https://promptowy.com/quiz-gta/)
 <!--README_FEED:END-->
 
 <div align="center">

@@ -151,7 +151,7 @@ export const STATUS = {
   kanarek: { url: "https://kanarek.travny.workers.dev/health", ok: (body) => JSON.parse(body).ok === true },
   tvpi: { url: TVPI, ok: (body) => body.includes("#EXTINF") },
   feedseek: { url: FEEDSEEK, ok: (body) => body.includes("data-search=") },
-  docbench: { url: "https://docbench.travny.workers.dev/", ok: () => true },
+  docbench: { url: "https://docbench.bartek.lol/", ok: () => true },
   hub: { url: "https://bartek.lol/", ok: () => true },
 };
 

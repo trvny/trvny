@@ -1,6 +1,6 @@
 import type { Env, TelegramReply } from "./types";
 
-const RADIO_NOW_URL = "https://travny.pages.dev/api/radio-now";
+const RADIO_NOW_URL = "https://bartek.lol/api/radio-now";
 const METADATA_MAX_BYTES = 8 * 1024;
 const MAX_TEXT = 200;
 const COVER_HOST = "img.radioparadise.com";

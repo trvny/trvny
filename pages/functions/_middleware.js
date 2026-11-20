@@ -249,7 +249,9 @@ export async function onRequest(context) {
   // Permanent, path- and query-preserving move. 301 (not 302) is what lets
   // Search Console transfer ranking signals to the new host; Google asks for
   // these redirects to stay up at least a year after the move.
-  if (REDIRECT_HOSTS.has(url.hostname)) {
+  // Existing clients reject redirects and depend on the original API responses.
+  const legacyApi = url.hostname === "travny.pages.dev" && url.pathname.startsWith("/api/");
+  if (REDIRECT_HOSTS.has(url.hostname) && !legacyApi) {
     url.protocol = "https:";
     url.hostname = CANONICAL_HOST;
     url.port = "";

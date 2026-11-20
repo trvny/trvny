@@ -4,7 +4,7 @@
 
 ## Reactor
 
-- [Latest editorial note](https://shitpost-reactor.travny.workers.dev/): the newest Reactor entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
+- [Latest editorial note](https://shitpost.bartek.lol/): the newest Reactor entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
 
 ## CoCzyDziennik
 

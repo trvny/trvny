@@ -137,7 +137,7 @@
     setAttr('#trvny-nav-toggle', 'aria-label', nav[0]);
     setAttr('#trvny-nav-close', 'aria-label', nav[1]);
     setAttr('#trvny-nav-drawer', 'aria-label', nav[2]);
-    const groupLabels = { '/': nav[3], 'https://weather.travny.workers.dev/': nav[4], '/lab/': nav[5], '/teksty/': nav[6] };
+    const groupLabels = { '/': nav[3], 'https://weather.bartek.lol/': nav[4], '/lab/': nav[5], '/teksty/': nav[6] };
     document.querySelectorAll('.trvny-nav-group').forEach(group => {
       const label = group.querySelector('.trvny-nav-label');
       const href = group.querySelector('a')?.getAttribute('href');
@@ -147,7 +147,7 @@
     navText('#trvny-nav-drawer a[href="/"]', nav[7]);
     set('#trvny-nav-drawer a[href="/"] small', nav[8]);
     set('#trvny-nav-drawer a[href="/tv/"] small', nav[9]);
-    navText('#trvny-nav-drawer a[href="https://weather.travny.workers.dev/"]', nav[10]);
+    navText('#trvny-nav-drawer a[href="https://weather.bartek.lol/"]', nav[10]);
     navText('#trvny-nav-drawer a[href="https://trvny.github.io/feedseek/"]', nav[11]);
     set('#trvny-nav-drawer a[href="/badges/"] small', nav[12]);
     navText('#trvny-nav-drawer a[href="/teksty/"]', nav[13]);

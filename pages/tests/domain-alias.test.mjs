@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { onRequest } from "../functions/_middleware.js";
 
-test("custom domain aliases redirect to the durable hub or Feedseek", async () => {
+test("custom domain aliases redirect to the durable hub", async () => {
   for (const origin of ["https://travny.pages.dev", "https://trfny.com", "https://www.trfny.com", "http://trfny.com", "https://www.bartek.lol"]) {
     for (const [path, target] of [
       ["/", "https://bartek.lol/"],
@@ -12,10 +12,6 @@ test("custom domain aliases redirect to the durable hub or Feedseek", async () =
       ["/tv/?channel=tvp1", "https://bartek.lol/tv/?channel=tvp1"],
       ["/llms.txt", "https://bartek.lol/llms.txt"],
       ["//example.com/path", "https://bartek.lol//example.com/path"],
-      ["/feeds", "https://trvny.github.io/feedseek/"],
-      ["/feeds/reader/?test=1", "https://trvny.github.io/feedseek/reader/?test=1"],
-      ["/f/", "https://trvny.github.io/feedseek/"],
-      ["/f/example.xml?q=a%26b", "https://trvny.github.io/feedseek/example.xml?q=a%26b"],
     ]) {
       for (const method of ["GET", "HEAD"]) {
         const result = await onRequest({
@@ -49,4 +45,23 @@ test("legacy Pages API clients still receive the original response", async () =>
     next: async () => original,
   });
   assert.equal(result, original);
+});
+
+
+test("only the original trfny.com short links route to Feedseek", async () => {
+  for (const host of ["trfny.com", "www.trfny.com"]) {
+    const result = await onRequest({
+      request: new Request(`https://${host}/f/example.xml?q=a%26b`),
+      next: () => { throw new Error("alias must redirect"); },
+    });
+    assert.equal(result.headers.get("location"), "https://trvny.github.io/feedseek/example.xml?q=a%26b");
+  }
+  for (const path of ["/feeds", "/feeds/reader/", "/f/example.xml"]) {
+    const original = new Response("Not found", { status: 404 });
+    const result = await onRequest({
+      request: new Request("https://bartek.lol" + path),
+      next: async () => original,
+    });
+    assert.equal(result, original);
+  }
 });

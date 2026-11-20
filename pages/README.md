@@ -39,8 +39,11 @@ Keep dynamic HTML,
 discovery, feeds, redirects and APIs in middleware. Avoid broad
 extension globs: dynamic SVG badges and JSON routes share those extensions.
 Cloudflare redirects `travny.pages.dev`, `www.bartek.lol`, `trfny.com` and
-`www.trfny.com` to `bartek.lol`, path/query kept. Feedseek aliases and
-legacy cross-site sitemap exceptions keep their own routing.
+`www.trfny.com` to `bartek.lol`, path/query kept. Feedseek lives at `rss.bartek.lol`. Legacy `trfny.com/f/*` and cross-site
+sitemap exceptions keep their routing.
+
+Domain property: `/sitemap-cross-site.xml` collects Hub, digest, Bench, Weather
+and Reactor maps. `/sitemap-index.xml` covers apex routes.
 Keep this rule while static paths bypass middleware. `tvpi.pages.dev` uses
 its own Pages project. Cloudflare Pages defaults to `X-Robots-Tag: noindex`
 for preview deployments, independent of middleware.

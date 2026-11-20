@@ -33,7 +33,7 @@ function createPage(savedLanguage = null, browserLanguages = ['pl-PL'], options 
     return elements.get(selector);
   };
   get('#atlas-schema').textContent = JSON.stringify({ name: 'GitHubowa Kraina', url: 'canonical' });
-  const navGroups = ['/', 'https://weather.travny.workers.dev/', '/lab/', '/teksty/'].map(href => {
+  const navGroups = ['/', 'https://weather.bartek.lol/', '/lab/', '/teksty/'].map(href => {
     const group = new Element();
     const label = new Element();
     const anchor = new Element('a');

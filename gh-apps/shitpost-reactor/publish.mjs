@@ -59,10 +59,13 @@ export async function main() {
   });
   process.stdout.write(`published: ${result.url}\n`);
   // Optional publication notification; never invalidate a successful publish.
-  if (process.env.GITHUB_OUTPUT && typeof result.url === 'string') {
+  if (process.env.GITHUB_OUTPUT) {
     try {
-      const urls = JSON.stringify([PUBLIC_ORIGIN + '/', PUBLIC_ORIGIN + '/archive', result.url]);
-      await appendFile(process.env.GITHUB_OUTPUT, `indexnow_urls=${urls}\n`);
+      const urls = [PUBLIC_ORIGIN + '/', PUBLIC_ORIGIN + '/archive'];
+      if (typeof result.id === 'string' && /^gh-\d+-\d+$/u.test(result.id)) {
+        urls.push(`${PUBLIC_ORIGIN}/posts/${result.id}`);
+      }
+      await appendFile(process.env.GITHUB_OUTPUT, `indexnow_urls=${JSON.stringify(urls)}\n`);
     } catch {
       process.stderr.write('IndexNow output unavailable\n');
     }

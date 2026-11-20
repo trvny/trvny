@@ -11,7 +11,7 @@ Source: https://bartek.lol/
 - Legacy Pages host: https://tvpi.pages.dev/ — permanently redirects to the canonical host while preserving path and query.
 - Repository: https://github.com/trvny/trvny/tree/main/pages
 - TVPI Worker repository: https://github.com/trvny/tvpi
-- Creator identity: TRAVNY; aliases trvny, travny, trfny, trafny.
+- Creator: Bartek (TRAVNY / trvny / travny / trfny / trafny).
 - GitHub identity: https://github.com/trvny ; related organization travnie: https://github.com/travnie
 - Project source maps: https://github.com/trvny/trvny ; https://github.com/travnie/twojstar ; https://github.com/trvny/feedseek
 

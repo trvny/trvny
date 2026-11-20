@@ -1,6 +1,12 @@
-// Derived from Quarto's embedded benchmark data. Never maintain a second corpus.
+import { readFile } from "node:fs/promises";
+
+// Corpus from Quarto. Creator identity from the hub.
 const BASE = "https://bartek.lol/teksty/token-worldcup/";
-const CREATOR = "https://bartek.lol/#creator";
+const hub = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+const graph = JSON.parse(hub.match(/<script type="application\/ld\+json">([^<]+)<\/script>/)[1])["@graph"];
+const website = graph.find(node => node["@type"] === "WebSite");
+const creator = graph.find(node => node["@type"] === "Person" && node["@id"] === website?.creator?.["@id"]);
+if (!creator) throw new Error("Hub creator missing");
 const MODELS = [
   ["GPT-5 (o200k_base)", "tokens"], ["Claude Opus 5.5", "claude_tokens"],
   ["DeepSeek V4.1", "deepseek_tokens"], ["cl100k_base", "cl100k_tokens"],
@@ -41,10 +47,10 @@ function metadata(rows, english) {
   return '<script type="application/ld+json">' + json({
     "@context": "https://schema.org", "@graph": [
       { "@type": "Article", "@id": url + "#article", headline, description, url,
-        mainEntityOfPage: url, inLanguage: english ? "en" : "pl", author: { "@id": CREATOR, "@type": "Person", name: "TRAVNY" }, about: { "@id": dataset } },
+        mainEntityOfPage: url, inLanguage: english ? "en" : "pl", author: creator, about: { "@id": dataset } },
       { "@type": "Dataset", "@id": dataset, name: "AI Token Worldcup benchmark corpus and token counts",
         description: "Equivalent natural-language samples, exact texts, and token counts for six tokenizer configurations.",
-        url: BASE, creator: { "@id": CREATOR, "@type": "Person", name: "TRAVNY" },
+        url: BASE, creator,
         variableMeasured: MODELS.map(([name]) => name + " token count"),
         distribution: { "@type": "DataDownload", encodingFormat: "application/json", contentUrl: dataset } },
     ],

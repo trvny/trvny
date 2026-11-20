@@ -26,7 +26,7 @@ test("Astro Lab canonical URLs and discovery routes agree", async () => {
     await readFile(new URL("../site/llms-full.txt", import.meta.url), "utf8"),
   ];
   const lab = await readFile(new URL("../astro/dist/lab/index.html", import.meta.url), "utf8");
-  const labUrl = "https://travny.pages.dev/lab/";
+  const labUrl = "https://bartek.lol/lab/";
   assert.ok(lab.includes(`<link rel="canonical" href="${labUrl}"`), "canonical missing: /lab/");
   assert.ok(lab.includes(`<meta property="og:url" content="${labUrl}"`), "OG URL missing: /lab/");
   assert.match(lab, /<html lang="en">/);
@@ -35,7 +35,7 @@ test("Astro Lab canonical URLs and discovery routes agree", async () => {
   assert.ok(guides[1].split(/\r?\n/).some(line => line.trimEnd().endsWith(labUrl)), "full LLM guide missing: /lab/");
 
   // Field notes: working notebook, linked from the lab but not indexed or advertised.
-  const notesUrl = "https://travny.pages.dev/lab/field-notes/";
+  const notesUrl = "https://bartek.lol/lab/field-notes/";
   const notes = await readFile(new URL("../astro/dist/lab/field-notes/index.html", import.meta.url), "utf8");
   assert.match(notes, /<meta name="robots" content="noindex,follow"/);
   assert.ok(!notes.includes('rel="canonical"'), "noindex page must not declare a canonical");
@@ -48,9 +48,9 @@ test("breadcrumb trails reflect the public page hierarchy", () => {
   const schema = crumbs("/teksty/grass-mud-horse/");
   assert.equal(schema["@type"], "BreadcrumbList");
   assert.deepEqual(schema.itemListElement.map(({ position, name, item }) => [position, name, item]), [
-    [1, "TRAVNY", "https://travny.pages.dev/"],
-    [2, "Teksty", "https://travny.pages.dev/teksty/"],
-    [3, "Alpaka, krab i Wielki Harmonizator", "https://travny.pages.dev/teksty/grass-mud-horse/"],
+    [1, "TRAVNY", "https://bartek.lol/"],
+    [2, "Teksty", "https://bartek.lol/teksty/"],
+    [3, "Alpaka, krab i Wielki Harmonizator", "https://bartek.lol/teksty/grass-mud-horse/"],
   ]);
 });
 
@@ -63,7 +63,7 @@ test("canonicalized route aliases share one trail", () => {
 });
 
 test("effort matrix is noindex with a distinct breadcrumb", async () => {
-  const url = "https://travny.pages.dev/teksty/token-worldcup/effort-matrix";
+  const url = "https://bartek.lol/teksty/token-worldcup/effort-matrix";
   const tags = pageSeoHead("/teksty/token-worldcup/effort-matrix");
   assert.equal(tags, pageSeoHead("/teksty/token-worldcup/effort-matrix.html"));
   assert.ok(tags.includes('<meta name="robots" content="noindex,follow">'));
@@ -131,8 +131,8 @@ test("robots explicitly allow mainstream search and Mistral agents", async () =>
   assert.ok(wildcard[0].includes("Allow: /"));
   assert.ok(!wildcard[0].some(line => /^\s*disallow:/i.test(line)));
   assert.ok(wildcard[0].includes("Content-Signal: ai-train=yes, search=yes, ai-input=yes"));
-  assert.ok(robots.includes("Sitemap: https://travny.pages.dev/sitemap.xml"));
-  assert.ok(robots.includes("Sitemap: https://travny.pages.dev/przeglad/sitemap.xml"));
+  assert.ok(robots.includes("Sitemap: https://bartek.lol/sitemap.xml"));
+  assert.ok(robots.includes("Sitemap: https://bartek.lol/przeglad/sitemap.xml"));
 });
 
 

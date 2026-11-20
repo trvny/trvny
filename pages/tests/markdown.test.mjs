@@ -13,7 +13,7 @@ test("explicit Markdown preference only; honor q values and wildcard fallback", 
 
 test("negotiate only known public guides and preserve HEAD semantics", async () => {
   const calls = [];
-  const request = (path, method = "GET") => new Request("https://travny.pages.dev" + path, {
+  const request = (path, method = "GET") => new Request("https://bartek.lol" + path, {
     method, headers: { accept: "text/markdown" },
   });
   const env = { ASSETS: { fetch: async req => {
@@ -36,7 +36,7 @@ test("negotiate only known public guides and preserve HEAD semantics", async () 
 import { onRequest } from "../functions/_middleware.js";
 
 test("atlas variants negotiate Markdown without rewriting pre-rendered HTML", async () => {
-  const origin = "https://travny.pages.dev";
+  const origin = "https://bartek.lol";
   for (const suffix of ["", "/", "/index.html"]) {
     const path = "/teksty/githubowa-kraina" + suffix;
     const env = { ASSETS: { fetch: async req => {
@@ -56,7 +56,7 @@ test("atlas variants negotiate Markdown without rewriting pre-rendered HTML", as
 
 
 test("failed Markdown asset fetch falls back to HTML", async () => {
-  const request = new Request("https://travny.pages.dev/teksty/githubowa-kraina/", { headers: { accept: "text/markdown" } });
+  const request = new Request("https://bartek.lol/teksty/githubowa-kraina/", { headers: { accept: "text/markdown" } });
   const env = { ASSETS: { fetch: async () => { throw new Error("asset unavailable"); } } };
   const response = await onRequest({ request, env, next: async () => new Response("<html>fallback</html>") });
   assert.equal(await response.text(), "<html>fallback</html>");

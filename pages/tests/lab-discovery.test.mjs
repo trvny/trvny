@@ -7,11 +7,11 @@ test("Lab provides visible tool descriptions and one discoverable privacy policy
     "../astro/dist/lab/index.html", "../astro/dist/lab/privacy/index.html",
     "../site/sitemap.xml", "../site/llms.txt", "../site/llms-full.txt",
   ].map(path => readFile(new URL(path, import.meta.url), "utf8")));
-  const url = "https://travny.pages.dev/lab/privacy/";
+  const url = "https://bartek.lol/lab/privacy/";
   for (const [id, tool] of [["streambench", "Streambench"], ["codebench", "Codebench"], ["docbench", "Docbench"]]) {
     assert.ok(lab.includes('id="' + id + '"'));
     assert.ok(lab.includes(tool));
-    assert.ok([...lab.matchAll(/href="([^"]+)"/g)].some(([, href]) => href === "https://" + id + ".travny.workers.dev/"));
+    assert.ok([...lab.matchAll(/href="([^"]+)"/g)].some(([, href]) => href === "https://" + id + ".bartek.lol/"));
   }
   assert.match(lab, /Open local M3U\/M3U8 playlists/);
   assert.match(lab, /Scan images from local files or a supported camera/);

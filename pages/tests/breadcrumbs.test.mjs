@@ -19,8 +19,8 @@ test('Astro pages publish breadcrumb trails matching their canonical paths', asy
     assert.equal(data['@type'], 'BreadcrumbList');
     const crumbs = data.itemListElement;
     assert.deepEqual(crumbs.map((item) => item.position), crumbs.map((_, i) => i + 1));
-    assert.equal(crumbs[0].item, 'https://travny.pages.dev/');
-    assert.equal(crumbs.at(-1).item, `https://travny.pages.dev/${path}`);
+    assert.equal(crumbs[0].item, 'https://bartek.lol/');
+    assert.equal(crumbs.at(-1).item, `https://bartek.lol/${path}`);
     const nav = html.match(/<nav class="crumb"[^>]*>(.*?)<\/nav>/)?.[1];
     assert.ok(nav, `${path}: missing visible breadcrumb`);
     const visible = [...nav.matchAll(/<(a|span)\b([^>]*)>([^<]*)<\/(?:a|span)>/g)];
@@ -34,7 +34,7 @@ test('Astro pages publish breadcrumb trails matching their canonical paths', asy
         assert.equal(tag, 'a');
         const href = attributes.match(/href="([^"]+)"/)?.[1];
         assert.ok(href);
-        assert.equal(new URL(decode(href), 'https://travny.pages.dev').href, crumbs[index].item);
+        assert.equal(new URL(decode(href), 'https://bartek.lol').href, crumbs[index].item);
       }
     }
   }

@@ -8,7 +8,7 @@ const context = (path, method = "GET", env = {}) => ({
   request: new Request(origin + path, { method }), env,
   next: () => { throw new Error("Unexpected middleware fallback"); },
 });
-const content = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://travny.pages.dev/</loc></url></urlset>';
+const content = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://bartek.lol/</loc></url></urlset>';
 const source = () => new Response(content, { headers: { "content-type": "application/xml" } });
 
 test("index served directly on verified apex, GET and HEAD", async () => {
@@ -48,7 +48,7 @@ test("upstream failure stays retryable, and non-map routes fall through", async 
   assert.equal(res.headers.get("cache-control"), "no-store");
   const redirect = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () => Response.redirect("https://example.com/"));
   assert.equal(redirect.status, 503);
-  for (const url of ["https://www.trfny.com/sitemap-cross-site.xml", "https://travny.pages.dev/sitemap-cross-site.xml", origin + "/sitemaps/unknown.xml"]) {
+  for (const url of ["https://www.trfny.com/sitemap-cross-site.xml", "https://bartek.lol/sitemap-cross-site.xml", origin + "/sitemaps/unknown.xml"]) {
     assert.equal(await crossSiteSitemap(ctx, new URL(url)), null);
   }
   const post = context("/sitemap-cross-site.xml", "POST");

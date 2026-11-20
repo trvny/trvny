@@ -28,11 +28,11 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   assert.equal(list.tool.execute({ query: "feedy" }).destinations[0].label, "Feedy");
   assert.equal(assigned.length, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(tools.get("get_travny_agent_resources").tool.execute().resources)), [
-    { name: "Concise guide", url: "https://travny.pages.dev/llms.txt" },
-    { name: "Full guide", url: "https://travny.pages.dev/llms-full.txt" },
-    { name: "Publications", url: "https://travny.pages.dev/teksty/feed.xml" },
-    { name: "Project atlas", url: "https://travny.pages.dev/teksty/githubowa-kraina/atlas.json" },
-    { name: "Sitemap", url: "https://travny.pages.dev/sitemap.xml" },
+    { name: "Concise guide", url: "https://bartek.lol/llms.txt" },
+    { name: "Full guide", url: "https://bartek.lol/llms-full.txt" },
+    { name: "Publications", url: "https://bartek.lol/teksty/feed.xml" },
+    { name: "Project atlas", url: "https://bartek.lol/teksty/githubowa-kraina/atlas.json" },
+    { name: "Sitemap", url: "https://bartek.lol/sitemap.xml" },
   ]);
   assert.equal(tools.get("open_travny_destination").tool.execute({ destination: "unknown" }).ok, false);
   assert.equal(tools.get("open_travny_destination").tool.execute({ destination: "Feedy" }).ok, true);

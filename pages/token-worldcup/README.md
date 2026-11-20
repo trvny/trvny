@@ -2,7 +2,7 @@
 
 [![Quarto CI](https://github.com/trvny/trvny/actions/workflows/quarto.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/quarto.yml) [![Quarto](https://img.shields.io/badge/Quarto-39729E?style=flat-square&logo=quarto&logoColor=white)](https://quarto.org/) [![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
-[Token Worldcup](https://travny.pages.dev/teksty/token-worldcup/) measures tokens for **the same facts in 27 languages**. English = 100 per tokenizer. This is tokenizer overhead, **not** a language-quality or model ranking.
+[Token Worldcup](https://bartek.lol/teksty/token-worldcup/) measures tokens for **the same facts in 27 languages**. English = 100 per tokenizer. This is tokenizer overhead, **not** a language-quality or model ranking.
 
 ## Source of truth
 

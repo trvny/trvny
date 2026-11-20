@@ -32,7 +32,7 @@ export async function crossSiteSitemap(context, url, fetchImpl = fetch) {
   try {
     const response = source.asset
       ? await context.env.ASSETS.fetch(new URL(source.asset, ORIGIN).href)
-      : await fetchImpl(source.url, { redirect: "error", signal: AbortSignal.timeout(5000) });
+      : await fetchImpl(source.url, { redirect: "manual", signal: AbortSignal.timeout(5000) });
     if (!response.ok || !/^(?:application|text)\/xml(?:;|$)/i.test(response.headers.get("content-type") || "")) {
       throw new Error("Sitemap unavailable");
     }

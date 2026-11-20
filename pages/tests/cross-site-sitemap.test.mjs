@@ -35,7 +35,7 @@ test("Feedseek mirror has fixed upstream and preserves response", async () => {
   const ctx = context("/sitemaps/feedseek.xml?url=https://example.com/");
   const res = await crossSiteSitemap(ctx, new URL(ctx.request.url), async (url, options) => {
     assert.equal(url, "https://trvny.github.io/feedseek/sitemap.xml");
-    assert.equal(options.redirect, "error");
+    assert.equal(options.redirect, "manual");
     return source();
   });
   assert.equal(await res.text(), content);
@@ -46,6 +46,8 @@ test("upstream failure stays retryable, and non-map routes fall through", async 
   const res = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () => new Response("not xml"));
   assert.equal(res.status, 503);
   assert.equal(res.headers.get("cache-control"), "no-store");
+  const redirect = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () => Response.redirect("https://example.com/"));
+  assert.equal(redirect.status, 503);
   for (const url of ["https://www.trfny.com/sitemap-cross-site.xml", "https://travny.pages.dev/sitemap-cross-site.xml", origin + "/sitemaps/unknown.xml"]) {
     assert.equal(await crossSiteSitemap(ctx, new URL(url)), null);
   }

@@ -19,9 +19,12 @@ test('shared site changes select static canonical routes', () => {
   assert.deepEqual(hubUrls(['pages/site/assets/app.js'], home, home + removed), [
     'https://travny.pages.dev/', 'https://travny.pages.dev/old/',
   ]);
-  assert.deepEqual(hubUrls(['pages/token-worldcup/token-worldcup.html'], home), [
-    'https://travny.pages.dev/teksty/token-worldcup/',
-  ]);
+  for (const path of ['pages/token-worldcup/token-worldcup.html', 'pages/scripts/worldcup-seo.mjs']) {
+    assert.deepEqual(hubUrls([path], home), [
+      'https://travny.pages.dev/teksty/token-worldcup/',
+      'https://travny.pages.dev/teksty/token-worldcup/en/',
+    ]);
+  }
 });
 
 test('shared layouts include tracked digest routes and prefixed sitemap routes', () => {

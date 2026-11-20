@@ -12,6 +12,10 @@
     {
       "pattern": "shitpost.trfny.com",
       "custom_domain": true
+    },
+    {
+      "pattern": "shitpost.bartek.lol",
+      "custom_domain": true
     }
   ],
   "r2_buckets": [

@@ -39,13 +39,13 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 
 ## Public endpoints
 
-- `https://shitpost-reactor.travny.workers.dev/` — latest entries with feed autodiscovery;
-- `https://shitpost-reactor.travny.workers.dev/archive` — all R2 posts, newest first, in stable 25-entry cursor pages backed by the same complete index used by the feed;
-- `https://shitpost-reactor.travny.workers.dev/rss.xml` — RSS 2.0;
-- `https://shitpost-reactor.travny.workers.dev/feed.xml` — RSS compatibility alias;
-- `https://shitpost-reactor.travny.workers.dev/atom.xml` — Atom 1.0;
-- `https://shitpost-reactor.travny.workers.dev/feed.json` — JSON Feed 1.1;
-- `https://shitpost-reactor.travny.workers.dev/sitemap.xml`, `/robots.txt` and
+- `https://shitpost.bartek.lol/` — latest entries with feed autodiscovery;
+- `https://shitpost.bartek.lol/archive` — all R2 posts, newest first, in stable 25-entry cursor pages backed by the same complete index used by the feed;
+- `https://shitpost.bartek.lol/rss.xml` — RSS 2.0;
+- `https://shitpost.bartek.lol/feed.xml` — RSS compatibility alias;
+- `https://shitpost.bartek.lol/atom.xml` — Atom 1.0;
+- `https://shitpost.bartek.lol/feed.json` — JSON Feed 1.1;
+- `https://shitpost.bartek.lol/sitemap.xml`, `/robots.txt` and
   `/llms.txt` — crawler and agent discovery; sitemap lists only home and
   archive, independent of post count; individual posts remain reachable through
   archives and feeds;
@@ -54,7 +54,7 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 - `/posts/gh-<run_id>-<run_attempt>` — stable canonical page for each published entry;
 - `/version` — public deployed commit SHA (or `unknown` for a manual release without the marker).
 
-Public URLs and the fixed OIDC audience live in `urls.mjs`; the workflow uses the publisher defaults. The audience remains `https://shitpost.trfny.com` as an authentication identifier, independent of DNS. Existing stored records are never rewritten: their original URLs remain RSS GUIDs, Atom entry IDs and JSON Feed item IDs. The Atom feed-level ID also stays unchanged. Links, canonicals, structured data, discovery and deployment probes use the durable Workers origin. New posts receive durable URLs and IDs.
+Public URLs and the fixed OIDC audience live in `urls.mjs`; the workflow uses the publisher defaults. The audience remains `https://shitpost.trfny.com` as an authentication identifier, independent of DNS. Existing stored records are never rewritten: their original URLs remain RSS GUIDs, Atom entry IDs and JSON Feed item IDs. The Atom feed-level ID also stays unchanged. Public links, canonicals, structured data and discovery use `shitpost.bartek.lol`. Stored entry identifiers use the Workers origin.
 
 RSS, Atom and JSON Feed expose stable entry IDs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker maintains one complete R2 `index.json` array manifest ordered newest-first (with completeness recorded in R2 custom metadata, keeping the JSON readable by older Worker versions). Feeds still read up to 50 entries and the homepage shows up to 20. `/archive` reads just 25 post bodies per page and uses a stable last-post cursor, with Older, Newer and Newest links. Publishing a new post does not shift subsequent pages. The previous index format retained only 250 posts; its entries are reconciled with canonical R2 object metadata on a legacy archive read (read-only) and permanently migrated on the next authenticated publish. Authenticated publishes also reconcile the canonical post objects, recovering entries if a prior index write failed. Once migrated, archive requests never scan the full bucket. Browser Back works, and the archive header still omits the descriptive subtitle.
 
@@ -66,7 +66,7 @@ Archive index updates use conditional ETag writes with bounded retries. Concurre
 
 Deploys only via Cloudflare Workers Builds on push to `main` (root `gh-apps/shitpost-reactor`, build `npm run check`, deploy `npm run deploy`). `npm run deploy` (`deploy.mjs`, on `../core/worker-deploy.mjs`) requires `WORKERS_CI_COMMIT_SHA`, deploys only while its commit is the newest `main` commit for the watch paths, stamps `DEPLOY_COMMIT`, verifies `/version` matches and `/archive` is newest-first, and on failure restores the previous deployment (only while its own version is still active) and fails the build. Runs under the shared D1 deploy lock (`../core/deploy-lock.mjs`). Builds watch paths: `gh-apps/shitpost-reactor/**`, `gh-apps/core/worker-deploy.mjs`, `gh-apps/core/deploy-lock.mjs`.
 
-`wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost-reactor.travny.workers.dev` is canonical. The old custom domain redirects public GET/HEAD requests, preserving path and query. Both hosts still accept authenticated publishing for compatibility.
+`wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost.bartek.lol` is canonical. The old custom domain redirects public GET/HEAD requests, preserving path and query. Both hosts still accept authenticated publishing for compatibility.
 
 ## Output
 

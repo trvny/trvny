@@ -128,7 +128,7 @@ export async function onRequest(context) {
     .on("head", {
       element(element) {
         element.append(
-          `<meta name="msvalidate.01" content="23A368B2C5F4DF3471A67EA6CB057149">${TEXTS_HEAD}`,
+          TEXTS_HEAD,
           { html: true },
         );
       },

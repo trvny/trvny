@@ -1,6 +1,7 @@
 import { isStaticMarkdownPage, markdownPath, negotiateMarkdown, varyAccept, withMarkdownVary } from "./_shared/markdown.js";
 import { NAV_BODY, pageShellHead } from "./_shared/page-shell.js";
 import { serviceFetch, WEATHER_STATE_URL } from "./_shared/service-fetch.js";
+import { ORIGIN } from "./_shared/page-seo.js";
 import { crossSiteSitemap } from "./_shared/cross-site-sitemap.js";
 
 const CHANNELS = [
@@ -17,25 +18,11 @@ const CHANNELS = [
 
 const TV_WORKER = "https://tvpi.travny.workers.dev";
 
-// Several hosts reach this same site/ output, and they are treated differently.
-//
-// Stable hub: travny.pages.dev. Custom domain aliases redirect to it.
-// Zone redirect rules also cover paths that bypass Functions.
-// Deployment preview aliases stay excluded from search.
-//
-// Preview deployment aliases still serve the Pages output, but responses
-// are noindex so only the stable production hostname is indexed.
-// Old custom-domain deep links keep their path and query on the stable hub.
-//
-// tvpi.pages.dev is a separate legacy project in trvny/tvpi.
-// Its redirect target must match this primary host.
-// Preview aliases are matched separately, so the primary Pages host
-// is indexable while <hash>.travny.pages.dev remains noindex.
-const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "trfny.com", "www.trfny.com"]);
-const FEED_ALIAS_HOSTS = new Set(["trfny.com", "www.trfny.com"]);
+// Edge rules also cover static paths that bypass Functions.
+const CANONICAL_HOST = new URL(ORIGIN).hostname;
+const REDIRECT_HOSTS = new Set(["travny.pages.dev", "tvpi.pages.dev", "trfny.com", "www.trfny.com", "www.bartek.lol"]);
+const FEED_ALIAS_HOSTS = new Set([CANONICAL_HOST, ...REDIRECT_HOSTS]);
 const PREVIEW_SUFFIX = ".travny.pages.dev";
-const CANONICAL_HOST = "travny.pages.dev";
-
 
 function isPreviewHost(hostname) {
   return hostname.endsWith(PREVIEW_SUFFIX);
@@ -252,9 +239,9 @@ export async function onRequest(context) {
   if (sitemap) return sitemap;
 
   // Mirror the zone rule when a request reaches Functions directly.
-  if (FEED_ALIAS_HOSTS.has(url.hostname) && url.pathname.startsWith("/f/")) {
+  if (FEED_ALIAS_HOSTS.has(url.hostname) && (url.pathname === "/feeds" || url.pathname.startsWith("/feeds/") || url.pathname.startsWith("/f/"))) {
     const destination = new URL("https://trvny.github.io");
-    destination.pathname = "/feedseek/" + url.pathname.slice(3);
+    destination.pathname = "/feedseek/" + url.pathname.split("/").slice(2).join("/");
     destination.search = url.search;
     return Response.redirect(destination.href, 301);
   }

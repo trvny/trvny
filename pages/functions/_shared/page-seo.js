@@ -1,4 +1,4 @@
-export const ORIGIN = "https://travny.pages.dev";
+export const ORIGIN = "https://bartek.lol";
 
 const home = [{ name: "TRAVNY", path: "/" }];
 const texts = [...home, { name: "Teksty", path: "/teksty/" }];

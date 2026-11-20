@@ -1,10 +1,10 @@
 ---
 import { breadcrumbJson } from '../lib/breadcrumbs.mjs';
 const { title, description, article = false } = Astro.props;
-const canonical = new URL(Astro.url.pathname, 'https://travny.pages.dev');
+const canonical = new URL(Astro.url.pathname, 'https://bartek.lol');
 const crumbs = [
-  { name: 'TRAVNY', item: 'https://travny.pages.dev/' },
-  { name: 'CoCzyDziennik', item: 'https://travny.pages.dev/przeglad/' },
+  { name: 'TRAVNY', item: 'https://bartek.lol/' },
+  { name: 'CoCzyDziennik', item: 'https://bartek.lol/przeglad/' },
   ...(article ? [{ name: title, item: canonical.toString() }] : []),
 ];
 const breadcrumbs = breadcrumbJson(crumbs);

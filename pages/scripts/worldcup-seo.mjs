@@ -1,6 +1,6 @@
 // Derived from Quarto's embedded benchmark data. Never maintain a second corpus.
-const BASE = "https://travny.pages.dev/teksty/token-worldcup/";
-const CREATOR = "https://travny.pages.dev/#creator";
+const BASE = "https://bartek.lol/teksty/token-worldcup/";
+const CREATOR = "https://bartek.lol/#creator";
 const MODELS = [
   ["GPT-5 (o200k_base)", "tokens"], ["Claude Opus 5.5", "claude_tokens"],
   ["DeepSeek V4.1", "deepseek_tokens"], ["cl100k_base", "cl100k_tokens"],

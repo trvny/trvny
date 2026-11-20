@@ -5,10 +5,10 @@ const { regions } = JSON.parse(await readFile(new URL('atlas.json', root), 'utf8
 const lines = [
   '# GitHubowa Kraina', '',
   '> An interactive atlas of public trvny and travnie projects.', '',
-  'Page: <https://travny.pages.dev/teksty/githubowa-kraina/>',
-  'Structured region data: <https://travny.pages.dev/teksty/githubowa-kraina/atlas.json>',
+  'Page: <https://bartek.lol/teksty/githubowa-kraina/>',
+  'Structured region data: <https://bartek.lol/teksty/githubowa-kraina/atlas.json>',
   'Languages: PL, EN, RU, ZH. The separate infrastructure map is English.',
-  'Infrastructure map: <https://travny.pages.dev/teksty/githubowa-kraina/universe.html>', '',
+  'Infrastructure map: <https://bartek.lol/teksty/githubowa-kraina/universe.html>', '',
   'Choose a region, then a place for its description and destination. Project repositories remain the authority for current details.', '',
   '## Regions', ''
 ];

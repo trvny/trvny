@@ -93,7 +93,7 @@
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, untrustedContentHint: false },
     execute() {
-      const base = "https://travny.pages.dev";
+      const base = "https://bartek.lol";
       return { resources: [
         { name: "Concise guide", url: base + "/llms.txt" },
         { name: "Full guide", url: base + "/llms-full.txt" },

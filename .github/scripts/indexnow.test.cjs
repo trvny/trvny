@@ -6,35 +6,35 @@ const { notify, hubUrls } = require('./indexnow.cjs');
 test('digest-only publication selects the permalink and directories', () => {
   const paths = ['pages/astro/src/content/digests/2026-11-18.md'];
   assert.deepEqual(hubUrls(paths, ''), [
-    'https://travny.pages.dev/przeglad/',
-    'https://travny.pages.dev/przeglad/2026-11-18/',
-    'https://travny.pages.dev/teksty/',
+    'https://bartek.lol/przeglad/',
+    'https://bartek.lol/przeglad/2026-11-18/',
+    'https://bartek.lol/teksty/',
   ]);
   assert.deepEqual(hubUrls(['README.md', 'pages/tests/example.mjs'], ''), []);
 });
 
 test('shared site changes select static canonical routes', () => {
-  const home = '<loc>https://travny.pages.dev/</loc>';
-  const removed = '<loc>https://travny.pages.dev/old/</loc>';
+  const home = '<loc>https://bartek.lol/</loc>';
+  const removed = '<loc>https://bartek.lol/old/</loc>';
   assert.deepEqual(hubUrls(['pages/site/assets/app.js'], home, home + removed), [
-    'https://travny.pages.dev/', 'https://travny.pages.dev/old/',
+    'https://bartek.lol/', 'https://bartek.lol/old/',
   ]);
   for (const path of ['pages/token-worldcup/token-worldcup.html', 'pages/scripts/worldcup-seo.mjs']) {
     assert.deepEqual(hubUrls([path], home), [
-      'https://travny.pages.dev/teksty/token-worldcup/',
-      'https://travny.pages.dev/teksty/token-worldcup/en/',
+      'https://bartek.lol/teksty/token-worldcup/',
+      'https://bartek.lol/teksty/token-worldcup/en/',
     ]);
   }
 });
 
 test('shared layouts include tracked digest routes and prefixed sitemap routes', () => {
   assert.deepEqual(hubUrls(['pages/astro/src/layouts/DigestLayout.astro'],
-    '<s:loc>https://travny.pages.dev/</s:loc>', '',
+    '<s:loc>https://bartek.lol/</s:loc>', '',
     ['pages/astro/src/content/digests/2026-11-18.md', 'pages/astro/src/content/digests/README.md']), [
-    'https://travny.pages.dev/',
-    'https://travny.pages.dev/przeglad/',
-    'https://travny.pages.dev/przeglad/2026-11-18/',
-    'https://travny.pages.dev/teksty/',
+    'https://bartek.lol/',
+    'https://bartek.lol/przeglad/',
+    'https://bartek.lol/przeglad/2026-11-18/',
+    'https://bartek.lol/teksty/',
   ]);
 });
 

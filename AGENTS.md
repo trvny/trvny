@@ -5,7 +5,11 @@
 - `gh-apps/` - GitHub Apps, Kanarek Companion/Review, GPTomek, GPT Actions, Gremlin, Claudiusz, Reactor. Code shared between Workers lives in `gh-apps/core/` (see its README); never import another app's `src/`. Before touching GPTomek transport, read `gh-apps/gptomek/docs/REFERENCE.md` (the canonical manual); `gh-apps/gptomek/README.md` is the practical operator guide. Preserve command IDs, replay guards, checkpoints, result envelopes and failover semantics.
 - `pages/` - TRAVNY hub (bartek.lol). Pages project `travny`, root `pages`, output `site/`, Functions in `functions/`; `travny-pages.yml` asserts its Git source.
   `bartek.lol` and `travny.pages.dev` serve the hub directly. `www.bartek.lol`, `trfny.com` and `www.trfny.com`: 301 to the hub, path/query kept.
-  Submit `bartek.lol/sitemap.xml` for the domain property. Legacy `trfny.com` map exceptions: keep zone exclusions in sync. `tvpi.pages.dev` is a redirect-only project in trvny/tvpi. Pages repo is fixed at creation: changing it means recreating the project. TV data stays in the tvpi Worker.
+  Submit `bartek.lol/sitemap.xml` for the domain property.
+  Keep legacy `trfny.com` sitemap exceptions in sync with zone exclusions.
+  `tvpi.pages.dev` is a redirect-only project in trvny/tvpi.
+  Pages repo fixed at creation. Changing it requires a new Pages project.
+  TV data stays in the tvpi Worker.
   Feedseek browser alias: `rss.bartek.lol`. Legacy `trfny.com/f/*` redirects to canonical GitHub Pages.
 - `.devcontainer/` - on-demand Codespaces AI Devbox; its README owns environment setup, browser/uBOL and security boundaries; operational skills live in `.devcontainer/skills/`. Actions stay the default for repeatable jobs; do not copy provider keys from the private Kanarek router.
 - `mcp/pet-dispatcher/` - managed local orchestration and Cloudflare remote control plane. Workspace isolation is the safe default; trusted sessions may gain scoped host/device/LAN authority. `interactive-tool-bridge.md` is the maintained source of truth for interactive/local authority and lifecycle. Plugin/UI layers reuse this control plane rather than creating another dispatcher.

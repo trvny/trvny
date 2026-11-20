@@ -12,29 +12,32 @@ const decode = (s) => s.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/gi, (
 });
 const declaration = '<?xml version="1.0" encoding="UTF-8"?>\n';
 
-export function sitemapEntries(...documents) {
+export function sitemapEntries(document) {
+  if (!document.includes("<urlset")) throw new Error("Expected sitemap urlset");
   const entries = new Map();
-  for (const document of documents) {
-    if (!document.includes("<urlset")) throw new Error("Expected sitemap urlset");
-    for (const [, block] of document.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
-      const loc = block.match(/<loc>([^<]+)<\/loc>/)?.[1];
-      if (!loc) throw new Error("Missing sitemap loc");
-      const url = decode(loc.trim());
-      const { protocol, hostname, username, password, port } = new URL(url);
-      if (protocol !== "https:" || username || password || port ||
-          (hostname !== host && !hostname.endsWith("." + host))) {
-        throw new Error("Foreign sitemap URL");
-      }
-      const lastmod = block.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
-      entries.set(url, { url, ...(lastmod ? { lastmod } : {}) });
+  for (const [, block] of document.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
+    const loc = block.match(/<loc>([^<]+)<\/loc>/)?.[1];
+    if (!loc) throw new Error("Missing sitemap loc");
+    const url = decode(loc.trim());
+    const { protocol, hostname, username, password, port } = new URL(url);
+    if (protocol !== "https:" || username || password || port ||
+        (hostname !== host && !hostname.endsWith("." + host))) {
+      throw new Error("Foreign sitemap URL");
     }
+    const lastmod = block.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
+    entries.set(url, { url, ...(lastmod ? { lastmod } : {}) });
   }
-  if (!entries.size) throw new Error("Empty sitemap");
   return [...entries.values()];
 }
 
-export function combineSitemaps(...documents) {
-  const rows = sitemapEntries(...documents).map(({ url, lastmod }) =>
+export function combineSitemaps(hub, digests) {
+  const archive = `https://${host}/przeglad/`;
+  // Rebuilds can start with generated digest URLs already in the hub sitemap.
+  const pages = sitemapEntries(hub).filter(({ url }) => url === archive || !url.startsWith(archive));
+  const entries = [...pages, ...sitemapEntries(digests)];
+  if (!entries.length) throw new Error("Empty sitemap");
+
+  const rows = entries.map(({ url, lastmod }) =>
     `  <url><loc>${escapeXml(url)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}</url>`);
   return declaration + [
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',

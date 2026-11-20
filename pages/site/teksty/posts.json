@@ -26,7 +26,8 @@
       "projekty",
       "atlas"
     ],
-    "featured": true
+    "featured": true,
+    "titleLang": "pl"
   },
   {
     "slug": "token-worldcup",

@@ -1,5 +1,9 @@
-// Language comes from publication metadata; never infer from the title.
+// Language comes from explicit publication metadata; never infer it from text.
 export function publicationLang(value) {
-  if (typeof value !== "string" || !/^[a-z]{2,3}(?:-[a-zA-Z]{2,8}|-[0-9]{3})*$/u.test(value)) return "und";
-  return value;
+  if (typeof value !== "string" || !/^[a-z]{2,3}(?:-|$)/i.test(value)) return "und";
+  try {
+    return Intl.getCanonicalLocales(value)[0] || "und";
+  } catch {
+    return "und";
+  }
 }

@@ -6,7 +6,7 @@ import { onRequestGet as station } from '../functions/api/radio-station.js';
 
 test('Pages forwards the original request and response via the private binding', async () => {
   for (const [handler, path] of [[now, '/api/radio-now'], [station, '/api/radio-station?station=bbc1']]) {
-    const request = new Request('https://travny.pages.dev' + path);
+    const request = new Request('https://bartek.lol' + path);
     const response = new Response('bound', { status: 502, headers: { 'cache-control': 'no-store' } });
     let received;
     const env = { HUB_BACKEND: { fetch: incoming => {
@@ -21,7 +21,7 @@ test('Pages forwards the original request and response via the private binding',
 test('binding transport failure falls back to the shared local implementation', async t => {
   t.mock.method(globalThis, 'fetch', () => Promise.resolve(Response.json({ title: 'Song', artist: 'Artist' })));
   const response = await now({
-    request: new Request('https://travny.pages.dev/api/radio-now'),
+    request: new Request('https://bartek.lol/api/radio-now'),
     env: { HUB_BACKEND: { fetch: () => Promise.reject(new Error('binding unavailable')) } },
   });
   assert.equal(response.status, 200);
@@ -29,7 +29,7 @@ test('binding transport failure falls back to the shared local implementation', 
 });
 
 test('Worker dispatches only known GET routes and preserves query parameters', async t => {
-  const request = (path, method = 'GET') => new Request('https://travny.pages.dev' + path, { method });
+  const request = (path, method = 'GET') => new Request('https://bartek.lol' + path, { method });
   const fetchMock = t.mock.method(globalThis, 'fetch', () => Promise.resolve(Response.json({ title: 'Song', artist: 'Artist' })));
   assert.equal((await worker.fetch(request('/assets/radio.js'))).status, 404);
   assert.equal((await worker.fetch(request('/api/radio-now', 'POST'))).status, 405);
@@ -45,7 +45,7 @@ test('Worker dispatches only known GET routes and preserves query parameters', a
 
 test('badge routes retain query customization and distinguish missing routes from unknown badges', async () => {
   const { onRequestGet: badge } = await import('../functions/badge/[[path]].js');
-  const request = new Request('https://travny.pages.dev/badge/twojstar.svg?label=Custom');
+  const request = new Request('https://bartek.lol/badge/twojstar.svg?label=Custom');
   const params = { path: ['twojstar.svg'] };
   const old = { HUB_BACKEND: { fetch: () => new Response('Not found', { status: 404 }) } };
   const fallback = await badge({ request, params, env: old });
@@ -53,18 +53,18 @@ test('badge routes retain query customization and distinguish missing routes fro
   const response = await badge({ request, params, env: { HUB_BACKEND: worker } });
   assert.equal(response.headers.get('x-travny-backend'), 'worker');
   assert.match(await response.text(), />Custom<\/text>/);
-  const unknown = await worker.fetch(new Request('https://travny.pages.dev/badge/unknown.svg'));
+  const unknown = await worker.fetch(new Request('https://bartek.lol/badge/unknown.svg'));
   assert.equal(unknown.status, 404);
   assert.equal(unknown.headers.get('x-travny-backend'), 'worker');
   assert.match(await unknown.text(), /unknown badge/);
-  const index = await worker.fetch(new Request('https://travny.pages.dev/badge/index.json'));
+  const index = await worker.fetch(new Request('https://bartek.lol/badge/index.json'));
   assert.equal(index.status, 200);
   assert.ok((await index.json()).badges.length > 0);
 });
 
 test('Worker HEAD preserves GET status and headers without a response body', async () => {
   for (const path of ['/badge/twojstar.svg?label=Custom', '/api/radio-station?station=invalid']) {
-    const url = 'https://travny.pages.dev' + path;
+    const url = 'https://bartek.lol' + path;
     const get = await worker.fetch(new Request(url));
     const head = await worker.fetch(new Request(url, { method: 'HEAD' }));
     assert.equal(head.status, get.status);
@@ -87,7 +87,7 @@ test('public Pages HEAD routes preserve status and headers with old, missing or 
   } };
   for (const [route, path, params] of routes) {
     for (const env of [{}, { HUB_BACKEND: old }, { HUB_BACKEND: worker }]) {
-      const url = 'https://travny.pages.dev' + path;
+      const url = 'https://bartek.lol' + path;
       const get = await route.onRequestGet({ request: new Request(url), params, env });
       const head = await route.onRequestHead({ request: new Request(url, { method: 'HEAD' }), params, env });
       assert.equal(head.status, get.status);

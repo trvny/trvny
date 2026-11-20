@@ -13,7 +13,7 @@ test("mobile rails retain direct card links and accessible slide controls", () =
   assert.match(bench, /class="benchgrid" id="benchRail"/);
   assert.equal([...home.matchAll(/class="panel (?:tv|wx)"/g)].length, 2);
   for (const [name, host] of [['stream', 'streambench'], ['code', 'codebench'], ['doc', 'docbench']]) {
-    assert.ok(bench.includes(`<a class="bench ${name}" href="https://${host}.travny.workers.dev/"`));
+    assert.ok(bench.includes(`<a class="bench ${name}" href="https://${host}.bartek.lol/"`));
   }
   assert.equal([...home.matchAll(/data-slide="[012]" aria-label=/g)].length, 2);
   assert.equal([...bench.matchAll(/data-slide="[012]" aria-label=/g)].length, 3);

@@ -17,16 +17,16 @@ test("alternate sitemaps cover both canonical XML maps", async () => {
   const robots = await readFile(new URL("../site/robots.txt", import.meta.url), "utf8");
   for (const [name, content] of Object.entries(variants)) {
     if (name.endsWith(".json")) {
-      assert.ok(!robots.includes("Sitemap: https://travny.pages.dev/" + name));
+      assert.ok(!robots.includes("Sitemap: https://bartek.lol/" + name));
       continue;
     }
-    assert.ok(robots.includes("Sitemap: https://travny.pages.dev/" + name));
+    assert.ok(robots.includes("Sitemap: https://bartek.lol/" + name));
     for (const { url } of entries) assert.ok(content.includes(name.endsWith(".xml") ? escapeXml(url) : url));
   }
 });
 test("XML URL escaping round trips", () => {
-  const url = "https://travny.pages.dev/?a=1&b=2";
-  const entries = sitemapEntries("<urlset><url><loc>https://travny.pages.dev/?a=1&amp;b=2</loc></url></urlset>");
+  const url = "https://bartek.lol/?a=1&b=2";
+  const entries = sitemapEntries("<urlset><url><loc>https://bartek.lol/?a=1&amp;b=2</loc></url></urlset>");
   assert.equal(entries[0].url, url);
   assert.match(sitemapVariants(entries)["sitemap-atom.xml"], /a=1&amp;b=2/);
   assert.match(sitemapVariants(entries)["sitemap-rss.xml"], /a=1&amp;b=2/);
@@ -49,7 +49,7 @@ test("write all variants of built root and digest maps", async () => {
 });
 
 test("Atom snapshots advance and verified dates are preserved", () => {
-  const entries = [{ url: "https://travny.pages.dev/" }, { url: "https://travny.pages.dev/przeglad/1/", lastmod: "2026-11-01" }];
+  const entries = [{ url: "https://bartek.lol/" }, { url: "https://bartek.lol/przeglad/1/", lastmod: "2026-11-01" }];
   const date = "2026-11-15T00:00:00Z";
   const variants = sitemapVariants(entries, date);
   assert.ok(variants["sitemap-atom.xml"].includes(date));

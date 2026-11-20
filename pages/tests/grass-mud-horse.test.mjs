@@ -6,7 +6,7 @@ import { onRequest } from "../functions/_middleware.js";
 import { pageSeoHead } from "../functions/_shared/page-seo.js";
 
 const root = new URL("../site/", import.meta.url);
-const origin = "https://travny.pages.dev";
+const origin = "https://bartek.lol";
 const articlePath = "/teksty/grass-mud-horse/";
 const oldPath = "/teksty/grass-mud-horse-pl/";
 
@@ -26,7 +26,7 @@ test("the Grass Mud Horse catalog and sitemap expose one bilingual publication",
 test("the shared HTML retains both complete narratives and native radio switching", async () => {
   const html = await readFile(new URL("teksty/grass-mud-horse/index.html", root), "utf8");
   const css = await readFile(new URL("assets/grass-mud-horse.css", root), "utf8");
-  assert.match(html, /<link rel="canonical" href="https:\/\/travny\.pages\.dev\/teksty\/grass-mud-horse\/">/u);
+  assert.match(html, /<link rel="canonical" href="https:\/\/bartek\.lol\/teksty\/grass-mud-horse\/">/u);
   assert.match(html, /"inLanguage":\["en","pl"\]/u);
   assert.match(html, /id="lang-en"[^>]+checked/u);
   assert.match(html, /id="lang-pl"/u);

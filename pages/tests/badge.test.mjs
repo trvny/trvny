@@ -9,7 +9,7 @@ const ICON = '<svg fill="currentColor" fill-rule="evenodd" viewBox="0 0 24 24"><
 const OCTICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M1 1h22v22H1z"></path></svg>';
 
 function context(path, query = "") {
-  return { request: new Request(`https://travny.pages.dev/badge/${path}${query}`), params: { path: path.split("/") } };
+  return { request: new Request(`https://bartek.lol/badge/${path}${query}`), params: { path: path.split("/") } };
 }
 
 // url -> body; unknown urls 404.

@@ -27,7 +27,7 @@ test("each real static HTML source receives one shared shell and preserves its c
     const original = stripShell(rendered);
     assert.equal(original, page.page === "token-worldcup" ? renderWorldcupPolish(html) : html, page.file);
     if (page.page === "papagenerator" || page.page === "token-worldcup") {
-      assert.ok(rendered.includes('rel="canonical" href="https://travny.pages.dev' + page.path + '"'));
+      assert.ok(rendered.includes('rel="canonical" href="https://bartek.lol' + page.path + '"'));
     }
     if (page.noindex) {
       assert.match(rendered, /<meta name="robots" content="noindex,follow">/);
@@ -97,7 +97,7 @@ test("worldcup exposes the same corpus in HTML, English report and Dataset schem
   }
   assert.equal((pl.match(/<tbody id="tableBody">[\s\S]*?<\/tbody>/)[0].match(/<tr>/g) || []).length, rows.length);
   assert.equal((en.match(/<tbody>[\s\S]*?<\/tbody>/)[0].match(/<tr>/g) || []).length, rows.length);
-  const url = "https://travny.pages.dev/teksty/token-worldcup/en/";
+  const url = "https://bartek.lol/teksty/token-worldcup/en/";
   assert.ok(en.includes('rel="canonical" href="' + url + '"'));
   assert.ok((await readFile(new URL("site/sitemap.xml", root), "utf8")).includes("<loc>" + url + "</loc>"));
 });

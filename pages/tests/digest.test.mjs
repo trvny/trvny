@@ -4,7 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 
 test('digest archive is built with a canonical URL and sitemap', async () => {
   const html = await readFile(new URL('../astro/dist/przeglad/index.html', import.meta.url), 'utf8');
-  assert.match(html, /<link rel="canonical" href="https:\/\/travny\.pages\.dev\/przeglad\/"/);
+  assert.match(html, /<link rel="canonical" href="https:\/\/bartek\.lol\/przeglad\/"/);
   const sitemap = await readFile(new URL('../astro/dist/przeglad/sitemap.xml', import.meta.url), 'utf8');
   assert.match(sitemap, /<urlset/);
   const entries = (await readdir(new URL('../astro/src/content/digests/', import.meta.url))).filter((name) => name.endsWith('.md'));

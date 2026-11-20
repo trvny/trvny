@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestGet } from '../functions/api/radio-station.js';
 
-const request = station => ({ request:new Request(`https://travny.pages.dev/api/radio-station?station=${station}`) });
+const request = station => ({ request:new Request(`https://bartek.lol/api/radio-station?station=${station}`) });
 
 test('BBC returns a verified current track and safe artwork', async t => {
   let sentHeaders;

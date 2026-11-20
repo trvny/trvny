@@ -16,7 +16,7 @@ const issues = [
 ];
 function context(path = '/') {
   return {
-    request: new Request(`https://travny.pages.dev${path}`),
+    request: new Request(`https://bartek.lol${path}`),
     env: { ASSETS: { fetch: (url) => {
       if (url instanceof Request) return Promise.resolve(new Response('<html><head></head><body><div id="text-list"></div><nav class="fastext"></nav></body></html>', { headers: { 'content-type': 'text/html' } }));
       if (new URL(url).pathname === '/przeglad/index.json') return Promise.resolve(Response.json(issues));
@@ -73,10 +73,10 @@ test('published digest joins the home page, text directory and Atom, newest firs
     assert.ok(textsHtml.indexOf('News &amp; &lt;more&gt;') < textsHtml.indexOf('Older text'));
     assert.ok(textsHtml.indexOf('Older text') < textsHtml.indexOf('Token World Cup'), 'featured is not pinned');
     assert.match(xml, /<id>https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/<\/id>/);
-    assert.match(xml, /<link rel="alternate" href="https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/"\/>/);
+    assert.match(xml, /<link rel="alternate" href="https:\/\/bartek\.lol\/przeglad\/2026-11-02\/"\/>/);
     assert.ok(xml.indexOf('News &amp; &lt;more&gt;') < xml.indexOf('Older text'));
     assert.match(xml, /<id>https:\/\/trfny\.com\/teksty\/old\/<\/id>/);
-    assert.match(xml, /<entry xml:lang="pl">\s*<title>News &amp; &lt;more&gt;<\/title>\s*<id>https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/<\/id>\s*<link rel="alternate" href="https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/"\/>\s*<updated>2026-11-03T09:00:00.000Z<\/updated>/);
+    assert.match(xml, /<entry xml:lang="pl">\s*<title>News &amp; &lt;more&gt;<\/title>\s*<id>https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/<\/id>\s*<link rel="alternate" href="https:\/\/bartek\.lol\/przeglad\/2026-11-02\/"\/>\s*<updated>2026-11-03T09:00:00.000Z<\/updated>/);
     assert.doesNotMatch(xml, /Broken slug/);
   } finally {
     globalThis.fetch = originalFetch;

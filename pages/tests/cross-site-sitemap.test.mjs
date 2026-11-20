@@ -48,6 +48,11 @@ test("upstream failure stays retryable, and non-map routes fall through", async 
   assert.equal(res.headers.get("cache-control"), "no-store");
   const redirect = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () => Response.redirect("https://example.com/"));
   assert.equal(redirect.status, 503);
+  const brokenBody = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () =>
+    new Response(new ReadableStream({ start(controller) { controller.error(new Error("upstream interrupted")); } }), {
+      headers: { "content-type": "application/xml" },
+    }));
+  assert.equal(brokenBody.status, 503);
   for (const url of ["https://www.trfny.com/sitemap-cross-site.xml", origin + "/sitemaps/unknown.xml"]) {
     assert.equal(await crossSiteSitemap(ctx, new URL(url)), null);
   }

@@ -85,6 +85,8 @@ test('language switching updates page, open atlas and stored preference', async 
   const page = createPage();
   await tick();
   assert.equal(page.get('#hero-heading').textContent, locales.pl.heading);
+  const feedLabel = { nodeType: 3, textContent: 'Feedy' };
+  page.get('#trvny-nav-drawer a[href="https://rss.bartek.lol/"]').firstChild = feedLabel;
   await page.buttons[3].fire('click');
   assert.equal(page.document.documentElement.lang, 'zh-Hans');
   assert.equal(page.get('#hero-heading').textContent, locales.zh.heading);
@@ -96,6 +98,7 @@ test('language switching updates page, open atlas and stored preference', async 
   assert.equal(page.cards[0].querySelector('.tagline').textContent, locales.zh.tags.feedseek);
   assert.equal(page.navGroups[1].querySelector('.trvny-nav-label').textContent, locales.zh.nav[4]);
   assert.equal(page.get('#trvny-nav-toggle').attrs['aria-label'], locales.zh.nav[0]);
+  assert.equal(feedLabel.textContent, locales.zh.nav[11]);
   assert.equal(page.document.title, locales.zh.pageName + ' · TRAVNY');
   assert.equal(page.get('.brand span:last-child').textContent, locales.zh.pageName);
   assert.equal(page.get('.footer span:first-child').textContent, locales.zh.pageName + ' · 2026');

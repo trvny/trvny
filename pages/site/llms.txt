@@ -36,7 +36,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 - TVPI upstream HLS signatures are short-lived. Prefer maintained TVPI Worker endpoints over short-lived tokenized upstream URLs.
 - Weather is a multi-source local ensemble for Kościelec in Chrzanów with air quality, pollen and IMGW warnings.
-- Streambench, Code Bench and Doc Bench are local-first browser tools; their own LLM guides document privacy and agent-access boundaries.
+- Streambench, Code Bench and Doc Bench are local-first browser tools. [Shared privacy and data-handling policy](https://travny.pages.dev/lab/privacy/); individual LLM guides document service-specific boundaries.
 - Tokenowy Mundial AI is maintained as Quarto source in `trvny/trvny` and proxied by TRAVNY from its verified generated HTML.
 
 ## Discovery

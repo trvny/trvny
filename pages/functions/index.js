@@ -1,6 +1,7 @@
 import { getDigestPosts, latestFirst, publicationPath } from "./_shared/digests.js";
 import { getShitposts, REACTOR_HOME_URL } from "./_shared/shitpost.js";
 import { serviceFetch } from "./_shared/service-fetch.js";
+import { publicationLang } from "./_shared/publication-lang.js";
 
 const TEXTS_HEAD = `
 <style>
@@ -52,8 +53,8 @@ function renderTextCard(post, index, firstPage = 501) {
   const tags = (post.tags || []).slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
   return `<a class="textitem" href="${path}">
     <div class="textmeta"><b>P${firstPage + index}</b>${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
-    <h3>${escapeHtml(post.title)}</h3>
-    <p>${escapeHtml(post.summary)}</p>
+    <h3 lang="${publicationLang(post.lang)}">${escapeHtml(post.title)}</h3>
+    <p lang="${publicationLang(post.lang)}">${escapeHtml(post.summary)}</p>
     <div class="texttags">${tags}</div>
   </a>`;
 }
@@ -64,8 +65,8 @@ function renderShitpostTextCard(post, index) {
   const caption = escapeHtml(post.excerpt).replaceAll("\n", "<br>");
   return `<a class="textitem" href="${REACTOR_HOME_URL}">
     <div class="textmeta"><b>P${501 + index}</b>${meta}</div>
-    <h3>${escapeHtml(post.title)}</h3>
-    ${post.excerpt ? `<p>${caption}</p>` : ""}
+    <h3 lang="${publicationLang(post.lang)}">${escapeHtml(post.title)}</h3>
+    ${post.excerpt ? `<p lang="${publicationLang(post.lang)}">${caption}</p>` : ""}
     <div class="texttags">${tags}</div>
   </a>`;
 }

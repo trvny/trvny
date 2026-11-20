@@ -1,6 +1,7 @@
 import { getDigestPosts, latestFirst, publicationPath } from "../_shared/digests.js";
 import { getLatestShitpost, REACTOR_HOME_URL } from "../_shared/shitpost.js";
 import { serviceFetch } from "../_shared/service-fetch.js";
+import { publicationLang } from "../_shared/publication-lang.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -19,8 +20,8 @@ function renderCard(post) {
   return `<a class="card" href="${path}">
 <span class="go">OTWÓRZ ›</span>
 <div class="meta">${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
-<h2>${escapeHtml(post.title)}</h2>
-<p>${escapeHtml(post.summary)}</p>
+<h2 lang="${publicationLang(post.lang)}">${escapeHtml(post.title)}</h2>
+<p lang="${publicationLang(post.lang)}">${escapeHtml(post.summary)}</p>
 <div class="tags">${featured}${tags}</div>
 </a>`;
 }
@@ -32,8 +33,8 @@ function renderShitpostCard(post) {
   return `<a class="card" href="${REACTOR_HOME_URL}">
 <span class="go">REACTOR ↗</span>
 ${meta}
-<h2>${escapeHtml(post.title)}</h2>
-${post.excerpt ? `<p>${caption}</p>` : ""}
+<h2 lang="${publicationLang(post.lang)}">${escapeHtml(post.title)}</h2>
+${post.excerpt ? `<p lang="${publicationLang(post.lang)}">${caption}</p>` : ""}
 <div class="tags">${tags}</div>
 </a>`;
 }

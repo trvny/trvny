@@ -6,8 +6,8 @@ import { onRequest as texts } from '../functions/teksty/index.js';
 import { onRequestGet as feed } from '../functions/teksty/feed.xml.js';
 
 const posts = [
-  { slug: 'old', title: 'Older text', summary: 'Old summary', date: '2026-01', updated: '2026-01-01T00:00:00Z', kind: 'TEXT', tags: [] },
-  { slug: 'token-worldcup', title: 'Token World Cup', summary: 'Featured', date: '2025-01', updated: '2025-01-01T00:00:00Z', kind: 'TEXT', tags: [], featured: true },
+  { slug: 'old', title: 'Older text', summary: 'Old summary', date: '2026-01', updated: '2026-01-01T00:00:00Z', kind: 'TEXT', tags: [], lang: 'en' },
+  { slug: 'token-worldcup', title: 'Token World Cup', summary: 'Featured', date: '2025-01', updated: '2025-01-01T00:00:00Z', kind: 'TEXT', tags: [], lang: 'en', featured: true },
   { slug: '../broken', title: 'Broken slug', summary: 'Invalid URL', date: '2024-01', updated: '2024-01-01T00:00:00Z', kind: 'TEXT', tags: [] },
 ];
 const issues = [
@@ -60,7 +60,8 @@ test('published digest joins the home page, text directory and Atom, newest firs
     const xml = await (await feed(context('/teksty/feed.xml'))).text();
     for (const html of [homeHtml, textsHtml]) {
       assert.match(html, /href="\/przeglad\/2026-11-02\/"/);
-      assert.match(html, /News &amp; &lt;more&gt;/);
+      assert.match(html, /lang="pl">News &amp; &lt;more&gt;/);
+      assert.match(html, /lang="en">Older text/);
       assert.doesNotMatch(html, /Invalid/);
     }
     assert.ok(homeHtml.includes('P600 · FEATURED'));
@@ -105,6 +106,7 @@ test('home page expands three latest mixed publications to ten without duplicati
     id: `https://shitpost.trfny.com/posts/gh-1-${index + 1}`,
     url: `https://shitpost-reactor.travny.workers.dev/posts/gh-1-${index + 1}`,
     summary: `Shit ${index + 1} <meme>`,
+    language: 'zh-CN',
     title: `Policy topic ${index + 1}`,
     date_published: new Date(Date.UTC(2026, 10, 2, 12, index + 1)).toISOString(),
   }));
@@ -140,7 +142,8 @@ test('home page expands three latest mixed publications to ten without duplicati
     assert.match(rest, /POKAŻ KOLEJNE 7/);
     assert.match(rest, /▲ ZWIŃ/);
     assert.ok(initial.includes('Shit 7 &lt;meme&gt;'));
-    assert.ok(initial.includes('Policy topic 7'));
+    assert.ok(initial.includes('lang="zh-CN">Policy topic 7'));
+    assert.ok(initial.includes('lang="zh-CN">Shit 7 &lt;meme&gt;'));
     assert.doesNotMatch(listing, /SHITPOST REACTOR|· SHITPOST|SHITPOST OF THE DAY/);
     assert.ok(initial.includes('CoCzyDziennik edition'));
     assert.ok(initial.includes('Article 7'));

@@ -134,3 +134,20 @@ test("robots explicitly allow mainstream search and Mistral agents", async () =>
   assert.ok(robots.includes("Sitemap: https://travny.pages.dev/sitemap.xml"));
   assert.ok(robots.includes("Sitemap: https://travny.pages.dev/przeglad/sitemap.xml"));
 });
+
+
+test("hub catalog matches visible shortcuts and creator identity", async () => {
+  const html = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+  const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/)[1])["@graph"];
+  const site = graph.find(node => node["@type"] === "WebSite");
+  const list = graph.find(node => node["@type"] === "ItemList");
+  const nav = html.match(/<nav class="fastext"[^>]*>([\s\S]*?)<\/nav>/)[1];
+  const links = [...nav.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], site.url).href);
+  assert.equal(site.mainEntity["@id"], list["@id"]);
+  assert.deepEqual(list.itemListElement.map(entry => entry.item.url), links);
+  assert.deepEqual(list.itemListElement.map(entry => entry.position), links.map((_, i) => i + 1));
+  for (const { item } of list.itemListElement) {
+    assert.equal(item.creator["@id"], site.creator["@id"]);
+    assert.ok(nav.includes(item.description), item.name);
+  }
+});

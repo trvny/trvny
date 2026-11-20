@@ -115,7 +115,7 @@ export function catalogue() {
   for (const [slug, s] of Object.entries(BRANDS)) rows.push({ group: "AI & infra", slug, label: s.label, path: `/badge/${slug}.svg` });
   for (const key of Object.keys(COUNTERS)) rows.push({ group: "Live", slug: key, label: key, path: `/badge/${key}.svg` });
   for (const key of Object.keys(STATUS)) rows.push({ group: "Live", slug: `status/${key}`, label: `status ${key}`, path: `/badge/status/${key}.svg` });
-  return { canonical: "https://travny.pages.dev", octicons: OCTICONS_VERSION, lobe: LOBE_VERSION, palette: Object.keys(PALETTE), badges: rows };
+  return { canonical: "https://bartek.lol", octicons: OCTICONS_VERSION, lobe: LOBE_VERSION, palette: Object.keys(PALETTE), badges: rows };
 }
 
 export function onRequestGet(context, fetchImpl = fetch) {

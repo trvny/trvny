@@ -152,7 +152,7 @@ export const STATUS = {
   tvpi: { url: TVPI, ok: (body) => body.includes("#EXTINF") },
   feedseek: { url: FEEDSEEK, ok: (body) => body.includes("data-search=") },
   docbench: { url: "https://docbench.travny.workers.dev/", ok: () => true },
-  hub: { url: "https://travny.pages.dev/", ok: () => true },
+  hub: { url: "https://bartek.lol/", ok: () => true },
 };
 
 // cacheTtl 0: status probes must see fresh state (badge itself caches 2 min).

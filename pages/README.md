@@ -2,7 +2,7 @@
 
 [![Pages CI](https://github.com/trvny/trvny/actions/workflows/travny-pages.yml/badge.svg?branch=main)](https://github.com/trvny/trvny/actions/workflows/travny-pages.yml) [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare_Pages-F38020?style=flat-square&logo=cloudflarepages&logoColor=white)](https://developers.cloudflare.com/pages/) [![Astro](https://img.shields.io/badge/Astro-BC52EE?style=flat-square&logo=astro&logoColor=white)](https://astro.build/)
 
-**Canonical hub:** [travny.pages.dev](https://travny.pages.dev). Cloudflare Pages project `travny`, repository root `pages/`, build `build.sh`, output `site/`, Functions `functions/`.
+**Canonical hub:** [travny.pages.dev](https://bartek.lol). Cloudflare Pages project `travny`, repository root `pages/`, build `build.sh`, output `site/`, Functions `functions/`.
 
 ## Source map
 
@@ -14,7 +14,7 @@
 | Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
 | Papagenerator | [`papagenerator/`](papagenerator/README.md); local runtime copied by `build.sh` to `site/papagenerator/` |
 | Hub backend | `worker/`; private Worker `travny-hub-backend`, Pages service binding `HUB_BACKEND`; radio API logic in `functions/api/radio-*.js` |
-| Badges | `functions/badge/[[path]].js`; public [/badges/](https://travny.pages.dev/badges/) catalog, `/badge/<slug>.svg`, `/badge/o/<octicon>.svg`, `/badge/model/<model-id>.svg`, live status badges |
+| Badges | `functions/badge/[[path]].js`; public [/badges/](https://bartek.lol/badges/) catalog, `/badge/<slug>.svg`, `/badge/o/<octicon>.svg`, `/badge/model/<model-id>.svg`, live status badges |
 
 ## Edit / validate
 
@@ -38,8 +38,9 @@ headers are build output. CI rejects committed shell markers in tracked HTML.
 Keep dynamic HTML,
 discovery, feeds, redirects and APIs in middleware. Avoid broad
 extension globs: dynamic SVG badges and JSON routes share those extensions.
-Live zone redirect `c61b0c373e274a0bb58ab50d0f8f14dd` covers `trfny.com`
-and `www.trfny.com`, except `/f/*`; 301 to `travny.pages.dev`, path/query kept.
+Cloudflare redirects `travny.pages.dev`, `www.bartek.lol`, `trfny.com` and
+`www.trfny.com` to `bartek.lol`, path/query kept. Feedseek aliases and
+legacy cross-site sitemap exceptions keep their own routing.
 Keep this rule while static paths bypass middleware. `tvpi.pages.dev` uses
 its own Pages project. Cloudflare Pages defaults to `X-Robots-Tag: noindex`
 for preview deployments, independent of middleware.

@@ -22,8 +22,9 @@ async function getPosts(context) {
 }
 
 function renderEntry(post) {
-  const href = `https://travny.pages.dev${publicationPath(post)}`;
-  const id = post.digest === true ? href : `https://trfny.com/teksty/${encodeURIComponent(post.slug)}/`;
+  const path = publicationPath(post);
+  const href = `https://bartek.lol${path}`;
+  const id = post.digest === true ? `https://travny.pages.dev${path}` : `https://trfny.com/teksty/${encodeURIComponent(post.slug)}/`;
   const categories = (post.tags || [])
     .map((tag) => `    <category term="${escapeXml(tag)}"/>`)
     .join("\n");
@@ -76,8 +77,8 @@ async function feedResponse(context, headOnly = false) {
   <title>TRAVNY · Teksty i Reactor</title>
   <subtitle>Essays, experiments, daily editions and Reactor entries.</subtitle>
   <id>https://trfny.com/teksty/</id>
-  <link rel="alternate" href="https://travny.pages.dev/teksty/"/>
-  <link rel="self" type="application/atom+xml" href="https://travny.pages.dev/teksty/feed.xml"/>
+  <link rel="alternate" href="https://bartek.lol/teksty/"/>
+  <link rel="self" type="application/atom+xml" href="https://bartek.lol/teksty/feed.xml"/>
   <updated>${escapeXml(latestUpdated(entries))}</updated>
   <author><name>TRAVNY</name></author>
 ${entries.map((entry) => entry.xml).join("\n")}

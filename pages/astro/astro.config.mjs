@@ -3,7 +3,7 @@ import mdx from '@astrojs/mdx';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
-  site: 'https://travny.pages.dev',
+  site: 'https://bartek.lol',
   output: 'static',
   outDir: './dist',
   integrations: [mdx()],

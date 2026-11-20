@@ -3,7 +3,7 @@
 // Publication hooks only. No scheduled crawler, persistent state or indexing guarantees.
 const { execFileSync } = require('node:child_process');
 
-const HUB = 'https://travny.pages.dev';
+const HUB = 'https://bartek.lol';
 const REACTOR = 'https://shitpost-reactor.travny.workers.dev';
 const FEEDSEEK = 'https://trvny.github.io/feedseek/';
 // Public ownership proof files, not authentication secrets.
@@ -37,7 +37,9 @@ function hubUrls(paths, sitemap, previousSitemap = '', digestFiles = []) {
   // Enumerate tracked sources at the deployed revision; no network crawl.
   if (shared) {
     for (const xml of [sitemap, previousSitemap]) {
-      for (const match of xml.matchAll(/<(?:[\w.-]+:)?loc>([^<]+)<\/(?:[\w.-]+:)?loc>/g)) urls.add(match[1]);
+      for (const match of xml.matchAll(/<(?:[\w.-]+:)?loc>([^<]+)<\/(?:[\w.-]+:)?loc>/g)) {
+        if (match[1].startsWith(HUB + '/')) urls.add(match[1]);
+      }
     }
     for (const path of digestFiles) {
       const digest = digestPath.exec(path);

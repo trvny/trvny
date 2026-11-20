@@ -10,6 +10,7 @@ const trails = {
   "/papagenerator/": [...home, { name: "Papagenerator", path: "/papagenerator/" }],
   "/teksty/": texts,
   "/teksty/token-worldcup/": tokenCup,
+  "/teksty/token-worldcup/en/": [...tokenCup, { name: "English report", path: "/teksty/token-worldcup/en/" }],
   "/teksty/token-worldcup/effort-matrix": [...tokenCup, { name: "Model × effort", path: "/teksty/token-worldcup/effort-matrix" }],
   "/teksty/githubowa-kraina/": githubWorld,
   "/teksty/githubowa-kraina/universe": [...githubWorld, { name: "Universe", path: "/teksty/githubowa-kraina/universe" }],

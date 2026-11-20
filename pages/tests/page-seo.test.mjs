@@ -142,12 +142,14 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   const site = graph.find(node => node["@type"] === "WebSite");
   const list = graph.find(node => node["@type"] === "ItemList");
   const nav = html.match(/<nav class="fastext"[^>]*>([\s\S]*?)<\/nav>/)[1];
-  const links = [...nav.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], site.url).href);
+  const tiles = [...nav.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>[^<]*<small>([^<]+)<\/small><\/a>/g)];
+  const links = tiles.map(match => new URL(match[1], site.url).href);
   assert.equal(site.mainEntity["@id"], list["@id"]);
+  assert.ok(graph.some(node => node["@type"] === "Person" && node["@id"] === site.creator["@id"]));
   assert.deepEqual(list.itemListElement.map(entry => entry.item.url), links);
   assert.deepEqual(list.itemListElement.map(entry => entry.position), links.map((_, i) => i + 1));
-  for (const { item } of list.itemListElement) {
+  for (const [i, { item }] of list.itemListElement.entries()) {
     assert.equal(item.creator["@id"], site.creator["@id"]);
-    assert.ok(nav.includes(item.description), item.name);
+    assert.equal(item.description, tiles[i][2], item.name);
   }
 });

@@ -1,3 +1,5 @@
+import { publicationLang } from "./publication-lang.js";
+
 const SHITPOST_ORIGIN = "https://shitpost-reactor.travny.workers.dev";
 export const REACTOR_HOME_URL = `${SHITPOST_ORIGIN}/`;
 export const SHITPOST_FEED_URL = `${SHITPOST_ORIGIN}/feed.json`;
@@ -52,13 +54,14 @@ function normalizeShitpostItem(item) {
       .map((tag) => tag.trim())
     : [];
 
+  const lang = publicationLang(item.language);
   return {
     id,
     url: url.toString(),
     caption,
     title,
     excerpt,
-    ...(typeof item.language === 'string' && /^[a-z]{2,3}(?:-(?:[A-Z][a-z]{3}|[A-Z]{2}))?$/u.test(item.language) ? { lang: item.language } : {}),
+    ...(lang !== "und" ? { lang } : {}),
     published,
     updated,
     date: (published || modified).slice(0, 10),

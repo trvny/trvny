@@ -20,7 +20,7 @@ function renderCard(post) {
   return `<a class="card" href="${path}">
 <span class="go">OTWÓRZ ›</span>
 <div class="meta">${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
-<h2 lang="${publicationLang(post.lang)}">${escapeHtml(post.title)}</h2>
+<h2 lang="${publicationLang(post.titleLang ?? post.lang)}">${escapeHtml(post.title)}</h2>
 <p lang="${publicationLang(post.lang)}">${escapeHtml(post.summary)}</p>
 <div class="tags">${featured}${tags}</div>
 </a>`;
@@ -33,7 +33,7 @@ function renderShitpostCard(post) {
   return `<a class="card" href="${REACTOR_HOME_URL}">
 <span class="go">REACTOR ↗</span>
 ${meta}
-<h2 lang="${publicationLang(post.lang)}">${escapeHtml(post.title)}</h2>
+<h2 lang="${publicationLang(post.titleLang ?? post.lang)}">${escapeHtml(post.title)}</h2>
 ${post.excerpt ? `<p lang="${publicationLang(post.lang)}">${caption}</p>` : ""}
 <div class="tags">${tags}</div>
 </a>`;

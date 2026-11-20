@@ -1,10 +1,24 @@
 // Cross-site submission for verified properties; source maps remain canonical.
-const ORIGIN = "https://trfny.com";
+import { ORIGIN } from "./page-seo.js";
+
+const LEGACY_ORIGIN = "https://trfny.com";
 const INDEX = "/sitemap-cross-site.xml";
-const SOURCES = new Map([
+const HUB_MAPS = [
   ["/sitemaps/travny.xml", { asset: "/sitemap.xml" }],
   ["/sitemaps/digests.xml", { asset: "/przeglad/sitemap.xml" }],
-  ["/sitemaps/feedseek.xml", { url: "https://trvny.github.io/feedseek/sitemap.xml" }],
+];
+const MAPS_BY_ORIGIN = new Map([
+  [LEGACY_ORIGIN, new Map([
+    ...HUB_MAPS,
+    ["/sitemaps/feedseek.xml", { url: "https://trvny.github.io/feedseek/sitemap.xml" }],
+  ])],
+  [ORIGIN, new Map([
+    ...HUB_MAPS,
+    ...["codebench", "docbench", "streambench", "weather", "shitpost"].map((service) => [
+      `/sitemaps/${service}.xml`,
+      { url: `https://${service}.${new URL(ORIGIN).hostname}/sitemap.xml` },
+    ]),
+  ])],
 ]);
 
 function xml(body, method) {
@@ -18,20 +32,21 @@ function xml(body, method) {
 
 export async function crossSiteSitemap(context, url, fetchImpl = fetch) {
   const method = context.request.method;
-  if (url.origin !== ORIGIN || !["GET", "HEAD"].includes(method)) return null;
+  const sources = MAPS_BY_ORIGIN.get(url.origin);
+  if (!sources || !["GET", "HEAD"].includes(method)) return null;
 
   if (url.pathname === INDEX) {
-    const entries = [...SOURCES.keys()].map(path => `  <sitemap><loc>${ORIGIN}${path}</loc></sitemap>`);
+    const entries = [...sources.keys()].map(path => `  <sitemap><loc>${url.origin}${path}</loc></sitemap>`);
     return xml(['<?xml version="1.0" encoding="UTF-8"?>',
       '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
       ...entries, "</sitemapindex>", ""].join("\n"), method);
   }
 
-  const source = SOURCES.get(url.pathname);
+  const source = sources.get(url.pathname);
   if (!source) return null;
   try {
     const response = source.asset
-      ? await context.env.ASSETS.fetch(new URL(source.asset, ORIGIN).href)
+      ? await context.env.ASSETS.fetch(new URL(source.asset, url.origin).href)
       : await fetchImpl(source.url, { redirect: "manual", signal: AbortSignal.timeout(5000) });
     if (!response.ok || !/^(?:application|text)\/xml(?:;|$)/i.test(response.headers.get("content-type") || "")) {
       throw new Error("Sitemap unavailable");

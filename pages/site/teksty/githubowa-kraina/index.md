@@ -83,7 +83,7 @@ Project: <https://github.com/travnie/twojstar>
 - [Codebench](https://codebench.bartek.lol/): Generate, scan and export QR codes and barcodes in the browser.
 - [Streambench](https://streambench.bartek.lol/): A local-first workshop for IPTV, radio, playlists and streams.
 - [Docbench](https://docbench.bartek.lol/): Work with documents and PDFs locally in the browser.
-- [Weather Feed](https://weather.travny.workers.dev/): Local weather, air quality and alerts for Kościelec and Chrzanów.
+- [Weather Feed](https://weather.bartek.lol/): Local weather, air quality and alerts for Kościelec and Chrzanów.
 - [Feedboard](https://github.com/travnie/twojstar/tree/main/feedboard): Windows 11 feed widget and settings application.
 - [Paint.NET plugins](https://github.com/travnie/twojstar/tree/main/paintdotnet): Image tools including ICO and AI Restore plugins.
 - [Audacity plugin](https://github.com/travnie/twojstar/tree/main/audacity): Auto Declip VST3 for audio restoration.

@@ -21,7 +21,7 @@ const TV_WORKER = "https://tvpi.travny.workers.dev";
 // Edge rules also cover static paths that bypass Functions.
 const CANONICAL_HOST = new URL(ORIGIN).hostname;
 const REDIRECT_HOSTS = new Set(["travny.pages.dev", "tvpi.pages.dev", "trfny.com", "www.trfny.com", "www.bartek.lol"]);
-const FEED_ALIAS_HOSTS = new Set([CANONICAL_HOST, ...REDIRECT_HOSTS]);
+const FEED_ALIAS_HOSTS = new Set(["trfny.com", "www.trfny.com"]);
 const PREVIEW_SUFFIX = ".travny.pages.dev";
 
 function isPreviewHost(hostname) {
@@ -239,7 +239,7 @@ export async function onRequest(context) {
   if (sitemap) return sitemap;
 
   // Mirror the zone rule when a request reaches Functions directly.
-  if (FEED_ALIAS_HOSTS.has(url.hostname) && (url.pathname === "/feeds" || url.pathname.startsWith("/feeds/") || url.pathname.startsWith("/f/"))) {
+  if (FEED_ALIAS_HOSTS.has(url.hostname) && url.pathname.startsWith("/f/")) {
     const destination = new URL("https://trvny.github.io");
     destination.pathname = "/feedseek/" + url.pathname.split("/").slice(2).join("/");
     destination.search = url.search;

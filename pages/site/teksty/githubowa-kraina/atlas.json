@@ -579,7 +579,7 @@
         {
           "name": "Weather Feed",
           "description": "Local weather, air quality and alerts for Kościelec and Chrzanów.",
-          "url": "https://weather.travny.workers.dev/",
+          "url": "https://weather.bartek.lol/",
           "translations": {
             "pl": {
               "name": "Weather Feed",

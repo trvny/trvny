@@ -48,9 +48,24 @@ test("upstream failure stays retryable, and non-map routes fall through", async 
   assert.equal(res.headers.get("cache-control"), "no-store");
   const redirect = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () => Response.redirect("https://example.com/"));
   assert.equal(redirect.status, 503);
-  for (const url of ["https://www.trfny.com/sitemap-cross-site.xml", "https://bartek.lol/sitemap-cross-site.xml", origin + "/sitemaps/unknown.xml"]) {
+  for (const url of ["https://www.trfny.com/sitemap-cross-site.xml", origin + "/sitemaps/unknown.xml"]) {
     assert.equal(await crossSiteSitemap(ctx, new URL(url)), null);
   }
   const post = context("/sitemap-cross-site.xml", "POST");
   assert.equal(await crossSiteSitemap(post, new URL(post.request.url)), null);
+});
+
+
+test("bartek.lol domain index includes human-facing Worker maps on the same origin", async () => {
+  const apex = "https://bartek.lol";
+  const index = await crossSiteSitemap(context("/sitemap-cross-site.xml"), new URL(apex + "/sitemap-cross-site.xml"));
+  const locations = [...(await index.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+  assert.deepEqual(locations, ["travny", "digests", "codebench", "docbench", "streambench", "weather", "shitpost"].map((name) => `${apex}/sitemaps/${name}.xml`));
+  for (const name of ["codebench", "docbench", "streambench", "weather", "shitpost"]) {
+    const child = await crossSiteSitemap(context(`/sitemaps/${name}.xml`), new URL(`${apex}/sitemaps/${name}.xml`), async (url) => {
+      assert.equal(url, `https://${name}.bartek.lol/sitemap.xml`);
+      return source();
+    });
+    assert.equal(child.status, 200);
+  }
 });

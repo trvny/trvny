@@ -150,7 +150,7 @@ Project: https://github.com/travnie/twojstar
 - Codebench: Generate, scan and export QR codes and barcodes in the browser. https://codebench.bartek.lol/
 - Streambench: A local-first workshop for IPTV, radio, playlists and streams. https://streambench.bartek.lol/
 - Docbench: Work with documents and PDFs locally in the browser. https://docbench.bartek.lol/
-- Weather Feed: Local weather, air quality and alerts for Kościelec and Chrzanów. https://weather.travny.workers.dev/
+- Weather Feed: Local weather, air quality and alerts for Kościelec and Chrzanów. https://weather.bartek.lol/
 - Feedboard: Windows 11 feed widget and settings application. https://github.com/travnie/twojstar/tree/main/feedboard
 - Paint.NET plugins: Image tools including ICO and AI Restore plugins. https://github.com/travnie/twojstar/tree/main/paintdotnet
 - Audacity plugin: Auto Declip VST3 for audio restoration. https://github.com/travnie/twojstar/tree/main/audacity
@@ -160,12 +160,12 @@ Project: https://github.com/travnie/twojstar
 
 ### Weather
 
-- Dashboard: https://weather.travny.workers.dev/
-- LLM guide: https://weather.travny.workers.dev/llms.txt
-- Full guide: https://weather.travny.workers.dev/llms-full.txt
-- Current ensemble JSON: https://weather.travny.workers.dev/state.json
-- Weather changes Atom feed: https://weather.travny.workers.dev/feed.atom
-- IMGW warnings Atom feed: https://weather.travny.workers.dev/warnings.atom
+- Dashboard: https://weather.bartek.lol/
+- LLM guide: https://weather.bartek.lol/llms.txt
+- Full guide: https://weather.bartek.lol/llms-full.txt
+- Current ensemble JSON: https://weather.bartek.lol/state.json
+- Weather changes Atom feed: https://weather.bartek.lol/feed.atom
+- IMGW warnings Atom feed: https://weather.bartek.lol/warnings.atom
 
 The service combines multiple sources for Kościelec in Chrzanów and includes temperature, wind, humidity, air quality, pollen and IMGW warnings.
 

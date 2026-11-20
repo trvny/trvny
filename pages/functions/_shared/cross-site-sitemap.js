@@ -47,11 +47,11 @@ export async function crossSiteSitemap(context, url, fetchImpl = fetch) {
   try {
     const response = source.asset
       ? await context.env.ASSETS.fetch(new URL(source.asset, url.origin).href)
-      : await fetchImpl(source.url, { redirect: "manual", signal: AbortSignal.timeout(5000) });
+      : await fetchImpl(source.url, { method, redirect: "manual", signal: AbortSignal.timeout(5000) });
     if (!response.ok || !/^(?:application|text)\/xml(?:;|$)/i.test(response.headers.get("content-type") || "")) {
       throw new Error("Sitemap unavailable");
     }
-    return xml(response.body, method);
+    return xml(method === "HEAD" ? null : await response.text(), method);
   } catch {
     return new Response(method === "HEAD" ? null : "Sitemap unavailable", {
       status: 503, headers: { "cache-control": "no-store", "retry-after": "300" },

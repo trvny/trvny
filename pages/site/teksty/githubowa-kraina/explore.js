@@ -148,7 +148,7 @@
     set('#trvny-nav-drawer a[href="/"] small', nav[8]);
     set('#trvny-nav-drawer a[href="/tv/"] small', nav[9]);
     navText('#trvny-nav-drawer a[href="https://weather.bartek.lol/"]', nav[10]);
-    navText('#trvny-nav-drawer a[href="https://trvny.github.io/feedseek/"]', nav[11]);
+    navText('#trvny-nav-drawer a[href="https://rss.bartek.lol/"]', nav[11]);
     set('#trvny-nav-drawer a[href="/badges/"] small', nav[12]);
     navText('#trvny-nav-drawer a[href="/teksty/"]', nav[13]);
     set('#trvny-nav-drawer a[href="/teksty/githubowa-kraina/"] small', nav[14]);

@@ -44,7 +44,16 @@ function metadata(rows, english) {
   const headline = english ? "AI Token Worldcup: token counts in " + rows.length + " languages" : "Tokenowy Mundial AI: tokenizacja " + rows.length + " języków";
   const description = english ? "A controlled comparison of six tokenizers on equivalent short texts. Counts, source corpus and methodology." : "Porównanie sześciu tokenizerów na krótkim równoważnym tekście. Wyniki, korpus i metodologia.";
   const dataset = BASE + "dataset.json";
-  return '<script type="application/ld+json">' + json({
+  const share = {
+    type: "article",
+    title: headline,
+    description,
+    url,
+    image: "https://bartek.lol/assets/og.png",
+  };
+  const openGraph = Object.entries(share).map(([name, value]) =>
+    `<meta property="og:${name}" content="${escape(value)}">`).join("");
+  return openGraph + '<script type="application/ld+json">' + json({
     "@context": "https://schema.org", "@graph": [
       { "@type": "Article", "@id": url + "#article", headline, description, url,
         mainEntityOfPage: url, inLanguage: english ? "en" : "pl", author: creator, about: { "@id": dataset } },

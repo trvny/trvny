@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import { pageSeoHead } from "../functions/_shared/page-seo.js";
+import { NAV_BODY } from "../functions/_shared/page-shell.js";
 
 function crumbs(path) {
   const html = pageSeoHead(path);
@@ -143,6 +144,10 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   const nav = html.match(/<nav class="fastext"[^>]*>([\s\S]*?)<\/nav>/)[1];
   const tiles = [...nav.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>[^<]*<small>([^<]+)<\/small><\/a>/g)];
   const links = tiles.map(match => new URL(match[1], site.url).href);
+  assert.ok(!links.includes(site.url + "papagenerator/"));
+  const menuLinks = [...NAV_BODY.matchAll(/<a class="trvny-nav-link" href="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(menuLinks.at(-1), "/lab/privacy/");
+  assert.ok(menuLinks.includes("/papagenerator/"));
   assert.equal(site.mainEntity["@id"], list["@id"]);
   const creator = graph.find(node => node["@type"] === "Person" && node["@id"] === site.creator["@id"]);
   const footer = html.match(/<footer>([\s\S]*?)<\/footer>/)[1];
@@ -150,7 +155,8 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   const [, byline, profile] = [...footer.matchAll(bylineMarkup)].find(match => match[1]);
   assert.equal(creator.name, "Bartek");
   assert.equal(creator.url, site.url + "#creator");
-  assert.ok(creator.alternateName.includes("travny"));
+  assert.deepEqual(creator.alternateName, ["TRAVNY", "trvny", "travny"]);
+  assert.deepEqual(site.alternateName, ["trvny", "travny"]);
   assert.deepEqual(creator.sameAs, ["https://github.com/trvny"]);
   assert.equal(byline.trim(), `${creator.name} · ${creator.description}`);
   assert.equal(profile, creator.sameAs[0]);

@@ -10,7 +10,7 @@ const { issue } = Astro.props;
 const { Content } = await render(issue);
 const date = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'long', timeZone: 'UTC' }).format(issue.data.date);
 ---
-<DigestLayout title={issue.data.title} description={issue.data.description} article={true}>
+<DigestLayout title={issue.data.title} description={issue.data.description} published={issue.data.date.toISOString()}>
   <article class:list={['article', { 'magazine-issue': issue.data.magazine }]}>
     <p class="date"><time datetime={issue.data.date.toISOString()}>{date}</time></p>
     <h1>{issue.data.title}</h1>

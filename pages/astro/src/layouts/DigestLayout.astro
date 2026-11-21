@@ -1,6 +1,7 @@
 ---
 import { breadcrumbJson } from '../lib/breadcrumbs.mjs';
-const { title, description, article = false } = Astro.props;
+const { title, description, published } = Astro.props;
+const article = Boolean(published);
 const canonical = new URL(Astro.url.pathname, 'https://bartek.lol');
 const crumbs = [
   { name: 'TRAVNY', item: 'https://bartek.lol/' },
@@ -8,6 +9,16 @@ const crumbs = [
   ...(article ? [{ name: title, item: canonical.toString() }] : []),
 ];
 const breadcrumbs = breadcrumbJson(crumbs);
+const articleJson = article && JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: title,
+  description,
+  url: canonical.href,
+  datePublished: published,
+  inLanguage: 'pl',
+  isPartOf: { '@id': 'https://bartek.lol/#website' },
+}).replaceAll('<', '\\u003c');
 ---
 <!doctype html>
 <html lang="pl">
@@ -21,12 +32,14 @@ const breadcrumbs = breadcrumbJson(crumbs);
   <meta property="og:title" content={`${title} · TRAVNY`} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={canonical} />
+  <meta property="og:image" content="https://bartek.lol/assets/og.png" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet" />
   <title>{title} · TRAVNY</title>
   <script type="application/ld+json" set:html={breadcrumbs} />
+  {articleJson && <script type="application/ld+json" set:html={articleJson} />}
 </head>
 <body>
   <main class="shell">

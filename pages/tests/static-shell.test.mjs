@@ -33,7 +33,7 @@ test("each real static HTML source receives one shared shell and preserves its c
       assert.match(rendered, /<meta name="robots" content="noindex,follow">/);
       assert.doesNotMatch(rendered, /rel="canonical"/);
     }
-    if (page.file !== "badges/index.html") assert.match(rendered, /"@type":"BreadcrumbList"/);
+    assert.match(rendered, /"@type":"BreadcrumbList"/);
   }
 });
 

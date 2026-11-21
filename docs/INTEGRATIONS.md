@@ -64,8 +64,10 @@ one with billing; inspect exact eligibility, quota and project settings before u
 1. HTTP checks: final URL/status, robots.txt and X-Robots-Tag, HTML robots,
    canonical, sitemap entries, redirects, favicon fetch, structured data.
 2. Authorized Google Search Console: URL Inspection index status, Google-selected
-   canonical, last crawl and coverage. Stored index state is **not** live URL
-   testing; distinguish provenance and timestamps.
+   canonical, last crawl and coverage. Requires access to each verified
+   Search Console property; the bartek.lol property cannot inspect the separate
+   trvny.github.io host. Stored index state is **not** live URL testing;
+   distinguish provenance and timestamps.
 3. Daily diff with actionable findings (source URL, affected page and suggested
    maintained repo path); no automatic source modification or duplicate site.
 4. Start with rss.bartek.lol and its GitHub Pages origin; then bartek.lol and
@@ -75,7 +77,9 @@ one with billing; inspect exact eligibility, quota and project settings before u
 
 - Billing-enabled project: Cloud Run Jobs with scale-to-zero, bounded concurrency,
   timeouts, retries, CPU/memory limits and per-service spend caps where supported.
-  Budget alerts alone are **not** hard caps. Measure networking egress separately.
+  Budget alerts alone are **not** hard caps. Even spend caps may leave in-flight
+  or pre-enforcement charges; unsupported services/networking need independent
+  limits and monitoring. Measure networking egress separately.
 - Billing-free project: only compatible APIs / Firebase options actually available
   without billing; do not equate it with Google's restricted Starter Tier.
 - Free quotas vary by region and product. US-only Compute Engine e2-micro and

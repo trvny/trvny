@@ -112,6 +112,12 @@ test('home keeps the latest of both feeds visible even when newer articles domin
     title: `Policy topic ${index + 1}`,
     date_published: new Date(Date.UTC(2026, 10, 2, 12, index + 1)).toISOString(),
   }));
+  reactor.push(...Array.from({ length: 10 }, (_, index) => ({
+    url: `https://shitpost.bartek.lol/posts/gh-2-${index + 1}`,
+    title: `Recently edited older Shitpost ${index + 1}`,
+    date_published: '2026-11-02T10:00:00Z',
+    date_modified: '2026-11-05T12:00:00Z',
+  })));
   globalThis.fetch = () => Promise.resolve(Response.json({ items: reactor }));
   globalThis.HTMLRewriter = FakeRewriter;
   const ctx = context();

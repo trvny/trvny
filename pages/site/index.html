@@ -102,6 +102,8 @@
     font-size:20px; color:var(--dim); letter-spacing:.04em}
   .topbar .pg{color:var(--k); background:var(--c); padding:1px 8px; font-weight:700;
     font-family:"Silkscreen"; font-size:13px; text-shadow:none}
+  .topbar .top-link{display:inline-flex; align-items:center; min-height:36px; background:var(--v); text-decoration:none}
+  .topbar .top-link:hover{background:var(--w)}
   .topbar .clk{color:var(--g)}
   .masthead{margin:18px 0 6px; display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap}
   h1{font-family:"Silkscreen",monospace; font-weight:700; color:var(--y);
@@ -232,7 +234,7 @@
 <div class="crt"><div class="scr-in">
   <div class="testbars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
   <div class="topbar">
-    <span>TELEGAZETA <span class="pg">P100</span></span>
+    <span>TELEGAZETA <span class="pg">P100</span> <a class="pg top-link" href="/teksty/" aria-label="P500 · TEKSTY">P500</a></span>
     <span class="clk" id="clk">--:--:--</span>
   </div>
   <div class="masthead">

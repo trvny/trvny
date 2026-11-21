@@ -92,15 +92,15 @@ test('missing or broken digest index leaves existing publications available', as
   }
 });
 
-test('home page expands three latest mixed publications to ten without duplicating feed data', async () => {
+test('home keeps the latest of both feeds visible even when newer articles dominate', async () => {
   const originalFetch = globalThis.fetch;
   const originalRewriter = globalThis.HTMLRewriter;
   const articles = Array.from({ length: 7 }, (_, index) => ({
     slug: `article-${index + 1}`,
     title: `Article ${index + 1}`,
     summary: 'A normal article',
-    date: '2026-11-02',
-    updated: new Date(Date.UTC(2026, 10, 2, 12, index)).toISOString(),
+    date: '2026-11-03',
+    updated: new Date(Date.UTC(2026, 10, 3, 12, index)).toISOString(),
     kind: 'TEXT',
     tags: [],
   }));
@@ -122,11 +122,16 @@ test('home page expands three latest mixed publications to ten without duplicati
     }
     if (!(url instanceof Request) && new URL(url).pathname === '/przeglad/index.json') {
       return Promise.resolve(Response.json([{
-        id: '2026-11-02',
+        id: '2026-11-01',
         title: 'CoCzyDziennik edition',
         description: 'A digest',
-        date: '2026-11-02T00:00:00.000Z',
-        updated: '2026-11-02T12:06:30.000Z',
+        date: '2026-11-01T00:00:00.000Z',
+      }, {
+        id: '2026-10-31',
+        title: 'Recently edited older digest',
+        description: 'An older issue',
+        date: '2026-10-31T00:00:00.000Z',
+        updated: '2026-11-04T00:00:00.000Z',
       }]));
     }
     return originalAssetsFetch(url);
@@ -147,13 +152,10 @@ test('home page expands three latest mixed publications to ten without duplicati
     assert.ok(initial.includes('lang="zh-Hans-CN">Policy topic 7'));
     assert.ok(initial.includes('lang="zh-Hans-CN">Shit 7 &lt;meme&gt;'));
     assert.doesNotMatch(listing, /SHITPOST REACTOR|· SHITPOST|SHITPOST OF THE DAY/);
-    assert.ok(initial.includes('CoCzyDziennik edition'));
-    assert.ok(initial.includes('Article 7'));
-    assert.ok(listing.indexOf('Shit 7 &lt;meme&gt;') < listing.indexOf('CoCzyDziennik edition'));
-    assert.ok(listing.indexOf('CoCzyDziennik edition') < listing.indexOf('Article 7'));
-    assert.equal(listing.split('href="/przeglad/2026-11-02/"').length - 1, 1);
-    assert.doesNotMatch(listing, /Article 1/);
-    assert.doesNotMatch(listing, /Shit 1 /);
+    const titles = (section) => [...section.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gu)].map((match) => match[1]);
+    assert.deepEqual(titles(initial), ['Article 7', 'Policy topic 7', 'CoCzyDziennik edition']);
+    assert.deepEqual(titles(rest), ['Article 6', 'Article 5', 'Article 4', 'Article 3', 'Article 2', 'Article 1', 'Policy topic 6']);
+    assert.equal(listing.split('href="/przeglad/2026-11-01/"').length - 1, 1);
     const reactorHome = 'href="https://shitpost.bartek.lol/"';
     assert.ok(listing.includes(reactorHome));
     assert.ok(!listing.includes('href="https://shitpost.bartek.lol/posts/gh-1-7"'));

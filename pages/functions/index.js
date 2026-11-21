@@ -73,9 +73,18 @@ function renderShitpostTextCard(post, index) {
 
 function renderTexts(posts, shitposts) {
   const entries = [
-    ...posts.filter((post) => publicationPath(post)).map((post) => ({ type: "text", value: post, updated: post.updated })),
-    ...shitposts.map((post) => ({ type: "shitpost", value: post, updated: post.updated })),
-  ].sort(latestFirst).slice(0, 10);
+    ...posts.filter((post) => publicationPath(post)).map((value) => ({ type: "text", value })),
+    ...shitposts.map((value) => ({ type: "shitpost", value })),
+  ].sort((a, b) => latestFirst(a.value, b.value));
+  // Reserve the latest of both feeds before limiting the list.
+  const required = [
+    entries.find((entry) => entry.value.digest === true),
+    entries.find((entry) => entry.type === "shitpost"),
+  ].filter(Boolean);
+  const remaining = entries.filter((entry) => !required.includes(entry));
+  const openSlots = 3 - required.length;
+  const visible = new Set([...required, ...remaining.slice(0, openSlots)]);
+  const hidden = remaining.slice(openSlots, 10 - required.length);
   const featured = posts.filter((post) => post.featured === true);
   const pinned = featured.length ? `<section class="featurehome" aria-labelledby="featuredHeading"><div class="labhead"><h2 id="featuredHeading">P600 · FEATURED</h2></div><div class="featuregrid">${featured.map((post, index) => renderTextCard(post, index, 601)).join("")}</div></section>` : "";
   const cards = (items, offset = 0) => items.map((entry, index) =>
@@ -83,7 +92,6 @@ function renderTexts(posts, shitposts) {
       ? renderShitpostTextCard(entry.value, offset + index)
       : renderTextCard(entry.value, offset + index)
   ).join("");
-  const hidden = entries.slice(3);
   const expansion = hidden.length ? `<details class="textexpand">
     <summary class="texttoggle"><span class="textexpandmore">▼ POKAŻ KOLEJNE ${hidden.length}</span><span class="textexpandless">▲ ZWIŃ</span></summary>
     <div class="textgrid">${cards(hidden, 3)}</div>
@@ -93,7 +101,7 @@ function renderTexts(posts, shitposts) {
       <h2 id="textsHeading">P500 · TEKSTY</h2>
       <a class="textfeed" href="/teksty/feed.xml" title="Kanał Atom">ATOM ↗</a>
     </div>
-    <div class="textgrid">${cards(entries.slice(0, 3))}</div>
+    <div class="textgrid">${cards(entries.filter((entry) => visible.has(entry)))}</div>
     ${expansion}
     <a class="textsall" href="/teksty/">▶ WSZYSTKIE TEKSTY</a> · <a class="textsall" href="/przeglad/">CoCzyDziennik</a>
   </section>${pinned}`;

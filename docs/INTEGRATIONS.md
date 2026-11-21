@@ -68,10 +68,12 @@ one with billing; inspect exact eligibility, quota and project settings before u
    Search Console property; the bartek.lol property cannot inspect the separate
    trvny.github.io host. Stored index state is **not** live URL testing;
    distinguish provenance and timestamps.
-3. Daily diff with actionable findings (source URL, affected page and suggested
-   maintained repo path); no automatic source modification or duplicate site.
+3. Persist minimal per-URL daily snapshots in Firestore from the first run;
+   Cloud Run Jobs have no durable local state between executions. Produce diffs
+   with actionable findings (source URL, affected page, maintained repo path).
+   No automatic source modification or duplicate site.
 4. Start with rss.bartek.lol and its GitHub Pages origin; then bartek.lol and
-   selected subdomains. Observe actual traffic before adding storage/queues.
+   selected subdomains. Observe traffic before expanding storage or queues.
 
 ### Deployment and cost guardrails
 

@@ -144,6 +144,7 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   const nav = html.match(/<nav class="fastext"[^>]*>([\s\S]*?)<\/nav>/)[1];
   const tiles = [...nav.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>[^<]*<small>([^<]+)<\/small><\/a>/g)];
   const links = tiles.map(match => new URL(match[1], site.url).href);
+  assert.ok(links.length > 0, "home shortcuts are empty");
   assert.ok(!links.includes(site.url + "papagenerator/"));
   const menuLinks = [...NAV_BODY.matchAll(/<a class="trvny-nav-link" href="([^"]+)"/g)].map(match => match[1]);
   assert.equal(menuLinks.at(-1), "/lab/privacy/");

@@ -42,3 +42,55 @@ The Worker reads TVPI, Weather and Autka through same-account service bindings a
 - status-mcp invocation logging remains disabled because its compatibility auth form can place a token in the request path.
 - The Telegram assistant reuses the Kanarek router bearer instead of duplicating OpenRouter/OrcaRouter/AIHubMix credentials.
 - Pet Dispatcher connector URL auth uses a dedicated MCP-only secret; the operator control-plane bearer is never copied into the connector URL.
+
+## Google Cloud opportunities (proposal, 2026-11-21)
+
+Exploration only; no deployment or migration authorized. Keep Cloudflare as the public
+edge and GitHub as the maintained source. Prefer new, bounded workloads over
+migrating working Workers/D1/R2. Two existing Google projects: one without billing,
+one with billing; inspect exact eligibility, quota and project settings before use.
+
+| Candidate | Purpose | Likely Google components | First experiment |
+| --- | --- | --- | --- |
+| Search Observatory | SEO/AEO/GEO checks across bartek.lol and subdomains; historical crawl and Search Console index states | Search Console API, URL Inspection API, Cloud Run Jobs, BigQuery | Diagnose rss.bartek.lol vs trvny.github.io/feedseek/ canonical/sitemap/robots conflicts; compare HTTP observations with Google's selected canonical |
+| Web Radar | Domain/technology discovery, change detection, new tools/APIs outside RSS | Cloud Run Jobs, Firestore, Pub/Sub | Small allowlisted domain set; bounded fetches; deduplicated changes |
+| Media Intelligence Lab | OCR, image metadata, similarity and batch processing as reusable API | Cloud Vision, Cloud Run | Process representative images; benchmark cost and limits |
+| Link Inspector | Bounded URL reputation, redirect chains, TLS/headers diagnostics | Web Risk, Cloud Run | Verify URLs against Web Risk; never present checks as guaranteed safety |
+| Code Lab | Containerized tests, package compatibility, benchmark runs | Cloud Build, Cloud Run Jobs | Run one isolated benchmark; keep GitHub Actions as default CI |
+| Data Observatory | Trends and historical analytics for projects and external signals | BigQuery, Cloud Storage | Import small append-only samples and measure query cost |
+
+### Search Observatory MVP
+
+1. HTTP checks: final URL/status, robots.txt and X-Robots-Tag, HTML robots,
+   canonical, sitemap entries, redirects, favicon fetch, structured data.
+2. Authorized Google Search Console: URL Inspection index status, Google-selected
+   canonical, last crawl and coverage. Requires access to each verified
+   Search Console property; the bartek.lol property cannot inspect the separate
+   trvny.github.io host. Stored index state is **not** live URL testing;
+   distinguish provenance and timestamps.
+3. Persist minimal per-URL daily snapshots in Firestore from the first run;
+   Cloud Run Jobs have no durable local state between executions. Produce diffs
+   with actionable findings (source URL, affected page, maintained repo path).
+   No automatic source modification or duplicate site.
+4. Start with rss.bartek.lol and its GitHub Pages origin; then bartek.lol and
+   selected subdomains. Observe traffic before expanding storage or queues.
+
+### Deployment and cost guardrails
+
+- Billing-enabled project: Cloud Run Jobs with scale-to-zero, bounded concurrency,
+  timeouts, retries, CPU/memory limits and per-service spend caps where supported.
+  Budget alerts alone are **not** hard caps. Even spend caps may leave in-flight
+  or pre-enforcement charges; unsupported services/networking need independent
+  limits and monitoring. Measure networking egress separately.
+- Billing-free project: only compatible APIs / Firebase options actually available
+  without billing; do not equate it with Google's restricted Starter Tier.
+- Free quotas vary by region and product. US-only Compute Engine e2-micro and
+  Cloud Storage allocations are not substitutes for unlimited EU hosting.
+- Use federated or attached identity, least privilege, no exported service-account
+  keys in GitHub. Store one canonical configuration; do not duplicate Cloudflare
+  data or move feed IDs/URLs casually.
+- Reassess after one week of real measurements, not guesses about free capacity.
+
+References: [Cloud Free Tier](https://docs.cloud.google.com/free/docs/free-cloud-features),
+[URL Inspection API](https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect),
+[Spend Caps](https://docs.cloud.google.com/billing/docs/how-to/budgets-spend-caps).

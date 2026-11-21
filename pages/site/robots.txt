@@ -27,6 +27,8 @@ User-agent: GoogleOther-Image
 User-agent: GoogleOther-Video
 User-agent: Google-InspectionTool
 User-agent: Google-Extended
+User-agent: APIs-Google
+User-agent: AdsBot-Google-Mobile
 User-agent: Applebot
 User-agent: Applebot-Extended
 User-agent: BingBot

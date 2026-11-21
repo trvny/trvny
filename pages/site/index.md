@@ -2,9 +2,9 @@
 
 > Public hub for TVP IPTV, local weather, enhanced feeds, browser workbenches and small technical publications.
 
-Canonical site: https://bartek.lol/. `travny.pages.dev` and `trfny.com` redirect here; preview deployment aliases stay noindex.
+Canonical site: https://bartek.lol/. The hub also opens directly at https://travny.pages.dev/.
 
-TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub organization hosts companion projects. [GitHub profile](https://github.com/trvny) · [Organization](https://github.com/travnie).
+Creator: Bartek (TRAVNY / trvny); the `travnie` GitHub organization hosts companion projects. [GitHub profile](https://github.com/trvny) · [Organization](https://github.com/travnie).
 
 ## Services
 
@@ -19,7 +19,6 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
 - [Streambench](https://streambench.bartek.lol/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
 - [Codebench](https://codebench.bartek.lol/): local-first QR and barcode studio.
 - [Docbench](https://docbench.bartek.lol/): local-first document and PDF studio.
-- [Papagenerator](https://bartek.lol/papagenerator/): browser-only meme and PNG sticker editor, maintained in [trvny/trvny](https://github.com/trvny/trvny/tree/main/pages/papagenerator).
 - [Badges](https://bartek.lol/badges/): ecosystem, bot, AI and live
   status/counter SVG badges with copyable Markdown and HTML.
 - [Teksty](https://bartek.lol/teksty/): the unified publication directory for essays, experiments, CoCzyDziennik news editions and Reactor notes, including GitHubowa Kraina and Tokenowy Mundial AI.

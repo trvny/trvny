@@ -9,8 +9,9 @@ export const NAV_BODY = `
   <nav>
     <div class="trvny-nav-group"><span class="trvny-nav-label">START</span><a class="trvny-nav-link" href="/">Strona główna<small>hub TRAVNY</small></a><a class="trvny-nav-link" href="/tv/">TVP<small>kanały i odtwarzacz</small></a></div>
     <div class="trvny-nav-group"><span class="trvny-nav-label">USŁUGI</span><a class="trvny-nav-link" href="https://weather.bartek.lol/">Pogoda</a><a class="trvny-nav-link" href="https://rss.bartek.lol/">Feedy</a></div>
-    <div class="trvny-nav-group"><span class="trvny-nav-label">LAB</span><a class="trvny-nav-link" href="/lab/">TRAVNY Lab</a><a class="trvny-nav-link" href="/lab/privacy/">Prywatność<small>zasady narzędzi</small></a><a class="trvny-nav-link" href="https://streambench.bartek.lol/">Streambench</a><a class="trvny-nav-link" href="https://codebench.bartek.lol/">Codebench</a><a class="trvny-nav-link" href="https://docbench.bartek.lol/">Docbench</a><a class="trvny-nav-link" href="/papagenerator/">Papagenerator</a><a class="trvny-nav-link" href="/badges/">Badges<small>znaki i liczniki</small></a></div>
+    <div class="trvny-nav-group"><span class="trvny-nav-label">LAB</span><a class="trvny-nav-link" href="/lab/">TRAVNY Lab</a><a class="trvny-nav-link" href="https://streambench.bartek.lol/">Streambench</a><a class="trvny-nav-link" href="https://codebench.bartek.lol/">Codebench</a><a class="trvny-nav-link" href="https://docbench.bartek.lol/">Docbench</a><a class="trvny-nav-link" href="/papagenerator/">Papagenerator</a><a class="trvny-nav-link" href="/badges/">Badges<small>znaki i liczniki</small></a></div>
     <div class="trvny-nav-group"><span class="trvny-nav-label">TEKSTY</span><a class="trvny-nav-link" href="/teksty/">Wszystkie teksty</a><a class="trvny-nav-link" href="/przeglad/">CoCzyDziennik</a><a class="trvny-nav-link" href="/teksty/githubowa-kraina/">GitHubowa Kraina<small>atlas projektów</small></a><a class="trvny-nav-link" href="/teksty/token-worldcup/">Tokenowy Mundial AI</a></div>
+    <div class="trvny-nav-group"><a class="trvny-nav-link" href="/lab/privacy/">Prywatność<small>zasady narzędzi</small></a></div>
   </nav>
 </aside>
 <script src="/assets/nav.js" defer></script>
@@ -20,7 +21,7 @@ export function pageShellHead(pathname, page) {
   const canonical = page === "papagenerator"
     ? `<link rel="canonical" href="${ORIGIN}/papagenerator/">`
     : page === "token-worldcup"
-      ? `<link rel="canonical" href="${ORIGIN}/teksty/token-worldcup/"><meta property="og:url" content="${ORIGIN}/teksty/token-worldcup/">`
+      ? `<link rel="canonical" href="${ORIGIN}/teksty/token-worldcup/">`
       : "";
   return NAV_HEAD + pageSeoHead(pathname) + canonical;
 }

@@ -6,6 +6,7 @@ const tokenCup = [...texts, { name: "Tokenowy Mundial AI", path: "/teksty/token-
 const githubWorld = [...texts, { name: "GitHubowa Kraina", path: "/teksty/githubowa-kraina/" }];
 
 const trails = {
+  "/badges/": [...home, { name: "Badges", path: "/badges/" }],
   "/tv/": [...home, { name: "TVPI", path: "/tv/" }],
   "/papagenerator/": [...home, { name: "Papagenerator", path: "/papagenerator/" }],
   "/teksty/": texts,

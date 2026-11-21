@@ -11,7 +11,7 @@ test('Astro pages publish breadcrumb trails matching their canonical paths', asy
   const issues = (await readdir(new URL('przeglad/', dist), { withFileTypes: true }))
     .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(entry.name))
     .map((entry) => `przeglad/${entry.name}/`);
-  for (const path of ['lab/', 'lab/field-notes/', 'przeglad/', ...issues]) {
+  for (const path of ['lab/', 'lab/privacy/', 'lab/field-notes/', 'przeglad/', ...issues]) {
     const html = await readFile(new URL(`${path}index.html`, dist), 'utf8');
     const match = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/);
     assert.ok(match, `${path}: missing structured data`);
@@ -21,6 +21,14 @@ test('Astro pages publish breadcrumb trails matching their canonical paths', asy
     assert.deepEqual(crumbs.map((item) => item.position), crumbs.map((_, i) => i + 1));
     assert.equal(crumbs[0].item, 'https://bartek.lol/');
     assert.equal(crumbs.at(-1).item, `https://bartek.lol/${path}`);
+    if (issues.includes(path)) {
+      const metadata = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)]
+        .map((script) => JSON.parse(script[1]));
+      const article = metadata.find((entity) => entity['@type'] === 'Article');
+      assert.equal(article.url, crumbs.at(-1).item);
+      assert.equal(article.headline, crumbs.at(-1).name);
+      assert.equal(article.datePublished, html.match(/<time datetime="([^"]+)"/)[1]);
+    }
     const nav = html.match(/<nav class="crumb"[^>]*>(.*?)<\/nav>/)?.[1];
     assert.ok(nav, `${path}: missing visible breadcrumb`);
     const visible = [...nav.matchAll(/<(a|span)\b([^>]*)>([^<]*)<\/(?:a|span)>/g)];

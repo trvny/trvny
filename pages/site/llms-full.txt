@@ -7,11 +7,10 @@ Source: https://bartek.lol/
 ## Identity and hosts
 
 - Canonical hub: https://bartek.lol/
-- Custom domain aliases: https://trfny.com/ and https://www.trfny.com/ redirect to the canonical Pages host; /f/* redirects to Feedseek.
-- Legacy Pages host: https://tvpi.pages.dev/ — permanently redirects to the canonical host while preserving path and query.
+- Alternate hub address: https://travny.pages.dev/ serves the same site directly.
 - Repository: https://github.com/trvny/trvny/tree/main/pages
 - TVPI Worker repository: https://github.com/trvny/tvpi
-- Creator: Bartek (TRAVNY / trvny / travny / trfny / trafny).
+- Creator: Bartek (TRAVNY / trvny).
 - GitHub identity: https://github.com/trvny ; related organization travnie: https://github.com/travnie
 - Project source maps: https://github.com/trvny/trvny ; https://github.com/travnie/twojstar ; https://github.com/trvny/feedseek
 

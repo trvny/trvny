@@ -70,7 +70,7 @@ function normalizeShitpostItem(item) {
   };
 }
 
-export async function getShitposts(fetchImpl = fetch, limit = 50) {
+export async function getShitposts(fetchImpl = fetch, limit = 50, compare = (a, b) => b.updated.localeCompare(a.updated)) {
   try {
     const response = await fetchImpl(SHITPOST_FEED_URL, {
       headers: { accept: "application/feed+json, application/json" },
@@ -100,7 +100,7 @@ export async function getShitposts(fetchImpl = fetch, limit = 50) {
     }
 
     return [...newestByUrl.values()]
-      .sort((a, b) => b.updated.localeCompare(a.updated))
+      .sort(compare)
       .slice(0, count);
   } catch {
     console.warn("shitpost_feed_unavailable", { reason: "request_or_json" });

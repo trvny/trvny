@@ -124,7 +124,7 @@ export async function onRequest(context) {
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
     getDigestPosts(context),
-    getShitposts(serviceFetch(context, "REACTOR_SERVICE"), 10),
+    getShitposts(serviceFetch(context, "REACTOR_SERVICE"), 10, latestFirst),
   ]);
   const contentType = response.headers.get("content-type") || "";
 

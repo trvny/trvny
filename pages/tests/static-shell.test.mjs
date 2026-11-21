@@ -29,6 +29,10 @@ test("each real static HTML source receives one shared shell and preserves its c
     if (page.page === "papagenerator" || page.page === "token-worldcup") {
       assert.ok(rendered.includes('rel="canonical" href="https://bartek.lol' + page.path + '"'));
     }
+    if (page.path.startsWith("/teksty/token-worldcup/") && !page.noindex) {
+      const shareUrls = [...rendered.matchAll(/<meta property="og:url" content="([^"]+)">/g)];
+      assert.deepEqual(shareUrls.map(match => match[1]), ["https://bartek.lol" + page.path]);
+    }
     if (page.noindex) {
       assert.match(rendered, /<meta name="robots" content="noindex,follow">/);
       assert.doesNotMatch(rendered, /rel="canonical"/);

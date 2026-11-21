@@ -13,7 +13,9 @@
 [![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/travnie/wambridge)
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-16a34a?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.bartek.lol)
 
-[![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.bartek.lol) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.bartek.lol) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.bartek.lol)
+[![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.bartek.lol)
+[![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.bartek.lol)
+[![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.bartek.lol)
 
 [![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://travny.pages.dev)  
 [![Docs7](https://raw.githubusercontent.com/travnie/.github/main/assets/badges/docs7.svg)](https://twojstar.docs7.io/)
@@ -57,7 +59,7 @@
 |---|---|---|
 | 🔳 **[Codebench](https://github.com/travnie/twojstar/tree/main/benches/codebench)** | [codebench.bartek.lol](https://codebench.bartek.lol) | 浏览器内运行的私有 QR/条码工作台，数据不会离开浏览器。 |
 | 📻 **[Streambench](https://github.com/travnie/twojstar/tree/main/benches/streambench)** | [streambench.bartek.lol](https://streambench.bartek.lol) | 用于测试、整理和播放 IPTV、广播、HLS、M3U 与 XMLTV。 |
-| 📄 **[Docbench](https://github.com/travnie/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.bartek.lol) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
+| 📄 **[Docbench](https://github.com/travnie/twojstar/tree/main/benches/docbench)** | [docbench.bartek.lol](https://docbench.bartek.lol) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
 | 🏠 **[TRAVNY hub](pages/)** | [travny.pages.dev](https://travny.pages.dev) | 公共主页：电视页面、天气、订阅源和文章；Cloudflare Pages 项目 `travny`，由 `pages/` 构建。 |
 | 🌦️ **[weather-feed](https://github.com/travnie/twojstar/tree/main/weather-feed)** | [weather.bartek.lol](https://weather.bartek.lol) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | 汇总检查 TVPI、Feedseek、Weather 和 Autka 健康状态的单一工具。 |

@@ -147,6 +147,7 @@ test('reject refuses an interrupted approval and a retry completes its original 
   assert.equal(retry.status, 200);
   assert.equal((await retry.json()).url, 'https://shitpost.bartek.lol/posts/gh-900-1');
   assert.equal((await listProposals(env)).total, 0);
+  assert.deepEqual(JSON.parse(FEED.store.get('submissions/pending-index.json').body), []);
 });
 
 test('failed rejection cleanup can resume safely without leaking content', async () => {

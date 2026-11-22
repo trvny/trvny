@@ -1,0 +1,85 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "TRAVNY",
+    "identifier": "bartek.lol",
+    "documentationUrl": "https://bartek.lol/llms.txt"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:bartek.lol:mcp:feedseek",
+      "displayName": "Feedseek MCP search",
+      "type": "application/mcp-server-card+json",
+      "url": "https://rss.bartek.lol/.well-known/mcp/server-card.json",
+      "description": "Public read-only MCP service for feed discovery, recent-item search and full article fetch.",
+      "capabilities": [
+        "list_feeds",
+        "search",
+        "fetch",
+        "recent"
+      ],
+      "representativeQueries": [
+        "Find the latest posts about AI across Feedseek sources",
+        "Search JBZD or Memy posts and fetch full entries"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:catalog:feedseek",
+      "displayName": "Feedseek Model Feed catalog",
+      "type": "application/json",
+      "url": "https://rss.bartek.lol/model-feeds.json",
+      "description": "Published source registry with links to machine-readable Model Feed histories.",
+      "capabilities": [
+        "feed-discovery",
+        "model-feeds"
+      ],
+      "representativeQueries": [
+        "List all published Feedseek sources and their JSON feed URLs",
+        "Find the JSON feed for a specific publication"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:api:weather",
+      "displayName": "Chrzanow weather state",
+      "type": "application/json",
+      "url": "https://weather.bartek.lol/state.json",
+      "description": "Read-only local weather and environmental state for the Chrzanow area.",
+      "capabilities": [
+        "weather",
+        "air-quality"
+      ],
+      "representativeQueries": [
+        "Get current weather in Chrzanow",
+        "Read the current air quality near Koscielec"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:api:badges",
+      "displayName": "TRAVNY badges catalog",
+      "type": "application/json",
+      "url": "https://bartek.lol/badge/index.json",
+      "description": "Discover available SVG badge families, variants and endpoints.",
+      "capabilities": [
+        "badge-discovery"
+      ],
+      "representativeQueries": [
+        "What public badges can I embed from TRAVNY?",
+        "Get a badge for project status"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:api:posts",
+      "displayName": "TRAVNY publications index",
+      "type": "application/json",
+      "url": "https://bartek.lol/teksty/posts.json",
+      "description": "Machine-readable index of TRAVNY posts and publication routes.",
+      "capabilities": [
+        "publication-discovery"
+      ],
+      "representativeQueries": [
+        "Find recent CoCzyDziennik posts",
+        "List the latest TRAVNY articles"
+      ]
+    }
+  ]
+}

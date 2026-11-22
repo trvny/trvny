@@ -30,3 +30,6 @@ node scripts/build-badge-previews.mjs
 
 # Render shared navigation and SEO once for known static HTML routes.
 node scripts/build-static-shell.mjs
+
+# Legacy AI Catalog path uses the same ARD manifest; one maintained source.
+cp site/.well-known/ard.json site/.well-known/ai-catalog.json

@@ -53,7 +53,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     "[data-audio]": audio, "[data-controls]": new Element(), "[data-play]": play,
     "[data-volume]": new Input(), "[data-status]": status, "[data-cover]": new Image(),
     "[data-station-logo]": new Image(), "[data-kicker]": new Element(),
-    "[data-title]": new Element(), "[data-artist]": new Element(), "[data-album]": new Element(),
+    "[data-title]": new Element(), "[data-artist]": new Element(), "[data-album]": new Element(), "[data-radio-open]": new Element(),
     "[data-station-picker]": new Element(), "[data-station]": station,
     "[data-station-nav]": new Element(), "[data-previous]": new Button(), "[data-next]": new Button(),
     "[data-position]": new Element(), "[data-announcement]": new Element(), "[data-swipe-area]": new Element(), ".radio-fallback [data-mark]": new Element(),
@@ -299,4 +299,23 @@ test("TRAVNY Radio is the default MP3 station with live cover and metadata", asy
   await p.flush();
   assert.equal(p.audio.src,"travny.mp3");
   assert.equal(p.instances.length,0);
+});
+
+
+test("full-player link is available for TRAVNY only and never interrupts playback", async () => {
+  const p = await player();
+  const open = p.elements["[data-radio-open]"];
+  assert.equal(p.station.value, "travny");
+  assert.equal(open.hidden, false);
+  p.play.dispatch("click");
+  await p.flush();
+  assert.equal(p.audio.paused, false);
+  p.select("bbc1");
+  await p.flush();
+  assert.equal(open.hidden, true);
+  p.select("travny");
+  await p.flush();
+  assert.equal(open.hidden, false);
+  assert.equal(p.audio.src, "travny.mp3");
+  assert.equal(p.audio.playCalls, 3);
 });

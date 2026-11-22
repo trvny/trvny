@@ -61,6 +61,11 @@ binding fetch exception falls back to the same shared implementation.
 Worker HTTP responses (including upstream errors) pass through unchanged.
 Badge routes also fall back on an unmarked 404 from an older Worker bundle.
 The home radio defaults to TRAVNY Radio (direct MP3 from Tailscale Funnel).
+Its live-track link and the shared menu open the standalone player at
+`radio.bartek.lol`; the info page remains canonical at `/radio/` and is
+linked from Lab. The root sitemap contains the standalone redirect alias,
+canonical information page and CoCzyDziennik archive (also reflected in
+legacy generated sitemap aliases).
 `/api/radio-station?station=travny` normalizes its fixed-origin live JSON
 for the same-origin UI, including verified cover-art paths; it avoids
 cross-origin metadata fetches in browsers. The shared `site/assets/webmcp.js`

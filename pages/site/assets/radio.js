@@ -10,6 +10,7 @@
     const title = root.querySelector('[data-title]');
     const artist = root.querySelector('[data-artist]');
     const album = root.querySelector('[data-album]');
+    const radioOpen = root.querySelector('[data-radio-open]');
     const picker = root.querySelector('[data-station-picker]');
     const stationNav = root.querySelector('[data-station-nav]');
     const previous = root.querySelector('[data-previous]');
@@ -26,6 +27,7 @@
         !(status instanceof HTMLElement) || !(cover instanceof HTMLImageElement) ||
         !(logo instanceof HTMLImageElement) || !(kicker instanceof HTMLElement) ||
         !(title instanceof HTMLElement) || !(artist instanceof HTMLElement) || !(album instanceof HTMLElement) ||
+        !(radioOpen instanceof HTMLElement) ||
         !(picker instanceof HTMLElement) || !(station instanceof HTMLSelectElement) ||
         !(stationNav instanceof HTMLElement) || !(previous instanceof HTMLButtonElement) ||
         !(next instanceof HTMLButtonElement) || !(position instanceof HTMLElement) ||
@@ -129,6 +131,7 @@
       title.textContent = option.textContent;
       artist.textContent = ['paradise','travny'].includes(station.value) ? 'Loading track details…' : 'Live radio';
       album.textContent = '';
+      radioOpen.hidden = station.value !== 'travny';
       cover.hidden = true;
       cover.removeAttribute('src');
       void refresh();

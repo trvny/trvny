@@ -24,7 +24,7 @@ The hub is a lightweight static/edge site. It links independent services rather 
 - Markdown representation: https://bartek.lol/index.md
 - Concise LLM guide: https://bartek.lol/llms.txt
 - This full guide: https://bartek.lol/llms-full.txt
-- Standalone home radio with swipe and looping station controls: Radio Paradise, Trójka, Czwórka and BBC Radio 1. Paradise track metadata: https://bartek.lol/api/radio-now. Other station metadata: https://bartek.lol/api/radio-station?station=bbc1 (also `trojka`, `czworka`). Track and programme availability varies; station logos are used when cover art is unavailable.
+- Standalone home radio defaults to TRAVNY Radio (192 kb/s MP3) with live track title, artist, album and cover art: https://bartek.lol/api/radio-station?station=travny. Swipe and loop through Radio Paradise, Trójka, Czwórka and BBC Radio 1. Paradise metadata: https://bartek.lol/api/radio-now. Other station metadata: https://bartek.lol/api/radio-station?station=bbc1 (also `trojka`, `czworka`). Track and programme availability varies; station logos are used when cover art is unavailable.
 
 ### TVPI
 

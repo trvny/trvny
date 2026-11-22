@@ -32,7 +32,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
   class Input extends Element { constructor() { super(); this.value = "0.8"; } }
   class Image extends Element {}
   class Select extends Element {
-    constructor() { super(); this.value = "paradise"; }
+    constructor() { super(); this.value = "travny"; }
     get options() { return Object.values(this.items); }
     get selectedIndex() { return Object.keys(this.items).indexOf(this.value); }
     set selectedIndex(index) { this.value = Object.keys(this.items)[index]; }
@@ -43,6 +43,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
   const status = new Element();
   const station = new Select();
   station.items = {
+    travny: { textContent: "TRAVNY Radio", dataset: { url: "travny.mp3", kind: "direct", mark: "TR", quality: "192K MP3" } },
     paradise: { textContent: "Radio Paradise", dataset: { url: "paradise.aac", kind: "direct", mark: "RP", quality: "320K AAC" } },
     trojka: { textContent: "Trójka", dataset: { url: "trojka.m3u8", kind: "hls", mark: "3", quality: "LIVE HLS" } },
     czworka: { textContent: "Czwórka", dataset: { url: "czworka.m3u8", kind: "hls", mark: "4", quality: "LIVE HLS" } },
@@ -119,6 +120,7 @@ test("switching stations stops the old stream and respects pause", async () => {
 
 test("late Paradise metadata cannot overwrite another station", async () => {
   const p = await player();
+  p.select("paradise");
   p.select("trojka");
   p.resolveMetadata({ ok: true, json: async () => ({ title: "Old track", artist: "Old artist" }) });
   await p.flush();
@@ -251,16 +253,16 @@ test("station arrows and swipes wrap without starting paused radio", async () =>
   assert.equal(p.elements["[data-station-nav]"].hidden, false);
   previous.dispatch("click");
   assert.equal(p.station.value, "bbc1");
-  assert.equal(p.elements["[data-position]"].textContent, "4 / 4");
-  assert.equal(p.elements["[data-announcement]"].textContent, "Station 4 of 4: BBC Radio 1");
+  assert.equal(p.elements["[data-position]"].textContent, "5 / 5");
+  assert.equal(p.elements["[data-announcement]"].textContent, "Station 5 of 5: BBC Radio 1");
   next.dispatch("click");
-  assert.equal(p.station.value, "paradise");
+  assert.equal(p.station.value, "travny");
   area.dispatch("touchstart", { touches:[{ clientX:200, clientY:30 }] });
   area.dispatch("touchend", { changedTouches:[{ clientX:100, clientY:35 }] });
-  assert.equal(p.station.value, "trojka");
+  assert.equal(p.station.value, "paradise");
   area.dispatch("touchstart", { touches:[{ clientX:100, clientY:30 }] });
   area.dispatch("touchend", { changedTouches:[{ clientX:200, clientY:35 }] });
-  assert.equal(p.station.value, "paradise");
+  assert.equal(p.station.value, "travny");
   area.dispatch("touchstart", { touches:[{ clientX:100, clientY:30 }] });
   area.dispatch("touchend", { changedTouches:[{ clientX:120, clientY:180 }] });
   assert.equal(p.station.value, "paradise", "vertical gestures do not change stations");
@@ -270,6 +272,7 @@ test("station arrows and swipes wrap without starting paused radio", async () =>
 
 test("swiping while playing switches the stream once", async () => {
   const p = await player();
+  p.select("paradise");
   const area = p.elements["[data-swipe-area]"];
   p.play.dispatch("click");
   area.dispatch("touchstart", { touches:[{ clientX:210, clientY:20 }] });
@@ -278,4 +281,22 @@ test("swiping while playing switches the stream once", async () => {
   assert.equal(p.station.value, "trojka");
   assert.equal(p.audio.playCalls, 2);
   assert.equal(p.instances[0].url, "trojka.m3u8");
+});
+
+
+test("TRAVNY Radio is the default MP3 station with live cover and metadata", async () => {
+  const p = await player({ stationMetadata: {
+    title:"Current title",artist:"Current artist",album:"Test album",
+    cover:"https://travny-radio.taild44c6c.ts.net/artwork/0123456789abcdefabcd.jpg",kind:"track",
+  }});
+  await p.flush();
+  assert.equal(p.station.value,"travny");
+  assert.equal(p.elements["[data-title]"].textContent,"Current title");
+  assert.equal(p.elements["[data-artist]"].textContent,"Current artist");
+  assert.equal(p.elements["[data-album]"].textContent,"Test album");
+  assert.equal(p.elements["[data-cover]"].hidden,false);
+  p.play.dispatch("click");
+  await p.flush();
+  assert.equal(p.audio.src,"travny.mp3");
+  assert.equal(p.instances.length,0);
 });

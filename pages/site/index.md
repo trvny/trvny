@@ -8,10 +8,11 @@ Creator: Bartek (TRAVNY / trvny); the `travnie` GitHub organization hosts compan
 
 ## Services
 
-- Home radio: swipe or use arrows to switch Paradise, Trójka, Czwórka
+- Home radio: TRAVNY Radio is the default live MP3 station with track metadata
+  and album art. Swipe or use arrows to switch Radio Paradise, Trójka, Czwórka
   and BBC Radio 1. Live tracks or programmes where available; station logos as
-  fallback.
-  Paradise metadata: `/api/radio-now`; other stations: `/api/radio-station?station=bbc1`.
+  fallback. TRAVNY metadata: `/api/radio-station?station=travny`; Paradise:
+  `/api/radio-now`; other stations: `/api/radio-station?station=bbc1`.
 - [Bench Lab](https://bartek.lol/lab/): Streambench, Codebench and Docbench carousel.
 - [TVPI](https://bartek.lol/tv/): browser page for stable TVP IPTV entry points and playlists.
 - [Weather](https://weather.bartek.lol/): multi-source local weather for Kościelec in Chrzanów.

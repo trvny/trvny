@@ -59,7 +59,11 @@ endpoints via `HUB_BACKEND`. No public Worker hostname. Missing binding or
 binding fetch exception falls back to the same shared implementation.
 Worker HTTP responses (including upstream errors) pass through unchanged.
 Badge routes also fall back on an unmarked 404 from an older Worker bundle.
-Radio audio remains direct to station providers.
+The home radio defaults to TRAVNY Radio (direct MP3 from Tailscale Funnel).
+`/api/radio-station?station=travny` normalizes its fixed-origin live JSON
+for the same-origin UI, including verified cover-art paths; it avoids
+cross-origin metadata fetches in browsers. Radio audio remains direct to
+station providers.
 
 Cloudflare Builds settings for `travny-hub-backend`:
 

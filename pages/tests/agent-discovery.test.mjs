@@ -26,7 +26,7 @@ test("ARD manifest advertises real, well-formed public capability URLs", async (
     assert.ok(entry.representativeQueries.every(q => typeof q === "string" && q.trim().length > 5));
   }
   assert.ok(catalog.entries.some(e => e.url === "https://bartek.lol/teksty/feed.xml" && e.type === "application/atom+xml"));
-  assert.ok(catalog.entries.some(e => e.url === "https://tvpi.travny.workers.dev/playlist.m3u"));
+  assert.ok(catalog.entries.some(e => e.url === "https://tvpi.travny.workers.dev/playlist.m3u" && e.type === "application/x-mpegurl"));
   const build = await readFile(new URL("../build.sh", import.meta.url), "utf8");
   assert.match(build, /^cp site\/\.well-known\/ard\.json site\/\.well-known\/ai-catalog\.json$/m);
   const guide = await readFile(new URL("../site/llms.txt", import.meta.url), "utf8");

@@ -16,7 +16,7 @@ test("TRAVNY Radio has one indexed canonical landing page and linked machine gui
   assert.match(html, /rel="alternate" type="text\/markdown" href="\/radio\/index\.md"/);
   assert.match(sitemap, /<loc>https:\/\/bartek\.lol\/radio\/<\/loc>/);
   assert.match(home, /id="radio" class="panel radio"/);
-  assert.match(home, /data-radio-open href="https:\/\/radio\.bartek\.lol\/"/);
+  assert.match(home, /data-radio-open href="https:\/\/radio\.bartek\.lol\/" target="_blank" rel="noopener noreferrer" aria-label="Open full player/);
   assert.doesNotMatch(home, /About TRAVNY Radio ↗/);
   assert.match(md, /https:\/\/bartek\.lol\/api\/radio-station\?station=travny/);
   const jsonLd = html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/);

@@ -310,6 +310,9 @@ test("full-player link is available for TRAVNY only and never interrupts playbac
   p.play.dispatch("click");
   await p.flush();
   assert.equal(p.audio.paused, false);
+  open.dispatch("click");
+  assert.equal(p.audio.paused, false);
+  assert.equal(p.audio.playCalls, 1);
   p.select("bbc1");
   await p.flush();
   assert.equal(open.hidden, true);

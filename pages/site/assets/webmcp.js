@@ -126,7 +126,9 @@
         if (current.kind !== "track" || typeof current.title !== "string" || !current.title) {
           throw new Error("invalid metadata");
         }
-        const str = value => typeof value === "string" ? value.slice(0, 200) : "";
+        function str(value) {
+          return typeof value === "string" ? value.slice(0, 200) : "";
+        }
         const cover = str(current.cover);
         return {
           ok: true,

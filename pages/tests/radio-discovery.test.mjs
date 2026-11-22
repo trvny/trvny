@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const source = name => readFile(new URL("../site/" + name, import.meta.url), "utf8");
+function source(name) {
+  return readFile(new URL("../site/" + name, import.meta.url), "utf8");
+}
 
 test("TRAVNY Radio has one indexed canonical landing page and linked machine guide", async () => {
   const [html, md, sitemap, home] = await Promise.all([

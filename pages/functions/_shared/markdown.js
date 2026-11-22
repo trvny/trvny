@@ -1,9 +1,12 @@
 // Explicit Markdown variants only; never guess a filesystem path from Accept.
 const ATLAS = "/teksty/githubowa-kraina";
 const ATLAS_PATHS = new Set([ATLAS, ATLAS + "/", ATLAS + "/index.html"]);
-export const isStaticMarkdownPage = pathname => ATLAS_PATHS.has(pathname);
+const RADIO = "/radio";
+const RADIO_PATHS = new Set([RADIO, RADIO + "/", RADIO + "/index.html"]);
+export const isStaticMarkdownPage = pathname => ATLAS_PATHS.has(pathname) || RADIO_PATHS.has(pathname);
 const PATHS = new Map([
   ...[...ATLAS_PATHS].map(path => [path, ATLAS + "/index.md"]),
+  ...[...RADIO_PATHS].map(path => [path, RADIO + "/index.md"]),
   ["/", "/index.md"], ["/index.html", "/index.md"],
   ["/tv", "/tv/index.md"], ["/tv/", "/tv/index.md"], ["/tv/index.html", "/tv/index.md"],
   ["/teksty", "/teksty/index.md"], ["/teksty/", "/teksty/index.md"], ["/teksty/index.html", "/teksty/index.md"],

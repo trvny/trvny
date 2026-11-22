@@ -68,17 +68,18 @@
       ]
     },
     {
-      "identifier": "urn:air:bartek.lol:api:posts",
-      "displayName": "TRAVNY publications index",
-      "type": "application/json",
-      "url": "https://bartek.lol/teksty/posts.json",
-      "description": "Machine-readable index of TRAVNY posts and publication routes.",
+      "identifier": "urn:air:bartek.lol:feed:publications",
+      "displayName": "TRAVNY publications feed",
+      "type": "application/atom+xml",
+      "url": "https://bartek.lol/teksty/feed.xml",
+      "description": "Live aggregated Atom feed of articles, CoCzyDziennik issues and Shitpost Reactor entries.",
       "capabilities": [
-        "publication-discovery"
+        "publication-discovery",
+        "recent-publications"
       ],
       "representativeQueries": [
-        "Find recent CoCzyDziennik posts",
-        "List the latest TRAVNY articles"
+        "Find recent CoCzyDziennik issues in TRAVNY publications",
+        "Read the latest TRAVNY articles and Shitpost Reactor entries"
       ]
     }
   ]

@@ -18,6 +18,11 @@
       "custom_domain": true
     }
   ],
+  "ratelimits": [{
+    "name": "SUBMISSION_LIMIT",
+    "namespace_id": "9361201",
+    "simple": { "limit": 2, "period": 60 }
+  }],
   "r2_buckets": [
     {
       "binding": "FEED",

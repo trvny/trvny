@@ -11,6 +11,21 @@ on:
         description: Optional topic or setup for this one draft
         required: false
         type: string
+      review_action:
+        description: Agent submissions moderation (generation is the default)
+        required: false
+        default: generate
+        type: choice
+        options:
+          - generate
+          - list
+          - show
+          - approve
+          - reject
+      submission_id:
+        description: Submission ID for show/approve/reject
+        required: false
+        type: string
       mode:
         description: Output type
         required: false
@@ -31,6 +46,7 @@ concurrency:
 
 jobs:
   generate:
+    if: github.event_name != 'workflow_dispatch' || inputs.review_action == '' || inputs.review_action == 'generate'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     defaults:
@@ -115,3 +131,23 @@ jobs:
           path: ${{ runner.temp }}/shitpost-reactor/
           if-no-files-found: warn
           retention-days: 14
+
+  review:
+    if: github.event_name == 'workflow_dispatch' && inputs.review_action != '' && inputs.review_action != 'generate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: gh-apps/shitpost-reactor
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: List, inspect or moderate a proposed agent post
+        env:
+          SHITPOST_REVIEW_ACTION: ${{ inputs.review_action }}
+          SHITPOST_SUBMISSION_ID: ${{ inputs.submission_id }}
+        run: node review.mjs

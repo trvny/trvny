@@ -20,8 +20,13 @@ test('Reactor exposes a read-only WebMCP tool with bounded public feed access', 
     },
   };
   runInNewContext(WEBMCP_SCRIPT, sandbox);
-  assert.equal(tools.length, 1);
+  assert.equal(tools.length, 2);
   const { tool, options } = tools[0];
+  const proposal = tools[1].tool;
+  assert.equal(proposal.name, 'propose_reactor_post');
+  assert.equal(proposal.annotations.readOnlyHint, false);
+  assert.equal(proposal.annotations.consequentialHint, true);
+  assert.equal((await proposal.execute({ language: 'pl', text: '' })).ok, false);
   assert.equal(tool.name, 'read_reactor_posts');
   assert.equal(tool.annotations.readOnlyHint, true);
   assert.equal((await tool.execute({ limit: 6 })).ok, false);

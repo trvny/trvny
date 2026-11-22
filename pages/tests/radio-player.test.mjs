@@ -265,7 +265,7 @@ test("station arrows and swipes wrap without starting paused radio", async () =>
   assert.equal(p.station.value, "travny");
   area.dispatch("touchstart", { touches:[{ clientX:100, clientY:30 }] });
   area.dispatch("touchend", { changedTouches:[{ clientX:120, clientY:180 }] });
-  assert.equal(p.station.value, "paradise", "vertical gestures do not change stations");
+  assert.equal(p.station.value, "travny", "vertical gestures do not change stations");
   await p.flush();
   assert.equal(p.audio.playCalls, 0);
 });

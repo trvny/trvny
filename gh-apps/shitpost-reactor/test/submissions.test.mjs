@@ -88,6 +88,7 @@ test('proposal fails closed without rate limiter; blocks CSRF, flood and extra i
   assert.equal((await submitProposal(request({ ...payload, forged: true }), env)).status, 400);
   const fakeIds = Array.from({ length: MAX_PENDING }, (_, i) =>
     's-20261122-12345678-1234-1234-1234-' + i.toString(16).padStart(12, '0'));
+  for (const id of fakeIds) await FEED.put('submissions/pending/' + id + '.json', JSON.stringify({ id }));
   await FEED.put('submissions/pending-index.json', JSON.stringify(fakeIds));
   assert.equal((await submitProposal(request(), env)).status, 429);
 });
@@ -116,6 +117,7 @@ test('concurrent anonymous submissions cannot overflow the shared R2 CAS index',
   const env = { FEED, SUBMISSION_LIMIT: { limit: async () => ({ success: true }) } };
   const seed = Array.from({ length: MAX_PENDING - 1 }, (_, i) =>
     's-20261122-12345678-1234-1234-1234-' + i.toString(16).padStart(12, '0'));
+  for (const id of seed) await FEED.put('submissions/pending/' + id + '.json', JSON.stringify({ id }));
   await FEED.put('submissions/pending-index.json', JSON.stringify(seed));
   const responses = await Promise.all(Array.from({ length: 10 }, () => submitProposal(request(), env)));
   assert.equal(responses.filter((x) => x.status === 202).length, 1);
@@ -145,6 +147,42 @@ test('reject refuses an interrupted approval and a retry completes its original 
   assert.equal(retry.status, 200);
   assert.equal((await retry.json()).url, 'https://shitpost.bartek.lol/posts/gh-900-1');
   assert.equal((await listProposals(env)).total, 0);
+});
+
+test('failed rejection cleanup can resume safely without leaking content', async () => {
+  const FEED = makeBucket();
+  const env = { FEED, SUBMISSION_LIMIT: { limit: async () => ({ success: true }) } };
+  const created = await (await submitProposal(request(), env)).json();
+  const proposal = await getProposal(env, created.id);
+  const originalPut = FEED.put;
+  let failDecision = true;
+  FEED.put = async (key, ...args) => {
+    if (key === 'submissions/decisions/' + created.id + '.json' && failDecision) {
+      failDecision = false;
+      throw Error('simulated_storage_failure');
+    }
+    return originalPut(key, ...args);
+  };
+  await assert.rejects(rejectProposal(env, proposal, { run_id: '100' }), /simulated_storage_failure/);
+  const interrupted = await getProposal(env, created.id);
+  assert.equal(interrupted.status, 'rejected');
+  const again = await rejectProposal(env, interrupted, { run_id: '101' });
+  assert.equal(again.status, 200);
+  assert.equal(await getProposal(env, created.id), null);
+  assert.deepEqual(JSON.parse(FEED.store.get('submissions/pending-index.json').body), []);
+  assert.equal(FEED.store.has('posts/gh-101-1.json'), false);
+});
+
+test('rejected and approved decisions cannot both win an R2 ETag transition', async () => {
+  const FEED = makeBucket();
+  const env = { FEED, SUBMISSION_LIMIT: { limit: async () => ({ success: true }) } };
+  const created = await (await submitProposal(request(), env)).json();
+  const old = await getProposal(env, created.id);
+  const first = await rejectProposal(env, old, { run_id: '200' });
+  assert.equal(first.status, 200);
+  const staleApprove = await approveProposal(env, old, { run_id: '201', run_attempt: '1' });
+  assert.equal(staleApprove.status, 409);
+  assert.equal([...FEED.store.keys()].filter((key) => key.startsWith('posts/')).length, 0);
 });
 
 test('API discovery does not advertise remote MCP and skill digest matches served bytes', async () => {

@@ -77,7 +77,7 @@ async function mutateIndex(env, update) {
     if (!Array.isArray(ids) || ids.some((v) => !SUBMISSION_ID.test(v))) {
       throw Error('submission_index_invalid');
     }
-    const next = update(ids);
+    const next = await update(ids);
     if (next === null) return false;
     const result = await env.FEED.put(INDEX_KEY, JSON.stringify(next) + '\n', {
       httpMetadata: { contentType: 'application/json; charset=utf-8' },
@@ -93,7 +93,15 @@ export async function releaseSlot(env, id) {
 }
 
 async function reserveSlot(env, id) {
-  return mutateIndex(env, (ids) => ids.length >= MAX_PENDING ? null : [...ids, id]);
+  return mutateIndex(env, async (ids) => {
+    let active = ids;
+    // Self-heal a failed slot release. Probe only when at the hard cap.
+    if (ids.length >= MAX_PENDING) {
+      const present = await Promise.all(ids.map((key) => env.FEED.head(submissionKey(key))));
+      active = ids.filter((_, index) => present[index] !== null);
+    }
+    return active.length >= MAX_PENDING ? null : [...active, id];
+  });
 }
 
 export async function submitProposal(request, env) {
@@ -162,14 +170,17 @@ export async function getProposal(env, id) {
 // finish approval (or be repaired privately), never become a rejected public post.
 export async function rejectProposal(env, proposal, claims) {
   const id = proposal.id;
-  if (proposal.status !== 'pending_review') return publicJson({ error: 'approval_in_progress' }, 409);
-  const updated = { ...proposal, status: 'rejected' };
-  delete updated._etag;
-  const cas = await env.FEED.put(submissionKey(id), JSON.stringify(updated) + '\n', {
-    onlyIf: { etagMatches: proposal._etag },
-    httpMetadata: { contentType: 'application/json; charset=utf-8' },
-  });
-  if (cas === null) return publicJson({ error: 'moderation_conflict' }, 409);
+  if (proposal.status === 'approving') return publicJson({ error: 'approval_in_progress' }, 409);
+  if (proposal.status !== 'rejected') {
+    if (proposal.status !== 'pending_review') return publicJson({ error: 'moderation_conflict' }, 409);
+    const updated = { ...proposal, status: 'rejected' };
+    delete updated._etag;
+    const cas = await env.FEED.put(submissionKey(id), JSON.stringify(updated) + '\n', {
+      onlyIf: { etagMatches: proposal._etag },
+      httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    });
+    if (cas === null) return publicJson({ error: 'moderation_conflict' }, 409);
+  }
   await env.FEED.put('submissions/decisions/' + id + '.json', JSON.stringify({
     id, decision: 'rejected', decided_at: new Date().toISOString(),
     run_id: String(claims.run_id),

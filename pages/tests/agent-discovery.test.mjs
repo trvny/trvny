@@ -9,11 +9,11 @@ test("ARD manifest advertises actual public resources with stable identifiers", 
   assert.ok(catalog.entries.length >= 3);
   const ids = new Set();
   for (const entry of catalog.entries) {
-    assert.match(entry.identifier, /^urn:air:bartek\\.lol:/);
+    assert.match(entry.identifier, /^urn:air:bartek\.lol:/);
     assert.ok(!ids.has(entry.identifier), entry.identifier);
     ids.add(entry.identifier);
-    assert.match(entry.type, /^[a-z]+\\/[a-z0-9.+-]+$/);
-    assert.match(entry.url, /^https:\\/\\//);
+    assert.match(entry.type, /^[a-z]+\/[a-z0-9.+-]+$/);
+    assert.match(entry.url, /^https:\/\//);
     assert.ok(!("data" in entry), "one delivery method per entry");
     assert.ok(entry.representativeQueries.length >= 2);
   }
@@ -22,7 +22,7 @@ test("ARD manifest advertises actual public resources with stable identifiers", 
     readFile(new URL("../site/llms.txt", import.meta.url), "utf8"),
     readFile(new URL("../functions/_shared/page-shell.js", import.meta.url), "utf8"),
   ]);
-  assert.match(sources[0], /cp site\\/\\.well-known\\/ard\\.json site\\/\\.well-known\\/ai-catalog\\.json/);
-  assert.match(sources[1], /\\.well-known\\/ard\\.json/);
+  assert.match(sources[0], /cp site\/\.well-known\/ard\.json site\/\.well-known\/ai-catalog\.json/);
+  assert.match(sources[1], /\.well-known\/ard\.json/);
   assert.match(sources[2], /rel="ard"/);
 });

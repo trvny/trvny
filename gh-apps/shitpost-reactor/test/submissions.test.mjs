@@ -186,6 +186,30 @@ test('rejected and approved decisions cannot both win an R2 ETag transition', as
   assert.equal([...FEED.store.keys()].filter((key) => key.startsWith('posts/')).length, 0);
 });
 
+test('a pending in-flight reservation is not reclaimed before its draft is stored', async () => {
+  const FEED = makeBucket();
+  const env = { FEED, SUBMISSION_LIMIT: { limit: async () => ({ success: true }) } };
+  const today = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+  const inFlight = Array.from({ length: MAX_PENDING }, (_, i) =>
+    's-' + today + '-12345678-1234-1234-1234-' + i.toString(16).padStart(12, '0'));
+  await FEED.put('submissions/pending-index.json', JSON.stringify(inFlight));
+  // Missing draft objects are expected briefly between reservation and draft upload.
+  assert.equal((await submitProposal(request(), env)).status, 429);
+  assert.deepEqual(JSON.parse(FEED.store.get('submissions/pending-index.json').body), inFlight);
+});
+
+test('old missing reservations are recovered without losing live drafts', async () => {
+  const FEED = makeBucket();
+  const env = { FEED, SUBMISSION_LIMIT: { limit: async () => ({ success: true }) } };
+  const old = Array.from({ length: MAX_PENDING }, (_, i) =>
+    's-20200101-12345678-1234-1234-1234-' + i.toString(16).padStart(12, '0'));
+  await FEED.put('submissions/pending-index.json', JSON.stringify(old));
+  const response = await submitProposal(request(), env);
+  assert.equal(response.status, 202);
+  const created = await response.json();
+  assert.deepEqual(JSON.parse(FEED.store.get('submissions/pending-index.json').body), [created.id]);
+});
+
 test('API discovery does not advertise remote MCP and skill digest matches served bytes', async () => {
   const base = 'https://shitpost.bartek.lol';
   const ard = await (await worker.fetch(new Request(base + '/.well-known/ard.json'), {})).json();

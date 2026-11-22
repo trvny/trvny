@@ -45,7 +45,8 @@
       logo.hidden = true;
       mark.hidden = false;
       markLabel.hidden = false;
-      logo.src = option.dataset.logo || '';
+      if (!option.dataset.logo) { logo.removeAttribute('src'); return; }
+      logo.src = option.dataset.logo;
     }
     logo.addEventListener('load', () => { logo.hidden = false; mark.hidden = true; markLabel.hidden = true; });
     logo.addEventListener('error', () => { logo.hidden = true; mark.hidden = false; markLabel.hidden = false; });
@@ -126,12 +127,12 @@
       kicker.textContent = 'ON AIR';
       quality.textContent = option.dataset.quality;
       title.textContent = option.textContent;
-      artist.textContent = station.value === 'paradise' ? 'Loading track details…' : 'Live radio';
+      artist.textContent = ['paradise','travny'].includes(station.value) ? 'Loading track details…' : 'Live radio';
       album.textContent = '';
       cover.hidden = true;
       cover.removeAttribute('src');
       void refresh();
-      if (station.value !== 'paradise' && !audio.canPlayType('application/vnd.apple.mpegurl')) void loadHls().catch(() => {});
+      if (option.dataset.kind === 'hls' && !audio.canPlayType('application/vnd.apple.mpegurl')) void loadHls().catch(() => {});
       if (resume) void start();
     }
     station.addEventListener('change', applyStation);
@@ -205,7 +206,7 @@
       } catch {
         if (version !== metadataVersion) return;
         title.textContent = station.selectedOptions[0].textContent;
-        artist.textContent = station.value === 'paradise' ? 'Track details unavailable' : 'Live radio';
+        artist.textContent = ['paradise','travny'].includes(station.value) ? 'Track details unavailable' : 'Live radio';
         kicker.textContent = 'ON AIR';
         album.textContent = '';
         cover.hidden = true;
@@ -213,7 +214,7 @@
       } finally {
         if (version === metadataVersion) {
           clearTimeout(timer);
-          if (!document.hidden) timer = setTimeout(refresh, 30000);
+          if (!document.hidden) timer = setTimeout(refresh, station.value === 'travny' ? 10000 : 30000);
         }
       }
     }

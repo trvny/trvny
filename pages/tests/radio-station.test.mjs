@@ -101,3 +101,41 @@ test('overnight Polish programmes can continue from the previous day', async t =
   assert.equal(result.title,'Song');
   assert.equal(requested.length,2);
 });
+
+test('TRAVNY Radio returns live metadata and verified album art', async t => {
+  let url, opts;
+  t.mock.method(globalThis,'fetch',(input,options)=>{
+    url=input; opts=options;
+    return Promise.resolve(Response.json({
+      live:true,
+      song:{title:'  Current Mix  ',artist:' DJ TRAVNY ',album:' Live Album ',
+        cover:'/artwork/0123456789abcdefabcd.jpg'},
+    }));
+  });
+  const response=await onRequestGet(request('travny'));
+  assert.equal(url,'https://travny-radio.taild44c6c.ts.net/api/now.json');
+  assert.equal(opts.headers.accept,'application/json');
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('cache-control'),'public, max-age=0, s-maxage=5');
+  assert.deepEqual(await response.json(),{
+    title:'Current Mix',artist:'DJ TRAVNY',album:'Live Album',
+    cover:'https://travny-radio.taild44c6c.ts.net/artwork/0123456789abcdefabcd.jpg',kind:'track',
+  });
+});
+
+test('TRAVNY Radio drops unsafe cover paths and missing artists', async t => {
+  t.mock.method(globalThis,'fetch',()=>Promise.resolve(Response.json({
+    live:true,song:{title:'Safe',artist:'',cover:'//evil.example/artwork/0123456789abcdefabcd.jpg'},
+  })));
+  const response=await onRequestGet(request('travny'));
+  assert.deepEqual(await response.json(),{title:'Safe',artist:'TRAVNY Radio',album:'',cover:'',kind:'track'});
+});
+
+test('TRAVNY Radio rejects offline, invalid, and oversized upstream responses', async t => {
+  const fetchMock=t.mock.method(globalThis,'fetch',()=>Promise.resolve(Response.json({live:false,song:{title:'Old'}})));
+  assert.equal((await onRequestGet(request('travny'))).status,502);
+  fetchMock.mock.mockImplementation(()=>Promise.resolve(new Response('x'.repeat(32769))));
+  assert.equal((await onRequestGet(request('travny'))).status,502);
+  fetchMock.mock.mockImplementation(()=>Promise.reject(new Error('origin down')));
+  assert.equal((await onRequestGet(request('travny'))).status,502);
+});

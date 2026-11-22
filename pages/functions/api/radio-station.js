@@ -2,6 +2,8 @@ import { readJson } from './radio-now.js';
 import { forwardHubRequest, hubHead } from '../_shared/hub-backend.js';
 
 const BBC = 'https://rms.api.bbc.co.uk/v2/services/bbc_radio_one/segments/latest?experience=domestic&offset=0&limit=1';
+const TRAVNY_ORIGIN = 'https://travny-radio.taild44c6c.ts.net';
+const TRAVNY_METADATA = TRAVNY_ORIGIN + '/api/now.json';
 const MAX_BYTES = 512 * 1024;
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -13,6 +15,32 @@ function safeImage(value, hosts) {
     const url = new URL(value);
     return url.protocol === 'https:' && hosts.includes(url.hostname) && !url.username && !url.password && !url.port ? url.href : '';
   } catch { return ''; }
+}
+function travnyCover(value) {
+  return typeof value === 'string' && /^\/artwork\/[a-f0-9]{20}\.(?:jpg|png)$/.test(value) ?
+    TRAVNY_ORIGIN + value : '';
+}
+async function travnyTrack() {
+  try {
+    const upstream = await fetch(TRAVNY_METADATA, {
+      signal:AbortSignal.timeout(6000),
+      headers:{accept:'application/json'},
+      cf:{cacheEverything:true,cacheTtlByStatus:{'200-299':5,'400-599':0}},
+    });
+    if (!upstream.ok) throw new Error('upstream unavailable');
+    const data = await readJson(upstream, 32768);
+    const title = clean(data?.song?.title);
+    if (data?.live !== true || !title) throw new Error('not live');
+    return Response.json({
+      title,
+      artist:clean(data.song.artist) || 'TRAVNY Radio',
+      album:clean(data.song.album),
+      cover:travnyCover(data.song.cover),
+      kind:'track',
+    }, {headers:{'cache-control':'public, max-age=0, s-maxage=5'}});
+  } catch {
+    return Response.json({error:'metadata_unavailable'}, {status:502,headers:{'cache-control':'no-store'}});
+  }
 }
 function localClock(date) {
   const formatter = new Intl.DateTimeFormat('en-GB', {
@@ -81,7 +109,8 @@ export function onRequestGet(context) {
 
 export async function radioStation({ request }) {
   const station=new URL(request.url).searchParams.get('station');
-  if (!['trojka','czworka','bbc1'].includes(station)) return Response.json({error:'unknown_station'},{status:400,headers:{'cache-control':'no-store'}});
+  if (!['trojka','czworka','bbc1','travny'].includes(station)) return Response.json({error:'unknown_station'},{status:400,headers:{'cache-control':'no-store'}});
+  if (station === 'travny') return travnyTrack();
   const {day,wallTime:now,ambiguous}=localClock(new Date());
   if (ambiguous && station!=='bbc1') return Response.json({kind:'station'},{headers:{'cache-control':'no-store'}});
   const urlFor = date => station==='bbc1'?BBC:station==='trojka'?`https://trojka.polskieradio.pl/playlist?date=${date}`:`https://apipr.polskieradio.pl/api/playlist?date=${date}&antenneId=4`;

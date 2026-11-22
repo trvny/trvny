@@ -299,6 +299,7 @@
   </div>
   <label class="radio-station" data-station-picker hidden><span>STATION</span>
     <select data-station aria-label="Radio station">
+      <option value="travny" data-url="https://travny-radio.taild44c6c.ts.net/radio.mp3" data-kind="direct" data-mark="TR" data-quality="192K MP3" selected>TRAVNY Radio</option>
       <option value="paradise" data-logo="https://radioparadise.com/apple-touch-icon.png" data-url="https://stream.radioparadise.com/aac-320" data-kind="direct" data-mark="RP" data-quality="320K AAC">Radio Paradise</option>
       <option value="trojka" data-logo="https://player.polskieradio.pl/images/trojka-color-logo.png" data-url="https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8" data-kind="hls" data-mark="3" data-quality="LIVE HLS">Trójka</option>
       <option value="czworka" data-logo="https://player.polskieradio.pl/images/czworka-color-logo.png" data-url="https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8" data-kind="hls" data-mark="4" data-quality="LIVE HLS">Czwórka</option>
@@ -307,22 +308,22 @@
   </label>
   <div class="radio-station-nav" data-station-nav hidden>
     <button type="button" data-previous aria-label="Previous station">‹</button>
-    <span class="radio-swipe-hint">SWIPE ↔ <span data-position aria-hidden="true">1 / 4</span><span class="radio-announcement" data-announcement aria-live="polite" aria-atomic="true"></span></span>
+    <span class="radio-swipe-hint">SWIPE ↔ <span data-position aria-hidden="true">1 / 5</span><span class="radio-announcement" data-announcement aria-live="polite" aria-atomic="true"></span></span>
     <button type="button" data-next aria-label="Next station">›</button>
   </div>
   <div class="radio-now" data-swipe-area>
     <div class="radio-art" aria-hidden="true">
-      <span class="radio-fallback"><b data-mark>RP</b><small data-mark-label>RADIO PARADISE</small><img data-station-logo alt="" referrerpolicy="no-referrer" hidden></span>
+      <span class="radio-fallback"><b data-mark>TR</b><small data-mark-label>TRAVNY RADIO</small><img data-station-logo alt="" referrerpolicy="no-referrer" hidden></span>
       <img data-cover alt="" hidden>
     </div>
     <div class="radio-track">
       <span class="radio-kicker" data-kicker>ON AIR</span>
-      <p class="radio-title" data-title>Radio Paradise</p>
-      <p class="radio-artist" data-artist>Main mix · live stream</p>
+      <p class="radio-title" data-title>TRAVNY Radio</p>
+      <p class="radio-artist" data-artist>Loading track details…</p>
       <p class="radio-album" data-album></p>
     </div>
   </div>
-  <audio data-audio controls preload="none" src="https://stream.radioparadise.com/aac-320">
+  <audio data-audio controls preload="none" src="https://travny-radio.taild44c6c.ts.net/radio.mp3">
     <a href="https://streambench.bartek.lol/">Open Streambench</a>
   </audio>
   <div class="radio-controls" data-controls hidden>
@@ -335,7 +336,7 @@
       <label class="radio-volume"><span>VOLUME</span><input data-volume aria-label="Radio volume" type="range" min="0" max="1" step="0.05" value="0.8"></label>
     </div>
   </div>
-  <div class="radio-footer"><span data-quality>320K AAC</span><a href="https://streambench.bartek.lol/">More stations ↗</a></div>
+  <div class="radio-footer"><span data-quality>192K MP3</span><a href="https://streambench.bartek.lol/">More stations ↗</a></div>
 </section>
   <nav class="fastext" aria-label="Skróty do narzędzi TRAVNY">
     <a class="ft cyan" href="/tv/">TVP IPTV<small>Odtwarzacz IPTV i kanały TVP</small></a>

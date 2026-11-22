@@ -1,5 +1,5 @@
 {
-  "specVersion": "1.0",
+  "specVersion": "0.9",
   "host": {
     "displayName": "TRAVNY",
     "identifier": "bartek.lol",
@@ -80,6 +80,66 @@
       "representativeQueries": [
         "Find recent CoCzyDziennik issues in TRAVNY publications",
         "Read the latest TRAVNY articles and Shitpost Reactor entries"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:playlist:tvpi",
+      "displayName": "TVPI public playlist",
+      "type": "application/vnd.apple.mpegurl",
+      "url": "https://tvpi.travny.workers.dev/playlist.m3u",
+      "description": "Public M3U playlist of channel endpoints; actual stream availability is resolved per channel.",
+      "capabilities": [
+        "tv-channel-discovery",
+        "playlist"
+      ],
+      "representativeQueries": [
+        "List the available TVPI television channels",
+        "Where is the public M3U TV playlist?"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:guide:streambench",
+      "displayName": "Streambench agent guide",
+      "type": "text/plain",
+      "url": "https://streambench.bartek.lol/llms.txt",
+      "description": "Public capability and privacy guide for the streambench local-first browser tool.",
+      "capabilities": [
+        "service-discovery",
+        "browser-tool"
+      ],
+      "representativeQueries": [
+        "What can the streambench tool do?",
+        "How does streambench handle local data?"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:guide:codebench",
+      "displayName": "Code Bench agent guide",
+      "type": "text/plain",
+      "url": "https://codebench.bartek.lol/llms.txt",
+      "description": "Public capability and privacy guide for the codebench local-first browser tool.",
+      "capabilities": [
+        "service-discovery",
+        "browser-tool"
+      ],
+      "representativeQueries": [
+        "What can the codebench tool do?",
+        "How does codebench handle local data?"
+      ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:guide:docbench",
+      "displayName": "Doc Bench agent guide",
+      "type": "text/plain",
+      "url": "https://docbench.bartek.lol/llms.txt",
+      "description": "Public capability and privacy guide for the docbench local-first browser tool.",
+      "capabilities": [
+        "service-discovery",
+        "browser-tool"
+      ],
+      "representativeQueries": [
+        "What can the docbench tool do?",
+        "How does docbench handle local data?"
       ]
     }
   ]

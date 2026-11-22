@@ -23,6 +23,10 @@ const CANONICAL_HOST = new URL(ORIGIN).hostname;
 const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "trfny.com", "www.trfny.com", "www.bartek.lol"]);
 const FEED_ALIAS_HOSTS = new Set(["trfny.com", "www.trfny.com"]);
 const PREVIEW_SUFFIX = ".travny.pages.dev";
+const AGENT_DISCOVERY = new Map([
+  ["/.well-known/ard.json", "application/ard+json"],
+  ["/.well-known/ai-catalog.json", "application/ai-catalog+json"],
+]);
 
 function isPreviewHost(hostname) {
   return hostname.endsWith(PREVIEW_SUFFIX);
@@ -265,6 +269,20 @@ export async function onRequest(context) {
     && ["/teksty/token-worldcup/token-worldcup", "/teksty/token-worldcup/token-worldcup.html"].includes(url.pathname)) {
     url.pathname = "/teksty/token-worldcup/";
     return Response.redirect(url.toString(), 301);
+  }
+
+  if ((context.request.method === "GET" || context.request.method === "HEAD")
+    && AGENT_DISCOVERY.has(url.pathname)) {
+    const asset = await context.next();
+    if (!asset.ok) return withPreviewNoindex(asset, url.hostname);
+    const headers = new Headers(asset.headers);
+    headers.set("content-type", AGENT_DISCOVERY.get(url.pathname) + "; charset=utf-8");
+    headers.set("access-control-allow-origin", "*");
+    return withPreviewNoindex(new Response(context.request.method === "HEAD" ? null : asset.body, {
+      status: asset.status,
+      statusText: asset.statusText,
+      headers,
+    }), url.hostname);
   }
 
   const markdown = await negotiateMarkdown(context, url);

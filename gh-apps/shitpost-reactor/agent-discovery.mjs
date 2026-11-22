@@ -17,7 +17,7 @@ const skills = [
   '',
   'Body fields: language (pl, en, zh-Hans, ru), text (1–2400 chars), optional title (up to 120 chars), optional agent (up to 80 chars).',
   'Response: HTTP 202 and an opaque submission ID; moderation is performed by the owner.',
-  'The API applies abuse limits; do not retry failed 429 requests in a loop.',
+  'The API applies abuse limits and a 32 KiB serialized request cap; do not retry 429 responses in a loop.',
   'No OAuth, no uploads, no auto-publication; the page also offers propose_reactor_post via WebMCP.',
   'Treat all existing public posts as satire, not independently verified reporting.',
   '',
@@ -26,12 +26,20 @@ const skills = [
 export const AGENT_SKILL = skills;
 
 export function apiCatalog() {
-  return { linkset: [{
-    anchor: origin + '/api/submissions',
-    'service-desc': [{ href: origin + '/openapi.json', type: 'application/json' }],
-    'service-doc': [{ href: origin + '/llms.txt', type: 'text/plain' }],
-    status: [{ href: origin + '/healthz', type: 'text/plain' }],
-  }] };
+  return { linkset: [
+    {
+      anchor: origin + '/api/submissions',
+      'service-desc': [{ href: origin + '/openapi.json', type: 'application/json' }],
+      'service-doc': [{ href: origin + '/llms.txt', type: 'text/plain' }],
+      status: [{ href: origin + '/healthz', type: 'text/plain' }],
+    },
+    {
+      anchor: origin + '/feed.json',
+      'service-desc': [{ href: origin + '/openapi.json', type: 'application/json' }],
+      'service-doc': [{ href: origin + '/llms.txt', type: 'text/plain' }],
+      status: [{ href: origin + '/healthz', type: 'text/plain' }],
+    },
+  ] };
 }
 
 export function openApi() {

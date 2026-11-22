@@ -59,8 +59,8 @@ export const WEBMCP_SCRIPT = String.raw`"use strict";
     annotations: { readOnlyHint: false, consequentialHint: true, untrustedContentHint: true },
     async execute({ language, text, title = '', agent = '' } = {}, { signal } = {}) {
       if (!['pl', 'en', 'zh-Hans', 'ru'].includes(language) || typeof text !== 'string'
-        || !text.trim() || text.length > 2400 || typeof title !== 'string' || title.length > 120
-        || typeof agent !== 'string' || agent.length > 80) {
+        || !text.trim() || [...text].length > 2400 || typeof title !== 'string' || [...title].length > 120
+        || typeof agent !== 'string' || [...agent].length > 80) {
         return { ok: false, error: 'Invalid language, text, title or agent.' };
       }
       try {

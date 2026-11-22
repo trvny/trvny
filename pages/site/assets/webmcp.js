@@ -97,6 +97,8 @@
       return { resources: [
         { name: "Concise guide", url: base + "/llms.txt" },
         { name: "Full guide", url: base + "/llms-full.txt" },
+        { name: "TRAVNY Radio guide", url: base + "/radio/index.md" },
+        { name: "TRAVNY Radio now playing", url: base + "/api/radio-station?station=travny" },
         { name: "Publications", url: base + "/teksty/feed.xml" },
         { name: "Project atlas", url: base + "/teksty/githubowa-kraina/atlas.json" },
         { name: "Sitemap", url: base + "/sitemap.xml" },
@@ -104,7 +106,48 @@
     },
   };
 
-  for (const definition of [tool, readDestinations, catalogue]) {
+  const radioNow = {
+    name: "get_travny_radio_now",
+    title: "Get TRAVNY Radio now playing",
+    description: "Read live track metadata and listening links from the fixed TRAVNY Radio hub API.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    async execute(input = {}) {
+      if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length) {
+        return { ok: false, error: "No input parameters supported." };
+      }
+      try {
+        const response = await fetch("/api/radio-station?station=travny", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) throw new Error("metadata unavailable");
+        const current = await response.json();
+        if (current.kind !== "track" || typeof current.title !== "string" || !current.title) {
+          throw new Error("invalid metadata");
+        }
+        const str = value => typeof value === "string" ? value.slice(0, 200) : "";
+        const cover = str(current.cover);
+        return {
+          ok: true,
+          station: "TRAVNY Radio",
+          now: {
+            title: str(current.title),
+            artist: str(current.artist),
+            album: str(current.album),
+            cover: /^https:\/\/travny-radio\.taild44c6c\.ts\.net\/artwork\/[a-f0-9]{20}\.(?:jpg|png)$/.test(cover) ? cover : "",
+          },
+          streamUrl: "https://radio.bartek.lol/radio.mp3",
+          playerUrl: "https://bartek.lol/#radio",
+          infoUrl: "https://bartek.lol/radio/",
+        };
+      } catch {
+        return { ok: false, error: "Radio metadata temporarily unavailable." };
+      }
+    },
+  };
+
+  for (const definition of [tool, readDestinations, catalogue, radioNow]) {
     try {
       Promise.resolve(context.registerTool(definition, { signal: lifecycle.signal }))
         .catch((error) => console.warn("TRAVNY WebMCP registration failed", error));

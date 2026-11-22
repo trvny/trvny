@@ -38,6 +38,20 @@ User-agent: YandexBot
 User-agent: YandexFavicons
 User-agent: CCBot
 User-agent: SemanticScholarBot
+User-agent: OpenRSS
+User-agent: ShapBot
+User-agent: AhrefsBot
+User-agent: GitHub-Hookshot
+User-agent: Reflectionbot
+User-agent: ExaSearchBot
+User-agent: Bravebot
+User-agent: CloudflareBrowserRenderingCrawler
+User-agent: special_archiver
+User-agent: Feedfetcher-Google
+User-agent: Feedly
+User-agent: Archive-It
+User-agent: GrokAgent
+User-agent: TelegramBot
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 

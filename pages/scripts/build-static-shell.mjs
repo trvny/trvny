@@ -47,6 +47,12 @@ export const STATIC_PAGES = [
     "source": "papagenerator/index.html"
   },
   {
+    "file": "radio/index.html",
+    "path": "/radio/",
+    "lang": "en",
+    "markdown": "/radio/index.md"
+  },
+  {
     "file": "badges/index.html",
     "path": "/badges/",
     "lang": "pl"

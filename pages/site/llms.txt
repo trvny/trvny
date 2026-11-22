@@ -10,6 +10,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 - [Hub](https://bartek.lol/) · [Markdown](https://bartek.lol/index.md)
 - [TVPI](https://bartek.lol/tv/) · [Markdown](https://bartek.lol/tv/index.md)
+- [TRAVNY Radio](https://bartek.lol/radio/) · [Markdown](https://bartek.lol/radio/index.md) · [MP3](https://radio.bartek.lol/radio.mp3) · [now-playing JSON](https://bartek.lol/api/radio-station?station=travny)
 - [TRAVNY Lab](https://bartek.lol/lab/): experiments and live widgets
 - [Papagenerator](https://bartek.lol/papagenerator/): browser-only meme and sticker editor; images stay on the device
 - [Badges](https://bartek.lol/badges/): ecosystem, bot, AI and live status/counter SVG badges with copyable Markdown/HTML; catalogue JSON at `/badge/index.json`
@@ -23,6 +24,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 ## Services
 
+- [TRAVNY Radio](https://radio.bartek.lol/) · [station info](https://bartek.lol/radio/) · [stream MP3](https://radio.bartek.lol/radio.mp3) · [hub JSON API](https://bartek.lol/api/radio-station?station=travny) · [source JSON API](https://radio.bartek.lol/api/now.json)
 - [TVPI streaming Worker](https://tvpi.travny.workers.dev/) · [LLM guide](https://tvpi.travny.workers.dev/llms.txt) · [full guide](https://tvpi.travny.workers.dev/llms-full.txt) · [playlist](https://tvpi.travny.workers.dev/playlist.m3u)
 - [Weather](https://weather.bartek.lol/) · [LLM guide](https://weather.bartek.lol/llms.txt) · [full guide](https://weather.bartek.lol/llms-full.txt) · [state JSON](https://weather.bartek.lol/state.json)
 - [Feedseek](https://rss.bartek.lol/) · [LLM guide](https://trvny.github.io/feedseek/llms.txt) · [full guide](https://trvny.github.io/feedseek/llms-full.txt) · [OPML](https://trvny.github.io/feedseek/subscriptions.opml)
@@ -53,4 +55,4 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 On browser hosts implementing WebMCP, TRAVNY pages with the shared navigation expose `open_travny_destination`. It only starts navigation to destinations already present in the visible TRAVNY menu and does not accept arbitrary URLs.
 
-Additional read-only tools: `list_travny_destinations` (optional query), and `get_travny_agent_resources` (canonical machine-readable resources). Tools do not fetch cross-origin content. Navigation may open cross-origin menu destinations, but never accepts arbitrary URLs.
+Additional read-only tools: `list_travny_destinations` (optional query), `get_travny_agent_resources` (canonical machine-readable resources), and `get_travny_radio_now` (current song and streaming links via the fixed same-origin public API). No arbitrary URL fetches or radio administration. Navigation may open cross-origin menu destinations, but never accepts arbitrary URLs. The public GET API works without browser WebMCP.

@@ -10,6 +10,7 @@
 | Concern | Maintained source / output |
 | --- | --- |
 | Hub | `site/index.html`, `site/assets/tokens.css`; existing HTML preserved |
+| Radio discovery | `site/radio/index.html`, `site/radio/index.md`; radio station JSON-LD, sitemap, documented now-playing API and read-only shared WebMCP |
 | Pages Functions / redirects | `functions/`; custom-domain aliases redirect to the canonical hub or Feedseek |
 | Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests join one `/teksty/` stream/feed |
 | Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
@@ -31,7 +32,7 @@ node --test tests/*.test.mjs
 
 `site/_routes.json`: bypass Functions for known static runtime assets and data.
 Build-time shell: Kraina, Universe, Token Worldcup, effort matrix,
-Papagenerator and badges catalogue. `scripts/build-static-shell.mjs`
+Papagenerator, radio information and badges catalogue. `scripts/build-static-shell.mjs`
 uses shared `functions/_shared/page-shell.js`, writes navigation, SEO and
 static `_headers`; exact document aliases bypass Functions.
 Run `sh build.sh` before serving `site/` locally; generated shell and route
@@ -62,7 +63,10 @@ Badge routes also fall back on an unmarked 404 from an older Worker bundle.
 The home radio defaults to TRAVNY Radio (direct MP3 from Tailscale Funnel).
 `/api/radio-station?station=travny` normalizes its fixed-origin live JSON
 for the same-origin UI, including verified cover-art paths; it avoids
-cross-origin metadata fetches in browsers. Radio audio remains direct to
+cross-origin metadata fetches in browsers. The shared `site/assets/webmcp.js`
+adds read-only `get_travny_radio_now` using this same endpoint.
+`site/radio/index.md` describes the API; the stream stays on Tailscale Funnel,
+not a second Cloudflare streaming proxy. Radio audio remains direct to
 station providers.
 
 Cloudflare Builds settings for `travny-hub-backend`:

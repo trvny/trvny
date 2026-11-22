@@ -8,6 +8,7 @@ const githubWorld = [...texts, { name: "GitHubowa Kraina", path: "/teksty/github
 const trails = {
   "/badges/": [...home, { name: "Badges", path: "/badges/" }],
   "/tv/": [...home, { name: "TVPI", path: "/tv/" }],
+  "/radio/": [...home, { name: "TRAVNY Radio", path: "/radio/" }],
   "/papagenerator/": [...home, { name: "Papagenerator", path: "/papagenerator/" }],
   "/teksty/": texts,
   "/teksty/token-worldcup/": tokenCup,

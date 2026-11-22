@@ -11,13 +11,22 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   const link = { textContent: "Feedseek", href: "https://trvny.github.io/feedseek/" };
   const links = [link];
   window.location = { assign: url => assigned.push(url) };
+  const radioCalls = [];
   runInNewContext(source, {
+    fetch: async (url, options) => {
+      radioCalls.push({ url, options });
+      return Response.json({
+        kind: "track", title: "Current Mix", artist: "DJ", album: "Album",
+        cover: "https://travny-radio.taild44c6c.ts.net/artwork/0123456789abcdefabcd.jpg",
+      });
+    },
+    AbortSignal, Response,
     document: {
       modelContext: { registerTool: (tool, options) => tools.set(tool.name, { tool, options }) },
       querySelectorAll: selector => selector === ".trvny-nav-link[href]" ? links : [],
     }, window, AbortController, console,
   });
-  assert.equal(tools.size, 3);
+  assert.equal(tools.size, 4);
   const list = tools.get("list_travny_destinations");
   assert.equal(list.tool.annotations.readOnlyHint, true);
   assert.equal(list.tool.execute({ query: "feed" }).destinations.length, 1);
@@ -30,10 +39,26 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   assert.deepEqual(JSON.parse(JSON.stringify(tools.get("get_travny_agent_resources").tool.execute().resources)), [
     { name: "Concise guide", url: "https://bartek.lol/llms.txt" },
     { name: "Full guide", url: "https://bartek.lol/llms-full.txt" },
+    { name: "TRAVNY Radio guide", url: "https://bartek.lol/radio/index.md" },
+    { name: "TRAVNY Radio now playing", url: "https://bartek.lol/api/radio-station?station=travny" },
     { name: "Publications", url: "https://bartek.lol/teksty/feed.xml" },
     { name: "Project atlas", url: "https://bartek.lol/teksty/githubowa-kraina/atlas.json" },
     { name: "Sitemap", url: "https://bartek.lol/sitemap.xml" },
   ]);
+  const nowTool = tools.get("get_travny_radio_now").tool;
+  assert.equal(nowTool.annotations.readOnlyHint, true);
+  const track = await nowTool.execute();
+  assert.equal(track.ok, true);
+  assert.equal(track.now.title, "Current Mix");
+  assert.equal(track.now.artist, "DJ");
+  assert.equal(track.now.album, "Album");
+  assert.equal(track.now.cover, "https://travny-radio.taild44c6c.ts.net/artwork/0123456789abcdefabcd.jpg");
+  assert.equal(track.streamUrl, "https://radio.bartek.lol/radio.mp3");
+  assert.equal(radioCalls.length, 1);
+  assert.equal(radioCalls[0].url, "/api/radio-station?station=travny");
+  assert.equal(radioCalls[0].options.cache, "no-store");
+  assert.equal((await nowTool.execute({ station: "unknown" })).ok, false);
+  assert.equal(radioCalls.length, 1);
   assert.equal(tools.get("open_travny_destination").tool.execute({ destination: "unknown" }).ok, false);
   assert.equal(tools.get("open_travny_destination").tool.execute({ destination: "Feedy" }).ok, true);
   assert.equal(assigned[0], "https://trvny.github.io/feedseek/");
@@ -45,9 +70,9 @@ test("hub exposes navigation and read-only discovery tools", async () => {
       querySelectorAll: () => [],
     }, window: new EventTarget(), AbortController, console,
   });
-  assert.equal(tools.size, 3);
+  assert.equal(tools.size, 4);
   assert.equal(tools.get("list_travny_destinations").tool.execute().destinations.length, 0);
-  assert.equal(tools.get("get_travny_agent_resources").tool.execute().resources.length, 5);
+  assert.equal(tools.get("get_travny_agent_resources").tool.execute().resources.length, 7);
   const cached = new Event("pagehide");
   cached.persisted = true;
   window.dispatchEvent(cached);

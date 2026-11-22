@@ -1,7 +1,7 @@
 import { iconAsset } from './icons.mjs';
 import { WEBMCP_SCRIPT } from './webmcp.mjs';
 import { discoveryResponse } from './agent-discovery.mjs';
-import { publicJson, submitProposal, listProposals, getProposal, rejectProposal, submissionKey } from './submissions.mjs';
+import { publicJson, submitProposal, listProposals, getProposal, rejectProposal, submissionKey, releaseSlot } from './submissions.mjs';
 import {
   SHITPOST_MEME_LINE_HARD_MAX_CHARS,
   SHITPOST_TEXT_HARD_MAX_CHARS,
@@ -899,19 +899,26 @@ async function publish(request, env) {
 // The public submission queue is separate from the OIDC-only publishing path.
 // Moderation is exclusively a manual dispatch of the already-pinned workflow.
 export async function approveProposal(env, proposal, claims) {
-  const reserveKey = 'submissions/reservations/' + proposal.id + '.json';
-  const reservation = await env.FEED.get(reserveKey);
-  const reserved = reservation ? await reservation.json() : null;
-  const id = reserved?.post_id || ('gh-' + claims.run_id + '-' + claims.run_attempt);
-  if (!/^gh-\d+-\d+$/u.test(id)) throw Error('invalid_reserved_post');
-  if (!reserved) {
-    await env.FEED.put(reserveKey, JSON.stringify({ submission_id: proposal.id, post_id: id }) + '\n', {
+  const id = proposal.id;
+  if (proposal.status === 'rejected') return publicJson({ error: 'already_rejected' }, 409);
+  let postId = proposal.post_id;
+  if (!postId) {
+    if (proposal.status !== 'pending_review') return publicJson({ error: 'invalid_review_state' }, 409);
+    postId = 'gh-' + claims.run_id + '-' + claims.run_attempt;
+    const updated = { ...proposal, status: 'approving', post_id: postId };
+    delete updated._etag;
+    // Exclusive R2 ETag transition. Reject cannot race once approval begins.
+    const locked = await env.FEED.put(submissionKey(id), JSON.stringify(updated) + '\n', {
       httpMetadata: { contentType: 'application/json; charset=utf-8' },
+      onlyIf: { etagMatches: proposal._etag },
     });
+    if (locked === null) return publicJson({ error: 'moderation_conflict' }, 409);
+    proposal = updated;
   }
+  if (!/^gh-\d+-\d+$/u.test(postId)) return publicJson({ error: 'invalid_review_state' }, 409);
 
-  let post = await readPost(env, id);
-  if (post && post.submission?.id !== proposal.id) throw Error('post_id_collision');
+  let post = await readPost(env, postId);
+  if (post && post.submission?.id !== id) throw Error('post_id_collision');
   if (!post) {
     const publishedAt = new Date().toISOString();
     post = {
@@ -922,23 +929,23 @@ export async function approveProposal(env, proposal, claims) {
       content: {
         kind: 'text', ...(proposal.title ? { title: proposal.title } : {}), text: proposal.text,
       },
-      submission: { id: proposal.id, agent: proposal.agent || null },
-      id, url: WORKER_ORIGIN + '/posts/' + id,
+      submission: { id, agent: proposal.agent || null },
+      id: postId, url: WORKER_ORIGIN + '/posts/' + postId,
     };
     validatePublishLanguage(post);
-    await env.FEED.put('posts/' + id + '.json', JSON.stringify(post, null, 2) + '\n', {
+    await env.FEED.put('posts/' + postId + '.json', JSON.stringify(post, null, 2) + '\n', {
       httpMetadata: { contentType: 'application/json; charset=utf-8' },
-      customMetadata: { published_at: publishedAt, run_id: String(claims.run_id) },
+      customMetadata: { published_at: publishedAt, run_id: postId.split('-')[1] },
     });
   }
   await ensureIndexed(env, post);
-  await env.FEED.put('submissions/decisions/' + proposal.id + '.json', JSON.stringify({
-    id: proposal.id, decision: 'approved', post_id: id, decided_at: new Date().toISOString(),
+  await env.FEED.put('submissions/decisions/' + id + '.json', JSON.stringify({
+    id, decision: 'approved', post_id: postId, decided_at: new Date().toISOString(),
     run_id: String(claims.run_id),
   }) + '\n', { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
-  await env.FEED.delete(submissionKey(proposal.id));
-  await env.FEED.delete(reserveKey);
-  return publicJson({ ok: true, id: proposal.id, status: 'approved', url: publicPostUrl(post) });
+  await env.FEED.delete(submissionKey(id));
+  await releaseSlot(env, id);
+  return publicJson({ ok: true, id, status: 'approved', url: publicPostUrl(post) });
 }
 
 async function reviewProposals(request, env, url) {

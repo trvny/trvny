@@ -22,12 +22,18 @@ const response = await fetch(url, {
 });
 const data = await response.json().catch(() => ({ error: 'invalid_response' }));
 if (!response.ok || data.ok === false) throw Error('review_failed:' + response.status + ':' + String(data.error || 'unknown'));
-const printSafe = (value) => JSON.stringify(value).replace(/[\u0000-\u001f\u007f-\u009f]/gu, ' ');
+// Public Actions logs must never disclose private draft text, titles or attribution.
+// Review the full JSON privately in Cloudflare R2 before entering a decision.
 if (action === 'list') {
-  for (const item of data.pending || []) console.log(printSafe(item));
+  for (const item of data.pending || []) {
+    console.log('submission:', item.id, 'status:', item.status, 'submitted_at:', item.submitted_at);
+  }
   console.log('pending_count:', data.total);
 } else if (action === 'show') {
-  console.log(printSafe(data));
+  console.log('Open this private object in Cloudflare R2 (bucket shitpost-reactor):');
+  console.log('submissions/pending/' + id + '.json');
+  console.log('No draft content is printed to public GitHub Actions logs.');
 } else {
-  console.log('review_result:', printSafe(data));
+  console.log('decision:', data.status, 'submission_id:', data.id,
+    ...(data.url ? ['post_url:', data.url] : []));
 }

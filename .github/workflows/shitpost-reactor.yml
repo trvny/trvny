@@ -38,14 +38,16 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: shitpost-reactor
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.review_action != '' && inputs.review_action != 'generate' && format('shitpost-review-{0}', github.run_id) || 'shitpost-reactor' }}
   cancel-in-progress: false
 
 jobs:
   generate:
+    permissions:
+      contents: read
+      id-token: write
     if: github.event_name != 'workflow_dispatch' || inputs.review_action == '' || inputs.review_action == 'generate'
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -133,6 +135,9 @@ jobs:
           retention-days: 14
 
   review:
+    permissions:
+      contents: read
+      id-token: write
     if: github.event_name == 'workflow_dispatch' && inputs.review_action != '' && inputs.review_action != 'generate'
     runs-on: ubuntu-latest
     timeout-minutes: 5

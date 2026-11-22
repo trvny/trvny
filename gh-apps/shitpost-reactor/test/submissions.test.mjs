@@ -61,6 +61,7 @@ test('agent proposal is private and only queued after validation', async () => {
   assert.match(result.id, /^s-\d{8}-[0-9a-f-]{36}$/u);
   assert.equal((await getProposal(env, result.id)).text, payload.text);
   assert.equal((await listProposals(env)).total, 1);
+  assert.deepEqual(JSON.parse(FEED.store.get('submissions/pending-index.json').body), [result.id]);
   assert.equal(FEED.store.has('index.json'), false);
   assert.equal([...FEED.store.keys()].filter((x) => x.startsWith('posts/')).length, 0);
   const unauthenticated = await worker.fetch(new Request('https://shitpost.bartek.lol/api/submissions'), env);
@@ -80,9 +81,9 @@ test('proposal fails closed without rate limiter; blocks CSRF, flood and extra i
   assert.equal((await submitProposal(request(), limited)).status, 429);
   const env = { FEED, SUBMISSION_LIMIT: { limit: async () => ({ success: true }) } };
   assert.equal((await submitProposal(request({ ...payload, forged: true }), env)).status, 400);
-  for (let i = 0; i < MAX_PENDING; i++) {
-    await FEED.put('submissions/pending/fake-' + i, JSON.stringify({ id: 'fake-' + i }));
-  }
+  const fakeIds = Array.from({ length: MAX_PENDING }, (_, i) =>
+    's-20261122-12345678-1234-1234-1234-' + i.toString(16).padStart(12, '0'));
+  await FEED.put('submissions/pending-index.json', JSON.stringify(fakeIds));
   assert.equal((await submitProposal(request(), env)).status, 429);
 });
 

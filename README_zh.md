@@ -35,7 +35,11 @@
 ## 🔀 开放的拉取请求
 
 <!--OPEN_PRS:START-->
-没有开放的拉取请求。🎉
+| 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/.ai | [#36](https://github.com/trvny/.ai/pull/36) | chore(deps): bump anthropics/claude-code-action from 1.0.271 to 1.0.282 in the actions group | @dependabot[bot] | 就绪 | 2026-11-21 |
+| trvny/.ai | [#37](https://github.com/trvny/.ai/pull/37) | deps: bump the wiki group in /wiki with 2 updates | @dependabot[bot] | 就绪 | 2026-11-21 |
+| trvny/feedseek | [#659](https://github.com/trvny/feedseek/pull/659) | Pilot WebSub notifications for updated Feedseek channels | @trvny | 就绪 | 2026-11-21 |
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
@@ -93,7 +97,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝Study me as much as you like, you will not know me, for I differ in a hundred ways from what you see me to be. Put yourself behind my eyes and see me as I see myself, for I have chosen to dwell in a place you cannot see. — Rumi❞</i>
+<i>❝In 2012, the founder of McAfee Antivirus, John McAfee was asked if he personally uses McAfee anti-virus, he replied by saying “I take it off,” and that “It’s too annoying.”❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
@@ -101,11 +105,11 @@
 
 <!--README_FEED:START-->
 - [Like A Complete \(Known\) Unknown? A Brief History of Nuclear Weaponization](https://carnegieendowment.org/research/2026/11/a-brief-history-of-nuclear-weaponization)
-- [Ranking graczy GTA 6: top 50 według procentu ukończenia - PSN, Xbox i checklista](https://promptowy.com/gta-6-ranking-graczy/)
-- [Quiz GTA 6: wyzwanie dnia i 7 quizów - mapa, auta, 100%, Miami, postacie](https://promptowy.com/gta-6-quiz/)
-- [Quiz: prawdziwe Miami czy Leonida z GTA 6? Zgadnij po zdjęciu](https://promptowy.com/gta-6-quiz-miami-czy-leonida/)
-- [Quiz GTA 6: czy zrobisz 100%? 12 pytań o progi, kolekcje i trofea](https://promptowy.com/gta-6-quiz-100-procent/)
-- [Quiz GTA: ile wiesz o serii Grand Theft Auto? 15 pytań od 1997 roku](https://promptowy.com/quiz-gta/)
+- [Cyber Statecraft and the Middle Ground](https://carnegieendowment.org/research/2026/11/cyber-statecraft-and-the-middle-ground)
+- [Murder at Mount Hood | Post Mortem](https://www.cbsnews.com/video/112126-48-hours-post-mortem-episode-5/)
+- [Zostań policjantem! Promocja zawodu podczas Powiatowego Dnia Przedsiębiorczości - Przegląd Olkuski](https://news.google.com/atom/articles/CBMirgFBVV95cUxQU2hUWGVXeWQtTDdoN2hERXlkYmZrUnBLZ1UxcTRqdTJVSW1fV0FfTDcyN1V1dEs5VGlPN0R1QjZFV2g5QUgxTnVMaHFLQThkS2ZNbkI2ODFnYk04LVdCVXhGazJBUUxRLVR6aEpJek1yMERIR2tyZmdkeVItU3djZG1YTWRFNjFwUThiQ0VyNHhQaWRReVd6WnBGU1NQT0xRZDdHMlFyOUhxYzBjUFE?oc=5)
+- [Jest decyzja dla drugiego etapu drogi do Jaworzna - Przegląd Olkuski](https://news.google.com/atom/articles/CBMihAFBVV95cUxON1FrUnhmRU95cGl1ZDk2SFp4SFlzSVA3UzRrQ09vSEFldEdUVTFLUDRzN19TbmhVYk4yR1ZFRkFOYlY1b0lKbkV3aDBGZmRBVGxoR0JoWUhBZmI3TUVudk0tQzdpdGxlM2o5TEtJS0lxMEpkdTRDc05rMm1TSDk1bWdrVFQ?oc=5)
+- [Jets urged to get 1st-round pick involved on offense to help end TD drought](https://www.sportingnews.com/us/nfl/new-york-jets/news/jets-urged-get-1st-round-pick-involved-help-end-td-drought/a00fb6698aa10c5b3e3f2767)
 <!--README_FEED:END-->
 
 <div align="center">

@@ -1,5 +1,7 @@
 import { iconAsset } from './icons.mjs';
 import { WEBMCP_SCRIPT } from './webmcp.mjs';
+import { discoveryResponse } from './agent-discovery.mjs';
+import { publicJson, submitProposal, listProposals, getProposal, rejectProposal, submissionKey } from './submissions.mjs';
 import {
   SHITPOST_MEME_LINE_HARD_MAX_CHARS,
   SHITPOST_TEXT_HARD_MAX_CHARS,
@@ -612,10 +614,14 @@ Canonical pages, feed links and discovery use the public domain. Publishing acce
 
 ## WebMCP
 
-In compatible browsers, \`read_reactor_posts\` reads recent public satire (read-only, maximum five entries). No publishing or private editorial data.
+In compatible browsers, \`read_reactor_posts\` reads up to five published posts. \`propose_reactor_post\` submits text-only proposals for private human review. It cannot publish posts or read private drafts.
 
 ## Discovery
 
+- [API catalog](${SITE_URL}/.well-known/api-catalog): RFC 9727 Linkset of public feed and proposal API.
+- [OpenAPI](${SITE_URL}/openapi.json): public read/submit contract.
+- [ARD manifest](${SITE_URL}/.well-known/ard.json): agent discovery.
+- [Agent Skill](${SITE_URL}/.well-known/agent-skills/reactor-propose-post/SKILL.md): proposal instructions.
 - [Sitemap](${SITE_URL}/sitemap.xml)
 - [Robots policy](${SITE_URL}/robots.txt)
 - [Web manifest](${SITE_URL}/site.webmanifest)
@@ -708,6 +714,8 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${S
 ${structuredData}
 <link rel="alternate" type="text/plain" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
 <link rel="describedby" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
+<link rel="ard" href="/.well-known/ard.json" type="application/ard+json">
+<link rel="api-catalog" href="/.well-known/api-catalog" type="application/linkset+json">
 <link rel="alternate" type="application/rss+xml" title="${escapeHtml(FEED_TITLE)} RSS" href="/rss.xml">
 <link rel="alternate" type="application/atom+xml" title="${escapeHtml(FEED_TITLE)} Atom" href="/atom.xml">
 <link rel="alternate" type="application/feed+json" title="${escapeHtml(FEED_TITLE)} JSON Feed" href="/feed.json">
@@ -888,7 +896,82 @@ async function publish(request, env) {
   return response(`${JSON.stringify({ ok: true, id, url: publicPostUrl(post), duplicate: false })}\n`, 'application/json; charset=utf-8', { status: 201, cache: 'no-store' });
 }
 
+// The public submission queue is separate from the OIDC-only publishing path.
+// Moderation is exclusively a manual dispatch of the already-pinned workflow.
+export async function approveProposal(env, proposal, claims) {
+  const reserveKey = 'submissions/reservations/' + proposal.id + '.json';
+  const reservation = await env.FEED.get(reserveKey);
+  const reserved = reservation ? await reservation.json() : null;
+  const id = reserved?.post_id || ('gh-' + claims.run_id + '-' + claims.run_attempt);
+  if (!/^gh-\d+-\d+$/u.test(id)) throw Error('invalid_reserved_post');
+  if (!reserved) {
+    await env.FEED.put(reserveKey, JSON.stringify({ submission_id: proposal.id, post_id: id }) + '\n', {
+      httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    });
+  }
+
+  let post = await readPost(env, id);
+  if (post && post.submission?.id !== proposal.id) throw Error('post_id_collision');
+  if (!post) {
+    const publishedAt = new Date().toISOString();
+    post = {
+      schema_version: 2, generated_at: proposal.submitted_at,
+      published_at: publishedAt, language: proposal.language,
+      provider: 'community', model: 'external-agent',
+      topic: proposal.title || null,
+      content: {
+        kind: 'text', ...(proposal.title ? { title: proposal.title } : {}), text: proposal.text,
+      },
+      submission: { id: proposal.id, agent: proposal.agent || null },
+      id, url: WORKER_ORIGIN + '/posts/' + id,
+    };
+    validatePublishLanguage(post);
+    await env.FEED.put('posts/' + id + '.json', JSON.stringify(post, null, 2) + '\n', {
+      httpMetadata: { contentType: 'application/json; charset=utf-8' },
+      customMetadata: { published_at: publishedAt, run_id: String(claims.run_id) },
+    });
+  }
+  await ensureIndexed(env, post);
+  await env.FEED.put('submissions/decisions/' + proposal.id + '.json', JSON.stringify({
+    id: proposal.id, decision: 'approved', post_id: id, decided_at: new Date().toISOString(),
+    run_id: String(claims.run_id),
+  }) + '\n', { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
+  await env.FEED.delete(submissionKey(proposal.id));
+  await env.FEED.delete(reserveKey);
+  return publicJson({ ok: true, id: proposal.id, status: 'approved', url: publicPostUrl(post) });
+}
+
+async function reviewProposals(request, env, url) {
+  const bearer = request.headers.get('authorization') || '';
+  if (!bearer.startsWith('Bearer ')) return publicJson({ error: 'unauthorized' }, 401);
+  let claims;
+  try {
+    claims = await verifyGithubOidc(bearer.slice(7).trim());
+    if (claims.event_name !== 'workflow_dispatch' || claims.actor !== 'trvny') {
+      throw Error('review_actor_not_authorized');
+    }
+  } catch {
+    return publicJson({ error: 'unauthorized' }, 401);
+  }
+  if (url.pathname === '/api/submissions' && request.method === 'GET') {
+    return publicJson(await listProposals(env));
+  }
+  const route = /^\/api\/submissions\/(s-\d{8}-[a-f0-9-]{36})(?:\/(approve|reject))?$/u.exec(url.pathname);
+  if (!route) return publicJson({ error: 'not_found' }, 404);
+  const action = route[2];
+  if ((!action && request.method !== 'GET') || (action && request.method !== 'POST')) {
+    return publicJson({ error: 'method_not_allowed' }, 405);
+  }
+  const proposal = await getProposal(env, route[1]);
+  if (!proposal) return publicJson({ error: 'not_found' }, 404);
+  if (!action) return publicJson({ ok: true, proposal });
+  if (action === 'reject') return rejectProposal(env, proposal, claims);
+  return approveProposal(env, proposal, claims);
+}
+
 async function handleGet(url, env) {
+  const found = await discoveryResponse(new Request(url.href));
+  if (found) return found;
   if (url.pathname === '/healthz') return response('ok\n', 'text/plain; charset=utf-8', { cache: 'no-store' });
   // Wrangler injects this public build SHA during the authenticated deploy.
   if (url.pathname === '/version') {
@@ -957,6 +1040,12 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/api/publish') return publish(request, env);
+    if (url.pathname === '/api/submissions' && request.method === 'POST') return submitProposal(request, env);
+    if ((url.pathname === '/api/submissions' && request.method === 'GET') || url.pathname.startsWith('/api/submissions/')) {
+      return reviewProposals(request, env, url);
+    }
+    const discovery = await discoveryResponse(request);
+    if (discovery) return discovery;
     if ((request.method === 'GET' || request.method === 'HEAD') && url.hostname === new URL(LEGACY_ORIGIN).hostname) {
       const destination = new URL(SITE_URL);
       destination.pathname = url.pathname;

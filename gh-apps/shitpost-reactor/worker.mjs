@@ -933,10 +933,15 @@ export async function approveProposal(env, proposal, claims) {
       id: postId, url: WORKER_ORIGIN + '/posts/' + postId,
     };
     validatePublishLanguage(post);
-    await env.FEED.put('posts/' + postId + '.json', JSON.stringify(post, null, 2) + '\n', {
+    const created = await env.FEED.put('posts/' + postId + '.json', JSON.stringify(post, null, 2) + '\n', {
       httpMetadata: { contentType: 'application/json; charset=utf-8' },
       customMetadata: { published_at: publishedAt, run_id: postId.split('-')[1] },
+      onlyIf: new Headers({ 'if-none-match': '*' }),
     });
+    if (created === null) {
+      post = await readPost(env, postId);
+      if (!post || post.submission?.id !== id) throw Error('post_id_collision');
+    }
   }
   await ensureIndexed(env, post);
   await env.FEED.put('submissions/decisions/' + id + '.json', JSON.stringify({

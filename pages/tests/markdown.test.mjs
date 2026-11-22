@@ -62,3 +62,29 @@ test("failed Markdown asset fetch falls back to HTML", async () => {
   assert.equal(await response.text(), "<html>fallback</html>");
   assert.equal(response.headers.get("vary"), "Accept");
 });
+
+test("radio aliases negotiate Markdown without duplicating the pre-rendered shell", async () => {
+  const origin = "https://bartek.lol";
+  for (const suffix of ["", "/", "/index.html"]) {
+    const path = "/radio" + suffix;
+    const env = { ASSETS: { fetch: async req => {
+      assert.equal(new URL(req.url).pathname, "/radio/index.md");
+      return new Response("# TRAVNY Radio");
+    } } };
+    const md = await onRequest({
+      request: new Request(origin + path, { headers: { accept: "text/markdown" } }), env,
+    });
+    assert.equal(await md.text(), "# TRAVNY Radio");
+    assert.equal(md.headers.get("content-type"), "text/markdown; charset=utf-8");
+
+    const html = await onRequest({
+      request: new Request(origin + path),
+      next: async () => new Response('<html lang="en">single shell</html>', {
+        headers: { "content-type": "text/html", "content-language": "en" },
+      }),
+    });
+    assert.equal(await html.text(), '<html lang="en">single shell</html>');
+    assert.equal(html.headers.get("content-language"), "en");
+    assert.equal(html.headers.get("vary"), "Accept");
+  }
+});

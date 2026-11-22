@@ -97,7 +97,11 @@ async function reserveSlot(env, id) {
     let active = ids;
     // Self-heal a failed slot release. Probe only when at the hard cap.
     if (ids.length >= MAX_PENDING) {
-      const present = await Promise.all(ids.map((key) => env.FEED.head(submissionKey(key))));
+      // In-flight reservations have no draft object yet; never reclaim those.
+      // A missing object is stale only after its creation-day safety window.
+      const safeDay = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().slice(0, 10).replaceAll('-', '');
+      const present = await Promise.all(ids.map(async (key) =>
+        key.slice(2, 10) >= safeDay ? true : env.FEED.head(submissionKey(key))));
       active = ids.filter((_, index) => present[index] !== null);
     }
     return active.length >= MAX_PENDING ? null : [...active, id];

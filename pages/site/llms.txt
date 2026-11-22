@@ -41,6 +41,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 ## Discovery
 
+- [ARD resource manifest](https://bartek.lol/.well-known/ard.json): machine-readable discovery of public TRAVNY capabilities; legacy [AI Catalog](https://bartek.lol/.well-known/ai-catalog.json) is an alias
 - [Full TRAVNY guide](https://bartek.lol/llms-full.txt)
 - [Sitemap](https://bartek.lol/sitemap.xml)
 - [Robots policy](https://bartek.lol/robots.txt)

@@ -1,6 +1,6 @@
 import { ORIGIN, pageSeoHead } from "./page-seo.js";
 
-const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor">';
+const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor"><link rel="ard" type="application/ard+json" href="/.well-known/ard.json">';
 export const NAV_BODY = `
 <button id="trvny-nav-toggle" type="button" aria-controls="trvny-nav-drawer" aria-expanded="false" aria-label="Otwórz menu">☰</button>
 <div id="trvny-nav-backdrop" hidden></div>

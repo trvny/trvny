@@ -92,7 +92,14 @@ export function staticHeaders() {
     "  Cache-Control: public, max-age=0, s-maxage=120, stale-while-revalidate=300",
     "  Link: " + (page.markdown ? "<" + page.markdown + '>; rel="alternate"; type="text/markdown", ' : "") + '</llms.txt>; rel="describedby"',
     ...(page.noindex ? ["  X-Robots-Tag: noindex, follow"] : []),
-  ].join("\n"))).join("\n") + "\n";
+  ].join("\n"))).join("\n") + "\n" + [
+    "/.well-known/ard.json",
+    "  Content-Type: application/ard+json; charset=utf-8",
+    "  Access-Control-Allow-Origin: *",
+    "/.well-known/ai-catalog.json",
+    "  Content-Type: application/ai-catalog+json; charset=utf-8",
+    "  Access-Control-Allow-Origin: *",
+  ].join("\n") + "\n";
 }
 
 export async function writeStaticShell(dir) {

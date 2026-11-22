@@ -19,6 +19,9 @@ test("built sitemap includes hub, published digests and subdomain pages", async 
     const urls = new Set(root.map(({ url }) => url));
     assert.equal(urls.size, root.length);
     assert.ok(urls.has("https://bartek.lol/"));
+    assert.ok(urls.has("https://radio.bartek.lol/"));
+    assert.ok(urls.has("https://bartek.lol/radio/"));
+    assert.ok(urls.has("https://bartek.lol/przeglad/"));
     for (const service of ["codebench", "docbench", "streambench", "weather", "shitpost"]) {
       assert.ok(urls.has(`https://${service}.bartek.lol/`));
     }

@@ -54,7 +54,7 @@ Use real, stable HTTP(S) source links, not ChatGPT citation tokens, chat UI comp
 
 Required frontmatter: `title`, `description`, `date`. `draft` is optional, defaults to `false`, and should be set explicitly for editorial clarity. Set `draft: true` to exclude an issue from the archive, generated routes, unified directory and Atom feed. On a substantive revision, set or advance optional `updated: 2026-01-01T12:00:00Z` (real ISO timestamp) so Atom subscribers detect the change; otherwise the original `date` supplies the update timestamp. Update the file for an existing date rather than creating a duplicate.
 
-After the digest reaches `main` and Cloudflare Pages deploys, verify its permalink and listing under `/przeglad/`; verify the `/teksty/feed.xml` entry only when the issue falls within the feed's 100 newest items by update time. Verify the hub and `/teksty/` each retain one archive link instead of per-issue cards. The Pages build copies `dist/przeglad/` additively; old article URLs and Atom IDs remain unchanged.
+After the digest reaches `main` and Cloudflare Pages deploys, verify its permalink and listing under `/przeglad/`; verify the `/teksty/feed.xml` entry only when the issue falls within the feed's 100 newest items by update time. Verify each publication listing retains one archive card instead of per-issue cards; shared navigation links are separate. The Pages build copies `dist/przeglad/` additively; old article URLs and Atom IDs remain unchanged.
 
 Featured articles are selected with `featured: true` in `site/teksty/posts.json`. That JSON is the legacy-article catalog, **not** the complete list of publications. Do not maintain duplicate indexes of digest issues by hand.
 

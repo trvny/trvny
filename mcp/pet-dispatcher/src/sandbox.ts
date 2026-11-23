@@ -5,6 +5,7 @@ import { dirname, extname, isAbsolute, join, parse, relative, resolve, win32 } f
 import { promisify } from "node:util";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
 import { findCommandOnPath } from "./agent-router.js";
+import { containerNameForSession, deleteSessionContainerProfile } from "./appcontainer-profile.js";
 import type { DispatcherConfig } from "./config.js";
 import { prepareSandboxEnvironment } from "./environment.js";
 import { NetworkBroker, type SubprocessNetworkProxy } from "./network.js";
@@ -159,7 +160,11 @@ export class CommandRunner {
     const aclReady = await probeSystemDrivePrepAcl();
     const systemDrivePrepRequired = requiresSystemDrivePrep(support.isolationWarnings ?? [], aclReady);
     const runner = new CommandRunner(config, sessions, [...roots], guard, systemDrivePrepRequired);
-    sessions.setProcessTerminator((sessionId) => runner.terminateSession(sessionId));
+    sessions.setProcessTerminator(async (sessionId) => {
+      const terminated = await runner.terminateSession(sessionId);
+      await deleteSessionContainerProfile(sessionId);
+      return terminated;
+    });
     return runner;
   }
 
@@ -341,7 +346,7 @@ export class CommandRunner {
         ui: { allowWindows: allowWindowsForExecutable(resolvedExecutable.hostTool), clipboard: "none" as const, allowInputInjection: false },
         timeoutMs: timeout,
       };
-      const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id}`);
+      const sandbox = createConfigFromPolicy(policy, "process", containerNameForSession(session.id));
       if (!sandbox.process) throw new Error("MXC did not create a process configuration");
       sandbox.process.commandLine = commandLine;
       sandbox.process.cwd = workingDirectory;

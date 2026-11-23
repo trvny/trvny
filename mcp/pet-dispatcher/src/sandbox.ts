@@ -5,6 +5,7 @@ import { dirname, extname, isAbsolute, join, parse, relative, resolve, win32 } f
 import { promisify } from "node:util";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
 import { findCommandOnPath } from "./agent-router.js";
+import { containerNameForSession, markSessionContainer } from "./appcontainer-profile.js";
 import type { DispatcherConfig } from "./config.js";
 import { prepareSandboxEnvironment } from "./environment.js";
 import { NetworkBroker, type SubprocessNetworkProxy } from "./network.js";
@@ -159,8 +160,7 @@ export class CommandRunner {
     const aclReady = await probeSystemDrivePrepAcl();
     const systemDrivePrepRequired = requiresSystemDrivePrep(support.isolationWarnings ?? [], aclReady);
     const runner = new CommandRunner(config, sessions, [...roots], guard, systemDrivePrepRequired);
-    sessions.setProcessTerminator((sessionId) => runner.terminateSession(sessionId));
-    return runner;
+    sessions.setProcessTerminator((sessionId) => runner.terminateSession(sessionId));    return runner;
   }
 
   activeProcessCount(): number { return this.#running.size; }
@@ -341,7 +341,9 @@ export class CommandRunner {
         ui: { allowWindows: allowWindowsForExecutable(resolvedExecutable.hostTool), clipboard: "none" as const, allowInputInjection: false },
         timeoutMs: timeout,
       };
-      const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id}`);
+      // Marker first and not best-effort: without it close() would skip deleting a profile the spawn below creates.
+      await markSessionContainer(session.sessionDir, session.id);
+      const sandbox = createConfigFromPolicy(policy, "process", containerNameForSession(session.id));
       if (!sandbox.process) throw new Error("MXC did not create a process configuration");
       sandbox.process.commandLine = commandLine;
       sandbox.process.cwd = workingDirectory;

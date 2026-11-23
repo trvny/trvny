@@ -12,7 +12,7 @@
 | Hub | `site/index.html`, `site/assets/tokens.css`; existing HTML preserved |
 | Radio discovery | `site/radio/index.html`, `site/radio/index.md`; radio station JSON-LD, sitemap, documented now-playing API and read-only shared WebMCP |
 | Pages Functions / redirects | `functions/`; custom-domain aliases redirect to the canonical hub or Feedseek |
-| Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests join one `/teksty/` stream/feed |
+| Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests stay in `/przeglad/` and the shared `/teksty/feed.xml` Atom feed |
 | Token Worldcup | [`token-worldcup/*.qmd`](token-worldcup/README.md); Quarto HTML copied into `site/teksty/token-worldcup/` |
 | Papagenerator | [`papagenerator/`](papagenerator/README.md); local runtime copied by `build.sh` to `site/papagenerator/` |
 | Hub backend | `worker/`; private Worker `travny-hub-backend`, Pages service binding `HUB_BACKEND`; radio API logic in `functions/api/radio-*.js` |

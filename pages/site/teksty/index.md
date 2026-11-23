@@ -1,6 +1,6 @@
 # TRAVNY Teksty
 
-> Static guide to TRAVNY publications. The [live Teksty directory](https://bartek.lol/teksty/) and [unified Atom feed](https://bartek.lol/teksty/feed.xml) cover the current publication stream. Atom includes at most 100 entries.
+> Static guide to TRAVNY publications. The [Teksty directory](https://bartek.lol/teksty/) lists articles and a single link to the [CoCzyDziennik archive](https://bartek.lol/przeglad/); the [unified Atom feed](https://bartek.lol/teksty/feed.xml) includes issues and up to 100 recent entries.
 
 ## Reactor
 
@@ -8,7 +8,7 @@
 
 ## CoCzyDziennik
 
-- [CoCzyDziennik archive](https://bartek.lol/przeglad/): dated Markdown news editions, also listed alongside the articles and editorial notes in the same Teksty directory and Atom feed. Individual issue URLs remain under `/przeglad/YYYY-MM-DD/`.
+- [CoCzyDziennik archive](https://bartek.lol/przeglad/): complete list of dated Markdown news editions, newest first. Teksty links to the archive once instead of repeating each issue; Atom retains individual issues. Permalinks remain under `/przeglad/YYYY-MM-DD/`.
 
 ## Existing articles
 

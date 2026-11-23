@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { containerNameForSession, deleteSessionContainerProfile, markSessionContainer, releaseSessionContainer } from "../src/appcontainer-profile.js";
@@ -21,6 +21,8 @@ test("release does nothing for a session that never created a container (no Powe
 test("non-Windows platforms never mark or release a container (no false leftover warnings)", { skip: process.platform === "win32" }, async () => {
   await withSessionDir(async (dir) => {
     await markSessionContainer(dir, "abc-123");
+    assert.deepEqual(await readdir(dir), [], "mark must not write a marker off Windows");
+    await writeFile(join(dir, "appcontainer"), "pet-dispatcher-abc-123", "utf8"); // seed one: release must still skip on its own
     let calls = 0;
     await releaseSessionContainer(dir, "abc-123", async () => { calls += 1; throw new Error("must not run"); });
     assert.equal(calls, 0);

@@ -49,7 +49,7 @@ class FakeRewriter {
   }
 }
 
-test('published digest joins the home page, text directory and Atom, newest first', async () => {
+test('published digests stay in the archive and Atom, not as repeated cards', async () => {
   const originalFetch = globalThis.fetch;
   const originalRewriter = globalThis.HTMLRewriter;
   globalThis.fetch = () => Promise.resolve(Response.json({ version: 'https://jsonfeed.org/version/1.1', items: [] }));
@@ -59,8 +59,9 @@ test('published digest joins the home page, text directory and Atom, newest firs
     const textsHtml = await (await texts(context('/teksty/'))).text();
     const xml = await (await feed(context('/teksty/feed.xml'))).text();
     for (const html of [homeHtml, textsHtml]) {
-      assert.match(html, /href="\/przeglad\/2026-11-02\/"/);
-      assert.match(html, /lang="pl">News &amp; &lt;more&gt;/);
+      assert.match(html, /href="\/przeglad\/"/);
+      assert.doesNotMatch(html, /href="\/przeglad\/2026-11-02\/"/);
+      assert.doesNotMatch(html, /News &amp; &lt;more&gt;/);
       assert.match(html, /lang="en">Older text/);
       assert.match(html, /lang="pl">Token World Cup/);
       assert.match(html, /lang="en">Featured/);
@@ -68,9 +69,9 @@ test('published digest joins the home page, text directory and Atom, newest firs
     }
     assert.ok(homeHtml.includes('P600 · FEATURED'));
     assert.doesNotMatch(homeHtml, /<details class="textexpand">/);
-    assert.ok(homeHtml.indexOf('News &amp; &lt;more&gt;') < homeHtml.indexOf('<nav class="fastext">'));
-    assert.match(textsHtml, /<div id="text-list">[\s\S]*News &amp; &lt;more&gt;[\s\S]*<\/div>/);
-    assert.ok(textsHtml.indexOf('News &amp; &lt;more&gt;') < textsHtml.indexOf('Older text'));
+    assert.ok(homeHtml.indexOf('CoCzyDziennik') < homeHtml.indexOf('<nav class="fastext">'));
+    assert.match(textsHtml, /<div id="text-list">[\s\S]*Older text[\s\S]*<\/div>/);
+    assert.ok(textsHtml.indexOf('CoCzyDziennik') < textsHtml.indexOf('Older text'));
     assert.ok(textsHtml.indexOf('Older text') < textsHtml.indexOf('Token World Cup'), 'featured is not pinned');
     assert.match(xml, /<id>https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/<\/id>/);
     assert.match(xml, /<link rel="alternate" href="https:\/\/bartek\.lol\/przeglad\/2026-11-02\/"\/>/);
@@ -92,7 +93,7 @@ test('missing or broken digest index leaves existing publications available', as
   }
 });
 
-test('home keeps the latest of both feeds visible even when newer articles dominate', async () => {
+test('home keeps one archive tile and the latest Shitpost visible when articles dominate', async () => {
   const originalFetch = globalThis.fetch;
   const originalRewriter = globalThis.HTMLRewriter;
   const articles = Array.from({ length: 7 }, (_, index) => ({
@@ -159,14 +160,18 @@ test('home keeps the latest of both feeds visible even when newer articles domin
     assert.ok(initial.includes('lang="zh-Hans-CN">Shit 7 &lt;meme&gt;'));
     assert.doesNotMatch(listing, /SHITPOST REACTOR|· SHITPOST|SHITPOST OF THE DAY/);
     const titles = (section) => [...section.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gu)].map((match) => match[1]);
-    assert.deepEqual(titles(initial), ['Article 7', 'Policy topic 7', 'CoCzyDziennik edition']);
+    assert.deepEqual(titles(initial), ['CoCzyDziennik', 'Article 7', 'Policy topic 7']);
     assert.deepEqual(titles(rest), ['Article 6', 'Article 5', 'Article 4', 'Article 3', 'Article 2', 'Article 1', 'Policy topic 6']);
-    assert.equal(listing.split('href="/przeglad/2026-11-01/"').length - 1, 1);
+    assert.equal(listing.split('href="/przeglad/"').length - 1, 1);
+    assert.doesNotMatch(listing, /href="\/przeglad\/2026-11-01\/"/);
+    assert.doesNotMatch(listing, /Recently edited older digest|CoCzyDziennik edition/);
     const reactorHome = 'href="https://shitpost.bartek.lol/"';
     assert.ok(listing.includes(reactorHome));
     assert.ok(!listing.includes('href="https://shitpost.bartek.lol/posts/gh-1-7"'));
     const textsHtml = await (await texts(context('/teksty/'))).text();
     assert.ok(textsHtml.includes(reactorHome));
+    assert.equal(textsHtml.split('href="/przeglad/"').length - 1, 1);
+    assert.doesNotMatch(textsHtml, /href="\/przeglad\/2026-11-02\/"/);
     assert.ok(textsHtml.includes('REACTOR ↗'));
     assert.ok(!textsHtml.includes('href="https://shitpost.bartek.lol/posts/gh-1-7"'));
     const atom = await (await feed(context('/teksty/feed.xml'))).text();

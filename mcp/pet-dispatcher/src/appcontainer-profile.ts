@@ -15,6 +15,7 @@ export function containerNameForSession(sessionId: string): string {
 const CONTAINER_MARKER = "appcontainer";
 
 export async function markSessionContainer(sessionDir: string, sessionId: string): Promise<void> {
+  if (process.platform !== "win32") return; // AppContainer profiles are Windows-only
   await writeFile(join(sessionDir, CONTAINER_MARKER), containerNameForSession(sessionId), "utf8");
 }
 
@@ -59,6 +60,7 @@ export async function deleteSessionContainerProfile(
  * Throws when a profile was created but could not be deleted, so the leftover is reported by the caller.
  */
 export async function releaseSessionContainer(sessionDir: string, sessionId: string, run?: ProfileRunner): Promise<void> {
+  if (process.platform !== "win32") return;
   try { await access(join(sessionDir, CONTAINER_MARKER)); } catch { return; }
   if (await deleteSessionContainerProfile(sessionId, run)) return;
   throw new Error(`leftover AppContainer profile ${containerNameForSession(sessionId)}: delete it with scripts/delete-appcontainer-profile.ps1 -Name <name>, or remove its HKCU AppContainer Storage/Mappings entries`);

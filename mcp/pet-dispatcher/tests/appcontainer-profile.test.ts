@@ -18,6 +18,15 @@ test("release does nothing for a session that never created a container (no Powe
   });
 });
 
+test("non-Windows platforms never mark or release a container (no false leftover warnings)", { skip: process.platform === "win32" }, async () => {
+  await withSessionDir(async (dir) => {
+    await markSessionContainer(dir, "abc-123");
+    let calls = 0;
+    await releaseSessionContainer(dir, "abc-123", async () => { calls += 1; throw new Error("must not run"); });
+    assert.equal(calls, 0);
+  });
+});
+
 test("release deletes the profile of a session that created one", { skip: process.platform !== "win32" }, async () => {
   await withSessionDir(async (dir) => {
     await markSessionContainer(dir, "abc-123");

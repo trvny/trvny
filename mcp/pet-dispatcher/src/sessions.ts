@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { releaseSessionContainer } from "./appcontainer-profile.js";
 import type { DispatcherConfig } from "./config.js";
 import { gitSafetyArgs, isolatedGitEnvironment, resolveTrustedGitExecutable } from "./git-runtime.js";
 import type { NetworkAccess, NetworkMode } from "./network.js";
@@ -55,7 +56,6 @@ export class SessionManager {
   #initializationError?: Error;
   #gitExecutable?: Promise<string>;
   #terminateProcesses?: (sessionId: string) => Promise<boolean | void>;
-  #sessionCleanup?: (sessionId: string) => Promise<void>;
 
   constructor(readonly config: DispatcherConfig) {
     this.#initialization = this.#cleanupOrphanedSessions().catch((error: unknown) => {
@@ -73,12 +73,6 @@ export class SessionManager {
   setProcessTerminator(terminate: (sessionId: string) => Promise<boolean | void>): void {
     this.#terminateProcesses = terminate;
   }
-
-  /** Runs once per close, after the unexported-changes check passed and before the session dir is removed. */
-  setSessionCleanup(cleanup: (sessionId: string) => Promise<void>): void {
-    this.#sessionCleanup = cleanup;
-  }
-
   dispose(): void { clearInterval(this.#reaper); }
 
   async #ready(): Promise<void> {
@@ -105,7 +99,18 @@ export class SessionManager {
         const info = await stat(candidate);
         if (Date.now() - info.mtimeMs < LEGACY_SESSION_GRACE_MS) continue;
       }
+      await this.#releaseContainer(candidate, entry.name);
       await rm(candidate, { recursive: true, force: true });
+    }
+  }
+
+  /** Deletes the session's AppContainer profile (only when a sandboxed command created one); leftovers are reported, never thrown. */
+  async #releaseContainer(sessionDir: string, id: string): Promise<void> {
+    try {
+      await releaseSessionContainer(sessionDir, id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`[pet-dispatcher] session ${id} cleanup warning: ${message}\n`);
     }
   }
 
@@ -349,12 +354,8 @@ export class SessionManager {
       throw error;
     }
 
-    if (this.#sessionCleanup) {
-      await this.#sessionCleanup(id).catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`[pet-dispatcher] session ${id} cleanup warning: ${message}\n`);
-      });
-    }
+    // After the unexported-changes check: a refused close must leave the live session (and its profile) alone.
+    await this.#releaseContainer(existing.sessionDir, id);
 
     let cleanupError: unknown;
     try {

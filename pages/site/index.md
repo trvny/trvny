@@ -24,7 +24,8 @@ Creator: Bartek (TRAVNY / trvny); the `travnie` GitHub organization hosts compan
 - [Docbench](https://docbench.bartek.lol/): local-first document and PDF studio.
 - [Badges](https://bartek.lol/badges/): ecosystem, bot, AI and live
   status/counter SVG badges with copyable Markdown and HTML.
-- [Teksty](https://bartek.lol/teksty/): the unified publication directory for essays, experiments, CoCzyDziennik news editions and Reactor notes, including GitHubowa Kraina and Tokenowy Mundial AI.
+- [Teksty](https://bartek.lol/teksty/): articles, experiments and Reactor notes, including GitHubowa Kraina and Tokenowy Mundial AI.
+- [CoCzyDziennik](https://bartek.lol/przeglad/): one archive of all dated news digests, newest first.
 
 ## Discovery
 

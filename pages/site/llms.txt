@@ -14,7 +14,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [TRAVNY Lab](https://bartek.lol/lab/): experiments and live widgets
 - [Papagenerator](https://bartek.lol/papagenerator/): browser-only meme and sticker editor; images stay on the device
 - [Badges](https://bartek.lol/badges/): ecosystem, bot, AI and live status/counter SVG badges with copyable Markdown/HTML; catalogue JSON at `/badge/index.json`
-- [Teksty](https://bartek.lol/teksty/) · [Markdown guide](https://bartek.lol/teksty/index.md): unified publication directory including CoCzyDziennik and Reactor
+- [Teksty](https://bartek.lol/teksty/) · [Markdown guide](https://bartek.lol/teksty/index.md): articles, Reactor and one CoCzyDziennik archive link
 - [CoCzyDziennik archive](https://bartek.lol/przeglad/): dated issue permalinks; publication feed remains under Teksty
 - [Tokenowy Mundial AI](https://bartek.lol/teksty/token-worldcup/): six tokenizer configurations on equivalent text in 27 languages · [English report](https://bartek.lol/teksty/token-worldcup/en/) · [dataset](https://bartek.lol/teksty/token-worldcup/dataset.json)
 - [GitHubowa Kraina](https://bartek.lol/teksty/githubowa-kraina/) · interactive atlas in PL, EN, RU or ZH · [English Markdown guide](https://bartek.lol/teksty/githubowa-kraina/index.md); [structured data](https://bartek.lol/teksty/githubowa-kraina/atlas.json) · [English infrastructure map](https://bartek.lol/teksty/githubowa-kraina/universe.html)

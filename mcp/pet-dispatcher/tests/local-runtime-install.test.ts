@@ -50,6 +50,7 @@ test("local installer publishes runtime and migrates control state away from dc"
     await writeFile(join(source, "scripts", "pet-dispatcher-restart.ps1"), "# restart fixture\n");
     await writeFile(join(source, "scripts", "pet-dispatcher-wakeguard.ps1"), "# wakeguard fixture\n");
     await writeFile(join(source, "scripts", "windows-job-guard.ps1"), "# guard fixture\n");
+    await writeFile(join(source, "scripts", "delete-appcontainer-profile.ps1"), "# profile cleanup fixture\n");
     await execFileAsync("git", ["init", source]);
     await execFileAsync("git", ["-C", source, "add", "."]);
     await execFileAsync("git", ["-C", source, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "fixture"]);
@@ -87,6 +88,7 @@ test("local installer publishes runtime and migrates control state away from dc"
     assert.equal((await execFileAsync("git", ["-C", result.paths.repoMirror, "rev-parse", "--is-bare-repository"])).stdout.trim(), "true");
     assert.ok((await stat(join(result.releaseRoot, "dist", "src", "index.js"))).isFile());
     assert.equal(await readFile(join(result.releaseRoot, "scripts", "windows-job-guard.ps1"), "utf8"), "# guard fixture\n");
+    assert.equal(await readFile(join(result.releaseRoot, "scripts", "delete-appcontainer-profile.ps1"), "utf8"), "# profile cleanup fixture\n");
     assert.ok((await stat(join(legacySecrets, "TASK_SIGNING_SECRET.dpapi"))).isFile(), "legacy secrets stay until live verification succeeds");
     const manifest = JSON.parse(await readFile(result.paths.currentManifest, "utf8")) as { sourceCommit: string; releaseRoot: string };
     assert.equal(manifest.sourceCommit, result.sourceCommit);
@@ -108,7 +110,7 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
     await writeFile(join(source, "package.json"), JSON.stringify({ name: "pet-fixture", version: "1.0.0" }));
     await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({ workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {} }));
-    for (const name of ["pet-dispatcher-start-worker.ps1", "pet-dispatcher-supervise.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-wakeguard.ps1", "windows-job-guard.ps1"]) await writeFile(join(source, "scripts", name), "# fixture\n");
+    for (const name of ["pet-dispatcher-start-worker.ps1", "pet-dispatcher-supervise.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-wakeguard.ps1", "windows-job-guard.ps1", "delete-appcontainer-profile.ps1"]) await writeFile(join(source, "scripts", name), "# fixture\n");
     await execFileAsync("git", ["init", source]);
     await execFileAsync("git", ["-C", source, "add", "."]);
     await execFileAsync("git", ["-C", source, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "one"]);
@@ -325,7 +327,7 @@ test("local installer can run npm build on Windows", { skip: process.platform !=
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({
       workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {},
     }));
-    for (const name of ["pet-dispatcher-start-worker.ps1", "pet-dispatcher-supervise.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-wakeguard.ps1", "windows-job-guard.ps1"]) {
+    for (const name of ["pet-dispatcher-start-worker.ps1", "pet-dispatcher-supervise.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-wakeguard.ps1", "windows-job-guard.ps1", "delete-appcontainer-profile.ps1"]) {
       await writeFile(join(source, "scripts", name), "# fixture\n");
     }
     await execFileAsync("git", ["init", source]);

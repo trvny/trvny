@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access } from "node:fs/promises";
+import { access, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -11,7 +11,14 @@ export function containerNameForSession(sessionId: string): string {
   return `pet-dispatcher-${sessionId}`;
 }
 
-export type ProfileRunner = (powershell: string, args: string[]) => Promise<unknown>;
+/** Written into the session dir when a sandboxed command first creates the profile; survives worker restarts. */
+const CONTAINER_MARKER = "appcontainer";
+
+export async function markSessionContainer(sessionDir: string, sessionId: string): Promise<void> {
+  await writeFile(join(sessionDir, CONTAINER_MARKER), containerNameForSession(sessionId), "utf8");
+}
+
+export type ProfileRunner =(powershell: string, args: string[]) => Promise<unknown>;
 
 async function scriptPath(): Promise<string | undefined> {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -44,4 +51,15 @@ export async function deleteSessionContainerProfile(
   } catch {
     return false;
   }
+}
+
+/**
+ * Close-time cleanup for a session: deletes the profile only when a sandboxed command created one
+ * (marker in the session dir), so read-only/temporary sessions never start PowerShell.
+ * Throws when a profile was created but could not be deleted, so the leftover is reported by the caller.
+ */
+export async function releaseSessionContainer(sessionDir: string, sessionId: string, run?: ProfileRunner): Promise<void> {
+  try { await access(join(sessionDir, CONTAINER_MARKER)); } catch { return; }
+  if (await deleteSessionContainerProfile(sessionId, run)) return;
+  throw new Error(`leftover AppContainer profile ${containerNameForSession(sessionId)}: delete it with scripts/delete-appcontainer-profile.ps1 -Name <name>, or remove its HKCU AppContainer Storage/Mappings entries`);
 }

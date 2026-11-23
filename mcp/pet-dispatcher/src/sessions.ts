@@ -55,6 +55,7 @@ export class SessionManager {
   #initializationError?: Error;
   #gitExecutable?: Promise<string>;
   #terminateProcesses?: (sessionId: string) => Promise<boolean | void>;
+  #sessionCleanup?: (sessionId: string) => Promise<void>;
 
   constructor(readonly config: DispatcherConfig) {
     this.#initialization = this.#cleanupOrphanedSessions().catch((error: unknown) => {
@@ -71,6 +72,11 @@ export class SessionManager {
 
   setProcessTerminator(terminate: (sessionId: string) => Promise<boolean | void>): void {
     this.#terminateProcesses = terminate;
+  }
+
+  /** Runs once per close, after the unexported-changes check passed and before the session dir is removed. */
+  setSessionCleanup(cleanup: (sessionId: string) => Promise<void>): void {
+    this.#sessionCleanup = cleanup;
   }
 
   dispose(): void { clearInterval(this.#reaper); }
@@ -341,6 +347,13 @@ export class SessionManager {
     } catch (error) {
       release();
       throw error;
+    }
+
+    if (this.#sessionCleanup) {
+      await this.#sessionCleanup(id).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`[pet-dispatcher] session ${id} cleanup warning: ${message}\n`);
+      });
     }
 
     let cleanupError: unknown;

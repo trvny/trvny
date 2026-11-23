@@ -1,4 +1,4 @@
-import { getDigestPosts, latestFirst, publicationPath } from "./_shared/digests.js";
+import { latestFirst, publicationPath } from "./_shared/digests.js";
 import { getShitposts, REACTOR_HOME_URL } from "./_shared/shitpost.js";
 import { serviceFetch } from "./_shared/service-fetch.js";
 import { publicationLang } from "./_shared/publication-lang.js";
@@ -59,6 +59,14 @@ function renderTextCard(post, index, firstPage = 501) {
   </a>`;
 }
 
+function renderDigestArchiveCard() {
+  return `<a class="textitem" href="/przeglad/">
+    <div class="textmeta"><b>ARCHIWUM</b> CoCzyDziennik</div>
+    <h3 lang="pl">CoCzyDziennik</h3>
+    <p lang="pl">Wszystkie wydania w jednym katalogu, od najnowszego.</p>
+  </a>`;
+}
+
 function renderShitpostTextCard(post, index) {
   const tags = post.tags.slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
   const meta = post.date ? escapeHtml(post.date) : "";
@@ -76,15 +84,13 @@ function renderTexts(posts, shitposts) {
     ...posts.filter((post) => publicationPath(post)).map((value) => ({ type: "text", value })),
     ...shitposts.map((value) => ({ type: "shitpost", value })),
   ].sort((a, b) => latestFirst(a.value, b.value));
-  // Reserve the latest of both feeds before limiting the list.
-  const required = [
-    entries.find((entry) => entry.value.digest === true),
-    entries.find((entry) => entry.type === "shitpost"),
-  ].filter(Boolean);
+  // One stable archive card replaces all per-issue digest cards on the hub.
+  // Keep the latest Shitpost visible alongside regular publications.
+  const required = [entries.find((entry) => entry.type === "shitpost")].filter(Boolean);
   const remaining = entries.filter((entry) => !required.includes(entry));
-  const openSlots = 3 - required.length;
+  const openSlots = 2 - required.length;
   const visible = new Set([...required, ...remaining.slice(0, openSlots)]);
-  const hidden = remaining.slice(openSlots, 10 - required.length);
+  const hidden = remaining.slice(openSlots, 9 - required.length);
   const featured = posts.filter((post) => post.featured === true);
   const pinned = featured.length ? `<section class="featurehome" aria-labelledby="featuredHeading"><div class="labhead"><h2 id="featuredHeading">P600 · FEATURED</h2></div><div class="featuregrid">${featured.map((post, index) => renderTextCard(post, index, 601)).join("")}</div></section>` : "";
   const cards = (items, offset = 0) => items.map((entry, index) =>
@@ -94,16 +100,16 @@ function renderTexts(posts, shitposts) {
   ).join("");
   const expansion = hidden.length ? `<details class="textexpand">
     <summary class="texttoggle"><span class="textexpandmore">▼ POKAŻ KOLEJNE ${hidden.length}</span><span class="textexpandless">▲ ZWIŃ</span></summary>
-    <div class="textgrid">${cards(hidden, 3)}</div>
+    <div class="textgrid">${cards(hidden, 2)}</div>
   </details>` : "";
   return `<section class="texthome" aria-labelledby="textsHeading">
     <div class="labhead">
       <h2 id="textsHeading">P500 · TEKSTY</h2>
       <a class="textfeed" href="/teksty/feed.xml" title="Kanał Atom">ATOM ↗</a>
     </div>
-    <div class="textgrid">${cards(entries.filter((entry) => visible.has(entry)))}</div>
+    <div class="textgrid">${renderDigestArchiveCard()}${cards(entries.filter((entry) => visible.has(entry)))}</div>
     ${expansion}
-    <a class="textsall" href="/teksty/">▶ WSZYSTKIE TEKSTY</a> · <a class="textsall" href="/przeglad/">CoCzyDziennik</a>
+    <a class="textsall" href="/teksty/">▶ WSZYSTKIE TEKSTY</a>
   </section>${pinned}`;
 }
 
@@ -120,10 +126,9 @@ async function getPosts(context) {
 }
 
 export async function onRequest(context) {
-  const [response, posts, digests, shitposts] = await Promise.all([
+  const [response, posts, shitposts] = await Promise.all([
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
-    getDigestPosts(context),
     getShitposts(serviceFetch(context, "REACTOR_SERVICE"), 10, latestFirst),
   ]);
   const contentType = response.headers.get("content-type") || "";
@@ -142,14 +147,11 @@ export async function onRequest(context) {
       },
     });
 
-  const publications = [...posts, ...digests];
-  if (shitposts.length > 0 || publications.length > 0) {
-    rewriter = rewriter.on(".fastext", {
-      element(element) {
-        element.before(renderTexts(publications, shitposts), { html: true });
-      },
-    });
-  }
+  rewriter = rewriter.on(".fastext", {
+    element(element) {
+      element.before(renderTexts(posts, shitposts), { html: true });
+    },
+  });
 
   return rewriter.transform(response);
 }

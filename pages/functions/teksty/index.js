@@ -1,4 +1,4 @@
-import { getDigestPosts, latestFirst, publicationPath } from "../_shared/digests.js";
+import { latestFirst, publicationPath } from "../_shared/digests.js";
 import { getLatestShitpost, REACTOR_HOME_URL } from "../_shared/shitpost.js";
 import { serviceFetch } from "../_shared/service-fetch.js";
 import { publicationLang } from "../_shared/publication-lang.js";
@@ -26,6 +26,15 @@ function renderCard(post) {
 </a>`;
 }
 
+function renderDigestArchiveCard() {
+  return `<a class="card" href="/przeglad/">
+<span class="go">ARCHIWUM ›</span>
+<div class="meta">CoCzyDziennik</div>
+<h2 lang="pl">Wszystkie wydania</h2>
+<p lang="pl">Przeglądy uporządkowane od najnowszego. Pełna lista w archiwum.</p>
+</a>`;
+}
+
 function renderShitpostCard(post) {
   const tags = post.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   const meta = post.date ? `<div class="meta">${escapeHtml(post.date)}</div>` : "";
@@ -48,10 +57,9 @@ async function getPosts(context) {
 }
 
 export async function onRequest(context) {
-  const [response, posts, digests, shitpost] = await Promise.all([
+  const [response, posts, shitpost] = await Promise.all([
     context.env.ASSETS.fetch(context.request),
     getPosts(context),
-    getDigestPosts(context),
     getLatestShitpost(serviceFetch(context, "REACTOR_SERVICE")),
   ]);
   const contentType = response.headers.get("content-type") || "";
@@ -59,19 +67,17 @@ export async function onRequest(context) {
 
   let rewriter = new globalThis.HTMLRewriter();
 
-  const publications = [...posts, ...digests];
-  if (shitpost || publications.length > 0) {
-    rewriter = rewriter.on("#text-list", {
-      element(element) {
-        if (shitpost) {
-          element.before(renderShitpostCard(shitpost), { html: true });
-        }
-        if (publications.length > 0) {
-          element.setInnerContent(publications.sort(latestFirst).map(renderCard).join("\n"), { html: true });
-        }
-      },
-    });
-  }
+  rewriter = rewriter.on("#text-list", {
+    element(element) {
+      element.before(renderDigestArchiveCard(), { html: true });
+      if (shitpost) {
+        element.before(renderShitpostCard(shitpost), { html: true });
+      }
+      if (posts.length > 0) {
+        element.setInnerContent(posts.sort(latestFirst).map(renderCard).join("\n"), { html: true });
+      }
+    },
+  });
 
   return rewriter.transform(response);
 }

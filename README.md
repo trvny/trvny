@@ -104,3 +104,7 @@
 <sub>consolidation over fragmentation · po kolei, na spokojnie</sub>
 
 </div>
+
+<!--
+[bartek]: https://bartek.lol
+-->

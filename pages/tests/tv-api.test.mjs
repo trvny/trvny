@@ -87,9 +87,10 @@ test("public TVPI fallback refuses redirects", async () => {
   const ctx = context("/tv/api/channels");
   ctx.env.TVPI_SERVICE = { fetch: async () => { throw new Error("binding transport"); } };
   let calls = 0;
+  let redirectMode = null;
   const fetchImpl = async (_url, init) => {
     calls++;
-    assert.equal(init.redirect, "manual");
+    redirectMode = init.redirect;
     return new Response(null, {
       status: 302, headers: { Location: "https://example.invalid/redirect" },
     });
@@ -97,4 +98,5 @@ test("public TVPI fallback refuses redirects", async () => {
   const res = await tvRoute(ctx, new URL(ctx.request.url), fetchImpl);
   assert.equal(res.status, 503);
   assert.equal(calls, 1);
+  assert.equal(redirectMode, "manual");
 });

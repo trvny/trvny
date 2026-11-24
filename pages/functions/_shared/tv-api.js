@@ -117,6 +117,7 @@ export async function tvRoute(context, url, fetchImpl = fetch) {
     const response = Response.redirect(TVPI_ORIGIN + "/" + isStream[1] + ".m3u8", 302);
     const headers = new Headers(response.headers);
     headers.set("Cache-Control", "no-store");
+    headers.set("Access-Control-Allow-Origin", "*");
     headers.set("X-Robots-Tag", "noindex, nofollow");
     return new Response(null, { status: 302, headers });
   }

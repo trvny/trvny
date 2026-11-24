@@ -8,11 +8,11 @@ const item = { id: "399697", number: "101", slug: "tvp1", name: "TVP 1 HD",
   streamUrl: "https://tvpi.travny.workers.dev/tvp1.m3u8" };
 const catalog = { version: 1, channels: [item] };
 const service = { fetch: async request => {
-  const url = request instanceof Request ? request.url : String(request);
-  if (request instanceof Request) {
-    assert.equal(request.method, "GET");
-    assert.equal(request.headers.get("accept"), "application/json");
-  }
+  assert.ok(request instanceof Request, "Service binding requires Request");
+  assert.equal(request.method, "GET");
+  assert.equal(request.headers.get("accept"), "application/json");
+  assert.equal(request.redirect, "manual");
+  const url = request.url;
   if (url.endsWith("/api/channels")) return Response.json(catalog);
   if (url.endsWith("/api/status")) return Response.json({
     generatedAt: "2026-11-24T00:00:00Z",

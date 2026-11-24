@@ -203,10 +203,10 @@
         return { ok: false, error: "Valid channel slug required." };
       }
       try {
-        const { channels, playlistUrl } = await tvRead();
+        const { channels } = await tvRead();
         const channel = channels.find(ch => ch.slug === input.slug);
         return channel
-          ? { ok: true, ...channel, playlistUrl }
+          ? { ok: true, ...channel, playlistUrl: 'https://bartek.lol/tv/' + channel.slug + '.m3u' }
           : { ok: false, error: "Unknown channel." };
       } catch {
         return { ok: false, error: "TVPI metadata temporarily unavailable." };

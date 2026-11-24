@@ -37,6 +37,9 @@ test("home inline script remains parseable", () => {
   const end = home.indexOf("</script>", begin);
   assert.ok(begin >= 0 && end > begin);
   assert.doesNotThrow(() => new Script(home.slice(begin + marker.length, end)));
+  assert.doesNotMatch(home, /const CH = \[/);
+  assert.match(home, /\/tv\/api\/status/);
+  assert.match(home, /querySelectorAll\("#tvchips \.chip\[id\^='c-'\]"\)/);
 });
 
 test("Weather is the default mobile feature and auto-rotation resumes after interaction", () => {

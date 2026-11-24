@@ -60,7 +60,9 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   assert.equal((await tvList.execute({ slug: "tvp1" })).ok, false);
   const tvTool = tools.get("get_travny_tv_stream").tool;
   assert.equal(tvTool.annotations.readOnlyHint, true);
-  assert.equal((await tvTool.execute({ slug: "tvp1" })).name, "TVP 1 HD");
+  const individual = await tvTool.execute({ slug: "tvp1" });
+  assert.equal(individual.name, "TVP 1 HD");
+  assert.equal(individual.playlistUrl, "https://bartek.lol/tv/tvp1.m3u");
   assert.equal((await tvTool.execute({ slug: "missing" })).ok, false);
   assert.equal((await tvTool.execute({ slug: "../push" })).ok, false);
   const nowTool = tools.get("get_travny_radio_now").tool;

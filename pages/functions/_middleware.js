@@ -125,24 +125,6 @@ function renderHubChips(channels) {
     .join("");
 }
 
-function renderTvRows(channels) {
-  return channels
-    .map((channel) => {
-      const statusClass = channel.status === true ? "on" : channel.status === false ? "off" : "chk";
-      const statusText = channel.status === true ? "NADAJE" : channel.status === false ? "BRAK" : "SPRAWDŹ";
-      const stream = channel.streamUrl;
-      return (
-        `<div class="row" role="button" tabindex="0" data-copy="${stream}" data-slug="${channel.slug}">` +
-        `<span class="no">${channel.no}</span>` +
-        `<span class="nm">${escapeHtml(channel.name)}</span>` +
-        `<span class="lead"></span>` +
-        `<span class="st ${statusClass}" id="st-${channel.slug}">${statusText}</span>` +
-        `<span class="cp">⤓ COPY</span></div>`
-      );
-    })
-    .join("");
-}
-
 function renderWeather(state) {
   if (!state) return null;
 
@@ -303,7 +285,7 @@ export async function onRequest(context) {
     || url.pathname === "/lab" || url.pathname.startsWith("/lab/");
   const pageLanguage = page === "grass-mud-horse" && url.searchParams.get("lang") === "pl"
     ? "pl" : (isEnglishPage ? "en" : "pl");
-  const needsChannels = page === "home" || page === "tv";
+  const needsChannels = page === "home";
   const needsWeather = page === "home";
   const [assetResponse, channels, weatherState] = await Promise.all([
     context.next(),
@@ -343,10 +325,6 @@ export async function onRequest(context) {
           .on("#wxwarn", new SetAttribute("class", "wxwarn show"));
       }
     }
-  } else if (page === "tv") {
-    rewriter = rewriter
-      .on("#rows", new SetText(renderTvRows(channels), true))
-      .on("#chCount", new SetText(`${countText} ON AIR`));
   }
 
   const transformed = rewriter.transform(assetResponse);

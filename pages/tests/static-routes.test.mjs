@@ -18,6 +18,7 @@ test('static runtime files bypass Pages Functions', () => {
 test('HTML, discovery, redirects and dynamic endpoints retain middleware', () => {
   for (const path of [
     '/', '/index.html', '/tv', '/tv/', '/tv/index.html',
+    '/tv/tvp1.m3u8', '/tv/playlist.m3u', '/tv/api/channels', '/tv/api/status',
     '/lab/', '/lab/example/', '/przeglad/2026-11-16/',
     '/teksty/',
     '/teksty/grass-mud-horse-pl/', '/teksty/token-worldcup/token-worldcup.html',

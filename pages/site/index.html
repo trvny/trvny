@@ -257,19 +257,9 @@
       <div class="wxplace">Kościelec (Chrzanów) · mediana źródeł</div>
       <span class="go">OTWÓRZ ›</span>
     </a>    <a class="panel tv" href="/tv/">
-      <div class="phead"><span class="blk">P101</span> TVP ✕ IPTV <span class="en" id="tvcount">—/9 ON AIR</span></div>
-      <div class="tvbig"><span class="n" id="tvbig">—/9</span><span class="lbl">ON&nbsp;AIR</span></div>
-      <div class="chips" id="tvchips">
-        <span class="chip" id="c-tvp1"><span class="d">101</span>TVP1</span>
-        <span class="chip" id="c-tvp2"><span class="d">102</span>TVP2</span>
-        <span class="chip" id="c-tvpinfo"><span class="d">103</span>INFO</span>
-        <span class="chip" id="c-tvpsport"><span class="d">104</span>SPORT</span>
-        <span class="chip" id="c-tvpdokument"><span class="d">105</span>DOK</span>
-        <span class="chip" id="c-tvpnauka"><span class="d">106</span>NAUKA</span>
-        <span class="chip" id="c-tvprozrywka"><span class="d">107</span>ROZR</span>
-        <span class="chip" id="c-tvphistoria"><span class="d">108</span>HIST</span>
-        <span class="chip" id="c-tvpmuzyka"><span class="d">109</span>MUZ</span>
-      </div>
+      <div class="phead"><span class="blk">P101</span> TVP ✕ IPTV <span class="en" id="tvcount">—/? MANIFESTY</span></div>
+      <div class="tvbig"><span class="n" id="tvbig">—/?</span><span class="lbl">CACHE</span></div>
+      <div class="chips" id="tvchips"><span class="chip">Catalog loading</span></div>
       <span class="go">OTWÓRZ ›</span>
     </a>
 
@@ -364,35 +354,39 @@ const pad = n => String(n).padStart(2,"0");
     `${pad(d.getDate())}.${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   setTimeout(tick, 1000);
 })();
-const WORKER = "https://tvpi.travny.workers.dev";
-const CH = [
-  {no:"101", slug:"tvp1",        tag:"TVP1"},
-  {no:"102", slug:"tvp2",        tag:"TVP2"},
-  {no:"103", slug:"tvpinfo",     tag:"INFO"},
-  {no:"104", slug:"tvpsport",    tag:"SPORT"},
-  {no:"105", slug:"tvpdokument", tag:"DOK"},
-  {no:"106", slug:"tvpnauka",    tag:"NAUKA"},
-  {no:"107", slug:"tvprozrywka", tag:"ROZR"},
-  {no:"108", slug:"tvphistoria", tag:"HIST"},
-  {no:"109", slug:"tvpmuzyka",   tag:"MUZ"},
-];
-// The chips are already in the static markup above, with the same ids, so this
-// script only adds status classes to them. It used to rebuild the whole
-// container through innerHTML first, which recreated markup that was already
-// in the document and wiped whatever the middleware had injected into it.
-function check(url, ms=5000){
-  const ac=new AbortController(); const t=setTimeout(()=>ac.abort(), ms);
-  return fetch(url,{cache:"no-store",signal:ac.signal}).then(r=>r.ok).catch(()=>false).finally(()=>clearTimeout(t));
-}
-(async()=>{
-  const res = await Promise.all(CH.map(async c=>{
-    const ok = await check(`${WORKER}/${c.slug}.m3u`);
-    document.getElementById("c-"+c.slug).classList.add(ok?"on":"off");
-    return ok;
-  }));
-  const up = res.filter(Boolean).length;
-  document.getElementById("tvbig").textContent = `${up}/${CH.length}`;
-  document.getElementById("tvcount").textContent = `${up}/${CH.length} ON AIR`;
+// Home chips come from TVPI's canonical catalog via Pages middleware.
+(async () => {
+  const chips = [...document.querySelectorAll("#tvchips .chip[id^='c-']")]
+    .map(el => ({ slug: el.id.slice(2), el }))
+    .filter(ch => /^[a-z0-9-]{1,32}$/.test(ch.slug));
+  const big = document.getElementById("tvbig");
+  const count = document.getElementById("tvcount");
+  if (!chips.length) {
+    big.textContent = "—/?";
+    count.textContent = "TVPI NIEDOSTĘPNE";
+    return;
+  }
+  try {
+    const reply = await fetch("/tv/api/status", {
+      cache: "no-store", signal: AbortSignal.timeout(8000),
+    });
+    if (!reply.ok) throw new Error("TVPI status unavailable");
+    const state = await reply.json();
+    const statuses = new Map((Array.isArray(state.channels) ? state.channels : [])
+      .map(ch => [ch.slug, ch.manifest]));
+    let fresh = 0;
+    for (const { slug, el } of chips) {
+      if (statuses.get(slug) === "fresh") {
+        el.classList.add("on");
+        fresh++;
+      }
+    }
+    big.textContent = fresh + "/" + chips.length;
+    count.textContent = fresh + "/" + chips.length + " ŚWIEŻYCH MANIFESTÓW";
+  } catch {
+    big.textContent = "—/" + chips.length;
+    count.textContent = "STATUS NIEZNANY";
+  }
 })();
 const COND = {
   clear:["S\u0142onecznie","\u2600"], clouds:["Pochmurno","\u2601"], fewclouds:["Ma\u0142o chmur","\u26c5"],

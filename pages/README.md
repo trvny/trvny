@@ -61,7 +61,8 @@ The hub rewrites stable endpoints to `bartek.lol/tv`; HLS data stays on TVPI.
 Fresh R2 manifests are **not** proof of playback availability.
 
 Optional Pages service binding: `TVPI_SERVICE` → Worker `tvpi`.
-If absent or failing, the adapter reads the fixed public TVPI API URL.
+If absent or throwing a transport error, the adapter reads the fixed public
+TVPI API URL. Bound HTTP error responses remain upstream errors.
 The hub never accepts arbitrary upstream URLs or relays video segments.
 The shared browser WebMCP provides read-only `get_travny_tv_channels` and
 `get_travny_tv_stream`, also backed by the public hub JSON API.

@@ -24,7 +24,7 @@ The hub is a lightweight static/edge site. It links independent services rather 
 - Markdown representation: https://bartek.lol/index.md
 - Concise LLM guide: https://bartek.lol/llms.txt
 - This full guide: https://bartek.lol/llms-full.txt
-- Standalone home radio defaults to TRAVNY Radio (192 kb/s MP3) with live track title, artist, album and cover art: https://bartek.lol/api/radio-station?station=travny. Swipe and loop through Radio Paradise, Trójka, Czwórka and BBC Radio 1. Paradise metadata: https://bartek.lol/api/radio-now. Other station metadata: https://bartek.lol/api/radio-station?station=bbc1 (also `trojka`, `czworka`). Track and programme availability varies; station logos are used when cover art is unavailable.
+- Standalone home radio defaults to TRAVNY Radio (original-source MP3, bitrate varies) with live track title, artist, album and cover art: https://bartek.lol/api/radio-station?station=travny. Swipe and loop through Radio Paradise, Trójka, Czwórka and BBC Radio 1. Paradise metadata: https://bartek.lol/api/radio-now. Other station metadata: https://bartek.lol/api/radio-station?station=bbc1 (also `trojka`, `czworka`). Track and programme availability varies; station logos are used when cover art is unavailable.
 
 ### TRAVNY Radio
 
@@ -32,12 +32,12 @@ The hub is a lightweight static/edge site. It links independent services rather 
 - Machine-readable guide: https://bartek.lol/radio/index.md
 - Hub player: https://bartek.lol/#radio
 - Standalone player: https://radio.bartek.lol/
-- Public MP3 stream (192 kb/s): https://radio.bartek.lol/radio.mp3
+- Public MP3 stream (source bitrate, CBR/VBR): https://radio.bartek.lol/radio.mp3
 - Now-playing JSON: https://bartek.lol/api/radio-station?station=travny
 - Source radio JSON (queue and playback state): https://radio.bartek.lol/api/now.json
 - Structured data: https://bartek.lol/radio/#service (Schema.org RadioBroadcastService)
 
-TRAVNY Radio is a continuously running, Internet-only music station. FFmpeg performs MP3 playback and loudness normalization (EBU R128 target); Icecast distributes the live stream. The same-origin hub API reports `title`, `artist`, `album`, `cover` and `kind`. Successful results are cacheable for five seconds; upstream failures return HTTP 502 with `error: metadata_unavailable`. Do not confuse this with a track archive or terrestrial radio.
+TRAVNY Radio is a continuously running, Internet-only music station. Ezstream passes through original MP3 audio without re-encoding or live loudness normalization; Icecast distributes the stream. The same-origin hub API reports `title`, `artist`, `album`, `cover` and `kind`. Successful results are cacheable for five seconds; upstream failures return HTTP 502 with `error: metadata_unavailable`. Do not confuse this with a track archive or terrestrial radio.
 
 The radio server owns audio and extended metadata; the hub provides a normalized adapter, not another catalogue or streaming proxy. `radio.bartek.lol` redirects to Tailscale Funnel (`*.ts.net`); HTTP clients must follow redirects. WebMCP tool `get_travny_radio_now` offers read-only access to the same fixed-origin API. No user-supplied URL fetching or playback administration.
 

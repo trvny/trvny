@@ -9,7 +9,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 ## Main routes
 
 - [Hub](https://bartek.lol/) · [Markdown](https://bartek.lol/index.md)
-- [TVPI](https://bartek.lol/tv/) · [Markdown](https://bartek.lol/tv/index.md)
+- [TVPI](https://bartek.lol/tv/) · [Markdown](https://bartek.lol/tv/index.md) · [M3U](https://bartek.lol/tv/playlist.m3u) · [channels JSON](https://bartek.lol/tv/api/channels) · [manifest status JSON](https://bartek.lol/tv/api/status)
 - [TRAVNY Radio](https://bartek.lol/radio/) · [Markdown](https://bartek.lol/radio/index.md) · [MP3](https://radio.bartek.lol/radio.mp3) · [now-playing JSON](https://bartek.lol/api/radio-station?station=travny)
 - [TRAVNY Lab](https://bartek.lol/lab/): experiments and live widgets
 - [Papagenerator](https://bartek.lol/papagenerator/): browser-only meme and sticker editor; images stay on the device
@@ -36,7 +36,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - Home radio defaults to TRAVNY Radio (192 kb/s MP3), with live track metadata and album art from `/api/radio-station?station=travny`. Swipe or use arrows to switch Radio Paradise, Trójka, Czwórka and BBC Radio 1. Other metadata: `/api/radio-now` (Paradise), `/api/radio-station?station=bbc1` (also `trojka`, `czworka`). Station logos appear when cover art is unavailable.
 - Lab hosts the Streambench, Codebench and Docbench carousel.
 
-- TVPI upstream HLS signatures are short-lived. Prefer maintained TVPI Worker endpoints over short-lived tokenized upstream URLs.
+- TVPI upstream HLS signatures are short-lived. Prefer stable `bartek.lol/tv/*.m3u8` aliases; `get_travny_tv_channels` and `get_travny_tv_stream` are read-only WebMCP tools. Fresh pushed manifests do not guarantee playback.
 - Weather is a multi-source local ensemble for Kościelec in Chrzanów with air quality, pollen and IMGW warnings.
 - Streambench, Code Bench and Doc Bench are local-first browser tools. [Shared privacy and data-handling policy](https://bartek.lol/lab/privacy/); individual LLM guides document service-specific boundaries.
 - Tokenowy Mundial AI is maintained as Quarto source in `trvny/trvny` and proxied by TRAVNY from its verified generated HTML.

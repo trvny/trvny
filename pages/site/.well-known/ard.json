@@ -86,7 +86,7 @@
       "identifier": "urn:air:bartek.lol:playlist:tvpi",
       "displayName": "TVPI public playlist",
       "type": "application/x-mpegurl",
-      "url": "https://tvpi.travny.workers.dev/playlist.m3u",
+      "url": "https://bartek.lol/tv/playlist.m3u",
       "description": "Public M3U playlist of channel endpoints; actual stream availability is resolved per channel.",
       "capabilities": [
         "tv-channel-discovery",

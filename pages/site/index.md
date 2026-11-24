@@ -8,7 +8,7 @@ Creator: Bartek (TRAVNY / trvny); the `travnie` GitHub organization hosts compan
 
 ## Services
 
-- [TRAVNY Radio](https://bartek.lol/radio/): live experimental MP3 station, 192 kb/s; [listen on hub](https://bartek.lol/#radio), [stream](https://radio.bartek.lol/radio.mp3), [now playing JSON](https://bartek.lol/api/radio-station?station=travny), [machine guide](https://bartek.lol/radio/index.md). The station is Internet-only; no terrestrial FM frequency.
+- [TRAVNY Radio](https://bartek.lol/radio/): live experimental MP3 station, original-source bitrate; [listen on hub](https://bartek.lol/#radio), [stream](https://radio.bartek.lol/radio.mp3), [now playing JSON](https://bartek.lol/api/radio-station?station=travny), [machine guide](https://bartek.lol/radio/index.md). The station is Internet-only; no terrestrial FM frequency.
 
 - Home radio: TRAVNY Radio is the default live MP3 station with track metadata
   and album art. Swipe or use arrows to switch Radio Paradise, Trójka, Czwórka

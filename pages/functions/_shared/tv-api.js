@@ -23,7 +23,7 @@ async function readJson(context, pathname, fetchImpl = fetch) {
       try {
         response = await fetchImpl(url, init);
       } catch {
-        throw new Error("fallback_transport");
+        throw new Error("fallback_transport", { cause: error });
       }
     }
   } else {
@@ -159,6 +159,12 @@ export async function tvRoute(context, url, fetchImpl = fetch) {
     const safeCode = /^[a-z0-9_]+$/.test(diagnostic)
       ? diagnostic : "catalog_validation";
     headers.set("X-TVPI-Diagnostic", safeCode);
+    if (safeCode === "fallback_transport" && error?.cause instanceof Error) {
+      // Only an abbreviated, printable exception class/message; never credentials.
+      const detail = error.cause.name + ": " + error.cause.message;
+      headers.set("X-TVPI-Binding-Error",
+        detail.slice(0, 120).replace(/[^a-zA-Z0-9 .:_-]/g, "_"));
+    }
     return new Response(response.body, { status: response.status, headers });
   }
 }

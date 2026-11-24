@@ -44,15 +44,20 @@ The radio server owns audio and extended metadata; the hub provides a normalized
 ### TVPI
 
 - Human TV page: https://bartek.lol/tv/
-- Markdown page: https://bartek.lol/tv/index.md
-- Streaming Worker: https://tvpi.travny.workers.dev/
-- Worker overview: https://tvpi.travny.workers.dev/index.md
-- Worker LLM guide: https://tvpi.travny.workers.dev/llms.txt
-- Worker full guide: https://tvpi.travny.workers.dev/llms-full.txt
-- Stable combined playlist: https://tvpi.travny.workers.dev/playlist.m3u
-- Raw GitHub playlist fallback: https://raw.githubusercontent.com/trvny/tvpi/main/streams/playlist.m3u
+- Markdown guide: https://bartek.lol/tv/index.md
+- Canonical stable M3U playlist: https://bartek.lol/tv/playlist.m3u
+- Canonical per-channel HLS alias: https://bartek.lol/tv/tvp1.m3u8
+- TV channel JSON: https://bartek.lol/tv/api/channels
+- Manifest freshness JSON: https://bartek.lol/tv/api/status
+- Direct Worker fallback: https://tvpi.travny.workers.dev/playlist.m3u
+- TVPI source catalog: https://github.com/trvny/tvpi/tree/main/worker/src
+- Browser WebMCP: `get_travny_tv_channels`, `get_travny_tv_stream`.
 
-TVP upstream stream signatures are short-lived. Consumers should save the stable Worker URLs. Per-channel `.m3u8` endpoints resolve or serve fresh HLS data behind a durable URL.
+Channel entries and stable playlists come from the TVPI Worker catalog. The
+hub validates the public catalog and publishes `bartek.lol/tv` aliases; it
+does not relay HLS video bytes or cache upstream tokenized URLs.
+The status API reports recent R2 pushed-manifest freshness, not playable stream
+availability. Geo-blocked upstream refresh still requires a suitable Polish IP.
 
 ### Lab
 

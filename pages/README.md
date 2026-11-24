@@ -52,6 +52,20 @@ for preview deployments, independent of middleware.
 Submit `https://bartek.lol/sitemap.xml` for the domain property. Build appends
 published digests to the hub and public subdomain URLs in `site/sitemap.xml`.
 
+## TVPI public routes
+
+The hub exposes `/tv/playlist.m3u`, `/tv/<slug>.m3u8`,
+`/tv/api/channels` and `/tv/api/status`.
+All public channel metadata comes from the canonical catalog in `trvny/tvpi`.
+The hub rewrites stable endpoints to `bartek.lol/tv`; HLS data stays on TVPI.
+Fresh R2 manifests are **not** proof of playback availability.
+
+Optional Pages service binding: `TVPI_SERVICE` → Worker `tvpi`.
+If absent or failing, the adapter reads the fixed public TVPI API URL.
+The hub never accepts arbitrary upstream URLs or relays video segments.
+The shared browser WebMCP provides read-only `get_travny_tv_channels` and
+`get_travny_tv_stream`, also backed by the public hub JSON API.
+
 ## Hub backend
 
 Pages owns public URLs, static assets, HTML middleware, SEO and redirects.

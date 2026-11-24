@@ -9,6 +9,7 @@ async function readJson(context, pathname, fetchImpl = fetch) {
   const init = {
     method: "GET",
     headers: { Accept: "application/json" },
+    redirect: "manual",
     signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS),
   };
   const binding = context?.env?.TVPI_SERVICE;

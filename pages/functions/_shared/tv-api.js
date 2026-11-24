@@ -9,7 +9,6 @@ async function readJson(context, pathname, fetchImpl = fetch) {
   const init = {
     method: "GET",
     headers: { Accept: "application/json" },
-    redirect: "error",
     signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS),
   };
   const binding = context?.env?.TVPI_SERVICE;
@@ -17,7 +16,7 @@ async function readJson(context, pathname, fetchImpl = fetch) {
   let source = binding ? "binding" : "public";
   if (binding) {
     try {
-      response = await binding.fetch(url, init);
+      response = await binding.fetch(new Request(url, init));
     } catch (error) {
       if (init.signal.aborted) throw new Error("binding_timeout", { cause: error });
       source = "fallback";

@@ -3,20 +3,7 @@ import { NAV_BODY, pageShellHead } from "./_shared/page-shell.js";
 import { serviceFetch, WEATHER_STATE_URL } from "./_shared/service-fetch.js";
 import { ORIGIN } from "./_shared/page-seo.js";
 import { crossSiteSitemap } from "./_shared/cross-site-sitemap.js";
-
-const CHANNELS = [
-  { id: "399697", no: "101", slug: "tvp1", tag: "TVP1", name: "TVP 1 HD" },
-  { id: "399698", no: "102", slug: "tvp2", tag: "TVP2", name: "TVP 2 HD" },
-  { id: "399699", no: "103", slug: "tvpinfo", tag: "INFO", name: "TVP Info" },
-  { id: "399702", no: "104", slug: "tvpsport", tag: "SPORT", name: "TVP Sport" },
-  { id: "399721", no: "105", slug: "tvpdokument", tag: "DOK", name: "TVP Dokument" },
-  { id: "399722", no: "106", slug: "tvpnauka", tag: "NAUKA", name: "TVP Nauka" },
-  { id: "399724", no: "107", slug: "tvprozrywka", tag: "ROZR", name: "TVP Rozrywka" },
-  { id: "399703", no: "108", slug: "tvphistoria", tag: "HIST", name: "TVP Historia" },
-  { id: "2999109", no: "109", slug: "tvpmuzyka", tag: "MUZ", name: "TVP Muzyka i Koncerty" },
-];
-
-const TV_WORKER = "https://tvpi.travny.workers.dev";
+import { tvCatalog, tvRoute } from "./_shared/tv-api.js";
 
 // Edge rules also cover static paths that bypass Functions.
 const CANONICAL_HOST = new URL(ORIGIN).hostname;
@@ -111,8 +98,15 @@ async function getWeather(context) {
 // number, but it is a truthful number. Giving the edge a real answer means
 // teaching the Worker to report per-channel availability; until then, it has
 // nothing to say.
-function getChannels() {
-  return CHANNELS.map((channel) => ({ ...channel, status: null }));
+async function getChannels(context) {
+  try {
+    const { channels } = await tvCatalog(context);
+    return channels.map(ch => ({
+      ...ch, no: ch.number, tag: ch.slug.toUpperCase(), status: null,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 function channelClass(status) {
@@ -136,7 +130,7 @@ function renderTvRows(channels) {
     .map((channel) => {
       const statusClass = channel.status === true ? "on" : channel.status === false ? "off" : "chk";
       const statusText = channel.status === true ? "NADAJE" : channel.status === false ? "BRAK" : "SPRAWDŹ";
-      const stream = `${TV_WORKER}/${channel.slug}.m3u8`;
+      const stream = channel.streamUrl;
       return (
         `<div class="row" role="button" tabindex="0" data-copy="${stream}" data-slug="${channel.slug}">` +
         `<span class="no">${channel.no}</span>` +
@@ -285,6 +279,9 @@ export async function onRequest(context) {
     }), url.hostname);
   }
 
+  const tvResponse = await tvRoute(context, url);
+  if (tvResponse) return withPreviewNoindex(tvResponse, url.hostname);
+
   const markdown = await negotiateMarkdown(context, url);
   if (markdown) return withPreviewNoindex(markdown, url.hostname);
 
@@ -310,7 +307,7 @@ export async function onRequest(context) {
   const needsWeather = page === "home";
   const [assetResponse, channels, weatherState] = await Promise.all([
     context.next(),
-    needsChannels ? getChannels() : Promise.resolve([]),
+    needsChannels ? getChannels(context) : Promise.resolve([]),
     needsWeather ? getWeather(context) : Promise.resolve(null),
   ]);
 
@@ -321,7 +318,7 @@ export async function onRequest(context) {
 
   const online = channels.filter((channel) => channel.status === true).length;
   const known = channels.some((channel) => channel.status !== null);
-  const countText = known ? `${online}/${channels.length}` : `—/${channels.length}`;
+  const countText = known ? `${online}/${channels.length}` : `—/${channels.length || "?"}`;
 
   let rewriter = new globalThis.HTMLRewriter()
     .on("html", new SetAttribute("lang", pageLanguage))

@@ -49,7 +49,7 @@ class FakeRewriter {
   }
 }
 
-test('published digests stay in the archive and Atom, not as repeated cards', async () => {
+test('home links latest digest title and archive separately; Atom keeps issue entries', async () => {
   const originalFetch = globalThis.fetch;
   const originalRewriter = globalThis.HTMLRewriter;
   globalThis.fetch = () => Promise.resolve(Response.json({ version: 'https://jsonfeed.org/version/1.1', items: [] }));
@@ -60,13 +60,17 @@ test('published digests stay in the archive and Atom, not as repeated cards', as
     const xml = await (await feed(context('/teksty/feed.xml'))).text();
     for (const html of [homeHtml, textsHtml]) {
       assert.match(html, /href="\/przeglad\/"/);
-      assert.doesNotMatch(html, /href="\/przeglad\/2026-11-02\/"/);
-      assert.doesNotMatch(html, /News &amp; &lt;more&gt;/);
       assert.match(html, /lang="en">Older text/);
       assert.match(html, /lang="pl">Token World Cup/);
       assert.match(html, /lang="en">Featured/);
       assert.doesNotMatch(html, /Invalid/);
     }
+    assert.match(homeHtml, /<a class="textdigestcategory" href="\/przeglad\/">CoCzyDziennik<\/a>/);
+    assert.match(homeHtml, /<a class="texttitlelink" href="\/przeglad\/2026-11-02\/">News &amp; &lt;more&gt;<\/a>/);
+    assert.match(homeHtml, /<a class="textsheadinglink" href="\/teksty\/">P500 · TEKSTY<\/a>/);
+    assert.doesNotMatch(homeHtml, /ARCHIWUM/);
+    assert.doesNotMatch(textsHtml, /href="\/przeglad\/2026-11-02\/"/);
+    assert.doesNotMatch(textsHtml, /News &amp; &lt;more&gt;/);
     assert.ok(homeHtml.includes('P600 · FEATURED'));
     assert.doesNotMatch(homeHtml, /<details class="textexpand">/);
     assert.ok(homeHtml.indexOf('CoCzyDziennik') < homeHtml.indexOf('<nav class="fastext">'));
@@ -93,7 +97,7 @@ test('missing or broken digest index leaves existing publications available', as
   }
 });
 
-test('home keeps one archive tile and the latest Shitpost visible when articles dominate', async () => {
+test('home shows only the latest digest and latest Shitpost even when articles dominate', async () => {
   const originalFetch = globalThis.fetch;
   const originalRewriter = globalThis.HTMLRewriter;
   const articles = Array.from({ length: 7 }, (_, index) => ({
@@ -149,25 +153,26 @@ test('home keeps one archive tile and the latest Shitpost visible when articles 
     const end = html.indexOf('</section>', start);
     const listing = html.slice(start, end);
     const [initial, rest] = listing.split('<details class="textexpand">');
-    assert.equal((initial.match(/<a class="textitem"/gu) || []).length, 3);
-    assert.equal((rest.match(/<a class="textitem"/gu) || []).length, 7);
-    assert.equal((listing.match(/<a class="textitem"/gu) || []).length, 10);
+    assert.equal((initial.match(/class="textitem/gu) || []).length, 3);
+    assert.equal((rest.match(/class="textitem/gu) || []).length, 6);
+    assert.equal((listing.match(/class="textitem/gu) || []).length, 9);
     assert.match(rest, /<summary class="texttoggle">/);
-    assert.match(rest, /POKAŻ KOLEJNE 7/);
+    assert.match(rest, /POKAŻ KOLEJNE 6/);
     assert.match(rest, /▲ ZWIŃ/);
     assert.ok(initial.includes('Shit 7 &lt;meme&gt;'));
     assert.ok(initial.includes('lang="zh-Hans-CN">Policy topic 7'));
     assert.ok(initial.includes('lang="zh-Hans-CN">Shit 7 &lt;meme&gt;'));
     assert.doesNotMatch(listing, /SHITPOST REACTOR|· SHITPOST|SHITPOST OF THE DAY/);
-    const titles = (section) => [...section.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gu)].map((match) => match[1]);
-    assert.deepEqual(titles(initial), ['CoCzyDziennik', 'Article 7', 'Policy topic 7']);
-    assert.deepEqual(titles(rest), ['Article 6', 'Article 5', 'Article 4', 'Article 3', 'Article 2', 'Article 1', 'Policy topic 6']);
+    const titles = (section) => [...section.matchAll(/<h3[^>]*>(?:<a[^>]*>)?([^<]+)(?:<\/a>)?<\/h3>/gu)].map((match) => match[1]);
+    assert.deepEqual(titles(initial), ['Article 7', 'Policy topic 7', 'CoCzyDziennik edition']);
+    assert.deepEqual(titles(rest), ['Article 6', 'Article 5', 'Article 4', 'Article 3', 'Article 2', 'Article 1']);
     assert.equal(listing.split('href="/przeglad/"').length - 1, 1);
-    assert.doesNotMatch(listing, /href="\/przeglad\/2026-11-01\/"/);
-    assert.doesNotMatch(listing, /Recently edited older digest|CoCzyDziennik edition/);
+    assert.equal(listing.split('href="/przeglad/2026-11-01/"').length - 1, 1);
+    assert.doesNotMatch(listing, /Recently edited older digest|ARCHIWUM/);
+    assert.match(listing, /href="https:\/\/shitpost\.bartek\.lol\/posts\/gh-1-7"/);
+    assert.doesNotMatch(listing, /href="https:\/\/shitpost\.bartek\.lol\/posts\/gh-1-6"/);
+    assert.match(listing, /href="\/teksty\/">P500 · TEKSTY<\/a>/);
     const reactorHome = 'href="https://shitpost.bartek.lol/"';
-    assert.ok(listing.includes(reactorHome));
-    assert.ok(!listing.includes('href="https://shitpost.bartek.lol/posts/gh-1-7"'));
     const textsHtml = await (await texts(context('/teksty/'))).text();
     assert.ok(textsHtml.includes(reactorHome));
     assert.equal(textsHtml.split('href="/przeglad/"').length - 1, 1);

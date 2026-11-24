@@ -40,7 +40,7 @@ test("TV page hydrates channels without AbortSignal.timeout", async () => {
         : { channels: [{ slug: "tvp1", manifest: "fresh" }] });
     },
   });
-  await new Promise(setImmediate);
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.deepEqual(called, ["/tv/api/channels", "/tv/api/status"]);
   assert.match(getNode("rows").innerHTML, /bartek\.lol\/tv\/tvp1\.m3u8/);
 });

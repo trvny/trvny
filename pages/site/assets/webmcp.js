@@ -166,7 +166,7 @@
         streamUrl: "https://bartek.lol/tv/" + ch.slug + ".m3u8",
       }));
     return { channels, playlistUrl: "https://bartek.lol/tv/playlist.m3u" };
-   }
+  }
 
   const tvList = {
     name: "get_travny_tv_channels",

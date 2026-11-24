@@ -14,6 +14,11 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   const radioCalls = [];
   runInNewContext(source, {
     fetch: async (url, options) => {
+      if (url === "/tv/api/channels") return Response.json({
+        version: 1, playlistUrl: "https://bartek.lol/tv/playlist.m3u",
+        channels: [{ number: "101", slug: "tvp1", name: "TVP 1 HD",
+          streamUrl: "https://bartek.lol/tv/tvp1.m3u8" }],
+      });
       radioCalls.push({ url, options });
       return Response.json({
         kind: "track", title: "Current Mix", artist: "DJ", album: "Album",
@@ -26,7 +31,7 @@ test("hub exposes navigation and read-only discovery tools", async () => {
       querySelectorAll: selector => selector === ".trvny-nav-link[href]" ? links : [],
     }, window, AbortController, console,
   });
-  assert.equal(tools.size, 4);
+  assert.equal(tools.size, 6);
   const list = tools.get("list_travny_destinations");
   assert.equal(list.tool.annotations.readOnlyHint, true);
   assert.equal(list.tool.execute({ query: "feed" }).destinations.length, 1);
@@ -39,12 +44,25 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   assert.deepEqual(JSON.parse(JSON.stringify(tools.get("get_travny_agent_resources").tool.execute().resources)), [
     { name: "Concise guide", url: "https://bartek.lol/llms.txt" },
     { name: "Full guide", url: "https://bartek.lol/llms-full.txt" },
+    { name: "TVPI catalog", url: "https://bartek.lol/tv/api/channels" },
+    { name: "TVPI playlist", url: "https://bartek.lol/tv/playlist.m3u" },
     { name: "TRAVNY Radio guide", url: "https://bartek.lol/radio/index.md" },
     { name: "TRAVNY Radio now playing", url: "https://bartek.lol/api/radio-station?station=travny" },
     { name: "Publications", url: "https://bartek.lol/teksty/feed.xml" },
     { name: "Project atlas", url: "https://bartek.lol/teksty/githubowa-kraina/atlas.json" },
     { name: "Sitemap", url: "https://bartek.lol/sitemap.xml" },
   ]);
+  const tvList = tools.get("get_travny_tv_channels").tool;
+  assert.equal(tvList.annotations.readOnlyHint, true);
+  const tvResult = await tvList.execute();
+  assert.equal(tvResult.ok, true);
+  assert.equal(tvResult.channels[0].streamUrl, "https://bartek.lol/tv/tvp1.m3u8");
+  assert.equal((await tvList.execute({ slug: "tvp1" })).ok, false);
+  const tvTool = tools.get("get_travny_tv_stream").tool;
+  assert.equal(tvTool.annotations.readOnlyHint, true);
+  assert.equal((await tvTool.execute({ slug: "tvp1" })).name, "TVP 1 HD");
+  assert.equal((await tvTool.execute({ slug: "missing" })).ok, false);
+  assert.equal((await tvTool.execute({ slug: "../push" })).ok, false);
   const nowTool = tools.get("get_travny_radio_now").tool;
   assert.equal(nowTool.annotations.readOnlyHint, true);
   const track = await nowTool.execute();
@@ -70,9 +88,9 @@ test("hub exposes navigation and read-only discovery tools", async () => {
       querySelectorAll: () => [],
     }, window: new EventTarget(), AbortController, console,
   });
-  assert.equal(tools.size, 4);
+  assert.equal(tools.size, 6);
   assert.equal(tools.get("list_travny_destinations").tool.execute().destinations.length, 0);
-  assert.equal(tools.get("get_travny_agent_resources").tool.execute().resources.length, 7);
+  assert.equal(tools.get("get_travny_agent_resources").tool.execute().resources.length, 9);
   const cached = new Event("pagehide");
   cached.persisted = true;
   window.dispatchEvent(cached);

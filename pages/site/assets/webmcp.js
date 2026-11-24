@@ -97,6 +97,8 @@
       return { resources: [
         { name: "Concise guide", url: base + "/llms.txt" },
         { name: "Full guide", url: base + "/llms-full.txt" },
+        { name: "TVPI catalog", url: base + "/tv/api/channels" },
+        { name: "TVPI playlist", url: base + "/tv/playlist.m3u" },
         { name: "TRAVNY Radio guide", url: base + "/radio/index.md" },
         { name: "TRAVNY Radio now playing", url: base + "/api/radio-station?station=travny" },
         { name: "Publications", url: base + "/teksty/feed.xml" },
@@ -149,7 +151,70 @@
     },
   };
 
-  for (const definition of [tool, readDestinations, catalogue, radioNow]) {
+  const tvRead = async () => {
+    const response = await fetch("/tv/api/channels", {
+      cache: "no-store", signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) throw new Error("TVPI catalog unavailable");
+    const data = await response.json();
+    if (!Array.isArray(data.channels)) throw new Error("Invalid TVPI catalog");
+    const channels = data.channels.filter(ch => typeof ch.slug === "string"
+      && /^[a-z0-9-]{1,32}$/.test(ch.slug)).map(ch => ({
+        number: String(ch.number).slice(0, 3),
+        slug: ch.slug,
+        name: typeof ch.name === "string" ? ch.name.slice(0, 100) : ch.slug,
+        streamUrl: "https://bartek.lol/tv/" + ch.slug + ".m3u8",
+      }));
+    return { channels, playlistUrl: "https://bartek.lol/tv/playlist.m3u" };
+  };
+
+  const tvList = {
+    name: "get_travny_tv_channels",
+    title: "List TRAVNY TV channels",
+    description: "Read the public TVPI channel catalog and stable bartek.lol stream links.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    async execute(input = {}) {
+      if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length) {
+        return { ok: false, error: "No parameters supported." };
+      }
+      try {
+        return { ok: true, ...(await tvRead()) };
+      } catch {
+        return { ok: false, error: "TVPI metadata temporarily unavailable." };
+      }
+    },
+  };
+
+  const tvStream = {
+    name: "get_travny_tv_stream",
+    title: "Get stable TRAVNY TV stream",
+    description: "Get one channel's stable playlist and HLS link. Does not control playback.",
+    inputSchema: {
+      type: "object",
+      properties: { slug: { type: "string", description: "Exact channel slug, e.g. tvp1." } },
+      required: ["slug"], additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    async execute(input = {}) {
+      if (!input || typeof input !== "object" || Array.isArray(input)
+        || Object.keys(input).length !== 1 || typeof input.slug !== "string"
+        || !/^[a-z0-9-]{1,32}$/.test(input.slug)) {
+        return { ok: false, error: "Valid channel slug required." };
+      }
+      try {
+        const { channels, playlistUrl } = await tvRead();
+        const channel = channels.find(ch => ch.slug === input.slug);
+        return channel
+          ? { ok: true, ...channel, playlistUrl }
+          : { ok: false, error: "Unknown channel." };
+      } catch {
+        return { ok: false, error: "TVPI metadata temporarily unavailable." };
+      }
+    },
+  };
+
+  for (const definition of [tool, readDestinations, catalogue, radioNow, tvList, tvStream]) {
     try {
       Promise.resolve(context.registerTool(definition, { signal: lifecycle.signal }))
         .catch((error) => console.warn("TRAVNY WebMCP registration failed", error));

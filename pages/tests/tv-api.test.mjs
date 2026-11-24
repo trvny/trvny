@@ -27,6 +27,7 @@ test("TV alias redirects to the stable Worker endpoint, not upstream signed HLS"
   assert.equal(res.status, 302);
   assert.equal(res.headers.get("location"), "https://tvpi.travny.workers.dev/tvp1.m3u8");
   assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
   const head = await onRequest(context("/tv/tvp1.m3u8", "HEAD"));
   assert.equal(head.status, 302);
   assert.equal(await head.text(), "");

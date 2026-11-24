@@ -62,7 +62,9 @@ Fresh R2 manifests are **not** proof of playback availability.
 
 Optional Pages service binding: `TVPI_SERVICE` → Worker `tvpi`.
 If absent or throwing a transport error, the adapter reads the fixed public
-TVPI API URL. Bound HTTP error responses remain upstream errors.
+TVPI API URL. Bound HTTP error responses remain upstream errors. The read adapter uses a
+single 5-second deadline across both transports, so a binding timeout ends the
+request without a second public-origin attempt.
 The hub never accepts arbitrary upstream URLs or relays video segments.
 The shared browser WebMCP provides read-only `get_travny_tv_channels` and
 `get_travny_tv_stream`, also backed by the public hub JSON API.

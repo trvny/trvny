@@ -311,7 +311,7 @@ export async function onRequest(context) {
     rewriter = rewriter
       .on("#tvchips", new SetText(renderHubChips(channels), true))
       .on("#tvbig", new SetText(countText))
-      .on("#tvcount", new SetText(`${countText} ON AIR`));
+      .on("#tvcount", new SetText(`${countText} MANIFESTY`));
 
     const weather = renderWeather(weatherState);
     if (weather) {

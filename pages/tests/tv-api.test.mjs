@@ -16,11 +16,13 @@ const service = { fetch: async request => {
   });
   throw new Error("bad upstream URL");
 } };
-const context = (pathname, method = "GET") => ({
-  request: new Request("https://bartek.lol" + pathname, { method }),
-  env: { TVPI_SERVICE: service },
-  next: async () => new Response("static"),
-});
+function context(pathname, method = "GET") {
+  return {
+    request: new Request("https://bartek.lol" + pathname, { method }),
+    env: { TVPI_SERVICE: service },
+    next: async () => new Response("static"),
+  };
+}
 
 test("TV alias redirects to the stable Worker endpoint, not upstream signed HLS", async () => {
   const res = await onRequest(context("/tv/tvp1.m3u8"));

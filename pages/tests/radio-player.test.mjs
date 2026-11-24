@@ -43,7 +43,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
   const status = new Element();
   const station = new Select();
   station.items = {
-    travny: { textContent: "TRAVNY Radio", dataset: { url: "travny.mp3", kind: "direct", mark: "TR", quality: "192K MP3" } },
+    travny: { textContent: "TRAVNY Radio", dataset: { url: "travny.mp3", kind: "direct", mark: "TR", quality: "SOURCE MP3" } },
     paradise: { textContent: "Radio Paradise", dataset: { url: "paradise.aac", kind: "direct", mark: "RP", quality: "320K AAC" } },
     trojka: { textContent: "Trójka", dataset: { url: "trojka.m3u8", kind: "hls", mark: "3", quality: "LIVE HLS" } },
     czworka: { textContent: "Czwórka", dataset: { url: "czworka.m3u8", kind: "hls", mark: "4", quality: "LIVE HLS" } },

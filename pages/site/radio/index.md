@@ -9,8 +9,8 @@ Direct stream: https://radio.bartek.lol/radio.mp3
 
 ## Stream
 
-- Format: MP3 (audio/mpeg), 192 kb/s.
-- Playout: always-on shuffled library with FFmpeg audio processing, EBU R128 loudness target and Icecast distribution.
+- Format: MP3 (audio/mpeg), original source bitrate (CBR or VBR; varies by track).
+- Playout: always-on shuffled library using Ezstream MP3 passthrough and Icecast distribution. No live transcoding or loudness processing.
 - Service: Internet-only. No terrestrial broadcast frequency.
 - The hub defaults to TRAVNY Radio; Radio Paradise, Trójka, Czwórka and BBC Radio 1 remain available in the station picker.
 - Playback requires a user gesture in browsers that prevent autoplay.

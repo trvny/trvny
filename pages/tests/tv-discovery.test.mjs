@@ -16,6 +16,35 @@ test("TV page scripts parse and use same-origin catalog and freshness endpoints"
   assert.doesNotMatch(html, /data-copy="https:\/\/tvpi\.travny\.workers\.dev\/tvp1\.m3u8"/);
 });
 
+test("TV page hydrates channels without AbortSignal.timeout", async () => {
+  const html = await readFile(new URL("../site/tv/index.html", import.meta.url), "utf8");
+  const start = html.lastIndexOf("<script>");
+  const end = html.indexOf("</script>", start);
+  const body = html.slice(start + 8, end);
+  const { runInNewContext } = await import("node:vm");
+  const nodes = new Map();
+  const getNode = id => {
+    if (!nodes.has(id)) nodes.set(id, { textContent: "", innerHTML: "", className: "" });
+    return nodes.get(id);
+  };
+  const called = [];
+  runInNewContext(body, {
+    document: { getElementById: getNode, addEventListener() {} },
+    navigator: { clipboard: { writeText: async () => {} } },
+    Date, Response, AbortController,
+    setTimeout: () => 1, clearTimeout() {}, setInterval() {},
+    fetch: async url => {
+      called.push(url);
+      return Response.json(url === "/tv/api/channels"
+        ? { channels: [{ slug: "tvp1", number: "101", name: "TVP 1 HD" }] }
+        : { channels: [{ slug: "tvp1", manifest: "fresh" }] });
+    },
+  });
+  await new Promise(setImmediate);
+  assert.deepEqual(called, ["/tv/api/channels", "/tv/api/status"]);
+  assert.match(getNode("rows").innerHTML, /bartek\.lol\/tv\/tvp1\.m3u8/);
+});
+
 test("TV discovery documents the public API and read-only WebMCP", async () => {
   const files = await Promise.all(["tv/index.md", "llms.txt", "llms-full.txt"].map(path =>
     readFile(new URL("../site/" + path, import.meta.url), "utf8")));

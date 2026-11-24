@@ -355,6 +355,17 @@ const pad = n => String(n).padStart(2,"0");
   setTimeout(tick, 1000);
 })();
 // Home chips come from TVPI's canonical catalog via Pages middleware.
+async function tvFetchJson(path) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(path, { cache: "no-store", signal: controller.signal });
+    if (!response.ok) throw new Error("TVPI metadata unavailable");
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 (async () => {
   const chips = [...document.querySelectorAll("#tvchips .chip[id^='c-']")]
     .map(el => ({ slug: el.id.slice(2), el }))
@@ -367,11 +378,7 @@ const pad = n => String(n).padStart(2,"0");
     return;
   }
   try {
-    const reply = await fetch("/tv/api/status", {
-      cache: "no-store", signal: AbortSignal.timeout(8000),
-    });
-    if (!reply.ok) throw new Error("TVPI status unavailable");
-    const state = await reply.json();
+    const state = await tvFetchJson("/tv/api/status");
     const statuses = new Map((Array.isArray(state.channels) ? state.channels : [])
       .map(ch => [ch.slug, ch.manifest]));
     let fresh = 0;

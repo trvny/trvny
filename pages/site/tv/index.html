@@ -254,25 +254,28 @@ document.addEventListener("click", e=>{
 document.addEventListener("keydown", e=>{
   if((e.key==="Enter"||e.key===" ") && e.target.classList.contains("row")){ e.preventDefault(); e.target.click(); }
 });
+async function tvFetchJson(path) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(path, { cache: "no-store", signal: controller.signal });
+    if (!response.ok) throw new Error("TVPI metadata unavailable");
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 async function refreshTv() {
   const counter = document.getElementById("chCount");
   try {
-    const response = await fetch("/tv/api/channels", {
-      cache: "no-store", signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) throw new Error("catalog unavailable");
-    const catalog = await response.json();
+    const catalog = await tvFetchJson("/tv/api/channels");
     if (!Array.isArray(catalog.channels) || !catalog.channels.length) throw new Error("empty catalog");
     const channels = catalog.channels.filter(c => /^[a-z0-9-]{1,32}$/.test(c.slug));
     if (!channels.length) throw new Error("invalid catalog");
     document.getElementById("rows").innerHTML = channels.map(tvRow).join("");
     counter.textContent = "—/" + channels.length + " MANIFESTY";
     try {
-      const stateResponse = await fetch("/tv/api/status", {
-        cache: "no-store", signal: AbortSignal.timeout(8000),
-      });
-      if (!stateResponse.ok) throw new Error("freshness unavailable");
-      const state = await stateResponse.json();
+      const state = await tvFetchJson("/tv/api/status");
       const statuses = new Map((state.channels || []).map(s => [s.slug, s.manifest]));
       let fresh = 0;
       for (const channel of channels) {

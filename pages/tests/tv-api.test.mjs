@@ -82,3 +82,19 @@ test("TV adapter rejects arbitrary catalog values and fails closed", async () =>
   assert.equal(res.status, 503);
   assert.equal(await res.text(), "TVPI metadata temporarily unavailable\n");
 });
+
+test("public TVPI fallback refuses redirects", async () => {
+  const ctx = context("/tv/api/channels");
+  ctx.env.TVPI_SERVICE = { fetch: async () => { throw new Error("binding transport"); } };
+  let calls = 0;
+  const fetchImpl = async (_url, init) => {
+    calls++;
+    assert.equal(init.redirect, "manual");
+    return new Response(null, {
+      status: 302, headers: { Location: "https://example.invalid/redirect" },
+    });
+  };
+  const res = await tvRoute(ctx, new URL(ctx.request.url), fetchImpl);
+  assert.equal(res.status, 503);
+  assert.equal(calls, 1);
+});

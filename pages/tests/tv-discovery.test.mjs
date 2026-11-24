@@ -20,9 +20,9 @@ test("TV discovery documents the public API and read-only WebMCP", async () => {
   const files = await Promise.all(["tv/index.md", "llms.txt", "llms-full.txt"].map(path =>
     readFile(new URL("../site/" + path, import.meta.url), "utf8")));
   for (const source of files) {
-    assert.ok(source.includes("https://bartek.lol/tv/api/channels"));
-    assert.ok(source.includes("https://bartek.lol/tv/api/status"));
-    assert.ok(source.includes("https://bartek.lol/tv/playlist.m3u"));
+    assert.match(source, /https:\/\/bartek\.lol\/tv\/api\/channels\b/);
+    assert.match(source, /https:\/\/bartek\.lol\/tv\/api\/status\b/);
+    assert.match(source, /https:\/\/bartek\.lol\/tv\/playlist\.m3u\b/);
   }
   assert.ok(files[0].includes("get_travny_tv_channels"));
   assert.ok(files[2].includes("get_travny_tv_stream"));

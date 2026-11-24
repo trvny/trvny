@@ -130,7 +130,7 @@ export async function tvRoute(context, url, fetchImpl = fetch) {
       return reply(context.request, JSON.stringify(catalog),
         "application/json; charset=utf-8");
     }
-    const channels = isOneM3u
+    const channels = isOneM3u && !playlist
       ? catalog.channels.filter(ch => ch.slug === isOneM3u[1])
       : catalog.channels;
     if (!channels.length) return reply(context.request, "Not found\n", "text/plain; charset=utf-8", 404);

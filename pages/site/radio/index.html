@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TRAVNY Radio | Live MP3 Stream &amp; Now Playing</title>
-<meta name="description" content="Listen to TRAVNY Radio live. Experimental internet music station streaming 192 kb/s MP3, with current track, artist, album artwork and public JSON metadata.">
+<meta name="description" content="Listen to TRAVNY Radio live. Experimental internet music station streaming original-source MP3, with current track, artist, album artwork and public JSON metadata.">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <link rel="canonical" href="https://bartek.lol/radio/">
 <link rel="alternate" type="text/markdown" href="/radio/index.md" title="TRAVNY Radio documentation">
@@ -13,9 +13,9 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TRAVNY">
 <meta property="og:title" content="TRAVNY Radio | Live Internet Radio">
-<meta property="og:description" content="A live 192 kb/s MP3 music station. Listen on the TRAVNY hub or your preferred audio player; live track metadata and artwork are public.">
+<meta property="og:description" content="A live MP3 stream at the original source bitrate. Listen on the TRAVNY hub or your preferred audio player; live track metadata and artwork are public.">
 <meta property="og:url" content="https://bartek.lol/radio/">
-<meta property="og:image" content="https://bartek.lol/assets/og.png">
+<meta property="og:image" content="https://bartek.lol/radio/logo.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#04060a">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://bartek.lol/radio/#webpage","url":"https://bartek.lol/radio/","name":"TRAVNY Radio | Live MP3 Internet Radio","description":"Listen to TRAVNY Radio, a continuous experimental online MP3 music station with live now-playing metadata and cover artwork.","inLanguage":"en","mainEntity":{"@id":"https://bartek.lol/radio/#service"}},{"@type":"RadioBroadcastService","@id":"https://bartek.lol/radio/#service","name":"TRAVNY Radio","broadcastDisplayName":"TRAVNY Radio","description":"Experimental internet-only music radio using a shuffled MP3 library and a continuously available live stream.","url":"https://radio.bartek.lol/","isAccessibleForFree":true,"mainEntityOfPage":{"@id":"https://bartek.lol/radio/#webpage"},"potentialAction":{"@type":"ListenAction","target":"https://radio.bartek.lol/radio.mp3"}}]}</script>
@@ -42,6 +42,7 @@ footer{border-top:1px solid #35414a;padding-top:20px;margin-top:52px}
 <body>
 <main>
 <p class="eyebrow">TRAVNY // on air // internet radio</p>
+<img src="/radio/logo.png" alt="TRAVNY Radio logo" width="160" height="160" style="display:block;width:160px;height:160px;object-fit:contain;margin:0 0 14px" decoding="async">
 <h1>TRAVNY Radio</h1>
 <p class="lead">A continuous experimental music stream from the TRAVNY hub. Shuffled MP3 tracks, live titles and album artwork. No FM frequency, no account required to listen.</p>
 <div class="actions">
@@ -50,9 +51,9 @@ footer{border-top:1px solid #35414a;padding-top:20px;margin-top:52px}
 <a href="https://radio.bartek.lol/radio.mp3">Direct MP3 stream</a>
 </div>
 <dl aria-label="Stream details">
-<div><dt>Audio</dt><dd>MP3 · 192 kb/s</dd></div>
+<div><dt>Audio</dt><dd>Original MP3 · source bitrate (CBR/VBR)</dd></div>
 <div><dt>Playout</dt><dd>Live AutoDJ</dd></div>
-<div><dt>Loudness</dt><dd>EBU R128 target</dd></div>
+<div><dt>Loudness</dt><dd>Unmodified source audio</dd></div>
 <div><dt>Now playing</dt><dd>Public JSON API</dd></div>
 </dl>
 <section aria-labelledby="listen"><h2 id="listen">How to listen</h2>
@@ -63,7 +64,7 @@ footer{border-top:1px solid #35414a;padding-top:20px;margin-top:52px}
 <p>For response fields, limitations, error states and integration examples, see the <a href="/radio/index.md">radio machine-readable guide</a>, <a href="/llms.txt">llms.txt</a> and <a href="/llms-full.txt">full project guide</a>.</p>
 </section>
 <section aria-labelledby="about"><h2 id="about">About the station</h2>
-<p>TRAVNY Radio is an Internet-only continuous AutoDJ stream. FFmpeg handles audio processing and loudness normalization, Icecast distributes the MP3 stream, and the hub shows synchronized metadata and embedded album art. Availability and the next song can change in real time.</p>
+<p>TRAVNY Radio is an Internet-only continuous AutoDJ stream. Ezstream passes through the original MP3 frames without re-encoding, Icecast distributes the stream, and the hub shows synchronized metadata and embedded album art. Availability and the next song can change in real time.</p>
 </section>
 <footer><a href="/">TRAVNY Hub</a> · <a href="https://github.com/trvny/trvny/tree/main/pages">Site source</a> · <a href="/sitemap.xml">Sitemap</a></footer>
 </main>

@@ -14,18 +14,32 @@ async function readJson(context, pathname, fetchImpl = fetch) {
   };
   const binding = context?.env?.TVPI_SERVICE;
   let response;
+  let source = binding ? "binding" : "public";
   if (binding) {
     try {
       response = await binding.fetch(url, init);
     } catch (error) {
-      if (init.signal.aborted) throw error;
-      response = await fetchImpl(url, init);
+      if (init.signal.aborted) throw new Error("binding_timeout", { cause: error });
+      source = "fallback";
+      try {
+        response = await fetchImpl(url, init);
+      } catch {
+        throw new Error("fallback_transport");
+      }
     }
   } else {
-    response = await fetchImpl(url, init);
+    try {
+      response = await fetchImpl(url, init);
+    } catch {
+      throw new Error("public_transport");
+    }
   }
-  if (!response.ok) throw new Error("TVPI unavailable");
-  return response.json();
+  if (!response.ok) throw new Error(source + "_http_" + response.status);
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(source + "_invalid_json");
+  }
 }
 
 function validChannel(ch) {
@@ -136,8 +150,16 @@ export async function tvRoute(context, url, fetchImpl = fetch) {
       : catalog.channels;
     if (!channels.length) return reply(context.request, "Not found\n", "text/plain; charset=utf-8", 404);
     return reply(context.request, buildHubPlaylist(channels), "application/x-mpegurl; charset=utf-8");
-  } catch {
-    return reply(context.request, "TVPI metadata temporarily unavailable\n",
+  } catch (error) {
+    const response = reply(context.request, "TVPI metadata temporarily unavailable\n",
       "text/plain; charset=utf-8", 503);
+    if (url.searchParams.get("diag") !== "1") return response;
+    const headers = new Headers(response.headers);
+    // Bounded, public diagnostic codes only. No signed URL, request or token.
+    const diagnostic = error instanceof Error ? error.message : "unknown";
+    const safeCode = /^[a-z0-9_]+$/.test(diagnostic)
+      ? diagnostic : "catalog_validation";
+    headers.set("X-TVPI-Diagnostic", safeCode);
+    return new Response(response.body, { status: response.status, headers });
   }
 }

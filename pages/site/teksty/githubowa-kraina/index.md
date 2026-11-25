@@ -9,6 +9,8 @@ Infrastructure map: <https://bartek.lol/teksty/githubowa-kraina/universe.html>
 
 Choose a region, then a place for its description and destination. Project repositories remain the authority for current details.
 
+Browser WebMCP: `search_travny_projects` (optional query and region). HTTP clients can read the structured atlas directly; no authentication required.
+
 ## Regions
 
 ### Feedseek
@@ -35,13 +37,14 @@ Project: <https://github.com/travnie/Kanarek>
 
 ### WAM Bridge
 
-Windows audio crosses the Wi-Fi bridge to Samsung speakers.
+Local Wi-Fi audio bridge for Samsung speakers on Windows and Android.
 
 Project: <https://github.com/travnie/wambridge>
 
 - [Audio bridge](https://github.com/travnie/wambridge): A local stream and Samsung playback API send audio to supported speakers.
 - [foobar2000 output](https://github.com/travnie/wambridge): A component streams audio playing in foobar2000, including internet radio.
 - [Speaker compatibility](https://github.com/travnie/wambridge#speaker-compatibility): Shape M5 WAM550 was tested; other models remain candidates.
+- [Android adapter](https://github.com/travnie/wambridge#status-working-rolling-release): Speaker discovery, radio, UPnP renderer, Quick Settings and widgets; physical playback reliability varies.
 
 ### Aistee
 
@@ -85,9 +88,14 @@ Project: <https://github.com/travnie/twojstar>
 - [Docbench](https://docbench.bartek.lol/): Work with documents and PDFs locally in the browser.
 - [Weather Feed](https://weather.bartek.lol/): Local weather, air quality and alerts for Kościelec and Chrzanów.
 - [Feedboard](https://github.com/travnie/twojstar/tree/main/feedboard): Windows 11 feed widget and settings application.
-- [Paint.NET plugins](https://github.com/travnie/twojstar/tree/main/paintdotnet): Image tools including ICO and AI Restore plugins.
-- [Audacity plugin](https://github.com/travnie/twojstar/tree/main/audacity): Auto Declip VST3 for audio restoration.
+- [Paint.NET plugins](https://github.com/travnie/twojstar/tree/main/addons/paintdotnet): ICO import/export, AI Restore, DeJPEG, Denoise and Smart Transparency; local image processing.
+- [Audacity plugins](https://github.com/travnie/twojstar/tree/main/addons/audacity): Auto Declip VST3 and experimental Smart Transition for cut/join repair on Windows and Linux.
 - [Intent Keyboard](https://github.com/travnie/twojstar/tree/main/intent-keyboard): An experiment turning rough intent into natural text.
+- [Xiaomi ADB Tools](https://github.com/travnie/twojstar/tree/main/xiaomi-adb-tools): Desktop ADB/Fastboot utility with platform-specific JavaFX builds.
+- [SpaceMolt / SMX](https://github.com/travnie/twojstar/tree/main/spacemolt): SpaceMolt v2 CLI companion and game tooling.
+- [GPTomek pet](https://github.com/travnie/twojstar/tree/main/pets/gptomek): Animated teal token gremlin for ChatGPT and Codex.
+- [Loopling pet](https://github.com/travnie/twojstar/tree/main/pets/loopling): Procedurally generated desktop pet with animation atlas and installers.
+- [Remotely Save GDrive patch](https://github.com/travnie/twojstar/tree/main/addons/remotely-save-gdrive-patch): Personal-use Google Drive deduplication/update patch and verification harness; no redistributed upstream code.
 
 ## Other routes
 

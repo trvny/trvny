@@ -214,7 +214,54 @@
     },
   };
 
-  for (const definition of [tool, readDestinations, catalogue, radioNow, tvList, tvStream]) {
+  const projectSearch = {
+    name: "search_travny_projects",
+    title: "Search GitHubowa Kraina",
+    description: "Search public project regions and workshop places by name, description or URL, including translated names. Empty query lists the atlas.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", maxLength: 100 },
+        region: { type: "string", maxLength: 64, description: "Optional exact region ID, e.g. workshop." },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    async execute(input = {}) {
+      if (!input || typeof input !== "object" || Array.isArray(input)
+        || Object.keys(input).some(key => key !== "query" && key !== "region")) {
+        return { ok: false, error: "Invalid parameters." };
+      }
+      const { query = "", region = "" } = input;
+      if (typeof query !== "string" || query.length > 100
+        || typeof region !== "string" || region.length > 64) {
+        return { ok: false, error: "Invalid query or region." };
+      }
+      try {
+        const response = await fetch("/teksty/githubowa-kraina/atlas.json", {
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) throw new Error("Atlas unavailable");
+        const data = await response.json();
+        if (!Array.isArray(data.regions)) throw new Error("Invalid atlas");
+        const needle = query.trim().toLowerCase();
+        const matches = entry => [entry.name, entry.description, entry.url,
+          ...Object.values(entry.translations || {}).flatMap(t => [t.name, t.description])]
+          .join(" ").toLowerCase().includes(needle);
+        const summary = ({ name, description, url }) => ({ name, description, url });
+        const regions = data.regions.filter(r => !region || r.id === region).flatMap(r => {
+          const regionMatches = matches(r) || r.id.toLowerCase().includes(needle);
+          const items = (regionMatches ? r.items : r.items.filter(matches)).map(summary);
+          return regionMatches || items.length ? [{ id: r.id, ...summary(r), items }] : [];
+        });
+        return { ok: true, regions };
+      } catch {
+        return { ok: false, error: "Project atlas temporarily unavailable." };
+      }
+    },
+  };
+
+  for (const definition of [tool, readDestinations, catalogue, radioNow, tvList, tvStream, projectSearch]) {
     try {
       Promise.resolve(context.registerTool(definition, { signal: lifecycle.signal }))
         .catch((error) => console.warn("TRAVNY WebMCP registration failed", error));

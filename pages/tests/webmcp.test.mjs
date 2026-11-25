@@ -19,6 +19,11 @@ test("hub exposes navigation and read-only discovery tools", async () => {
         channels: [{ number: "101", slug: "tvp1", name: "TVP 1 HD",
           streamUrl: "https://bartek.lol/tv/tvp1.m3u8" }],
       });
+      if (url === "/teksty/githubowa-kraina/atlas.json") return Response.json({
+        regions: [{ id: "workshop", name: "Workshop", description: "Tools", url: "https://github.com/travnie/twojstar",
+          items: [{ name: "Audacity", description: "Audio restoration", url: "https://github.com/travnie/twojstar/tree/main/addons/audacity",
+            translations: { pl: { name: "Wtyczki", description: "Naprawa dźwięku" } } }] }],
+      });
       radioCalls.push({ url, options });
       return Response.json({
         kind: "track", title: "Current Mix", artist: "DJ", album: "Album",
@@ -31,7 +36,7 @@ test("hub exposes navigation and read-only discovery tools", async () => {
       querySelectorAll: selector => selector === ".trvny-nav-link[href]" ? links : [],
     }, window, AbortController, console,
   });
-  assert.equal(tools.size, 6);
+  assert.equal(tools.size, 7);
   const list = tools.get("list_travny_destinations");
   assert.equal(list.tool.annotations.readOnlyHint, true);
   assert.equal(list.tool.execute({ query: "feed" }).destinations.length, 1);
@@ -52,6 +57,14 @@ test("hub exposes navigation and read-only discovery tools", async () => {
     { name: "Project atlas", url: "https://bartek.lol/teksty/githubowa-kraina/atlas.json" },
     { name: "Sitemap", url: "https://bartek.lol/sitemap.xml" },
   ]);
+  const search = tools.get("search_travny_projects").tool;
+  assert.equal(search.annotations.readOnlyHint, true);
+  assert.equal((await search.execute()).regions.length, 1);
+  assert.equal((await search.execute({ query: "dźwięku", region: "workshop" })).regions[0].items[0].name, "Audacity");
+  assert.equal((await search.execute({ query: "missing" })).regions.length, 0);
+  assert.equal((await search.execute({ region: "missing" })).regions.length, 0);
+  assert.equal((await search.execute({ query: 123 })).ok, false);
+  assert.equal((await search.execute({ url: "https://example.com" })).ok, false);
   const tvList = tools.get("get_travny_tv_channels").tool;
   assert.equal(tvList.annotations.readOnlyHint, true);
   const tvResult = await tvList.execute();
@@ -90,7 +103,7 @@ test("hub exposes navigation and read-only discovery tools", async () => {
       querySelectorAll: () => [],
     }, window: new EventTarget(), AbortController, console,
   });
-  assert.equal(tools.size, 6);
+  assert.equal(tools.size, 7);
   assert.equal(tools.get("list_travny_destinations").tool.execute().destinations.length, 0);
   assert.equal(tools.get("get_travny_agent_resources").tool.execute().resources.length, 9);
   const cached = new Event("pagehide");

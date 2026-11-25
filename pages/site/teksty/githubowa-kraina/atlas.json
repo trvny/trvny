@@ -193,7 +193,7 @@
     {
       "id": "wam",
       "name": "WAM Bridge",
-      "description": "Windows audio crosses the Wi-Fi bridge to Samsung speakers.",
+      "description": "Local Wi-Fi audio bridge for Samsung speakers on Windows and Android.",
       "url": "https://github.com/travnie/wambridge",
       "items": [
         {
@@ -252,17 +252,36 @@
               "description": "已测试 Shape M5 WAM550；其他型号仍待验证。"
             }
           }
+        },
+        {
+          "name": "Android adapter",
+          "description": "Speaker discovery, radio, UPnP renderer, Quick Settings and widgets; physical playback reliability varies.",
+          "url": "https://github.com/travnie/wambridge#status-working-rolling-release",
+          "translations": {
+            "pl": {
+              "name": "Adapter Android",
+              "description": "Wykrywanie głośników, radio, renderer UPnP, szybkie ustawienia i widgety; stabilność odtwarzania zależy od warunków."
+            },
+            "ru": {
+              "name": "Адаптер Android",
+              "description": "Поиск колонок, радио, UPnP-рендерер, быстрые настройки и виджеты; стабильность воспроизведения зависит от условий."
+            },
+            "zh": {
+              "name": "Android 适配器",
+              "description": "音箱发现、广播、UPnP 渲染器、快捷设置和小组件；实际播放稳定性因条件而异。"
+            }
+          }
         }
       ],
       "translations": {
         "pl": {
-          "description": "Dźwięk z Windowsa przekracza most Wi-Fi do głośników Samsunga."
+          "description": "Lokalny most audio Wi-Fi do głośników Samsung na Windows i Androidzie."
         },
         "ru": {
-          "description": "Аудио Windows пересекает мост Wi-Fi к колонкам Samsung."
+          "description": "Локальный аудиомост Wi-Fi для колонок Samsung на Windows и Android."
         },
         "zh": {
-          "description": "Windows 音频跨越 Wi-Fi 桥，抵达三星音箱。"
+          "description": "适用于 Windows 和 Android 的三星音箱本地 Wi-Fi 音频桥接工具。"
         }
       }
     },
@@ -616,39 +635,39 @@
         },
         {
           "name": "Paint.NET plugins",
-          "description": "Image tools including ICO and AI Restore plugins.",
-          "url": "https://github.com/travnie/twojstar/tree/main/paintdotnet",
+          "description": "ICO import/export, AI Restore, DeJPEG, Denoise and Smart Transparency; local image processing.",
+          "url": "https://github.com/travnie/twojstar/tree/main/addons/paintdotnet",
           "translations": {
             "pl": {
               "name": "Pluginy Paint.NET",
-              "description": "Narzędzia obrazu, w tym wtyczki ICO i AI Restore."
+              "description": "Import i eksport ICO, AI Restore, DeJPEG, Denoise i Smart Transparency; lokalne przetwarzanie obrazu."
             },
             "ru": {
               "name": "Плагины Paint.NET",
-              "description": "Инструменты изображений, включая ICO и AI Restore."
+              "description": "Импорт и экспорт ICO, AI Restore, DeJPEG, Denoise и Smart Transparency; локальная обработка изображений."
             },
             "zh": {
               "name": "Paint.NET 插件",
-              "description": "图像工具，包括 ICO 和 AI Restore 插件。"
+              "description": "ICO 导入导出、AI Restore、DeJPEG、Denoise 和 Smart Transparency；本地图像处理。"
             }
           }
         },
         {
-          "name": "Audacity plugin",
-          "description": "Auto Declip VST3 for audio restoration.",
-          "url": "https://github.com/travnie/twojstar/tree/main/audacity",
+          "name": "Audacity plugins",
+          "description": "Auto Declip VST3 and experimental Smart Transition for cut/join repair on Windows and Linux.",
+          "url": "https://github.com/travnie/twojstar/tree/main/addons/audacity",
           "translations": {
             "pl": {
-              "name": "Wtyczka Audacity",
-              "description": "Auto Declip VST3 do przywracania dźwięku."
+              "name": "Pluginy Audacity",
+              "description": "Auto Declip VST3 i eksperymentalny Smart Transition do naprawy przejść na Windows i Linux."
             },
             "ru": {
-              "name": "Плагин Audacity",
-              "description": "Auto Declip VST3 для восстановления звука."
+              "name": "Плагины Audacity",
+              "description": "Auto Declip VST3 и экспериментальный Smart Transition для восстановления стыков в Windows и Linux."
             },
             "zh": {
               "name": "Audacity 插件",
-              "description": "用于音频修复的 Auto Declip VST3。"
+              "description": "面向 Windows 和 Linux 的 Auto Declip VST3 与实验性剪接修复工具 Smart Transition。"
             }
           }
         },
@@ -668,6 +687,101 @@
             "zh": {
               "name": "Intent Keyboard",
               "description": "将粗略意图转为自然文本的实验。"
+            }
+          }
+        },
+        {
+          "name": "Xiaomi ADB Tools",
+          "description": "Desktop ADB/Fastboot utility with platform-specific JavaFX builds.",
+          "url": "https://github.com/travnie/twojstar/tree/main/xiaomi-adb-tools",
+          "translations": {
+            "pl": {
+              "name": "Xiaomi ADB Tools",
+              "description": "Desktopowe narzędzie ADB/Fastboot z kompilacjami JavaFX."
+            },
+            "ru": {
+              "name": "Xiaomi ADB Tools",
+              "description": "Настольная утилита ADB/Fastboot со сборками JavaFX."
+            },
+            "zh": {
+              "name": "Xiaomi ADB Tools",
+              "description": "提供各平台 JavaFX 构建的桌面 ADB/Fastboot 工具。"
+            }
+          }
+        },
+        {
+          "name": "SpaceMolt / SMX",
+          "description": "SpaceMolt v2 CLI companion and game tooling.",
+          "url": "https://github.com/travnie/twojstar/tree/main/spacemolt",
+          "translations": {
+            "pl": {
+              "name": "SpaceMolt / SMX",
+              "description": "CLI v2 i narzędzia do gry SpaceMolt."
+            },
+            "ru": {
+              "name": "SpaceMolt / SMX",
+              "description": "CLI v2 и инструменты для игры SpaceMolt."
+            },
+            "zh": {
+              "name": "SpaceMolt / SMX",
+              "description": "SpaceMolt v2 命令行客户端及游戏工具。"
+            }
+          }
+        },
+        {
+          "name": "GPTomek pet",
+          "description": "Animated teal token gremlin for ChatGPT and Codex.",
+          "url": "https://github.com/travnie/twojstar/tree/main/pets/gptomek",
+          "translations": {
+            "pl": {
+              "name": "GPTomek",
+              "description": "Animowany turkusowy tokenowy gremlin dla ChatGPT i Codexa."
+            },
+            "ru": {
+              "name": "GPTomek",
+              "description": "Анимированный бирюзовый токен-гремлин для ChatGPT и Codex."
+            },
+            "zh": {
+              "name": "GPTomek",
+              "description": "适用于 ChatGPT 和 Codex 的青绿色动画令牌小怪兽。"
+            }
+          }
+        },
+        {
+          "name": "Loopling pet",
+          "description": "Procedurally generated desktop pet with animation atlas and installers.",
+          "url": "https://github.com/travnie/twojstar/tree/main/pets/loopling",
+          "translations": {
+            "pl": {
+              "name": "Loopling",
+              "description": "Proceduralnie generowany zwierzak z atlasem animacji i instalatorami."
+            },
+            "ru": {
+              "name": "Loopling",
+              "description": "Процедурно созданный питомец с атласом анимации и установщиками."
+            },
+            "zh": {
+              "name": "Loopling",
+              "description": "带动画图集和安装程序的程序化生成桌面宠物。"
+            }
+          }
+        },
+        {
+          "name": "Remotely Save GDrive patch",
+          "description": "Personal-use Google Drive deduplication/update patch and verification harness; no redistributed upstream code.",
+          "url": "https://github.com/travnie/twojstar/tree/main/addons/remotely-save-gdrive-patch",
+          "translations": {
+            "pl": {
+              "name": "Remotely Save GDrive patch",
+              "description": "Poprawka deduplikacji i aktualizacji Google Drive do użytku własnego, z testami; bez redystrybucji kodu upstream."
+            },
+            "ru": {
+              "name": "Remotely Save GDrive patch",
+              "description": "Патч дедупликации и обновления Google Drive для личного использования, с проверками; без распространения исходного кода upstream."
+            },
+            "zh": {
+              "name": "Remotely Save GDrive patch",
+              "description": "供个人使用的 Google Drive 去重和更新补丁及验证工具，不再分发上游代码。"
             }
           }
         }

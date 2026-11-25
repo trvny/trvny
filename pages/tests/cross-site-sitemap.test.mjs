@@ -60,7 +60,7 @@ test("upstream failure stays retryable, and non-map routes fall through", async 
   assert.equal(await crossSiteSitemap(post, new URL(post.request.url)), null);
 });
 
-test("retired hub maps redirect to sitemap.xml on their original host", async () => {
+test("retired hub maps redirect directly to the canonical sitemap", async () => {
   for (const host of ["bartek.lol", "travny.pages.dev"]) {
     const base = `https://${host}`;
     for (const path of [
@@ -75,7 +75,20 @@ test("retired hub maps redirect to sitemap.xml on their original host", async ()
         next: () => { throw new Error("Unexpected middleware fallback"); },
       });
       assert.equal(result.status, 301);
-      assert.equal(result.headers.get("location"), base + "/sitemap.xml?test=1");
+      assert.equal(result.headers.get("location"), "https://bartek.lol/sitemap.xml?test=1");
     }
   }
+});
+
+test("Pages alias sitemap redirects to canonical XML for GET and HEAD", async () => {
+  for (const method of ["GET", "HEAD"]) {
+    const result = await onRequest({
+      request: new Request("https://travny.pages.dev/sitemap.xml?test=1", { method }),
+      next: () => { throw new Error("Unexpected middleware fallback"); },
+    });
+    assert.equal(result.status, 301);
+    assert.equal(result.headers.get("location"), "https://bartek.lol/sitemap.xml?test=1");
+  }
+  const url = new URL("https://bartek.lol/sitemap.xml");
+  assert.equal(await crossSiteSitemap({ request: new Request(url) }, url), null);
 });

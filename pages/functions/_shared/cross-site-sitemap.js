@@ -33,8 +33,9 @@ function xml(body, method) {
 export async function crossSiteSitemap(context, url, fetchImpl = fetch) {
   const method = context.request.method;
   if (!["GET", "HEAD"].includes(method)) return null;
-  if (HUB_ORIGINS.has(url.origin) && RETIRED_MAPS.has(url.pathname)) {
-    return Response.redirect(url.origin + "/sitemap.xml" + url.search, 301);
+  if (HUB_ORIGINS.has(url.origin) && (RETIRED_MAPS.has(url.pathname)
+    || (url.origin !== ORIGIN && url.pathname === "/sitemap.xml"))) {
+    return Response.redirect(ORIGIN + "/sitemap.xml" + url.search, 301);
   }
   if (url.origin !== LEGACY_ORIGIN) return null;
 

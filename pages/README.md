@@ -49,7 +49,8 @@ Keep this rule while static paths bypass middleware. `tvpi.pages.dev` uses
 its own Pages project. Cloudflare Pages defaults to `X-Robots-Tag: noindex`
 for preview deployments, independent of middleware.
 
-Submit `https://bartek.lol/sitemap.xml` for the domain property. Build appends
+Submit `https://bartek.lol/sitemap.xml` for the domain property. Pages alias
+and retired hub maps redirect directly to that XML. Build appends
 published digests to the hub and public subdomain URLs in `site/sitemap.xml`.
 
 ## TVPI public routes

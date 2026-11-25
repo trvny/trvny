@@ -711,7 +711,7 @@
         },
         {
           "name": "SpaceMolt / SMX",
-          "description": "SpaceMolt v2 CLI companion and game tooling.",
+          "description": "SpaceMolt v2 CLI companion and game tools.",
           "url": "https://github.com/travnie/twojstar/tree/main/spacemolt",
           "translations": {
             "pl": {
@@ -730,7 +730,7 @@
         },
         {
           "name": "GPTomek pet",
-          "description": "Animated teal token gremlin for ChatGPT and Codex.",
+          "description": "Animated teal token gremlin desktop pet for ChatGPT and Codex.",
           "url": "https://github.com/travnie/twojstar/tree/main/pets/gptomek",
           "translations": {
             "pl": {

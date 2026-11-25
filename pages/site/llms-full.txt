@@ -176,8 +176,8 @@ Project: https://github.com/travnie/twojstar
 - Audacity plugins: Auto Declip VST3 and experimental Smart Transition for cut/join repair on Windows and Linux. https://github.com/travnie/twojstar/tree/main/addons/audacity
 - Intent Keyboard: An experiment turning rough intent into natural text. https://github.com/travnie/twojstar/tree/main/intent-keyboard
 - Xiaomi ADB Tools: Desktop ADB/Fastboot utility with platform-specific JavaFX builds. https://github.com/travnie/twojstar/tree/main/xiaomi-adb-tools
-- SpaceMolt / SMX: SpaceMolt v2 CLI companion and game tooling. https://github.com/travnie/twojstar/tree/main/spacemolt
-- GPTomek pet: Animated teal token gremlin for ChatGPT and Codex. https://github.com/travnie/twojstar/tree/main/pets/gptomek
+- SpaceMolt / SMX: SpaceMolt v2 CLI companion and game tools. https://github.com/travnie/twojstar/tree/main/spacemolt
+- GPTomek pet: Animated teal token gremlin desktop pet for ChatGPT and Codex. https://github.com/travnie/twojstar/tree/main/pets/gptomek
 - Loopling pet: Procedurally generated desktop pet with animation atlas and installers. https://github.com/travnie/twojstar/tree/main/pets/loopling
 - Remotely Save GDrive patch: Personal-use Google Drive deduplication/update patch and verification harness; no redistributed upstream code. https://github.com/travnie/twojstar/tree/main/addons/remotely-save-gdrive-patch
 

@@ -244,13 +244,16 @@
         if (!response.ok) throw new Error("Atlas unavailable");
         const data = await response.json();
         if (!Array.isArray(data.regions)) throw new Error("Invalid atlas");
-        const needle = query.trim().toLowerCase();
-        const matches = entry => [entry.name, entry.description, entry.url,
-          ...Object.values(entry.translations || {}).flatMap(t => [t.name, t.description])]
-          .join(" ").toLowerCase().includes(needle);
+        const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const matches = entry => {
+          const haystack = [entry.id, entry.name, entry.description, entry.url,
+            ...Object.values(entry.translations || {}).flatMap(t => [t.name, t.description])]
+            .join(" ").toLowerCase();
+          return terms.every(term => haystack.includes(term));
+        };
         const summary = ({ name, description, url }) => ({ name, description, url });
         const regions = data.regions.filter(r => !region || r.id === region).flatMap(r => {
-          const regionMatches = matches(r) || r.id.toLowerCase().includes(needle);
+          const regionMatches = matches(r);
           const items = (regionMatches ? r.items : r.items.filter(matches)).map(summary);
           return regionMatches || items.length ? [{ id: r.id, ...summary(r), items }] : [];
         });

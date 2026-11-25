@@ -127,7 +127,7 @@ test('font-only meme edits do not archive duplicate content; changed captions do
   const kept = await run(routerFake([original, revision({ font: 'kalam' })]), { parse });
   assert.equal(kept.provider, 'aihubmix');
   assert.equal(kept.editorial.candidates.length, 1);
-  const revised = await run(routerFake([original, revision({ top_text: 'better', font: 'kalam' })]), { parse });
+  const revised = await run(routerFake([original, revision({ top_text: 'better', font: 'unsupported-font' })]), { parse });
   assert.equal(revised.content.top_text, 'better');
   assert.equal(revised.editorial.candidates.length, 2);
   assert.equal(revised.content.font, kept.content.font);

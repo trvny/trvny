@@ -116,7 +116,8 @@ function validateTextForm(text, form) {
   if (form === 'dialogue') {
     const speakers = lines.map((line) => {
       const match = line.match(/^([^:：]+)[:：](.*)$/u);
-      const label = match?.[1].trim();
+      const label = match?.[1].trim().replace(/(?:\s*(?:\([^()]*\)|（[^（）]*）))+\s*$/u, '').trim()
+        .replace(/\s+/gu, ' ').toLowerCase();
       const speech = match?.[2].trim();
       return label && /[\p{L}\p{N}]/u.test(label) && speech && !speech.startsWith('//')
         ? label : null;
@@ -273,7 +274,7 @@ function boundedString(value, field, maxLength, { allowEmpty = false } = {}) {
   return result;
 }
 
-export function validateContent(value, { mode, templateId, form } = {}) {
+export function validateContent(value, { mode, templateId, form, seededLook } = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('content_not_object');
   }
@@ -290,7 +291,7 @@ export function validateContent(value, { mode, templateId, form } = {}) {
     const topText = fitMemeCaption(boundedString(value.top_text, 'top_text', SHITPOST_MEME_LINE_HARD_MAX_CHARS, { allowEmpty: true }));
     const bottomText = fitMemeCaption(boundedString(value.bottom_text, 'bottom_text', SHITPOST_MEME_LINE_HARD_MAX_CHARS, { allowEmpty: true }), true);
     if (!topText && !bottomText) throw new Error('content_empty_meme_text');
-    const look = normalizeMemeLook(value);
+    const look = normalizeMemeLook(seededLook ?? value);
     memeImageUrl(template, topText, bottomText, look);
     return { kind: 'meme', ...(title ? { title } : {}), template, top_text: topText, bottom_text: bottomText, ...look };
   }
@@ -443,13 +444,7 @@ export function editorMessages(originalMessages, draft, outputLanguage = null, f
 // Appearance belongs to the run, not the editor. Compare and archive the same
 // normalized content the publisher will use.
 export function parseDraftForRun(raw, { mode, form, seed }) {
-  const draft = parseContent(raw, { mode, form });
-  if (draft.kind !== 'meme') return draft;
-  return validateContent({
-    kind: draft.kind, ...(draft.title ? { title: draft.title } : {}),
-    template: draft.template, top_text: draft.top_text, bottom_text: draft.bottom_text,
-    ...chooseMemeLook(seed),
-  }, { mode, form });
+  return parseContent(raw, { mode, form, seededLook: chooseMemeLook(seed) });
 }
 
 export function parseEditorRevision(content, author, parse) {

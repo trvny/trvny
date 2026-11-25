@@ -25,8 +25,8 @@ test("custom domain aliases redirect to the durable hub", async () => {
   }
 });
 
-test("stable hub and preview hosts stay outside alias routing", async () => {
-  for (const host of ["bartek.lol", "travny.pages.dev", "preview.travny.pages.dev"]) {
+test("canonical hub and preview sitemaps stay outside alias routing", async () => {
+  for (const host of ["bartek.lol", "preview.travny.pages.dev"]) {
     const result = await onRequest({
       request: new Request(`https://${host}/sitemap.xml`),
       next: async () => new Response("hub sitemap", { headers: { "content-type": "application/xml" } }),

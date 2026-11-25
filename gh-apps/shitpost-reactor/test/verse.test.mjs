@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  buildMessages, judgeMessages, loadStyleReference, parseContent,
-  parseJudgeRevision, renderMarkdown, resolveGenerationPlan,
+  buildMessages, editorMessages, loadStyleReference, parseContent,
+  parseEditorRevision, renderMarkdown, resolveGenerationPlan,
 } from '../generate.mjs';
 
 const draft = (text) => JSON.stringify({ kind: 'text', text });
@@ -35,20 +35,24 @@ test('selected form is mandatory and scoped style excludes optional verse elsewh
   assert.match(prompt('parody'), /至少三行/);
   assert.doesNotMatch(prompt('prose'), /Original pocket verse/);
   assert.doesNotMatch(prompt('meme'), /Original pocket verse/);
-  assert.match(judgeMessages([{ content: { kind: 'text', text: 'line' } }], {})[0].content, /保留有意义的换行与节奏/);
+  assert.match(editorMessages([], { content: { kind: 'text', text: 'line' } }, null, 'limerick')[0].content, /AABBA/);
 });
 
-test('strict form validation also rejects judge revisions that collapse a verse', () => {
+test('strict form validation also rejects editor revisions that collapse a verse', () => {
   const body = 'One detail stays awake.\nAnother files a report.\nThe ceiling applies for a passport.';
   const parse = (raw) => parseContent(raw, { mode: 'text', form: 'verse' });
   const content = parse(draft(body));
   assert.equal(content.text, body);
   assert.throws(() => parse(draft('One line.')), /content_invalid_verse_lines/);
-  assert.equal(parseJudgeRevision(JSON.stringify({ revision: { kind: 'text', text: 'One line.' } }), { content }, parse), null);
+  assert.throws(() => parse(draft('A\n\nB\nC')), /content_invalid_verse_lines/);
+  assert.equal(parseEditorRevision(JSON.stringify({ revision: { kind: 'text', text: 'One line.' } }), { content }, parse), null);
   assert.throws(() => parseContent(draft(body), { mode: 'text', form: 'limerick' }), /content_invalid_limerick_lines/);
   assert.doesNotThrow(() => parseContent(draft('A\nB\nC\nD\nE'), { mode: 'text', form: 'limerick' }));
   assert.doesNotThrow(() => parseContent(draft('A: What?\nB：A passport.'), { mode: 'text', form: 'dialogue' }));
   assert.throws(() => parseContent(draft('A: One\nA: Two'), { mode: 'text', form: 'dialogue' }), /content_invalid_dialogue_lines/);
+  assert.throws(() => parseContent(draft('https://a.test\nhttps://b.test'), { mode: 'text', form: 'dialogue' }), /content_invalid_dialogue_lines/);
+  assert.doesNotThrow(() => parseContent(draft('Deputy Commissioner for Procedural Compliance: Approved.\nClerk: It was a sandwich.'), { mode: 'text', form: 'dialogue' }));
+  assert.throws(() => parseContent(draft('A\n\nB\nC\nD\nE'), { mode: 'text', form: 'limerick' }), /content_invalid_limerick_lines/);
   assert.throws(() => parseContent(draft('Notice.'), { mode: 'text', form: 'parody' }), /content_invalid_parody_lines/);
   assert.doesNotThrow(() => parseContent(draft(body), { mode: 'text', form: 'parody' }));
   const markdown = renderMarkdown({ content, provider: 'test', model: 'test', generated_at: '2026-11-13T20:00:00Z' });

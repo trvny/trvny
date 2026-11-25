@@ -1,155 +1,112 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { generateBestShitpost, JUDGE_MODEL, parseContent, parseJudgePick, parseJudgeRevision } from '../generate.mjs';
+import {
+  DEFAULT_MODEL, EDITOR_MODEL, generateEditedShitpost, parseContent,
+  parseEditorRevision, buildMessages, resolveGenerationPlan,
+} from '../generate.mjs';
 
+const textDraft = (text) => JSON.stringify({ kind: 'text', text });
+const edit = (text) => JSON.stringify({ why: 'sharper turn', revision: { kind: 'text', text } });
 const parse = (content) => parseContent(content, { mode: 'text' });
 
-function routerFake({ texts, judge, failAfter = Infinity }) {
+function routerFake(responses) {
   const calls = [];
-  const providers = ['aihubmix', 'vercel', 'groq', 'openrouter'];
   const fetchImpl = async (_url, init) => {
     const body = JSON.parse(init.body);
-    const exclude = init.headers['x-kanarek-review-exclude-provider'] ?? '';
-    calls.push({ model: body.model, exclude });
-    if (body.model === JUDGE_MODEL) {
-      if (judge instanceof Error) throw judge;
-      return new Response(JSON.stringify({ model: 'judge-m', choices: [{ message: { content: judge } }] }), {
-        status: 200, headers: { 'x-kanarek-review-provider': 'groq' },
-      });
-    }
-    const index = calls.filter((call) => call.model !== JUDGE_MODEL).length - 1;
-    if (index >= failAfter) return new Response('Review providers unavailable', { status: 429 });
+    const response = responses[calls.length];
+    calls.push({ model: body.model, messages: body.messages, exclude: init.headers['x-kanarek-review-exclude-provider'] || '' });
+    if (!response) throw Error('unexpected_call');
+    if (response instanceof Error) throw response;
+    if (response.status) return new Response('router exhausted', { status: response.status });
     return new Response(JSON.stringify({
-      model: `m${index}`,
-      choices: [{ message: { content: JSON.stringify({ kind: 'text', text: texts[index] }) } }],
-    }), { status: 200, headers: { 'x-kanarek-review-provider': providers[index] } });
+      model: response.model || 'm-' + response.provider,
+      choices: [{ message: { content: response.content } }],
+    }), { headers: { 'x-kanarek-review-provider': response.provider } });
   };
   return { calls, fetchImpl };
 }
-
-test('best-of asks distinct providers, then publishes the judge pick', async () => {
-  const fake = routerFake({ texts: ['meh', 'better'], judge: '{"pick":1,"why":"sharpest turn"}' });
-  const lines = [];
-  const result = await generateBestShitpost({
-    endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl: fake.fetchImpl, log: (l) => lines.push(l),
-  });
-  assert.equal(result.content.text, 'better');
-  assert.equal(result.provider, 'vercel');
-  assert.deepEqual(fake.calls.map((call) => call.exclude), ['', 'aihubmix', '']);
-  assert.equal(fake.calls.at(-1).model, JUDGE_MODEL);
-  assert.match(lines[0], /candidates=2 pick=1/);
+const author = { provider: 'aihubmix', content: textDraft('first draft') };
+const editor = (content, provider = 'groq') => ({ provider, content });
+const run = (fake, options = {}) => generateEditedShitpost({
+  endpoint: 'https://example.test', token: 't', messages: [], parse,
+  fetchImpl: fake.fetchImpl, sleepImpl: async () => {}, log: () => {}, ...options,
 });
 
-test('an invalid or failed judge falls back to the first candidate', async () => {
-  for (const judge of ['{"pick":7}', 'not json', new TypeError('fetch failed')]) {
-    const fake = routerFake({ texts: ['first', 'second'], judge });
-    const result = await generateBestShitpost({
-      endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl: fake.fetchImpl,
-      sleepImpl: async () => {}, log: () => {},
-    });
-    assert.equal(result.content.text, 'first');
+test('one author and one distinct editor cooperate on the same draft', async () => {
+  const fake = routerFake([author, editor(edit('final joke'))]);
+  const result = await run(fake);
+  assert.deepEqual(fake.calls.map(({ model, exclude }) => [model, exclude]), [
+    [DEFAULT_MODEL, ''], [EDITOR_MODEL, 'aihubmix'],
+  ]);
+  assert.match(fake.calls[1].messages[1].content, /first draft/);
+  assert.equal(result.content.text, 'final joke');
+  assert.equal(result.provider, 'groq');
+  assert.equal(result.editorial.pick, 1);
+  assert.equal(result.editorial.candidates[0].content.text, 'first draft');
+  assert.equal(result.editorial.candidates[1].content.text, 'final joke');
+  assert.equal(result.editorial.revised, true);
+  assert.equal(result.editorial.judge.provider, 'groq');
+});
+
+test('keep, invalid editor, same provider, unknown provider or quota leaves author intact', async () => {
+  for (const response of [
+    editor('{"why":"already good","revision":null}'),
+    editor(edit('first draft')),
+    editor('invalid json'),
+    editor(edit('wrong provider'), 'aihubmix'),
+    editor(edit('unknown provider'), 'unknown'),
+    { status: 429 },
+  ]) {
+    const fake = routerFake([author, response]);
+    const result = await run(fake);
+    assert.equal(result.content.text, 'first draft');
+    assert.equal(result.provider, 'aihubmix');
+    assert.equal(result.editorial.candidates.length, 1);
+    assert.equal(result.editorial.revised, false);
+    assert.equal(fake.calls.length, 2);
   }
 });
 
-test('an exhausted router stops collecting; one candidate skips the judge', async () => {
-  const fake = routerFake({ texts: ['only'], judge: '{"pick":0}', failAfter: 1 });
-  const result = await generateBestShitpost({
-    endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl: fake.fetchImpl, log: () => {},
-  });
-  assert.equal(result.content.text, 'only');
-  assert.equal(fake.calls.length, 2);
-  assert.ok(fake.calls.every((call) => call.model !== JUDGE_MODEL));
+test('unknown author identity skips optional editor', async () => {
+  const fake = routerFake([{ ...author, provider: 'unknown' }]);
+  assert.equal((await run(fake)).content.text, 'first draft');
+  assert.equal(fake.calls.length, 1);
 });
 
-test('no candidate rethrows the first router failure for the Bacon fallback', async () => {
-  const fake = routerFake({ texts: [], judge: '{"pick":0}', failAfter: 0 });
-  await assert.rejects(generateBestShitpost({
-    endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl: fake.fetchImpl, log: () => {},
-  }), /^Error: router_failed:429:/);
+test('invalid author consumes second stage for rescue, never invokes editor', async () => {
+  const fake = routerFake([{ ...author, content: 'bad json' }, editor(textDraft('rescue'))]);
+  const result = await run(fake);
+  assert.equal(result.content.text, 'rescue');
+  assert.deepEqual(fake.calls.map(({ model, exclude }) => [model, exclude]), [
+    [DEFAULT_MODEL, ''], [DEFAULT_MODEL, 'aihubmix'],
+  ]);
+  assert.equal(result.editorial.candidates.length, 1);
 });
 
-test('judge pick parsing tolerates fences and rejects out-of-range picks', () => {
-  assert.deepEqual(parseJudgePick('```json\n{"pick":1,"why":"x"}\n```', 2), { pick: 1, why: 'x' });
-  assert.equal(parseJudgePick('{"pick":2}', 2), null);
-  assert.equal(parseJudgePick('{"pick":"1"}', 2), null);
+test('no valid author preserves router error for Bacon fallback', async () => {
+  const fake = routerFake([{ status: 429 }]);
+  await assert.rejects(run(fake), /router_failed:429:/);
+  assert.equal(fake.calls.length, 1);
 });
 
-test('the judge can polish its pick without discarding the original finalists', async () => {
-  const fake = routerFake({
-    texts: ['raw first', 'raw second'],
-    judge: JSON.stringify({
-      pick: 1, why: 'best premise',
-      revision: { kind: 'text', title: 'A sharper headline', text: 'polished second' },
-    }),
-  });
-  const result = await generateBestShitpost({
-    endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl: fake.fetchImpl,
-    log: () => {},
-  });
-  assert.equal(result.content.text, 'polished second');
-  assert.equal(result.editorial.candidates.length, 2);
-  assert.equal(result.editorial.candidates[1].content.text, 'raw second');
-  assert.equal(result.editorial.pick, 1);
-  assert.equal(result.editorial.revised, true);
-  assert.equal(fake.calls.length, 3);
+test('scheduled limerick author and editor receive the same form and source context', async () => {
+  const { mode, form } = resolveGenerationPlan('auto', 'seed', '6');
+  assert.equal(form, 'limerick');
+  const parse = (raw) => parseContent(raw, { mode, form });
+  const body = 'A cat found a chair\nThe chair filed a prayer\nA clerk with a pen\nDeclared it a hen\nAnd taxed the remaining air';
+  const messages = buildMessages('# style', 'local headline', 'seed', mode, null, { form });
+  const fake = routerFake([{ ...author, content: textDraft(body) }, editor(edit('one line'))]);
+  const result = await run(fake, { messages, parse, form });
+  assert.match(fake.calls[0].messages[0].content, /AABBA/);
+  assert.match(fake.calls[1].messages[0].content, /AABBA/);
+  assert.match(fake.calls[1].messages[1].content, /local headline/);
+  assert.equal(result.content.text, body);
+  assert.equal(result.editorial.candidates.length, 1);
 });
 
-test('transient 502 exhaustion retries without using up a candidate slot', async () => {
-  const sleeps = [];
-  const calls = [];
-  let candidateCalls = 0;
-  const fetchImpl = async (_url, init) => {
-    const body = JSON.parse(init.body);
-    if (body.model === JUDGE_MODEL) {
-      return Response.json({ model: 'judge', choices: [{ message: { content: '{"pick":1}' } }] });
-    }
-    const attempt = candidateCalls++;
-    calls.push(init.headers['x-kanarek-review-exclude-provider'] || '');
-    if (attempt === 1 || attempt === 2) return new Response('router exhausted', { status: 502 });
-    const index = attempt === 0 ? 0 : attempt - 2;
-    return new Response(JSON.stringify({ model: 'm' + index,
-      choices: [{ message: { content: JSON.stringify({ kind: 'text', text: 'candidate ' + index }) } }] }), {
-      status: 200, headers: { 'x-kanarek-review-provider': ['aihubmix', 'vercel', 'groq'][index] },
-    });
-  };
-  const result = await generateBestShitpost({
-    endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl,
-    sleepImpl: async (ms) => { sleeps.push(ms); }, log: () => {},
-  });
-  assert.equal(result.content.text, 'candidate 1');
-  assert.equal(result.editorial.candidates.length, 2);
-  assert.deepEqual(calls, ['', 'aihubmix', 'aihubmix', 'aihubmix']);
-  assert.deepEqual(sleeps, [2_000, 5_000]);
-});
-
-test('judge revision never changes the selected output kind', () => {
-  const selected = { content: { kind: 'text', text: 'original' } };
-  assert.equal(parseJudgeRevision(JSON.stringify({ revision: { kind: 'meme', template: 'bihw',
-    top_text: 'a', bottom_text: 'b' } }), selected, parse), null);
-  assert.equal(parseJudgeRevision('{"revision":{"kind":"text","text":""}}', selected, parse), null);
-});
-
-test('invalid candidate excludes its provider before collecting another valid draft', async () => {
-  let calls = 0;
-  const excludes = [];
-  const fetchImpl = async (_url, init) => {
-    const body = JSON.parse(init.body);
-    if (body.model === JUDGE_MODEL) {
-      return Response.json({ model: 'judge', choices: [{ message: { content: '{"pick":1}' } }] });
-    }
-    const index = calls++;
-    excludes.push(init.headers['x-kanarek-review-exclude-provider'] || '');
-    return new Response(JSON.stringify({ model: 'model-' + index, choices: [{
-      message: { content: index === 0 ? 'not json' : JSON.stringify({ kind: 'text', text: 'valid ' + index }) },
-    }] }), {
-      headers: { 'x-kanarek-review-provider': ['aihubmix', 'vercel', 'groq'][index] },
-    });
-  };
-  const result = await generateBestShitpost({
-    endpoint: 'https://example.test', token: 't', messages: [], parse, fetchImpl,
-    count: 2, log: () => {},
-  });
-  assert.equal(result.editorial.candidates.length, 2);
-  assert.deepEqual(result.editorial.candidates.map((item) => item.provider), ['vercel', 'groq']);
-  assert.deepEqual(excludes, ['', 'aihubmix', 'aihubmix,vercel']);
+test('editor cannot change meme template or output kind', () => {
+  const original = { content: { kind: 'meme', template: 'bad', top_text: 'a', bottom_text: 'b' } };
+  const parse = (raw) => parseContent(raw, { mode: 'meme' });
+  assert.equal(parseEditorRevision(JSON.stringify({ revision: { kind: 'meme', template: 'rollsafe', top_text: 'a', bottom_text: 'b' } }), original, parse), null);
+  assert.equal(parseEditorRevision(edit('text'), original, parse), null);
 });

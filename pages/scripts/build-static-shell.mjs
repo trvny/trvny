@@ -99,6 +99,9 @@ export function staticHeaders() {
     "  Link: " + (page.markdown ? "<" + page.markdown + '>; rel="alternate"; type="text/markdown", ' : "") + '</llms.txt>; rel="describedby"',
     ...(page.noindex ? ["  X-Robots-Tag: noindex, follow"] : []),
   ].join("\n"))).join("\n") + "\n" + [
+    "/teksty/githubowa-kraina/atlas.json",
+    "  Content-Type: application/json; charset=utf-8",
+    "  Access-Control-Allow-Origin: *",
     "/.well-known/ard.json",
     "  Content-Type: application/ard+json; charset=utf-8",
     "  Access-Control-Allow-Origin: *",

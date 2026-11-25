@@ -17,7 +17,7 @@
     "webhook:delete": "node scripts/telegram-webhook.mjs delete"
   },
   "devDependencies": {
-    "@grammyjs/types": "5.0.0",
+    "@grammyjs/types": "5.1.0",
     "typescript": "7.0.2",
     "wrangler": "4.162.0"
   }

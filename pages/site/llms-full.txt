@@ -121,13 +121,14 @@ Project: https://github.com/travnie/Kanarek
 
 ### WAM Bridge
 
-Windows audio crosses the Wi-Fi bridge to Samsung speakers.
+Local Wi-Fi audio bridge for Samsung speakers on Windows and Android.
 
 Project: https://github.com/travnie/wambridge
 
 - Audio bridge: A local stream and Samsung playback API send audio to supported speakers. https://github.com/travnie/wambridge
 - foobar2000 output: A component streams audio playing in foobar2000, including internet radio. https://github.com/travnie/wambridge
 - Speaker compatibility: Shape M5 WAM550 was tested; other models remain candidates. https://github.com/travnie/wambridge#speaker-compatibility
+- Android adapter: Speaker discovery, radio, UPnP renderer, Quick Settings and widgets; physical playback reliability varies. https://github.com/travnie/wambridge#status-working-rolling-release
 
 ### Aistee
 
@@ -171,9 +172,14 @@ Project: https://github.com/travnie/twojstar
 - Docbench: Work with documents and PDFs locally in the browser. https://docbench.bartek.lol/
 - Weather Feed: Local weather, air quality and alerts for Kościelec and Chrzanów. https://weather.bartek.lol/
 - Feedboard: Windows 11 feed widget and settings application. https://github.com/travnie/twojstar/tree/main/feedboard
-- Paint.NET plugins: Image tools including ICO and AI Restore plugins. https://github.com/travnie/twojstar/tree/main/paintdotnet
-- Audacity plugin: Auto Declip VST3 for audio restoration. https://github.com/travnie/twojstar/tree/main/audacity
+- Paint.NET plugins: ICO import/export, AI Restore, DeJPEG, Denoise and Smart Transparency; local image processing. https://github.com/travnie/twojstar/tree/main/addons/paintdotnet
+- Audacity plugins: Auto Declip VST3 and experimental Smart Transition for cut/join repair on Windows and Linux. https://github.com/travnie/twojstar/tree/main/addons/audacity
 - Intent Keyboard: An experiment turning rough intent into natural text. https://github.com/travnie/twojstar/tree/main/intent-keyboard
+- Xiaomi ADB Tools: Desktop ADB/Fastboot utility with platform-specific JavaFX builds. https://github.com/travnie/twojstar/tree/main/xiaomi-adb-tools
+- SpaceMolt / SMX: SpaceMolt v2 CLI companion and game tooling. https://github.com/travnie/twojstar/tree/main/spacemolt
+- GPTomek pet: Animated teal token gremlin for ChatGPT and Codex. https://github.com/travnie/twojstar/tree/main/pets/gptomek
+- Loopling pet: Procedurally generated desktop pet with animation atlas and installers. https://github.com/travnie/twojstar/tree/main/pets/loopling
+- Remotely Save GDrive patch: Personal-use Google Drive deduplication/update patch and verification harness; no redistributed upstream code. https://github.com/travnie/twojstar/tree/main/addons/remotely-save-gdrive-patch
 
 ## Related services
 
@@ -259,4 +265,4 @@ The sitemap contains public human-facing hub routes. Service-specific machine-re
 
 On browser hosts implementing WebMCP, TRAVNY pages with the shared navigation expose `open_travny_destination`. It only starts navigation to destinations already present in the visible TRAVNY menu and does not accept arbitrary URLs.
 
-Additional read-only tools: `list_travny_destinations` (optional query), `get_travny_agent_resources` (canonical machine-readable resources), and `get_travny_radio_now` (current song and streaming links via the fixed same-origin public API). No arbitrary URL fetches or radio administration. Navigation may open cross-origin menu destinations, but never accepts arbitrary URLs. The public GET API works without browser WebMCP.
+Additional read-only tools: `list_travny_destinations` (optional query), `get_travny_agent_resources` (canonical machine-readable resources), and `get_travny_radio_now` (current song and streaming links via the fixed same-origin public API). No arbitrary URL fetches or radio administration. Navigation may open cross-origin menu destinations, but never accepts arbitrary URLs. The public GET API works without browser WebMCP. `search_travny_projects` reads the public atlas and supports optional text (`query`, up to 100 characters) and exact region ID (`region`); results include region IDs, names, descriptions and destination URLs. HTTP clients can use https://bartek.lol/teksty/githubowa-kraina/atlas.json directly.

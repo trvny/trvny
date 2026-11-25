@@ -141,6 +141,21 @@
         "What can the docbench tool do?",
         "How does docbench handle local data?"
       ]
+    },
+    {
+      "identifier": "urn:air:bartek.lol:catalog:github-world",
+      "displayName": "GitHubowa Kraina project atlas",
+      "type": "application/json",
+      "url": "https://bartek.lol/teksty/githubowa-kraina/atlas.json",
+      "description": "Public multilingual catalogue of project regions, workshop tools and source links.",
+      "capabilities": [
+        "project-discovery",
+        "workshop-discovery"
+      ],
+      "representativeQueries": [
+        "Find Audacity and Paint.NET plugins",
+        "List SpaceMolt tools and desktop pets"
+      ]
     }
   ]
 }

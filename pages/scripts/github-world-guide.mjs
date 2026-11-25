@@ -10,6 +10,7 @@ const lines = [
   'Languages: PL, EN, RU, ZH. The separate infrastructure map is English.',
   'Infrastructure map: <https://bartek.lol/teksty/githubowa-kraina/universe.html>', '',
   'Choose a region, then a place for its description and destination. Project repositories remain the authority for current details.', '',
+  'Browser WebMCP: `search_travny_projects` (optional query and region). HTTP clients can read the structured atlas directly; no authentication required.', '',
   '## Regions', ''
 ];
 for (const region of regions) {

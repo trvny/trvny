@@ -113,3 +113,30 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   window.dispatchEvent(new Event("pagehide"));
   assert.equal(list.options.signal.aborted, true);
 });
+
+test("atlas search finds advertised multi-word queries against the real catalog", async () => {
+  const source = await readFile(new URL("../site/assets/webmcp.js", import.meta.url), "utf8");
+  const atlas = JSON.parse(await readFile(new URL("../site/teksty/githubowa-kraina/atlas.json", import.meta.url), "utf8"));
+  const tools = new Map();
+  runInNewContext(source, {
+    fetch: async url => {
+      assert.equal(url, "/teksty/githubowa-kraina/atlas.json");
+      return Response.json(atlas);
+    },
+    document: {
+      modelContext: { registerTool: tool => tools.set(tool.name, tool) },
+      querySelectorAll: () => [],
+    },
+    window: new EventTarget(), AbortController, AbortSignal, console,
+  });
+  const search = tools.get("search_travny_projects");
+  const names = async query => {
+    const result = await search.execute({ query, region: "workshop" });
+    assert.equal(result.ok, true);
+    return Array.from(result.regions.flatMap(region => region.items.map(item => item.name)));
+  };
+  assert.deepEqual(await names("SpaceMolt tools"), ["SpaceMolt / SMX"]);
+  assert.deepEqual(await names("desktop pets"), ["GPTomek pet", "Loopling pet"]);
+  assert.deepEqual(await names("  TOOLS   spacemolt  "), ["SpaceMolt / SMX"]);
+  assert.deepEqual(await names("SpaceMolt missing"), []);
+});

@@ -33,6 +33,7 @@ test("ARD manifest advertises real, well-formed public capability URLs", async (
   assert.match(guide, /\.well-known\/ard\.json/);
   assert.match(pageShellHead("/", "home"), /rel="ard"[^>]+href="\/\.well-known\/ard\.json"/);
   const headers = staticHeaders();
+  assert.match(headers, /\/teksty\/githubowa-kraina\/atlas\.json\n  Content-Type: application\/json; charset=utf-8\n  Access-Control-Allow-Origin: \*/);
   assert.match(headers, /\/\.well-known\/ard\.json\n  Content-Type: application\/ard\+json/);
   assert.match(headers, /\/\.well-known\/ai-catalog\.json\n  Content-Type: application\/ai-catalog\+json/);
 });

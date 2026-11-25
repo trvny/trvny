@@ -59,7 +59,7 @@
       ],
       "wam": [
         "WARSZTAT AUDIO",
-        "Most między Windowsem, foobarem i Samsungiem Shape M5. Tu protokoły audio dostają smar, FLAC i drugi żywot."
+        "Most między Windowsem, Androidem i Samsungiem Shape M5. Tu protokoły audio dostają smar, FLAC i drugi żywot."
       ],
       "llm": [
         "LABORATORIUM AI",
@@ -77,7 +77,7 @@
     "tags": {
       "feedseek": "Python · feedy · publikacja",
       "kanarek": "Kotlin · Media3 · Worker",
-      "wam": "Python · foobar2000 · audio Wi-Fi",
+      "wam": "Python · foobar2000 · Android",
       "llm": "Kotlin Multiplatform · LLM · WebView",
       "autka": "Android · ogłoszenia · NBP",
       "tvpi": "Python · Cloudflare · HLS"
@@ -163,7 +163,7 @@
       ],
       "wam": [
         "AUDIO WORKSHOP",
-        "A bridge between Windows, foobar2000 and Samsung Shape M5. Audio protocols get oil, FLAC and a second life."
+        "A bridge between Windows, Android and Samsung Shape M5. Audio protocols get oil, FLAC and a second life."
       ],
       "llm": [
         "AI LAB",
@@ -181,7 +181,7 @@
     "tags": {
       "feedseek": "Python · feeds · publishing",
       "kanarek": "Kotlin · Media3 · Worker",
-      "wam": "Python · foobar2000 · Wi-Fi audio",
+      "wam": "Python · foobar2000 · Android",
       "llm": "Kotlin Multiplatform · LLMs · WebView",
       "autka": "Android · marketplace hand-off · NBP",
       "tvpi": "Python · Cloudflare · HLS"
@@ -267,7 +267,7 @@
       ],
       "wam": [
         "АУДИОМАСТЕРСКАЯ",
-        "Мост между Windows, foobar2000 и Samsung Shape M5. Аудиопротоколы получают смазку, FLAC и вторую жизнь."
+        "Мост между Windows, Android и Samsung Shape M5. Аудиопротоколы получают смазку, FLAC и вторую жизнь."
       ],
       "llm": [
         "ЛАБОРАТОРИЯ ИИ",
@@ -285,7 +285,7 @@
     "tags": {
       "feedseek": "Python · ленты · публикация",
       "kanarek": "Kotlin · Media3 · Worker",
-      "wam": "Python · foobar2000 · аудио Wi-Fi",
+      "wam": "Python · foobar2000 · Android",
       "llm": "Kotlin Multiplatform · LLM · WebView",
       "autka": "Android · объявления · NBP",
       "tvpi": "Python · Cloudflare · HLS"
@@ -371,7 +371,7 @@
       ],
       "wam": [
         "音频工坊",
-        "连接 Windows、foobar2000 与 Samsung Shape M5。让音频协议获得润滑、FLAC 和第二次生命。"
+        "连接 Windows、Android 与 Samsung Shape M5。让音频协议获得润滑、FLAC 和第二次生命。"
       ],
       "llm": [
         "AI 实验室",
@@ -389,7 +389,7 @@
     "tags": {
       "feedseek": "Python · 订阅源 · 发布",
       "kanarek": "Kotlin · Media3 · Worker",
-      "wam": "Python · foobar2000 · Wi-Fi 音频",
+      "wam": "Python · foobar2000 · Android",
       "llm": "Kotlin Multiplatform · LLM · WebView",
       "autka": "Android · 市场入口 · NBP",
       "tvpi": "Python · Cloudflare · HLS"

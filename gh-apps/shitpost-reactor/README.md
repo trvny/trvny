@@ -23,7 +23,8 @@ Small scheduled shitpost generator and public feed. GitHub Actions is the only c
   Invalid first draft may use the second stage as rescue author instead.
   Missing/same provider identity, unavailable editor or invalid edit leaves
   the valid author draft unchanged. Router transport retries and internal
-  free-provider failover remain possible. A 30-minute shared budget reserves
+  free-provider failover remain possible. Exhausted transient HTTP failures
+  use only the request-level retry; no extra outer retry loop. A 30-minute shared budget reserves
   six minutes for editing. On a real revision, the superseded draft and editor
   metadata use the existing private R2 `editorial/gh-<run_id>-<attempt>.json`
   runner_up/winner contract; no duplicate archive for an unchanged draft.

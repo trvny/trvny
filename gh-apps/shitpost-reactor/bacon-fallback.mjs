@@ -32,6 +32,7 @@ export function baconFallbackEligible(error) {
   return /^router_(fetch_failed:|deadline_exceeded$|missing_content$|retry_exhausted$)/.test(message)
     || /^router_failed:(?:402|408|425|429|5\d\d):/.test(message)
     || /^content_(?:invalid_|unexpected_|not_object$|empty_)/.test(message)
+    || /^invalid_meme_(?:template|look|font|color|layout)$/.test(message)
     || error instanceof SyntaxError;
 }
 

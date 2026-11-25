@@ -114,7 +114,13 @@ function validateTextForm(text, form) {
     throw new Error('content_invalid_limerick_lines');
   }
   if (form === 'dialogue') {
-    const speakers = lines.map((line) => line.match(/^([\p{L}\p{N}][\p{L}\p{N}\p{M} .’'_-]*)[:：]\s*(?!\/\/)\S/u)?.[1]?.trim());
+    const speakers = lines.map((line) => {
+      const match = line.match(/^([^:：]+)[:：](.*)$/u);
+      const label = match?.[1].trim();
+      const speech = match?.[2].trim();
+      return label && /[\p{L}\p{N}]/u.test(label) && speech && !speech.startsWith('//')
+        ? label : null;
+    });
     if (lines.length < 2 || lines.length > 6 || speakers.some((speaker) => !speaker)
       || new Set(speakers).size < 2) throw new Error('content_invalid_dialogue_lines');
   }
@@ -434,6 +440,18 @@ export function editorMessages(originalMessages, draft, outputLanguage = null, f
   ];
 }
 
+// Appearance belongs to the run, not the editor. Compare and archive the same
+// normalized content the publisher will use.
+export function parseDraftForRun(raw, { mode, form, seed }) {
+  const draft = parseContent(raw, { mode, form });
+  if (draft.kind !== 'meme') return draft;
+  return validateContent({
+    kind: draft.kind, ...(draft.title ? { title: draft.title } : {}),
+    template: draft.template, top_text: draft.top_text, bottom_text: draft.bottom_text,
+    ...chooseMemeLook(seed),
+  }, { mode, form });
+}
+
 export function parseEditorRevision(content, author, parse) {
   try {
     const verdict = JSON.parse(stripCodeFence(content));
@@ -475,7 +493,12 @@ export async function generateEditedShitpost({
       ...request, messages, excludeProviders: [first.provider], deadlineAt,
     });
     if (second.provider === first.provider || second.provider === 'unknown') throw error;
-    author = draft(second);
+    try {
+      author = draft(second);
+    } catch {
+      // Preserve the first validation failure; request/auth errors still surface.
+      throw error;
+    }
     solo = true;
   }
   const editorial = { candidates: [author], pick: 0, why: '', judge: null, revised: false };
@@ -596,11 +619,10 @@ export async function main() {
       messages,
       outputLanguage,
       form,
-      parse: (content) => parseContent(content, { mode, form }),
+      parse: (content) => parseDraftForRun(content, { mode, form, seed }),
     }),
   });
-  const memeLook = !generated.fallback && generated.content.kind === 'meme' ? chooseMemeLook(seed) : null;
-  const content = validateContent({ ...generated.content, ...(memeLook || {}) }, {
+  const content = validateContent(generated.content, {
     mode: generated.fallback ? 'text' : mode,
     form: generated.fallback ? null : form,
   });

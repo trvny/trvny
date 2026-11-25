@@ -13,7 +13,6 @@
 <!-- pocket-verse-only:start -->
 - Original pocket verse: 3–6 brief lines in the playful cadence of tiny
   bot-review epilogues. One concrete observation, an absurd progression, one
-  disorienting last line. Rhyme optional, never AABBA by default. Never quote
-  existing verses, recycle mascots, or mimic fixed endings. Prefer prose or
-  a meme if it lands better.
+  disorienting last line. Loose rhyme optional. Never quote existing verses,
+  recycle mascots, or mimic fixed endings. Keep the selected verse form.
 <!-- pocket-verse-only:end -->

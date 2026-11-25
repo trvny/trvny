@@ -2,68 +2,55 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  buildMessages,
-  judgeMessages,
-  parseContent,
-  renderMarkdown,
-  resolveGenerationPlan,
+  buildMessages, judgeMessages, loadStyleReference, parseContent,
+  parseJudgeRevision, renderMarkdown, resolveGenerationPlan,
 } from '../generate.mjs';
 
-test('occasional verse suggestion is deterministic and only applies to auto', () => {
-  const results = Array.from({ length: 120 }, (_, index) =>
-    resolveGenerationPlan('auto', 'seed', String(index + 1)).shortVerseHint);
-  assert.deepEqual(results, Array.from({ length: 120 }, (_, index) =>
-    resolveGenerationPlan('auto', 'seed', String(index + 1)).shortVerseHint));
-  const count = results.filter(Boolean).length;
-  assert.ok(count >= 8 && count <= 34, `short verse picks: ${count}`);
-  assert.equal(resolveGenerationPlan('auto', 'seed', '12').limerickLanguage, null);
-  assert.equal(resolveGenerationPlan('text', 'seed', '12').shortVerseHint, false);
-  assert.equal(resolveGenerationPlan('meme', 'seed', '12').shortVerseHint, false);
+const draft = (text) => JSON.stringify({ kind: 'text', text });
+
+test('auto cycle has balanced forms with no long verse drought', () => {
+  const plans = Array.from({ length: 40 }, (_, i) => resolveGenerationPlan('auto', 'seed', String(i + 1)));
+  const count = Object.fromEntries(['prose', 'meme', 'verse', 'limerick', 'dialogue', 'parody']
+    .map((form) => [form, plans.slice(0, 20).filter((plan) => plan.form === form).length]));
+  assert.deepEqual(count, { prose: 7, meme: 4, verse: 2, limerick: 2, dialogue: 3, parody: 2 });
+  assert.deepEqual(plans.slice(0, 20), plans.slice(20));
+  assert.ok(plans.every((plan, i) => !i || plan.form !== plans[i - 1].form));
+  assert.ok(plans.every((plan, i) => i % 5 !== 0 || ['verse', 'limerick'].includes(plan.form)));
+  for (const form of ['text', 'meme', 'prose', 'verse', 'limerick', 'dialogue', 'parody']) {
+    assert.deepEqual(resolveGenerationPlan(form, 'seed', '12'), { mode: form === 'meme' ? 'meme' : 'text', form });
+  }
 });
 
-test('verse nudge has its own loose form without replacing regular prose or memes', () => {
-  const hinted = buildMessages('# style', 'a curious local headline', 'seed', 'auto',
-    null, { shortVerseHint: true });
-  assert.match(hinted[0].content, /3–6 short lines/);
-  assert.match(hinted[0].content, /NOT the formal AABBA limerick/);
-  assert.match(hinted[0].content, /Choose normal prose or a meme/);
-  assert.match(hinted[0].content, /Do not copy bot review poems/);
-  const normal = buildMessages('# style', 'headline', 'seed', 'auto');
-  assert.doesNotMatch(normal[0].content, /pocket verse of 3–6/);
-  assert.match(normal[0].content, /1–3句/);
-  assert.match(hinted[0].content, /"kind":"text"/);
-  assert.match(hinted[0].content, /"kind":"meme"/);
-  const judge = judgeMessages([{ content: { kind: 'text', text: 'line' } }], {});
-  assert.match(judge[0].content, /保留有意义的换行与节奏/);
-});
-
-test('text drafts retain poem line breaks across JSON and Markdown', () => {
-  const body = 'One detail stays awake.\nAnother files a report.\nThe ceiling applies for a passport.';
-  const content = parseContent(JSON.stringify({ kind: 'text', title: 'Inspection', text: body }),
-    { mode: 'auto' });
-  assert.equal(content.text, body);
-  const markdown = renderMarkdown({
-    content, provider: 'test', model: 'test', generated_at: '2026-11-13T20:00:00Z',
-  });
-  assert.match(markdown, /> One detail stays awake\.  \n> Another files a report\.  \n> The ceiling applies for a passport\./);
-});
-
-test('the actual style reference only invites verses when a rollout nudge is present', async () => {
-  const { loadStyleReference } = await import('../generate.mjs');
+test('selected form is mandatory and scoped style excludes optional verse elsewhere', async () => {
   const style = await loadStyleReference();
-  assert.match(style, /pocket-verse-only:start/);
-  const plans = Array.from({ length: 120 }, (_, index) =>
-    resolveGenerationPlan('auto', 'seed', String(index + 1)));
-  const selected = plans.find((plan) => plan.shortVerseHint);
-  const unselected = plans.find((plan) => !plan.shortVerseHint);
-  assert.ok(selected && unselected);
-  const toPrompt = (plan) => buildMessages(style, 'local headline', 'seed', plan.mode,
-    null, { shortVerseHint: plan.shortVerseHint })[0].content;
-  assert.match(toPrompt(selected), /Optional creative nudge/);
-  assert.match(toPrompt(selected), /Original pocket verse: 3–6 brief lines/);
-  assert.doesNotMatch(toPrompt(unselected), /Optional creative nudge/);
-  assert.doesNotMatch(toPrompt(unselected), /Original pocket verse/);
-  assert.doesNotMatch(toPrompt(unselected), /pocket-verse-only/);
-  const explicit = resolveGenerationPlan('meme', 'seed', '42');
-  assert.doesNotMatch(toPrompt(explicit), /Optional creative nudge/);
+  const prompt = (form) => {
+    const plan = resolveGenerationPlan(form);
+    return buildMessages(style, 'headline', 'seed', plan.mode, null, { form: plan.form })[0].content;
+  };
+  assert.match(prompt('verse'), /3–6行/);
+  assert.match(prompt('verse'), /Original pocket verse/);
+  assert.doesNotMatch(prompt('verse'), /"kind":"meme"/);
+  assert.match(prompt('limerick'), /AABBA/);
+  assert.match(prompt('dialogue'), /至少两个不同角色/);
+  assert.match(prompt('parody'), /至少三行/);
+  assert.doesNotMatch(prompt('prose'), /Original pocket verse/);
+  assert.doesNotMatch(prompt('meme'), /Original pocket verse/);
+  assert.match(judgeMessages([{ content: { kind: 'text', text: 'line' } }], {})[0].content, /保留有意义的换行与节奏/);
+});
+
+test('strict form validation also rejects judge revisions that collapse a verse', () => {
+  const body = 'One detail stays awake.\nAnother files a report.\nThe ceiling applies for a passport.';
+  const parse = (raw) => parseContent(raw, { mode: 'text', form: 'verse' });
+  const content = parse(draft(body));
+  assert.equal(content.text, body);
+  assert.throws(() => parse(draft('One line.')), /content_invalid_verse_lines/);
+  assert.equal(parseJudgeRevision(JSON.stringify({ revision: { kind: 'text', text: 'One line.' } }), { content }, parse), null);
+  assert.throws(() => parseContent(draft(body), { mode: 'text', form: 'limerick' }), /content_invalid_limerick_lines/);
+  assert.doesNotThrow(() => parseContent(draft('A\nB\nC\nD\nE'), { mode: 'text', form: 'limerick' }));
+  assert.doesNotThrow(() => parseContent(draft('A: What?\nB：A passport.'), { mode: 'text', form: 'dialogue' }));
+  assert.throws(() => parseContent(draft('A: One\nA: Two'), { mode: 'text', form: 'dialogue' }), /content_invalid_dialogue_lines/);
+  assert.throws(() => parseContent(draft('Notice.'), { mode: 'text', form: 'parody' }), /content_invalid_parody_lines/);
+  assert.doesNotThrow(() => parseContent(draft(body), { mode: 'text', form: 'parody' }));
+  const markdown = renderMarkdown({ content, provider: 'test', model: 'test', generated_at: '2026-11-13T20:00:00Z' });
+  assert.ok(markdown.includes('> One detail stays awake.  \n> Another files a report.  \n> The ceiling applies for a passport.'));
 });

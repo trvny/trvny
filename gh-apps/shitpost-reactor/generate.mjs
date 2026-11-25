@@ -85,7 +85,7 @@ const FORM_RULES = Object.freeze({
   prose: '形式：荒诞短文，叙事或观察；不要诗歌或分角色台词。',
   verse: '形式必须是原创短诗，3–6行，各行用JSON转义换行分隔。节奏自然，押韵可选，荒诞收尾。不要散文或图片。',
   limerick: '形式必须是五行打油诗，AABBA押韵，自然节奏优先。各行用JSON转义换行分隔，不要散文或图片。',
-  dialogue: '形式必须是对话，2–6行，每行以角色名加冒号开头。至少两个不同角色，最后一句荒诞转折。',
+  dialogue: '形式必须是对话，2–6行，每行以角色名加冒号开头。至少两个不同角色；角色标签保持一致，动作或语气说明放在冒号之后，不要改变角色标签。最后一句荒诞转折。',
   parody: '形式必须是虚构的公文、公告、广告、说明书或报告等文体戏仿。至少三行非空文本；不冒充真实文件。',
 });
 
@@ -116,8 +116,7 @@ function validateTextForm(text, form) {
   if (form === 'dialogue') {
     const speakers = lines.map((line) => {
       const match = line.match(/^([^:：]+)[:：](.*)$/u);
-      const label = match?.[1].trim().replace(/(?:\s*(?:\([^()]*\)|（[^（）]*）))+\s*$/u, '').trim()
-        .replace(/\s+/gu, ' ').toLowerCase();
+      const label = match?.[1].trim().replace(/\s+/gu, ' ').toLowerCase();
       const speech = match?.[2].trim();
       return label && /[\p{L}\p{N}]/u.test(label) && speech && !speech.startsWith('//')
         ? label : null;
@@ -279,7 +278,7 @@ export function validateContent(value, { mode, templateId, form, seededLook } = 
     throw new Error('content_not_object');
   }
   const title = typeof value.title === 'string'
-    ? value.title.replace(/\s+/gu, ' ').trim().slice(0, 120) : '';
+    ? value.title.replace(/\s+/gu, ' ').trim().slice(0, 120).trimEnd() : '';
   if (value.kind === 'text') {
     if (mode && mode !== 'auto' && mode !== 'text') throw new Error('content_unexpected_kind');
     return { kind: 'text', ...(title ? { title } : {}), text: validateTextForm(boundedString(value.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS), form) };

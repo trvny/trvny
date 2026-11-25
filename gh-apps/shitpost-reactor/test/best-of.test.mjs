@@ -132,3 +132,10 @@ test('font-only meme edits do not archive duplicate content; changed captions do
   assert.equal(revised.editorial.candidates.length, 2);
   assert.equal(revised.content.font, kept.content.font);
 });
+
+test('truncated title normalization is idempotent', () => {
+  const parse = (raw) => parseDraftForRun(raw, { mode: 'meme', form: 'meme', seed: 'test' });
+  const original = parse(JSON.stringify({ kind: 'meme', template: 'bad', top_text: 'a', bottom_text: 'b', title: 'x'.repeat(119) + ' more' }));
+  assert.equal(original.title, 'x'.repeat(119));
+  assert.deepEqual(parse(JSON.stringify(original)), original);
+});

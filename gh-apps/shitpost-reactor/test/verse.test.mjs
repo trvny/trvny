@@ -49,6 +49,7 @@ test('strict form validation also rejects editor revisions that collapse a verse
   assert.throws(() => parseContent(draft(body), { mode: 'text', form: 'limerick' }), /content_invalid_limerick_lines/);
   assert.doesNotThrow(() => parseContent(draft('A\nB\nC\nD\nE'), { mode: 'text', form: 'limerick' }));
   assert.doesNotThrow(() => parseContent(draft('A: What?\nB：A passport.'), { mode: 'text', form: 'dialogue' }));
+  assert.doesNotThrow(() => parseContent(draft('AI (offscreen): Approved.\nClerk: It was a sandwich.'), { mode: 'text', form: 'dialogue' }));
   assert.throws(() => parseContent(draft('A: One\nA: Two'), { mode: 'text', form: 'dialogue' }), /content_invalid_dialogue_lines/);
   assert.throws(() => parseContent(draft('https://a.test\nhttps://b.test'), { mode: 'text', form: 'dialogue' }), /content_invalid_dialogue_lines/);
   assert.doesNotThrow(() => parseContent(draft('Deputy Commissioner for Procedural Compliance: Approved.\nClerk: It was a sandwich.'), { mode: 'text', form: 'dialogue' }));

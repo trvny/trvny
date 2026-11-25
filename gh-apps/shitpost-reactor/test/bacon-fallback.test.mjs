@@ -101,6 +101,7 @@ test('generation exhaustion, missing/invalid content and transport errors allow 
     new Error('router_failed:503:outage'), new Error('router_failed:402:payment required'),
     new Error('router_failed:429:quota'), new Error('content_invalid_text'),
     new Error('content_unexpected_kind'), new Error('content_not_object'),
+    new Error('invalid_meme_template'), new Error('invalid_meme_font'),
     new SyntaxError('broken JSON'),
   ]) assert.equal(baconFallbackEligible(error), true, error.message);
 });

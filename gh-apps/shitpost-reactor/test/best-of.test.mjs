@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   DEFAULT_MODEL, EDITOR_MODEL, generateEditedShitpost, parseContent,
-  parseEditorRevision, buildMessages, resolveGenerationPlan,
+  parseEditorRevision, parseDraftForRun, buildMessages, resolveGenerationPlan,
 } from '../generate.mjs';
 
 const textDraft = (text) => JSON.stringify({ kind: 'text', text });
@@ -109,4 +109,26 @@ test('editor cannot change meme template or output kind', () => {
   const parse = (raw) => parseContent(raw, { mode: 'meme' });
   assert.equal(parseEditorRevision(JSON.stringify({ revision: { kind: 'meme', template: 'rollsafe', top_text: 'a', bottom_text: 'b' } }), original, parse), null);
   assert.equal(parseEditorRevision(edit('text'), original, parse), null);
+});
+
+test('invalid rescue preserves the original content failure, but auth errors propagate', async () => {
+  const parse = (raw) => parseDraftForRun(raw, { mode: 'meme', form: 'meme', seed: 'test' });
+  const invalid = { ...author, content: textDraft('wrong kind') };
+  const brokenMeme = editor(JSON.stringify({ kind: 'meme', template: 'nonexistent', top_text: 'a', bottom_text: 'b' }));
+  await assert.rejects(run(routerFake([invalid, brokenMeme]), { parse }), /content_unexpected_kind/);
+  await assert.rejects(run(routerFake([invalid, { status: 401 }]), { parse }), /router_failed:401:/);
+});
+
+test('font-only meme edits do not archive duplicate content; changed captions do', async () => {
+  const parse = (raw) => parseDraftForRun(raw, { mode: 'meme', form: 'meme', seed: 'test' });
+  const meme = { kind: 'meme', template: 'bad', top_text: 'a', bottom_text: 'b', font: 'impact' };
+  const original = { ...author, content: JSON.stringify(meme) };
+  const revision = (change) => editor(JSON.stringify({ revision: { ...meme, ...change } }));
+  const kept = await run(routerFake([original, revision({ font: 'kalam' })]), { parse });
+  assert.equal(kept.provider, 'aihubmix');
+  assert.equal(kept.editorial.candidates.length, 1);
+  const revised = await run(routerFake([original, revision({ top_text: 'better', font: 'kalam' })]), { parse });
+  assert.equal(revised.content.top_text, 'better');
+  assert.equal(revised.editorial.candidates.length, 2);
+  assert.equal(revised.content.font, kept.content.font);
 });

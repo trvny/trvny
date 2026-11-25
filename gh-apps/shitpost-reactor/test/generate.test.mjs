@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import {
   buildMessages,
   chooseOutputLanguage,
-  judgeMessages,
+  editorMessages,
   OUTPUT_LANGUAGES,
   loadStyleReference,
   STYLE_REFERENCE_SOURCE,
@@ -65,7 +65,7 @@ test('shuffled four-language bags prevent repeated languages on scheduled runs',
   assert.equal(chooseOutputLanguage('manual-seed'), chooseOutputLanguage('manual-seed'));
 });
 
-test('generation and judge enforce the selected language independent of source', () => {
+test('generation and editor request the selected language independent of source', () => {
   const outputLanguage = OUTPUT_LANGUAGES.find((language) => language.code === 'zh-Hans');
   const messages = buildMessages('# skill', 'Sejm discusses an odd decree', 'seed', 'auto', null, {
     newsReference: { title: 'Sejm uchwala nowy przepis', source: 'PAP' },
@@ -74,11 +74,10 @@ test('generation and judge enforce the selected language independent of source',
   assert.match(messages[0].content, /本次只用简体中文/);
   assert.match(messages[0].content, /标题、正文与梗图字幕/);
   assert.match(messages[1].content, /强制输出语言: Simplified Chinese \(zh-Hans\)/);
-  const judge = judgeMessages([{ content: { kind: 'text', text: '中文' } }], {}, outputLanguage);
-  assert.match(judge[0].content, /指定语言简体中文/);
-  assert.match(judge[0].content, /短而有力/);
-  assert.match(judge[0].content, /随机词堆砌/);
-  assert.match(judge[0].content, /只在确实更好时才精修获胜候选/);
+  const editor = editorMessages(messages, { content: { kind: 'text', text: '中文' } }, outputLanguage);
+  assert.match(editor[0].content, /指定语言简体中文/);
+  assert.match(editor[0].content, /原稿更好，保留原稿/);
+  assert.match(editor[1].content, /中文/);
 });
 
 test('explicit limerick instructions remain available', () => {

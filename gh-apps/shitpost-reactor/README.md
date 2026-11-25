@@ -16,21 +16,20 @@ Small scheduled shitpost generator and public feed. GitHub Actions is the only c
 2. `generate.mjs` uses compact Chinese-language craft notes in bundled `style-reference.md` and an untrusted reference data contract. No runtime style download or override. Published records retain their `skill.source` and the local asset SHA-256; generation rules own the output schema.
 3. The Action calls the authenticated public proxy at
   `automation.travny.workers.dev` with synthetic model `kanarek-shitpost-free`.
-  Duel: up to 2 successful candidates, each from a provider not used yet
-  (`x-kanarek-review-exclude-provider`), then one `kanarek-judge-free` call
-  picks the funniest against `taste-profile.json`. Transient 502/503/504
-  exhaustion gets bounded retries (5s, 15s); candidate slots count successful
-  drafts. The judge gets the final 6 minutes of a 30-minute budget and may
-  revise the winner in its existing response, using the other finalist as
-  inspiration without another provider call. One candidate skips judging; an
-  invalid verdict uses the first. The run artifact includes both original drafts
-  and the judge decision. Only the losing draft and judge metadata are archived
-  privately under R2 `editorial/gh-<run_id>-<attempt>.json`; the winner is
-  published as usual. No private archive entry is written when only one
-  candidate succeeds. Public posts and feeds remain winner-only. The
-  GitHub-hosted job is capped at 90 minutes, including setup and publishing.
+  Author + editor: one complete draft, then at most one optional editorial
+  response via `kanarek-judge-free`, excluding the author's provider.
+  Editor gets the original source context, selected language/form and draft;
+  keeps the original or returns a validated improvement. No third model stage.
+  Invalid first draft may use the second stage as rescue author instead.
+  Missing/same provider identity, unavailable editor or invalid edit leaves
+  the valid author draft unchanged. Router transport retries and internal
+  free-provider failover remain possible. A 30-minute shared budget reserves
+  six minutes for editing. On a real revision, the superseded draft and editor
+  metadata use the existing private R2 `editorial/gh-<run_id>-<attempt>.json`
+  runner_up/winner contract; no duplicate archive for an unchanged draft.
+  Public feed remains final-only. Job cap: 90 minutes.
 4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the shared provider inventory, shitpost task policy, credentials and cooldowns. Workers AI is currently excluded because its account allocation is reserved for Botek.
-5. The chosen draft and both original candidates are saved in `latest.json` plus a readable winner-only `latest.md`. If generation fails from router rate limits, exhausted models, transport errors or unusable model output, the emergency text path chooses one of Polish, English, Simplified Chinese or Russian deterministically from the run seed. It samples Bacon Ipsum for a meat motif without using a model for translation; if Bacon Ipsum itself fails, local meat choices still yield a post. Authentication/configuration errors never trigger fallback.
+5. The chosen draft and available editorial versions are saved in `latest.json` plus a readable winner-only `latest.md`. If generation fails from router rate limits, exhausted models, transport errors or unusable model output, the emergency text path chooses one of Polish, English, Simplified Chinese or Russian deterministically from the run seed. It samples Bacon Ipsum for a meat motif without using a model for translation; if Bacon Ipsum itself fails, local meat choices still yield a post. Authentication/configuration errors never trigger fallback.
 6. `publish.mjs` requests a short-lived GitHub Actions OIDC token and POSTs the draft to `https://shitpost-reactor.travny.workers.dev/api/publish`. No extra publishing secret is stored in GitHub.
 7. The `shitpost-reactor` Worker verifies the GitHub OIDC signature and pins claims to `trvny/trvny`, this exact workflow and `refs/heads/main`, then stores the entry in the `shitpost-reactor` R2 bucket.
 8. The same Worker serves the public archive and feeds. Cloudflare has **no cron trigger** for this project.
@@ -62,7 +61,7 @@ RSS, Atom and JSON Feed expose stable entry IDs, publication dates, categories a
 
 Archive index updates use conditional ETag writes with bounded retries. Concurrent publishers cannot replace a newer manifest with a stale snapshot; exhausted conflicts fail explicitly.
 
-`worker.mjs` is intentionally read-mostly. `icons.mjs` is the single generated-icon implementation used for SVG, PNG, ICO, Apple touch, Windows tile and manifest surfaces. Publishing still only uses `POST /api/publish`, accepted with the pinned GitHub Actions OIDC identity on `main`. Anonymous `POST /api/submissions` writes bounded pending proposals into a separate R2 prefix. It **never publishes**, and the manually dispatched, owner-pinned workflow alone can approve or reject submissions. It stores only the runner-up privately in R2 when a second draft is available, keeping the public archive unchanged. New publishes reject missing or unsupported output languages, while old archived entries remain readable. A repeated request from the same GitHub run/attempt is idempotent.
+`worker.mjs` is intentionally read-mostly. `icons.mjs` is the single generated-icon implementation used for SVG, PNG, ICO, Apple touch, Windows tile and manifest surfaces. Publishing still only uses `POST /api/publish`, accepted with the pinned GitHub Actions OIDC identity on `main`. Anonymous `POST /api/submissions` writes bounded pending proposals into a separate R2 prefix. It **never publishes**, and the manually dispatched, owner-pinned workflow alone can approve or reject submissions. It stores the superseded draft privately in R2 when a revised draft is available, keeping the public archive unchanged. New publishes reject missing or unsupported output languages, while old archived entries remain readable. A repeated request from the same GitHub run/attempt is idempotent.
 
 Deploys only via Cloudflare Workers Builds on push to `main` (root `gh-apps/shitpost-reactor`, build `npm run check`, deploy `npm run deploy`). `npm run deploy` (`deploy.mjs`, on `../core/worker-deploy.mjs`) requires `WORKERS_CI_COMMIT_SHA`, deploys only while its commit is the newest `main` commit for the watch paths, stamps `DEPLOY_COMMIT`, verifies `/version` matches and `/archive` is newest-first, and on failure restores the previous deployment (only while its own version is still active) and fails the build. Runs under the shared D1 deploy lock (`../core/deploy-lock.mjs`). Builds watch paths: `gh-apps/shitpost-reactor/**`, `gh-apps/core/worker-deploy.mjs`, `gh-apps/core/deploy-lock.mjs`.
 
@@ -82,7 +81,7 @@ Scheduled runs use `auto`. Topic lanes now use a reproducible hash instead of th
 Scheduled `auto` runs follow a 20-run form cycle: seven prose, four memes,
 two pocket verses (3–6 lines), two limericks (five lines, AABBA requested),
 three dialogues (2–6 speaker-labelled lines), and two parodies (3+ lines).
-One verse slot every five runs. Both candidates and judge revisions must meet
+One verse slot every five runs. Author drafts and editor revisions must meet
 the selected kind and structural constraints. Rhyme, comic quality and genre
 semantics remain editorial instructions, not linguistic proofs. Manual
 `text`, `meme`, `prose`, `verse`, `limerick`, `dialogue` and `parody`
@@ -91,7 +90,7 @@ and manual dispatches can shift the published mix. Text forms preserve the
 schema-v2 `kind: text` and line breaks. No stored records rewritten.
 
 Meme templates come from the existing allowlist, by name only. No new
-renderer or image provider is introduced. Model-facing generation and judge
+renderer or image provider is introduced. Model-facing generation and editor
 rules stay compact Simplified Chinese; public languages remain Polish,
 English, Simplified Chinese and Russian. `style-reference.md` and
 `taste-profile.json` provide compact Chinese-language craft context.
@@ -156,7 +155,6 @@ deliberately not loaded into the runtime prompt.
 Generation deliberately favors quality over latency. The completion budget is
 16,384 tokens of generation/reasoning headroom, not a target post length; final
 text still has the same 2,400-character safety ceiling and the prompt explicitly
-forbids padding to a limit. The client can wait up to 20 minutes for the shared
-router, while the GitHub job has a 30-minute ceiling. The router itself gives the
+forbids padding to a limit. The author has a 24-minute router budget; author and editor share 30 minutes. The GitHub job has a 90-minute ceiling. The router itself gives the
 shitpost task a bounded two-minute budget per provider, shared across that
 provider's internal model fallbacks.

@@ -35,6 +35,11 @@ on:
           - auto
           - text
           - meme
+          - prose
+          - verse
+          - limerick
+          - dialogue
+          - parody
 
 permissions:
   contents: read

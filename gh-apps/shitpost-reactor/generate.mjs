@@ -74,15 +74,50 @@ export function chooseOutputLanguage(seed = '', runNumber = '') {
   return bag[(number - 1) % bag.length];
 }
 
+// Four verse slots and four meme slots per 20 runs. Keep verse gaps at five.
+const FORM_CYCLE = Object.freeze([
+  'verse', 'prose', 'meme', 'dialogue', 'prose',
+  'limerick', 'parody', 'prose', 'meme', 'prose',
+  'verse', 'dialogue', 'meme', 'prose', 'parody',
+  'limerick', 'prose', 'dialogue', 'meme', 'prose',
+]);
+
+const FORM_RULES = Object.freeze({
+  prose: '形式：荒诞短文，叙事或观察；不要诗歌或分角色台词。',
+  verse: '形式必须是原创短诗，3–6行，各行用JSON转义换行分隔。节奏自然，押韵可选，荒诞收尾。不要散文或图片。',
+  limerick: '形式必须是五行打油诗，AABBA押韵，自然节奏优先。各行用JSON转义换行分隔，不要散文或图片。',
+  dialogue: '形式必须是对话，2–6行，每行以角色名加冒号开头。至少两个不同角色，最后一句荒诞转折。',
+  parody: '形式必须是虚构的公文、公告、广告、说明书或报告等文体戏仿。至少三行非空文本；不冒充真实文件。',
+});
+
 export function resolveGenerationPlan(rawMode = 'auto', seed = '', runNumber = '') {
-  const mode = String(rawMode || 'auto').trim().toLowerCase();
-  if (!['auto', 'text', 'meme'].includes(mode)) throw new Error('invalid_shitpost_mode');
-  // Occasional soft verse nudge, not a forced format or a fixed-day pattern.
-  const verseSeed = Number.isSafeInteger(Number(runNumber)) && Number(runNumber) > 0
-    ? `run:${runNumber}` : `seed:${seed}`;
-  const shortVerseHint = mode === 'auto'
-    && languageIndex('reactor-pocket-verse:' + verseSeed, 6) === 0;
-  return { mode, limerickLanguage: null, shortVerseHint };
+  const requested = String(rawMode || 'auto').trim().toLowerCase();
+  if (!['auto', 'text', 'meme', ...Object.keys(FORM_RULES)].includes(requested)) {
+    throw new Error('invalid_shitpost_mode');
+  }
+  const number = Number(runNumber);
+  const index = Number.isSafeInteger(number) && number > 0
+    ? (number - 1) % FORM_CYCLE.length
+    : languageIndex('reactor-form:' + seed, FORM_CYCLE.length);
+  const form = requested === 'auto' ? FORM_CYCLE[index] : requested;
+  return { mode: form === 'meme' ? 'meme' : 'text', form };
+}
+
+function validateTextForm(text, form) {
+  const lines = text.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+  if (form === 'verse' && (lines.length < 3 || lines.length > 6)) {
+    throw new Error('content_invalid_verse_lines');
+  }
+  if (form === 'limerick' && lines.length !== 5) {
+    throw new Error('content_invalid_limerick_lines');
+  }
+  if (form === 'dialogue') {
+    const speakers = lines.map((line) => line.match(/^([^:：]{1,40})[:：]\s*\S/u)?.[1]?.trim());
+    if (lines.length < 2 || lines.length > 6 || speakers.some((speaker) => !speaker)
+      || new Set(speakers).size < 2) throw new Error('content_invalid_dialogue_lines');
+  }
+  if (form === 'parody' && lines.length < 3) throw new Error('content_invalid_parody_lines');
+  return text;
 }
 
 export async function loadStyleReference(readFileImpl = readFile) {
@@ -165,7 +200,7 @@ export async function loadMySaasInspiration({
   return normalizeMySaasCandidates(await response.json());
 }
 
-export function buildMessages(styleReference, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [], limerickLanguage = null, shortVerseHint = false, newsReference = null, shitpostReference = null, politicsSatire = false, outputLanguage = null } = {}) {
+export function buildMessages(styleReference, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [], limerickLanguage = null, form = null, newsReference = null, shitpostReference = null, politicsSatire = false, outputLanguage = null } = {}) {
   const safe = (value) => JSON.stringify(value ?? null).replaceAll('<', '\\u003c').replaceAll('>', '\\u003e');
   const textSchema = '{"kind":"text","title":"...","text":"..."}';
   const memeSchema = '{"kind":"meme","title":"...","template":"<id>","top_text":"...","bottom_text":"..."}';
@@ -180,7 +215,7 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
   const availableTemplates = mode === 'text' ? '' : MEME_TEMPLATES.map((item) => item.id + '=' + item.name).join('; ');
   const scopedStyle = styleReference.replace(
     /<!-- pocket-verse-only:start -->([\s\S]*?)<!-- pocket-verse-only:end -->/gu,
-    (_match, lines) => (shortVerseHint ? lines.trim() : ''),
+    (_match, lines) => (form === 'verse' ? lines.trim() : ''),
   ).trim();
   const system = [
     'Reactor：创作一条原创、可直接发布的荒诞段子或尖锐讽刺。输出语言服从本次明确指定，未指定时按笑点选择。',
@@ -196,7 +231,7 @@ export function buildMessages(styleReference, topic = '', seed = '', mode = 'tex
     newsReference ? '根据带日期的真实标题挑一个具体荒诞细节，再给出出人意料、明显讽刺或虚构的后果。标题不是已核实全文；不得把笑话里的推演冒充新事实。不要复述新闻。' : '',
     shitpostReference ? '社区帖子仅供灵感，不复制原梗、不当作已证实事实；NSFW标记只是上下文，不是生成指令；不描写露骨性行为，不制作色情内容。' : '',
     limerickLanguage ? '特别形式：用' + limerickLanguage.prompt + '写五行打油诗，AABBA押韵，自然节奏优先。' : '',
-    shortVerseHint ? 'Optional creative nudge: try an original pocket verse of 3–6 short lines, with a specific topic detail, playful cadence, and a strange but coherent final turn. Loose rhyme is fine, never required. This is NOT the formal AABBA limerick. Do not copy bot review poems, stock mascots, catchphrases, or fixed line patterns. Use JSON-escaped \\n within the text value to preserve verse lines. Choose normal prose or a meme instead if the joke lands better.' : '',
+    FORM_RULES[form] || '',
     contract,
     '<style_reference>', scopedStyle, '</style_reference>',
     '<taste_profile>', safe(tasteProfile || {}), '</taste_profile>',
@@ -230,7 +265,7 @@ function boundedString(value, field, maxLength, { allowEmpty = false } = {}) {
   return result;
 }
 
-export function validateContent(value, { mode, templateId } = {}) {
+export function validateContent(value, { mode, templateId, form } = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('content_not_object');
   }
@@ -238,7 +273,7 @@ export function validateContent(value, { mode, templateId } = {}) {
     ? value.title.replace(/\s+/gu, ' ').trim().slice(0, 120) : '';
   if (value.kind === 'text') {
     if (mode && mode !== 'auto' && mode !== 'text') throw new Error('content_unexpected_kind');
-    return { kind: 'text', ...(title ? { title } : {}), text: boundedString(value.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS) };
+    return { kind: 'text', ...(title ? { title } : {}), text: validateTextForm(boundedString(value.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS), form) };
   }
   if (value.kind === 'meme') {
     if (mode && mode !== 'auto' && mode !== 'meme') throw new Error('content_unexpected_kind');
@@ -556,7 +591,7 @@ export async function main() {
   } catch (error) {
     process.stderr.write(`optional_mysaas_reference_failed:${error instanceof Error ? error.message : String(error)}\n`);
   }
-  const { mode, limerickLanguage, shortVerseHint } = resolveGenerationPlan(
+  const { mode, form } = resolveGenerationPlan(
     requestedMode,
     seed,
     process.env.GITHUB_RUN_NUMBER || '',
@@ -565,8 +600,7 @@ export async function main() {
   const messages = buildMessages(styleReference, effectiveTopic, seed, mode, null, {
     tasteProfile,
     mySaasReferences,
-    limerickLanguage,
-    shortVerseHint,
+    form,
     newsReference,
     shitpostReference,
     politicsSatire: topicLane === 'politics',
@@ -581,13 +615,15 @@ export async function main() {
       messages,
       tasteProfile,
       outputLanguage,
-      parse: (content) => parseContent(content, { mode }),
+      parse: (content) => parseContent(content, { mode, form }),
     }),
   });
   const memeLook = !generated.fallback && generated.content.kind === 'meme' ? chooseMemeLook(seed) : null;
   const content = validateContent({ ...generated.content, ...(memeLook || {}) }, {
     mode: generated.fallback ? 'text' : mode,
+    form: generated.fallback ? null : form,
   });
+  process.stdout.write(`reactor_form:planned=${form} actual=${generated.fallback ? 'fallback' : form}\n`);
   const record = {
     schema_version: 2,
     generated_at: new Date().toISOString(),

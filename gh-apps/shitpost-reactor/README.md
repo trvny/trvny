@@ -79,15 +79,17 @@ There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymo
 
 Scheduled runs use `auto`. Topic lanes now use a reproducible hash instead of the fixed seven-run cycle: world news, politics, public meme threads, local Chrzanów-area events, Polish Wikipedia/culture, AI self-roasts and evergreen absurdity. Sources are sampled before their recent entries to prevent large feeds from dominating; manual topics still win. Headlines must be no older than 48 hours, and direct victim-harm stories are filtered. BBC RSS, Feedseek Reuters/Euronews/Wikipedia, TVP/PAP/Gov.pl/Wykop, DoRzeczy, wPolityce, and public meme feeds provide untrusted titles only. Local topics use Google News RSS, including site-scoped searches for `przelom.pl` and `chrzanow.naszemiasto.pl`, plus Chrzanów, Trzebinia, Libiąż and Alwernia. A missing or stale source never blocks generation. Source headlines remain in entry metadata; fictional allegations are forbidden. Politics matches include scandals, corruption, municipal government and everyday institutions.
 
-Limericks remain optional, not imposed at fixed intervals. Roughly one in
-six `auto` runs gets a non-binding pocket-verse nudge: 3–6 original lines,
-a grounded detail, playful rhythm and a strange last turn. This is not an
-AABBA limerick or a copied bot-review poem. A stronger prose or meme punchline
-wins instead. Text stays schema-v2 `kind: text`; line breaks survive public
-pages, feeds and generated Markdown drafts.
+Scheduled `auto` runs follow a 20-run form cycle: seven prose, four memes,
+two pocket verses (3–6 lines), two limericks (five lines, AABBA requested),
+three dialogues (2–6 speaker-labelled lines), and two parodies (3+ lines).
+One verse slot every five runs. Both candidates and judge revisions must meet
+the selected kind and structural constraints. Rhyme, comic quality and genre
+semantics remain editorial instructions, not linguistic proofs. Manual
+`text`, `meme`, `prose`, `verse`, `limerick`, `dialogue` and `parody`
+override the cycle. Emergency Bacon fallback remains plain text; failed runs
+and manual dispatches can shift the published mix. Text forms preserve the
+schema-v2 `kind: text` and line breaks. No stored records rewritten.
 
-In `auto`, the model chooses text or meme based on the joke, not a seeded
-format coin flip. Explicit `text` and `meme` choices still constrain the kind.
 Meme templates come from the existing allowlist, by name only. No new
 renderer or image provider is introduced. Model-facing generation and judge
 rules stay compact Simplified Chinese; public languages remain Polish,
@@ -116,7 +118,7 @@ Moderation: **Actions → Shitpost Reactor → Run workflow**, choose `review_ac
 
 ## Manual run
 
-Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose `auto`, `text` or `meme`. Scheduled news posts use dated RSS or Feedseek JSON Feed headlines as untrusted inspiration instead of inventing current events. Polish political posts roast public conduct and bureaucratic absurdity, not voting choices. The generator does not publish the source feed or copy its article text.
+Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose a form or leave `auto` for the rotation. Scheduled news posts use dated RSS or Feedseek JSON Feed headlines as untrusted inspiration instead of inventing current events. Polish political posts roast public conduct and bureaucratic absurdity, not voting choices. The generator does not publish the source feed or copy its article text.
 
 For local testing:
 

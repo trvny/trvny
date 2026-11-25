@@ -81,13 +81,13 @@ test('generation and judge enforce the selected language independent of source',
   assert.match(judge[0].content, /只在确实更好时才精修获胜候选/);
 });
 
-test('optional limerick instructions are Chinese but never scheduled by cadence', () => {
+test('explicit limerick instructions remain available', () => {
   const messages = buildMessages('# style', 'deploy', 'seed', 'text', null, {
     limerickLanguage: { code: 'zh-Hans', prompt: 'Simplified Chinese' },
   });
   assert.match(messages[0].content, /AABBA/);
   assert.match(messages[0].content, /Simplified Chinese/);
-  assert.equal(resolveGenerationPlan('auto', 'seed', '6').limerickLanguage, null);
+  assert.equal(resolveGenerationPlan('limerick', 'seed', '6').form, 'limerick');
 });
 
 test('buildMessages accepts taste and MySaaS as optional reference context', () => {
@@ -239,7 +239,7 @@ test('validateContent accepts a pinned meme and rejects invented templates', () 
   );
 });
 
-test('mode and meme look are reproducible without forced poetry', () => {
+test('mode and meme look are reproducible', () => {
   assert.equal(resolveShitpostMode('text', 'anything'), 'text');
   assert.equal(resolveShitpostMode('meme', 'anything'), 'meme');
   assert.equal(resolveShitpostMode('auto', 'same-seed'), resolveShitpostMode('auto', 'same-seed'));
@@ -251,8 +251,7 @@ test('mode and meme look are reproducible without forced poetry', () => {
   assert.ok(looks.some((look) => look.color));
   assert.equal(resolveGenerationPlan('meme', 'same-seed', '2').mode, 'meme');
   assert.equal(resolveGenerationPlan('text', 'same-seed', '2').mode, 'text');
-  assert.ok(Array.from({ length: 16 }, (_, i) => resolveGenerationPlan('auto', 'seed', String(i + 1)))
-    .every((plan) => plan.mode === 'auto' && plan.limerickLanguage === null));
+  assert.deepEqual(resolveGenerationPlan('auto', 'seed', '1'), { mode: 'text', form: 'verse' });
   assert.throws(() => resolveGenerationPlan('strange-mode'), /invalid_shitpost_mode/);
   const image = memeImageUrl('bad', 'top', 'bottom', { font: 'kalam', color: 'yellow,black', layout: 'top' });
   assert.match(image, /font=kalam/);

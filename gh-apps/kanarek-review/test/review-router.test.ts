@@ -631,7 +631,50 @@ test('paid review contract falls through from DeepSeek to native Gemini Interact
   ]);
 });
 
-test('paid DeepSeek blank JSON response falls through to Gemini Flex', async () => {
+test('paid review stops after a billed DeepSeek timeout', async () => {
+  const urls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review JSON' }],
+  }), {
+    ...auth,
+    DEEPSEEK_API_KEY: 'deepseek-key',
+    MISTRAL_API_KEY: 'mistral-key',
+  }, ((input: RequestInfo | URL) => {
+    urls.push(String(input));
+    return Promise.reject(new DOMException('timed out', 'AbortError'));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 502);
+  assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), 'deepseek');
+  assert.deepEqual(urls, ['https://api.deepseek.com/chat/completions']);
+});
+
+test('paid work still fails over after a blank DeepSeek HTTP 200', async () => {
+  const hosts: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-work-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'edit repository' }],
+  }), {
+    ...auth,
+    DEEPSEEK_API_KEY: 'deepseek-key',
+    MISTRAL_API_KEY: 'mistral-key',
+  }, ((input: RequestInfo | URL) => {
+    const { hostname } = new URL(String(input));
+    hosts.push(hostname);
+    return Promise.resolve(Response.json({
+      choices: [{ message: { role: 'assistant', content: hostname === 'api.deepseek.com' ? '' : 'done' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'mistral');
+  assert.deepEqual(hosts, ['api.deepseek.com', 'api.mistral.ai']);
+});
+
+test('paid review stops after a blank billed DeepSeek response', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review-paid',
@@ -643,28 +686,16 @@ test('paid DeepSeek blank JSON response falls through to Gemini Flex', async () 
     GEMINI_API_KEY: 'gemini-key',
     KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL) => {
-    const url = String(input);
-    urls.push(url);
-    if (new URL(url).hostname === 'api.deepseek.com') {
-      return Promise.resolve(Response.json({
-        model: 'deepseek-flash',
-        choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '   ' } }],
-      }));
-    }
+    urls.push(String(input));
     return Promise.resolve(Response.json({
-      id: 'int_paid_fallback',
-      model: 'gemini-3.8-flash',
-      status: 'completed',
-      steps: [{ type: 'model_output', content: [{ type: 'text', text: '{"summary":"valid"}' }] }],
+      model: 'deepseek-flash',
+      choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '   ' } }],
     }));
   }) as typeof fetch);
 
-  assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
-  assert.deepEqual(urls, [
-    'https://api.deepseek.com/chat/completions',
-    'https://generativelanguage.googleapis.com/v1/interactions',
-  ]);
+  assert.equal(response?.status, 502);
+  assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), 'deepseek');
+  assert.deepEqual(urls, ['https://api.deepseek.com/chat/completions']);
 });
 
 test('paid work accepts an assistant tool call without visible text', async () => {
@@ -715,7 +746,94 @@ test('paid work rejects malformed tool calls, even with visible text', async () 
   }
 });
 
-test('combined review also falls back after a blank DeepSeek HTTP 200', async () => {
+test('a paid timeout before anything is sent is not reported as billed', async (t) => {
+  // Every clock read jumps past the provider budget, so no attempt can start.
+  let clock = Date.now();
+  t.mock.method(Date, 'now', () => (clock += 10_000_000));
+  let fetches = 0;
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review JSON' }],
+  }), { ...auth, DEEPSEEK_API_KEY: 'deepseek-key' }, (() => {
+    fetches += 1;
+    return Promise.resolve(new Response(null));
+  }) as typeof fetch);
+
+  assert.equal(fetches, 0);
+  assert.equal(response?.status, 502);
+  assert.match(await (response as Response).text(), /deepseek:timeout/);
+  assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), null);
+});
+
+test('Grok cooldown follows the upstream fault, not the billing marker', async () => {
+  for (const [rpc, cooled] of [
+    [{ status: 429, payload: { error: { code: 'xai_http_429' } }, billed: true as const }, ['http_429']],
+    [{ status: 502, payload: { error: { code: 'xai_agent_setup_failed' } } }, []],
+    [{ status: 504, payload: { error: { code: 'agent_setup_deadline' } } }, []],
+  ] as const) {
+    const remembered: string[] = [];
+    const cooldowns = {
+      idFromName: (name: string) => name,
+      get: () => ({
+        fetch: async (_url: RequestInfo | URL, init?: RequestInit) => {
+          const body = init?.body ? JSON.parse(String(init.body)) as { category?: string } : {};
+          if (body.category) remembered.push(body.category);
+          return new Response(null, { status: 204 });
+        },
+      }),
+    } as unknown as DurableObjectNamespace;
+    await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-review-paid',
+      stream: false,
+      messages: [{ role: 'user', content: 'review JSON' }],
+    }), {
+      ...auth,
+      KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai',
+      KANAREK_REVIEW_XAI_MODEL: 'grok-4.7',
+      XAI_API_KEY: 'xai-key',
+      XAI_REVIEW_RPC: { completeReview: async () => rpc },
+      KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    }, (() => Promise.reject(new Error('no fetch expected'))) as typeof fetch);
+
+    assert.deepEqual(remembered, [...cooled]);
+  }
+});
+
+test('paid review reserves follow only Grok failures that were not billed', async () => {
+  for (const [rpc, expected] of [
+    [{ status: 502, payload: { error: { code: 'xai_agent_setup_failed' } } }, 200],
+    [{ status: 429, payload: { error: { code: 'xai_http_429' } } }, 200],
+    [{ status: 429, payload: { error: { code: 'xai_http_429' } }, billed: true as const }, 502],
+    // A billed 400 must not leave through the headerless invalid_request exit.
+    [{ status: 400, payload: { error: { code: 'xai_http_400' } }, billed: true as const }, 502],
+  ] as const) {
+    const hosts: string[] = [];
+    const response = await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-review-paid',
+      stream: false,
+      messages: [{ role: 'user', content: 'review JSON' }],
+    }), {
+      ...auth,
+      KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai,deepseek',
+      KANAREK_REVIEW_XAI_MODEL: 'grok-4.7',
+      XAI_API_KEY: 'xai-key',
+      DEEPSEEK_API_KEY: 'deepseek-key',
+      XAI_REVIEW_RPC: { completeReview: async () => rpc },
+    }, ((input: RequestInfo | URL) => {
+      hosts.push(new URL(String(input)).hostname);
+      return Promise.resolve(Response.json({
+        choices: [{ message: { role: 'assistant', content: '{"summary":"ok"}' } }],
+      }));
+    }) as typeof fetch);
+
+    assert.equal(response?.status, expected);
+    assert.deepEqual(hosts, expected === 200 ? ['api.deepseek.com'] : []);
+    assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), expected === 200 ? null : 'xai');
+  }
+});
+
+test('combined review also stops after a blank billed DeepSeek HTTP 200', async () => {
   const providers: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review',
@@ -727,25 +845,16 @@ test('combined review also falls back after a blank DeepSeek HTTP 200', async ()
     GEMINI_API_KEY: 'gemini-key',
     KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL) => {
-    const host = new URL(String(input)).hostname;
-    providers.push(host);
-    if (host === 'api.deepseek.com') {
-      return Promise.resolve(Response.json({
-        model: 'deepseek-flash',
-        choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '' } }],
-      }));
-    }
+    providers.push(new URL(String(input)).hostname);
     return Promise.resolve(Response.json({
-      id: 'int_combined',
-      model: 'gemini-3.8-flash',
-      status: 'completed',
-      steps: [{ type: 'model_output', content: [{ type: 'text', text: 'review done' }] }],
+      model: 'deepseek-flash',
+      choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '' } }],
     }));
   }) as typeof fetch);
 
-  assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
-  assert.deepEqual(providers, ['api.deepseek.com', 'generativelanguage.googleapis.com']);
+  assert.equal(response?.status, 502);
+  assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), 'deepseek');
+  assert.deepEqual(providers, ['api.deepseek.com']);
 });
 
 test('DeepSeek balance exhaustion falls through to native Gemini Flex', async () => {

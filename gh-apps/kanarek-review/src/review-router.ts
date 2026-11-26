@@ -647,8 +647,11 @@ const XAI_BILLED_FAILURE_CODES = new Set([
   'agent_deadline', 'agent_rounds_exhausted',
 ]);
 const XAI_BILLED_HEADER = 'x-kanarek-xai-billed';
+// Agent setup failures that never reached xAI: not a Grok fault, so no cooldown.
+const XAI_SETUP_FAILURE_CODES = new Set(['xai_agent_setup_failed', 'agent_setup_deadline']);
+const XAI_SETUP_HEADER = 'x-kanarek-xai-setup';
 
-type XaiRpcResult = { status: number; payload: Record<string, unknown>; retryAfter?: string };
+type XaiRpcResult = { status: number; payload: Record<string, unknown>; retryAfter?: string; billed?: true };
 
 export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObject, paidOnce = false): Promise<Response> {
   if (!env.XAI_REVIEW_RPC) {
@@ -666,7 +669,10 @@ export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObje
     headers.set('retry-after', result.retryAfter);
   }
   const code = isObject(result?.payload) && isObject(result.payload.error) ? result.payload.error.code : null;
-  if (typeof code === 'string' && XAI_BILLED_FAILURE_CODES.has(code)) headers.set(XAI_BILLED_HEADER, code);
+  if (typeof code === 'string' && (result.billed === true || XAI_BILLED_FAILURE_CODES.has(code))) {
+    headers.set(XAI_BILLED_HEADER, code);
+  }
+  if (typeof code === 'string' && XAI_SETUP_FAILURE_CODES.has(code)) headers.set(XAI_SETUP_HEADER, code);
   return Response.json(result?.payload || { error: { message: 'xai_rpc_invalid' } }, { status, headers });
 }
 
@@ -2354,6 +2360,8 @@ export async function handleReviewRouterRequest(
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
+  // Only these can have been charged.
+  const submittedFailures: string[] = [];
 
   const selectedProviders = workOnly
     ? workProviders(env)
@@ -2472,6 +2480,8 @@ export async function handleReviewRouterRequest(
     let providerInvalidRequest = true;
     let providerRetryAfterMs: number | null = null;
     let outboundAttempts = 0;
+    // Billed after an earlier round, while the category still describes the last rejection.
+    let billedAfterRound = false;
 
     // Primaries cooling down will be skipped; they must not cap the live model's time.
     const cooledPrimaries = supportsModelCooldown && multiModel
@@ -2724,10 +2734,18 @@ export async function handleReviewRouterRequest(
                 ? classifyOpenRouterRateLimit(preview, response.headers)
                 : `http_${status}`;
         // xAI RPC reports a billed failure as 502/504; keep it distinguishable from an outage.
-        if (provider.id === 'xai' && response.headers.has(XAI_BILLED_HEADER)) {
+        const billedCode = provider.id === 'xai' ? response.headers.get(XAI_BILLED_HEADER) : null;
+        if (billedCode && XAI_BILLED_FAILURE_CODES.has(billedCode)) {
           providerFailureCategory = 'invalid_response';
+        } else if (billedCode) {
+          billedAfterRound = true;
+        } else if (provider.id === 'xai' && response.headers.has(XAI_SETUP_HEADER)) {
+          providerFailureCategory = 'setup_failed';
         }
-        if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
+        // After a billed round the request was evidently valid.
+        if (billedAfterRound || status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) {
+          providerInvalidRequest = false;
+        }
         if (singleModel && (['http_404', 'http_404_model_retired', 'http_410', 'http_400_invalid_model',
           'http_429_model_busy'].includes(providerFailureCategory) ||
           (provider.id === 'orcarouter' && providerFailureCategory === 'http_403'))) {
@@ -2793,7 +2811,13 @@ export async function handleReviewRouterRequest(
       defaultCooldownMs === null ? null : (providerRetryAfterMs ?? defaultCooldownMs),
     );
     failures.push(diagnostic(provider, providerFailureCategory));
+    const billingCategory = billedAfterRound ? 'invalid_response' : providerFailureCategory;
+    if (outboundAttempts > 0) submittedFailures.push(diagnostic(provider, billingCategory));
     if (providerInvalidRequest) invalidRequests += 1;
+    // A submitted paid review that likely billed ends the queue: another reserve would
+    // charge for the same review. Work turns keep failing over.
+    if ((paidOnly || includePaidReserves) && outboundAttempts > 0 &&
+        likelyBilledFailure(provider.id, billingCategory)) break;
   }
 
 
@@ -2804,14 +2828,16 @@ export async function handleReviewRouterRequest(
   if (invalidRequests === configured && attemptedPaidProvider === null) {
     return jsonError(diagnosticMessage('Invalid review request', failures), 'invalid_request', 400);
   }
+  const likelyBilled = billedPaidProvider(submittedFailures);
+  const billed = attemptedPaidProvider ?? likelyBilled;
+  // A billed outcome is final: never answer it with a retry-me 429.
+  const quotaOnly = !likelyBilled && failures.length > 0 &&
+    failures.every((failure) => isQuotaFailure(failure.split(':', 2)[1] ?? ''));
   const exhausted = jsonError(
     diagnosticMessage('Review providers unavailable', failures),
     'review_router_exhausted',
-    failures.length > 0 && failures.every((failure) => isQuotaFailure(failure.split(':', 2)[1] ?? ''))
-      ? 429
-      : 502,
+    quotaOnly ? 429 : 502,
   );
-  const billed = attemptedPaidProvider ?? billedPaidProvider(failures);
   if (billed) exhausted.headers.set(REVIEW_BILLED_PROVIDER_HEADER, billed);
   return exhausted;
 }
@@ -2821,8 +2847,12 @@ export async function handleReviewRouterRequest(
 export function billedPaidProvider(failures: readonly string[]): string | null {
   for (const failure of failures) {
     const [id, category] = failure.split(':', 2);
-    if (PAID_PROVIDER_IDS.some((paid) => paid === id) &&
-        (category === 'invalid_response' || category === 'timeout')) return id;
+    if (likelyBilledFailure(id, category)) return id;
   }
   return null;
+}
+
+function likelyBilledFailure(id: string | undefined, category: string | undefined): boolean {
+  return PAID_PROVIDER_IDS.some((paid) => paid === id) &&
+    (category === 'invalid_response' || category === 'timeout');
 }

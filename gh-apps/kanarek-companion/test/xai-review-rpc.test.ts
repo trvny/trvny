@@ -167,7 +167,43 @@ test('Grok does not fall back after a tool-mode 403 in a later, billed round', a
     }),
   );
   assert.equal(result.status, 403);
+  assert.equal(result.billed, true);
   assert.equal(calls, 2);
+});
+
+test('Grok agent failures are billed only once xAI was actually called', async () => {
+  const sha = 'a'.repeat(40);
+  const scoped = {
+    ...review,
+    messages: [review.messages[0], { role: 'user', content: JSON.stringify({
+      review_scope: { repository: 'trvny/trvny', head_sha: sha },
+      pull_request: { number: 17 },
+    }) }],
+  };
+  const gateway = async () => ({
+    read: async (path: string) => path.includes('/files?')
+      ? [] : { state: 'open', head: { sha }, changed_files: 0 },
+  });
+  const code = (result: { payload: Record<string, unknown> }) =>
+    (result.payload.error as { code: string }).code;
+  let calls = 0;
+  const setup = await requestGrokReview(
+    scoped, 'dummy', (async () => { calls++; return new Response(null); }) as typeof fetch,
+    Date.now() + 60_000, async () => { throw new Error('github rejected'); },
+  );
+  assert.equal(code(setup), 'xai_agent_setup_failed');
+  const late = await requestGrokReview(
+    scoped, 'dummy', (async () => { calls++; return new Response(null); }) as typeof fetch,
+    Date.now() + 10_000, gateway,
+  );
+  assert.equal(code(late), 'agent_setup_deadline');
+  assert.equal(calls, 0);
+  const first = await requestGrokReview(
+    scoped, 'dummy', (async () => new Response(null, { status: 429 })) as typeof fetch,
+    Date.now() + 60_000, gateway,
+  );
+  assert.equal(first.status, 429);
+  assert.equal(first.billed, undefined);
 });
 
 test('Grok never retries paid agent HTTP 502 or 504', async () => {

@@ -193,8 +193,10 @@ by its 15-minute alarm wall time.
 Free first, then paid: Companion sweeps the free queue (each provider excluded
 after an unusable answer; a clean verdict needs two free providers), and only
 an exhausted free sweep or rejected findings escalate to `kanarek-review-paid`.
-The paid pass makes one router call: the paid queue fails over on HTTP errors,
-but anything billed is final and never retried — an unusable answer
+The paid pass makes one router call: the paid review queue fails over on
+rejections before generation, but stops at the first submitted provider that
+likely billed (unusable answer or timeout; `kanarek-work-paid` still fails
+over). Anything billed is final and never retried — an unusable answer
 (`invalid_output`/`invalid_findings`, also when the router discarded it, Grok
 returned truncated/empty output, or a provider timed out mid-generation; the
 router names it in `x-kanarek-review-billed-provider`), a paid call cut off by

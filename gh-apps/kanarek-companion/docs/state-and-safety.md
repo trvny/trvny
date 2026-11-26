@@ -80,8 +80,10 @@ still has durable protection.
 
 Never reset the bank: no bumping/clearing the namespace, no new fields in
 `scopedBankKey` (golden-tested). Each reset refills the bank with paid AI calls.
-Schema changes must preserve or explicitly migrate learned data; unsafe entries
-are filtered or deleted individually, never orphaned wholesale.
+Schema changes must preserve or explicitly migrate learned data. Reads filter
+entries that fail the current validators (length, language, scope) and keep them;
+only values with no entry shape at all are deleted, individually. Learned data is
+never orphaned wholesale.
 
 AI selection is capped by `KANAREK_AI_PERCENT` and decays as the retainable
 context fills. If bank occupancy cannot be measured, generation fails closed and

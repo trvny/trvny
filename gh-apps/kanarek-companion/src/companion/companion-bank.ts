@@ -58,18 +58,32 @@ function entryKeyParts(name: string): EntryKeyParts | null {
   return match ? { quipKey: match[1], identity: match[2] } : null;
 }
 
-function entriesFromValue(value: unknown): QuipEntry[] {
+function bankArray(value: unknown): unknown[] | null {
   let parsed = value;
   if (typeof parsed === 'string') {
     try {
       parsed = JSON.parse(parsed) as unknown;
     } catch {
-      return [];
+      return null;
     }
   }
-  if (!Array.isArray(parsed)) return [];
-  return parsed
+  return Array.isArray(parsed) ? parsed : null;
+}
+
+// Deletable: no entry shaped for this context (broken payload or key mismatch).
+// An entry that merely fails today's validators is paid, learned data: filter
+// it, never delete it.
+function corruptBankValue(value: unknown, quipKey: string): boolean {
+  return !bankArray(value)?.some((entry) => {
+    const candidate = entry as { k?: unknown; q?: unknown } | null;
+    return candidate?.k === quipKey && typeof candidate.q === 'string';
+  });
+}
+
+function entriesFromValue(value: unknown): QuipEntry[] {
+  return (bankArray(value) ?? [])
     .map((entry): QuipEntry | null => {
+      if (!entry || typeof entry !== 'object') return null;
       const candidate = entry as { k?: unknown; l?: unknown; q?: unknown };
       if (candidate.l !== undefined && !isCompanionLanguage(candidate.l)) return null;
       const k =
@@ -304,8 +318,8 @@ async function loadEntryBank(
   const rotated = [...keys.slice(offset), ...keys.slice(0, offset)];
   const entries: QuipEntry[] = [];
   const invalid: string[] = [];
-  // Keep sampling past change-specific entries (skipped, not deleted) until
-  // the pool is full or the keys run out.
+  // Keep sampling past unusable entries (skipped, not deleted) until the pool is
+  // full or the keys run out.
   for (
     let start = 0;
     start < rotated.length && entries.length < POOL_LIMIT;
@@ -316,17 +330,17 @@ async function loadEntryBank(
     for (let index = 0; index < selected.length; index += 1) {
       const value = values[index];
       if (value === null) continue;
-      const parsed = entriesFromValue(value).filter(
-        (entry) =>
-          entry.k === quipKey && (!language || reusableStoredQuip(entry.q, entry.l, language)),
+      if (corruptBankValue(value, quipKey)) {
+        invalid.push(selected[index]);
+        continue;
+      }
+      entries.push(
+        ...entriesFromValue(value).filter(
+          (entry) =>
+            entry.k === quipKey &&
+            (!language || reusableStoredQuip(entry.q, entry.l, language, area)),
+        ),
       );
-      if (!parsed.length) invalid.push(selected[index]);
-      else
-        entries.push(
-          ...parsed.filter(
-            (entry) => !language || reusableStoredQuip(entry.q, entry.l, language, area),
-          ),
-        );
     }
   }
   if (invalid.length) {

@@ -389,12 +389,18 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
   );
 });
 
-test('removes unusable learned entries incrementally while reading a context', async () => {
+test('reading skips unusable learned entries and deletes only corrupt ones', async () => {
   const quipKey = 'eeeeeeeeeeeeeeee';
   const prefix = `${BANK_KEY}:entry:${quipKey}:`;
   const wrongLanguageKey = `${prefix}0000000000000001`;
   const tooShortKey = `${prefix}0000000000000002`;
+  const corrupt = new Map([
+    [`${prefix}0000000000000003`, 'not json'],
+    [`${prefix}0000000000000004`, '{"q":"not an array"}'],
+    [`${prefix}0000000000000005`, '[null,{"k":1}]'],
+  ]);
   const values = new Map<string, string>([
+    ...corrupt,
     [
       wrongLanguageKey,
       JSON.stringify([
@@ -434,8 +440,9 @@ test('removes unusable learned entries incrementally while reading a context', a
     await loadBank(env, quipKey, '0000000000000000', undefined, 'pl'),
     [],
   );
-  assert.deepEqual(new Set(deleted), new Set([wrongLanguageKey, tooShortKey]));
-  assert.equal(values.size, 0);
+  // Validators change; paid entries must survive that.
+  assert.deepEqual(new Set(deleted), new Set(corrupt.keys()));
+  assert.deepEqual([...values.keys()].sort(), [wrongLanguageKey, tooShortKey]);
 });
 
 test('reconciles the whole learned bank incrementally to a finite global limit', async () => {

@@ -1,5 +1,5 @@
 import { getDigestPosts, latestFirst, publicationPath } from "./_shared/digests.js";
-import { getShitposts } from "./_shared/shitpost.js";
+import { getShitposts, REACTOR_HOME_URL } from "./_shared/shitpost.js";
 import { serviceFetch } from "./_shared/service-fetch.js";
 import { publicationLang } from "./_shared/publication-lang.js";
 
@@ -79,16 +79,16 @@ function renderDigestTextCard(post) {
   </article>`;
 }
 
-function renderShitpostTextCard(post, index) {
+function renderShitpostTextCard(post) {
   const tags = post.tags.slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
   const meta = post.date ? escapeHtml(post.date) : "";
   const caption = escapeHtml(post.excerpt).replaceAll("\n", "<br>");
-  return `<a class="textitem" href="${escapeHtml(post.url)}">
-    <div class="textmeta"><b>P${501 + index}</b>${meta}</div>
-    <h3 lang="${publicationLang(post.titleLang ?? post.lang)}">${escapeHtml(post.title)}</h3>
+  return `<article class="textitem textdigest">
+    <div class="textmeta"><a class="textdigestcategory" href="${REACTOR_HOME_URL}">Reactor</a>${meta}</div>
+    <h3 lang="${publicationLang(post.titleLang ?? post.lang)}"><a class="texttitlelink" href="${escapeHtml(post.url)}">${escapeHtml(post.title)}</a></h3>
     ${post.excerpt ? `<p lang="${publicationLang(post.lang)}">${caption}</p>` : ""}
     <div class="texttags">${tags}</div>
-  </a>`;
+  </article>`;
 }
 
 function renderTexts(posts, digests, shitposts) {
@@ -111,7 +111,7 @@ function renderTexts(posts, digests, shitposts) {
   const pinned = featured.length ? `<section class="featurehome" aria-labelledby="featuredHeading"><div class="labhead"><h2 id="featuredHeading">P600 · FEATURED</h2></div><div class="featuregrid">${featured.map((post, index) => renderTextCard(post, index, 601)).join("")}</div></section>` : "";
   const cards = (items, offset = 0) => items.map((entry, index) =>
     entry.type === "shitpost"
-      ? renderShitpostTextCard(entry.value, offset + index)
+      ? renderShitpostTextCard(entry.value)
       : entry.type === "digest"
         ? renderDigestTextCard(entry.value)
         : renderTextCard(entry.value, offset + index)

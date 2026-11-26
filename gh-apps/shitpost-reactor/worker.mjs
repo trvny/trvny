@@ -9,6 +9,7 @@ import {
 import { fitMemeCaption, getMemeTemplate, memeImageUrl, normalizeMemeLook } from './templates.mjs';
 import { PUBLIC_ORIGIN as SITE_URL, LEGACY_ORIGIN, WORKER_ORIGIN, PUBLISH_AUDIENCE as OIDC_AUDIENCE } from './urls.mjs';
 import { OUTPUT_LANGUAGES } from './languages.mjs';
+import { REACTOR_STYLE, reactorShell } from './presentation.mjs';
 
 const FEED_TITLE = 'Reactor';
 const FEED_DESCRIPTION = 'Komentarze i obserwacje z pogranicza technologii, kultury i codzienności.';
@@ -730,8 +731,9 @@ ${structuredData}
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Reactor">
-<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem}article h2{font-size:1.3rem;margin:0 0 1rem}article .entry-body{line-height:1.55}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}.meme{display:block;max-width:100%;height:auto;margin:1rem 0;border-radius:.5rem}</style>
-</head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a><a href="/archive">Full archive</a></p></header>${body}<script src="/webmcp.js" defer></script></body></html>`;
+<link rel="stylesheet" href="https://bartek.lol/assets/tokens.css">
+<style>${REACTOR_STYLE}</style>
+</head><body>${reactorShell(body, new URL(canonicalUrl).pathname)}<script src="/webmcp.js" defer></script></body></html>`;
 }
 
 function response(body, contentType, { cache = 'public, max-age=300, stale-while-revalidate=600', status = 200, lastModified } = {}) {
@@ -1013,7 +1015,7 @@ async function handleGet(url, env) {
     const post = await readPost(env, match[1]);
     if (!post) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
     const summary = postSummary(post);
-    return response(htmlPage(postTitle(post), postHtml(post), publicPostUrl(post), postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post), shortTitle(summary), postLanguage(post) || 'pl'), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
+    return response(htmlPage(postTitle(post), postHtml(post), publicPostUrl(post), postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post), shortTitle(summary), postLanguage(post) || 'pl'), 'text/html; charset=utf-8', { cache: 'public, max-age=300, stale-while-revalidate=600', lastModified: post.published_at });
   }
 
   const aggregatePaths = new Set(['/', '/rss.xml', '/feed.xml', '/atom.xml', '/feed.json', '/sitemap.xml']);

@@ -145,6 +145,8 @@ test('newest first, 25 posts a page, without listing R2 on complete indexes', as
   const b = bucket(Array.from({ length: 64 }, (_, i) => post(i + 1)));
   const first = await archive(b.env);
   assert.equal(first.status, 200);
+  assert.match(first.body, /<main class="listing">/);
+  assert.match(first.body, /href="https:\/\/bartek\.lol\/przeglad\/">CoCzyDziennik<\/a>/);
   assert.equal((first.body.match(/<article>/g) || []).length, 25);
   assert.match(first.body, /Post number 64/);
   assert.match(first.body, /Post number 40/);

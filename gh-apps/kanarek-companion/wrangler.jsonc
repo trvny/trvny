@@ -100,7 +100,7 @@
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.1,
-      "persist": false,
+      "persist": true,
       "invocation_logs": false
     },
     "traces": {

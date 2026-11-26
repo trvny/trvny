@@ -44,6 +44,8 @@ const XAI_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 export const QUIP_MIN_CHARS = 45;
 // Chinese says as much in far fewer characters (the zh presets run 19-24).
 export const QUIP_MIN_HAN_CHARS = 16;
+// Enough ideographs to be a Chinese sentence, even next to a long area label.
+const HAN_SENTENCE_CHARS = 8;
 export const QUIP_MAX_CHARS = 110;
 export type QuipLanguage = 'en' | 'pl' | 'zh' | 'la' | 'ru';
 const SYSTEM_PROMPT = [
@@ -220,9 +222,10 @@ export function sanitize(value: unknown): string {
 
 export function validQuipLength(value: unknown): boolean {
   const quip = sanitize(value);
-  // Mostly Han, so one borrowed ideograph does not lower the bar for other text.
+  // A count, not a share: `GitHub automation` alone would outweigh a short sentence.
+  // A borrowed ideograph or two must not lower the bar for other text.
   const han = quip.match(/\p{Script=Han}/gu)?.length ?? 0;
-  const min = han * 2 > quip.length ? QUIP_MIN_HAN_CHARS : QUIP_MIN_CHARS;
+  const min = han >= HAN_SENTENCE_CHARS ? QUIP_MIN_HAN_CHARS : QUIP_MIN_CHARS;
   return quip.length >= min && quip.length <= QUIP_MAX_CHARS;
 }
 

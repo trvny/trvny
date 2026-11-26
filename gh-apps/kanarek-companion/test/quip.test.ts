@@ -85,6 +85,7 @@ test('enforces the learned quip character contract', () => {
   assert.equal(validQuipLength('鸟'.repeat(16)), true);
   assert.equal(validQuipLength('鸟'.repeat(111)), false);
   assert.equal(validQuipLength(`鸟${'x'.repeat(20)}`), false);
+  assert.equal(validQuipLength('GitHub automation 一切正常，金丝雀安心点头。'), true);
   for (const quip of [
     'Wszystko zielone, a Kanarka nikt już nie musi pilnować przy kablu.',
     'Lumina virent et Canaria instrumenta deponit; volatus permittitur.',

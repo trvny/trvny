@@ -630,9 +630,18 @@ async function postJson(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const raw = await response.text();
+    // Status decides first: a rejection's body is not needed, and losing it must
+    // not turn the rejection into a timeout.
     if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
       throw new Error(`${label} returned ${response.status}`);
+    }
+    let raw: string;
+    try {
+      raw = await response.text();
+    } catch {
+      // The provider answered 200 and likely billed; same as an unreadable body.
+      throw new Error(`${label} returned invalid JSON (body lost)`);
     }
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -974,8 +983,14 @@ export async function aiQuip(
       console.warn(`${providerLabel} returned ${reason}; using bank/preset.`);
       return null;
     } catch (error) {
-      await recordProviderStats(env, candidate.label, false, providerErrorCategory(error));
+      const category = providerErrorCategory(error);
+      await recordProviderStats(env, candidate.label, false, category);
       const message = error instanceof Error ? error.message : 'unknown provider error';
+      // Same line as the review router: a timeout or an unreadable 200 likely billed.
+      if (!candidate.free && (category === 'timeout' || category === 'invalid_json')) {
+        console.warn(`${message}; the call may have billed, using bank/preset.`);
+        return null;
+      }
       console.warn(
         `${message}${hasFallback ? '; trying next provider.' : '; using bank/preset.'}`,
       );

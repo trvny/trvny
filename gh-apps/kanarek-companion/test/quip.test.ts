@@ -512,6 +512,56 @@ test('does not pay a second provider after a complete but unusable quip', async 
   assert.equal(calls, 1);
 });
 
+const lostBody = (status: number, error: Error) =>
+  new Response(new ReadableStream({ start: (controller) => controller.error(error) }), { status });
+
+test('a paid timeout or unreadable 200 never reaches a second paid provider', async () => {
+  const outcomes = {
+    timeout: () => Promise.reject(new DOMException('aborted', 'AbortError')),
+    unreadable: () => Promise.resolve(new Response('not json', { status: 200 })),
+    array: () => Promise.resolve(Response.json([])),
+    droppedBody: () => Promise.resolve(lostBody(200, new TypeError('connection reset'))),
+  };
+  for (const [name, first] of Object.entries(outcomes)) {
+    let calls = 0;
+    const quip = await aiQuip(
+      '{}',
+      { OPENAI_API_KEY: 'openai', ANTHROPIC_API_KEY: 'anthropic' },
+      (() => {
+        calls += 1;
+        return first();
+      }) as typeof fetch,
+    );
+    assert.equal(quip, null, name);
+    assert.equal(calls, 1, name);
+  }
+});
+
+test('a rejected or unreachable paid provider still fails over', { timeout: 5_000 }, async () => {
+  // A body that never ends: awaiting it would hang, so it has to be cancelled.
+  let cancelled = false;
+  const endless = () => new Response(
+    new ReadableStream({ cancel: () => { cancelled = true; } }), { status: 429 });
+  const outcomes = {
+    rejected: () => Promise.resolve(new Response('upstream error', { status: 500 })),
+    unreachable: () => Promise.reject(new TypeError('network down')),
+    rejectedBodyStalls: () => Promise.resolve(endless()),
+  };
+  for (const [name, first] of Object.entries(outcomes)) {
+    let calls = 0;
+    await aiQuip(
+      '{}',
+      { OPENAI_API_KEY: 'openai', ANTHROPIC_API_KEY: 'anthropic' },
+      (() => {
+        calls += 1;
+        return calls === 1 ? first() : Promise.resolve(Response.json({}));
+      }) as typeof fetch,
+    );
+    assert.ok(calls > 1, name);
+  }
+  assert.equal(cancelled, true);
+});
+
 test('still falls back after a request failure with no provider response', async () => {
   let calls = 0;
   const fetcher = (async () => {

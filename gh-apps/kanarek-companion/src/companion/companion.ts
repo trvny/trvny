@@ -31,6 +31,7 @@ import {
 import {
   contextLanguage,
   contextualPreset,
+  matchesLanguage,
   reusableQuip,
 } from './companion-language.ts';
 import {
@@ -457,7 +458,20 @@ export async function refreshCompanion(
       size: prSize.key,
       previousQuip: previousPromptQuip || null,
     });
-    const generated = reusableQuip(await aiQuip(facts, env, fetcher), language, quipFacts.area);
+    const answer = await aiQuip(facts, env, fetcher);
+    const generated = reusableQuip(answer, language, quipFacts.area);
+    if (answer && !generated) {
+      // Paid text about to be thrown away; provider stats already counted a success.
+      console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+        JSON.stringify({
+          event: 'kanarek_ai_rejected',
+          reason: matchesLanguage(sanitize(answer), language) ? 'validator' : 'language',
+          language,
+          chars: sanitize(answer).length,
+          quip_key: quipKey,
+        }),
+      );
+    }
     if (generated) {
       quip = generated;
       source = 'ai';

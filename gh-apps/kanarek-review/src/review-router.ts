@@ -714,7 +714,7 @@ function mistralPaidProvider(
 ): ReviewProvider {
   return {
     // Official OpenAI-compatible endpoint; billing is per token with no free lane,
-    // so Mistral stays a paid reserve after the other paid providers.
+    // so Mistral is only ever a paid reserve; KANAREK_REVIEW_PAID_PROVIDER_ORDER places it.
     id: 'mistral',
     url: 'https://api.mistral.ai/v1/chat/completions',
     model: env.KANAREK_REVIEW_MISTRAL_MODEL?.trim() || '',

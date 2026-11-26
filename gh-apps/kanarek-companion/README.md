@@ -66,39 +66,17 @@ For the full routing/source map, see [`docs/architecture.md`](docs/architecture.
 For state, replay, and mutation invariants, see
 [`docs/state-and-safety.md`](docs/state-and-safety.md).
 
-## Grok review bridge
+## Grok review bridge (disabled)
 
-The existing verified GitHub App webhook can dispatch eligible, same-repository PR
-heads to the [central Grok Actions workflow](https://github.com/travnie/.github/actions/workflows/grok-review.yml).
-The deployment enables `GROK_REVIEW_DISPATCH_ENABLED=true` for
-`trvny/*,travnie/*` via `GROK_REVIEW_REPOSITORIES`. Set the dispatch flag to
-`false` to stop new Grok runs without disabling Kanarek itself. No workflow is
-needed in each reviewed repository.
+The Actions bridge is off: `GROK_REVIEW_DISPATCH_ENABLED` is `false` in
+`wrangler.jsonc`, and the central `grok-review.yml` workflow in `travnie/.github`
+was deleted on 2026-11-06. Paid Grok review runs through the router's private
+`XAI_REVIEW_RPC` service binding instead (see
+[`../kanarek-review/README.md`](../kanarek-review/README.md)).
 
-Dispatch prefers the Kanarek App, but its installation in the central repo
-currently lacks `Contents: write`. The already-connected GPTomek App is a
-**dispatch-only fallback**. It may appear as the triggering actor in Actions;
-it does not generate, sign, or publish Grok reviews. Granting Kanarek
-`Contents: write` on `travnie/.github` would remove the need for this
-fallback automatically.
-
-Actions runs Grok 4.7 with the organization `XAI_API_KEY`. A GitHub OIDC
-token, verified by `/grok-review/token` against the central workflow on
-`main`, obtains a short-lived **Kanarek Companion GitHub App** installation
-token limited to the target repository and PR-writing permission. GitHub does
-not allow the central workflow's `GITHUB_TOKEN` to write to other repositories.
-Grok's reviews therefore appear under `kanarek-companion[bot]`, **never**
-`gptomek[bot]` or the human PR author. Each review includes a Grok badge
-linking to its originating Actions run.
-
-The existing per-PR Durable Object deduplicates dispatch by head SHA;
-the central runner also rejects already reviewed heads, stale PRs, drafts,
-forks and `no-goblin` labels. If dispatch fails before GitHub accepts it,
-the Worker logs the failure but does **not** blindly retry an uncertain
-remote mutation. For manual recovery use
-[Run workflow](https://github.com/travnie/.github/actions/workflows/grok-review.yml)
-with the target repository and PR number. Model calls can be billed; the
-workflow bounds diff size and generation output.
+The dispatch code and its OIDC token route (`/grok-review/token`) are still in
+the tree. Re-enabling needs the central workflow restored first; the flag alone
+does nothing useful.
 
 ## Companion state and quips
 
@@ -132,10 +110,13 @@ Anthropic direct quips use Claude Haiku 5.5 with low effort and thinking
 explicitly disabled. This keeps short output within the existing token budget;
 model overrides keep their own API parameter behavior. No sampling overrides.
 
-The quip provider order is configured in `wrangler.jsonc`. The first slot can
-delegate to the private free router; direct Gemini/OpenAI/xAI/Anthropic routes
-remain request-level fallbacks for quips only. Free-provider details and secrets
-live in [`../kanarek-review/README.md`](../kanarek-review/README.md).
+The quip provider order is configured in `wrangler.jsonc`
+(`KANAREK_PROVIDER_ORDER`). The `free-router` slot delegates to the private free
+router and runs only when `KANAREK_FREE_ROUTER_ENABLED` is not `false`; the
+deployed config currently disables it, so quips go straight to the direct
+Gemini/OpenAI/xAI/Anthropic slots and the router's `quip` task policy is unused.
+Free-provider details and secrets live in
+[`../kanarek-review/README.md`](../kanarek-review/README.md).
 
 ## HTTP and runtime surface
 

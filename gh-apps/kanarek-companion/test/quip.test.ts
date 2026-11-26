@@ -502,11 +502,15 @@ test('does not pay a second provider after a complete but unusable quip', async 
   assert.equal(calls, 1);
 });
 
+const lostBody = (status: number, error: Error) =>
+  new Response(new ReadableStream({ start: (controller) => controller.error(error) }), { status });
+
 test('a paid timeout or unreadable 200 never reaches a second paid provider', async () => {
   const outcomes = {
     timeout: () => Promise.reject(new DOMException('aborted', 'AbortError')),
     unreadable: () => Promise.resolve(new Response('not json', { status: 200 })),
     array: () => Promise.resolve(Response.json([])),
+    droppedBody: () => Promise.resolve(lostBody(200, new TypeError('connection reset'))),
   };
   for (const [name, first] of Object.entries(outcomes)) {
     let calls = 0;
@@ -527,6 +531,7 @@ test('a rejected or unreachable paid provider still fails over', async () => {
   const outcomes = {
     rejected: () => Promise.resolve(new Response('upstream error', { status: 500 })),
     unreachable: () => Promise.reject(new TypeError('network down')),
+    rejectedBodyStalls: () => Promise.resolve(lostBody(429, new DOMException('aborted', 'AbortError'))),
   };
   for (const [name, first] of Object.entries(outcomes)) {
     let calls = 0;

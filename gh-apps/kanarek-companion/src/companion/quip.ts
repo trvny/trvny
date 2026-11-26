@@ -616,9 +616,18 @@ async function postJson(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const raw = await response.text();
+    // Status decides first: a rejection's body is not needed, and losing it must
+    // not turn the rejection into a timeout.
     if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
       throw new Error(`${label} returned ${response.status}`);
+    }
+    let raw: string;
+    try {
+      raw = await response.text();
+    } catch {
+      // The provider answered 200 and likely billed; same as an unreadable body.
+      throw new Error(`${label} returned invalid JSON (body lost)`);
     }
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {

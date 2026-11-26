@@ -19,3 +19,7 @@
 - `pages/token-worldcup/` - Quarto token reports and tokenizer recount scripts. Maintain `.qmd`; adjacent `.html`/`.md` renders are generated and CI-gated; the Pages build copies them to `/teksty/token-worldcup/`. Dynamic README files stay outside that conversion path.
 - `stuff/` - small configs, feeds, playlists and miscellaneous assets.
 - `yt-migrate/` - account migration home: YouTube at `migrate.py` and Contacts/Tasks/Calendar at `google/` (own `README.md`, `migrate.py`, tests). Separate `.github/workflows/yt-migrate.yml` and `google-migrate.yml`; distinct OAuth secrets `YT_*` / `GM_*` and quota/checkpoint state. Never log personal data (public Actions logs). YouTube Takeout extras are AES-encrypted at `yt-migrate/takeout.json.gz.enc` with `YT_EXTRA_KEY`.
+
+## Optional development workflow
+
+- [Travny Lean](https://github.com/trvny/.ai/blob/main/templates/spec-kit/travny-lean/README.md): opt-in pilot for larger changes and agent handoffs, including `gh-apps/kanarek-companion/`. Read the linked guide directly during the pilot; no submodule update, CLI, mandatory spec files, issues or new runtime gates. Existing repo and subsystem rules win.

@@ -160,7 +160,7 @@ test('home shows only the latest digest and latest Shitpost even when articles d
     assert.match(rest, /POKAŻ KOLEJNE 6/);
     assert.match(rest, /▲ ZWIŃ/);
     assert.ok(initial.includes('Shit 7 &lt;meme&gt;'));
-    assert.ok(initial.includes('lang="zh-Hans-CN">Policy topic 7'));
+    assert.match(initial, /lang="zh-Hans-CN"><a[^>]*>Policy topic 7<\/a>/);
     assert.ok(initial.includes('lang="zh-Hans-CN">Shit 7 &lt;meme&gt;'));
     assert.doesNotMatch(listing, /SHITPOST REACTOR|· SHITPOST|SHITPOST OF THE DAY/);
     const titles = (section) => [...section.matchAll(/<h3[^>]*>(?:<a[^>]*>)?([^<]+)(?:<\/a>)?<\/h3>/gu)].map((match) => match[1]);
@@ -173,6 +173,8 @@ test('home shows only the latest digest and latest Shitpost even when articles d
     assert.doesNotMatch(listing, /href="https:\/\/shitpost\.bartek\.lol\/posts\/gh-1-6"/);
     assert.match(listing, /href="\/teksty\/">P500 · TEKSTY<\/a>/);
     const reactorHome = 'href="https://shitpost.bartek.lol/"';
+    assert.equal(listing.split(reactorHome).length - 1, 1);
+    assert.match(initial, /href="https:\/\/shitpost\.bartek\.lol\/">Reactor<\/a>/);
     const textsHtml = await (await texts(context('/teksty/'))).text();
     assert.ok(textsHtml.includes(reactorHome));
     assert.equal(textsHtml.split('href="/przeglad/"').length - 1, 1);

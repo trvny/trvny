@@ -199,6 +199,11 @@ test('public presentation follows sourced topics and keeps stable entry IDs', as
   assert.ok(!html.includes('Shitpost Reactor'));
   assert.ok(!html.includes('bbc.com/news/example'));
   assert.match(html, /<div class="entry-body">/);
+  assert.match(html, /<main class="reading">/);
+  assert.match(html, /href="https:\/\/bartek\.lol\/">Back to TRAVNY<\/a>/);
+  assert.match(html, /href="\/archive">Full archive<\/a>/);
+  assert.match(html, /href="\/">Reactor home<\/a>/);
+  assert.match(html, /href="https:\/\/bartek\.lol\/assets\/tokens\.css"/);
   assert.match(html, /property="og:title" content="AI policy and yesterday&#39;s meeting"/);
 });
 

@@ -1215,6 +1215,43 @@ async function usableCompletionResponse(response: Response, input: JsonObject): 
   }
 }
 
+// Mistral Large 4 always reasons and reports non-streaming messages as content
+// chunks (thinking + text); flatten them to the plain string the shared
+// completion contract and the companion parsers expect.
+function mistralFlattenedContent(content: unknown): string {
+  if (!Array.isArray(content)) return typeof content === 'string' ? content : '';
+  const text: string[] = [];
+  for (const part of content) {
+    if (isObject(part) && part.type === 'text' && typeof part.text === 'string') text.push(part.text);
+  }
+  return text.join('');
+}
+
+async function mistralChatCompletion(response: Response): Promise<Response | null> {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return null;
+  }
+  if (!isObject(payload) || !Array.isArray(payload.choices)) return null;
+  for (const choice of payload.choices) {
+    if (!isObject(choice) || !isObject(choice.message)) continue;
+    const message = choice.message;
+    if (Array.isArray(message.content)) message.content = mistralFlattenedContent(message.content);
+  }
+  if (!usableCompletionPayload(payload)) return null;
+  const headers = new Headers({
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+  });
+  for (const name of ['x-request-id', 'request-id']) {
+    const value = response.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  return new Response(JSON.stringify(payload), { status: 200, headers });
+}
+
 function authorized(request: Request, env: ReviewRouterEnv): boolean {
   return bearerAuthorized(request, env.KANAREK_REVIEW_ROUTER_TOKEN);
 }
@@ -2585,6 +2622,27 @@ export async function handleReviewRouterRequest(
               }));
               break;
             }
+          }
+          if (provider.id === 'mistral' && input.stream !== true) {
+            const translated = await mistralChatCompletion(response);
+            if (!translated) {
+              providerFailureCategory = 'invalid_response';
+              providerInvalidRequest = false;
+              console.warn(JSON.stringify({
+                kanarekReviewRouter: 'provider_failed', task,
+                provider: provider.id,
+                category: providerFailureCategory,
+                attempt: attempt.label,
+                model: attempt.model,
+              }));
+              if (singleModel) modelFault = providerFailureCategory;
+              break;
+            }
+            console.info(JSON.stringify({
+              kanarekReviewRouter: 'selected', task, provider: provider.id, attempt: attempt.label, model: attempt.model,
+            }));
+            await succeeded();
+            return upstreamResponse(translated, provider);
           }
           if (!(await usableCompletionResponse(response, input))) {
             await discard(response);

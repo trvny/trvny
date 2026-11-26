@@ -2766,6 +2766,10 @@ export async function handleReviewRouterRequest(
     );
     failures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;
+    // A submitted paid review that likely billed ends the queue: another reserve would
+    // charge for the same review. Work turns keep failing over.
+    if ((paidOnly || includePaidReserves) && outboundAttempts > 0 &&
+        likelyBilledFailure(provider.id, providerFailureCategory)) break;
   }
 
 
@@ -2793,8 +2797,12 @@ export async function handleReviewRouterRequest(
 export function billedPaidProvider(failures: readonly string[]): string | null {
   for (const failure of failures) {
     const [id, category] = failure.split(':', 2);
-    if (PAID_PROVIDER_IDS.some((paid) => paid === id) &&
-        (category === 'invalid_response' || category === 'timeout')) return id;
+    if (likelyBilledFailure(id, category)) return id;
   }
   return null;
+}
+
+function likelyBilledFailure(id: string | undefined, category: string | undefined): boolean {
+  return PAID_PROVIDER_IDS.some((paid) => paid === id) &&
+    (category === 'invalid_response' || category === 'timeout');
 }

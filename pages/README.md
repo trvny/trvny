@@ -42,8 +42,8 @@ discovery, feeds, redirects and APIs in middleware. Avoid broad
 extension globs: dynamic SVG badges and JSON routes share those extensions.
 `bartek.lol` and `travny.pages.dev` serve the hub directly. Cloudflare redirects
 `www.bartek.lol`, `trfny.com` and `www.trfny.com` to the canonical hub.
-Feedseek lives at `rss.bartek.lol`. Legacy `trfny.com/f/*` and cross-site
-sitemap exceptions keep their routing.
+Feedseek lives at `rss.bartek.lol`. Legacy `trfny.com/f/*` keeps its feed routing.
+Retired cross-site sitemap paths redirect to canonical hub or Feedseek XML.
 
 Keep this rule while static paths bypass middleware. `tvpi.pages.dev` uses
 its own Pages project. Cloudflare Pages defaults to `X-Robots-Tag: noindex`

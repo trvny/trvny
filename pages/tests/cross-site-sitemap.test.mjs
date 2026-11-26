@@ -3,65 +3,21 @@ import assert from "node:assert/strict";
 import { crossSiteSitemap } from "../functions/_shared/cross-site-sitemap.js";
 import { onRequest } from "../functions/_middleware.js";
 
-const origin = "https://trfny.com";
-const context = (path, method = "GET", env = {}) => ({
-  request: new Request(origin + path, { method }), env,
-  next: () => { throw new Error("Unexpected middleware fallback"); },
-});
-const content = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://bartek.lol/</loc></url></urlset>';
-const source = () => new Response(content, { headers: { "content-type": "application/xml" } });
-
-test("index served directly on verified apex, GET and HEAD", async () => {
-  const res = await onRequest(context("/sitemap-cross-site.xml"));
-  assert.equal(res.status, 200);
-  assert.match(res.headers.get("content-type"), /^application\/xml/);
-  const body = await res.text();
-  for (const name of ["travny", "digests", "feedseek"]) {
-    assert.ok(body.includes(`<loc>${origin}/sitemaps/${name}.xml</loc>`));
+test("retired Feedseek maps redirect to the canonical RSS host", async () => {
+  for (const host of ["trfny.com", "www.trfny.com", "bartek.lol", "travny.pages.dev"]) {
+    for (const method of ["GET", "HEAD"]) {
+      const result = await onRequest({
+        request: new Request("https://" + host + "/sitemaps/feedseek.xml?q=1", { method }),
+        next: () => { throw new Error("Unexpected middleware fallback"); },
+      });
+      assert.equal(result.status, 301);
+      assert.equal(result.headers.get("location"), "https://rss.bartek.lol/sitemap.xml?q=1");
+    }
   }
-  assert.equal(await (await onRequest(context("/sitemap-cross-site.xml", "HEAD"))).text(), "");
-});
-
-test("hub maps reuse deployed assets unchanged", async () => {
-  for (const [name, path] of [["travny", "/sitemap.xml"], ["digests", "/przeglad/sitemap.xml"]]) {
-    const res = await onRequest(context("/sitemaps/" + name + ".xml", "GET", { ASSETS: {
-      fetch: async url => { assert.equal(url, origin + path); return source(); },
-    } }));
-    assert.equal(await res.text(), content);
-  }
-});
-
-test("Feedseek mirror has fixed upstream and preserves response", async () => {
-  const ctx = context("/sitemaps/feedseek.xml?url=https://example.com/");
-  const res = await crossSiteSitemap(ctx, new URL(ctx.request.url), async (url, options) => {
-    assert.equal(url, "https://trvny.github.io/feedseek/sitemap.xml");
-    assert.equal(options.redirect, "manual");
-    return source();
-  });
-  assert.equal(await res.text(), content);
-});
-
-test("upstream failure stays retryable, and non-map routes fall through", async () => {
-  const ctx = context("/sitemaps/feedseek.xml");
-  const res = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () => new Response("not xml"));
-  assert.equal(res.status, 503);
-  assert.equal(res.headers.get("cache-control"), "no-store");
-  const redirect = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () => Response.redirect("https://example.com/"));
-  assert.equal(redirect.status, 503);
-  const brokenBody = await crossSiteSitemap(ctx, new URL(ctx.request.url), async () =>
-    new Response(new ReadableStream({ start(controller) { controller.error(new Error("upstream interrupted")); } }), {
-      headers: { "content-type": "application/xml" },
-    }));
-  assert.equal(brokenBody.status, 503);
-  for (const url of ["https://www.trfny.com/sitemap-cross-site.xml", origin + "/sitemaps/unknown.xml"]) {
-    assert.equal(await crossSiteSitemap(ctx, new URL(url)), null);
-  }
-  const post = context("/sitemap-cross-site.xml", "POST");
-  assert.equal(await crossSiteSitemap(post, new URL(post.request.url)), null);
 });
 
 test("retired hub maps redirect directly to the canonical sitemap", async () => {
-  for (const host of ["bartek.lol", "travny.pages.dev"]) {
+  for (const host of ["bartek.lol", "travny.pages.dev", "trfny.com", "www.trfny.com"]) {
     const base = `https://${host}`;
     for (const path of [
       "/sitemap-index.xml", "/sitemap-cross-site.xml", "/przeglad/sitemap.xml",

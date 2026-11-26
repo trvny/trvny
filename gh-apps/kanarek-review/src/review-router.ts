@@ -865,23 +865,46 @@ function normalizeProviderInput(input: JsonObject): JsonObject {
   return changed ? { ...input, messages } : input;
 }
 
-const GEMINI_PROVIDER_STATE_KEY = 'kanarek_provider_state';
+// Provider-owned replay state that clients send back untouched with the assistant message.
+const PROVIDER_STATE_KEY = 'kanarek_provider_state';
 
-function stripGeminiProviderState(input: JsonObject): JsonObject {
+function stripProviderState(input: JsonObject): JsonObject {
   if (!Array.isArray(input.messages)) return input;
   let changed = false;
   const messages = input.messages.map((message) => {
-    if (!isObject(message) || !(GEMINI_PROVIDER_STATE_KEY in message)) return message;
+    if (!isObject(message) || !(PROVIDER_STATE_KEY in message)) return message;
     const normalized = { ...message };
-    delete normalized[GEMINI_PROVIDER_STATE_KEY];
+    delete normalized[PROVIDER_STATE_KEY];
     changed = true;
     return normalized;
   });
   return changed ? { ...input, messages } : input;
 }
 
+function mistralReplayContent(message: JsonObject): unknown[] | null {
+  const state = message[PROVIDER_STATE_KEY];
+  if (!isObject(state) || !isObject(state.mistral_chat)) return null;
+  const content = state.mistral_chat.content;
+  if (!Array.isArray(content) || content.length === 0) return null;
+  return content.every((part) => isObject(part) && (part.type === 'thinking' || part.type === 'text'))
+    ? content
+    : null;
+}
+
+// Mistral wants its thinking chunks replayed; the client only holds the flattened string.
+function restoreMistralReasoning(input: JsonObject): JsonObject {
+  if (!Array.isArray(input.messages)) return input;
+  const messages = input.messages.map((message) => {
+    if (!isObject(message) || message.role !== 'assistant') return message;
+    const content = mistralReplayContent(message);
+    return content ? { ...message, content } : message;
+  });
+  return stripProviderState({ ...input, messages });
+}
+
 function providerBaseInput(provider: ReviewProvider, input: JsonObject): JsonObject {
-  if (provider.protocol !== 'gemini-interactions') return stripGeminiProviderState(input);
+  if (provider.id === 'mistral') return restoreMistralReasoning(input);
+  if (provider.protocol !== 'gemini-interactions') return stripProviderState(input);
   const normalized = { ...input };
   delete normalized.temperature;
   delete normalized.top_p;
@@ -908,7 +931,7 @@ function geminiMessageText(value: unknown): string | null {
 }
 
 function geminiReplaySteps(message: JsonObject): JsonObject[] | null {
-  const state = message[GEMINI_PROVIDER_STATE_KEY];
+  const state = message[PROVIDER_STATE_KEY];
   if (state === undefined) return null;
   if (!isObject(state) || !isObject(state.gemini_interactions)) return null;
   const rawSteps = state.gemini_interactions.steps;
@@ -1156,7 +1179,7 @@ async function geminiInteractionChatCompletion(
         ...(toolCalls.length
           ? {
               tool_calls: toolCalls,
-              [GEMINI_PROVIDER_STATE_KEY]: {
+              [PROVIDER_STATE_KEY]: {
                 gemini_interactions: { steps: payload.steps },
               },
             }
@@ -1238,7 +1261,12 @@ async function mistralChatCompletion(response: Response): Promise<Response | nul
   for (const choice of payload.choices) {
     if (!isObject(choice) || !isObject(choice.message)) continue;
     const message = choice.message;
-    if (Array.isArray(message.content)) message.content = mistralFlattenedContent(message.content);
+    if (!Array.isArray(message.content)) continue;
+    // Tool turns come back in the next request: keep the original chunks alongside.
+    if (Array.isArray(message.tool_calls) && message.tool_calls.length) {
+      message[PROVIDER_STATE_KEY] = { mistral_chat: { content: message.content } };
+    }
+    message.content = mistralFlattenedContent(message.content);
   }
   if (!usableCompletionPayload(payload)) return null;
   const headers = new Headers({

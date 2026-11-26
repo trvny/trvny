@@ -1419,6 +1419,88 @@ test('paid work contract flattens a chunked Mistral answer after tool calls', as
   assert.equal('response_format' in (bodies[1] ?? {}), false);
 });
 
+test('Mistral reasoning chunks survive a tool-turn replay and never reach other providers', async () => {
+  const chunks = [
+    { type: 'thinking', thinking: [{ type: 'text', text: 'read the file first' }] },
+    { type: 'text', text: 'reading' },
+  ];
+  const toolCalls = [{
+    id: 'call-1',
+    type: 'function',
+    function: { name: 'read_file', arguments: '{"path":"README.md"}' },
+  }];
+  const bodies: Array<{ messages: Array<Record<string, unknown>> }> = [];
+  let mistralRejects = false;
+  const handleFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    const { hostname } = new URL(String(input));
+    if (hostname === 'api.deepseek.com') {
+      return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'done' } }] }));
+    }
+    if (hostname === 'generativelanguage.googleapis.com') {
+      return Promise.resolve(Response.json({
+        status: 'completed',
+        steps: [{ type: 'model_output', content: [{ type: 'text', text: 'done' }] }],
+      }));
+    }
+    if (mistralRejects) return Promise.resolve(new Response('payment required', { status: 402 }));
+    if (bodies.length > 1) return Promise.resolve(mistralChunkedCompletion('wrap up', 'done'));
+    return Promise.resolve(Response.json({
+      model: 'mistral-large-4',
+      choices: [{ message: { role: 'assistant', content: chunks, tool_calls: toolCalls } }],
+    }));
+  }) as typeof fetch;
+  const env = {
+    ...auth,
+    KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'mistral',
+    MISTRAL_API_KEY: 'mistral-key',
+    DEEPSEEK_API_KEY: 'deepseek-key',
+  };
+  const tools = [{ type: 'function', function: { name: 'read_file', parameters: { type: 'object' } } }];
+  const ask = (messages: unknown[], overrides: Record<string, string> = {}) =>
+    handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-work-paid', stream: false, messages, tools,
+    }), { ...env, ...overrides }, handleFetch);
+  const user = { role: 'user', content: 'edit repository' };
+
+  const first = await ask([user]);
+  const reply = JSON.parse(await (first as Response).text()) as {
+    choices: Array<{ message: Record<string, unknown> }>;
+  };
+  // The dispatcher pushes this object back unchanged.
+  const assistant = reply.choices[0]!.message;
+  assert.equal(assistant.content, 'reading');
+  const history = [user, assistant, { role: 'tool', content: 'file body', tool_call_id: 'call-1' }];
+
+  const second = await ask(history);
+  assert.equal(second?.status, 200);
+  assert.deepEqual(bodies[1]?.messages[1], { role: 'assistant', content: chunks, tool_calls: toolCalls });
+
+  // Same request: Mistral rejects before generating, the next provider must get a clean history.
+  mistralRejects = true;
+  const third = await ask(history, { KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'mistral,deepseek' });
+  assert.equal(third?.headers.get('x-kanarek-review-provider'), 'deepseek');
+  assert.deepEqual(bodies[2]?.messages[1], { role: 'assistant', content: chunks, tool_calls: toolCalls });
+  assert.deepEqual(bodies[3]?.messages[1], { role: 'assistant', content: 'reading', tool_calls: toolCalls });
+
+  // Gemini rebuilds the history from content and tool calls, so nothing Mistral-owned may reach it.
+  const fourth = await ask(history, {
+    KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'gemini-flex',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
+    GEMINI_API_KEY: 'gemini-key',
+  });
+  assert.equal(fourth?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
+  const geminiBody = JSON.stringify(bodies[4]);
+  const geminiSteps = (bodies[4] as unknown as { input: Array<Record<string, unknown>> }).input;
+  assert.deepEqual(geminiSteps.find(step => step.type === 'function_call'), {
+    type: 'function_call', id: 'call-1', name: 'read_file', arguments: { path: 'README.md' },
+  });
+  assert.ok(geminiBody.includes('reading'));
+  for (const leaked of ['kanarek_provider_state', 'mistral_chat', 'read the file first']) {
+    assert.equal(geminiBody.includes(leaked), false, leaked);
+  }
+});
+
 test('Mistral appears in paid pool health as a paid reserve only when configured', async () => {
   const health = await reviewProviderPoolHealth({ ...auth, MISTRAL_API_KEY: 'mistral-key' });
   const mistral = health.providers.find(p => p.provider === 'mistral');

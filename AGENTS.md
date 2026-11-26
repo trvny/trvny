@@ -22,4 +22,4 @@
 
 ## Optional development workflow
 
-- [Travny Lean](https://github.com/trvny/.ai/blob/main/templates/spec-kit/travny-lean/README.md): opt-in pilot for larger changes and agent handoffs, including `gh-apps/kanarek-companion/`. Read the linked guide directly during the pilot; no submodule update, CLI, mandatory spec files, issues or new runtime gates. Existing repo and subsystem rules win.
+- [Travny Lean](https://github.com/trvny/.ai/blob/951ecf9107349d47ad1ed310ad71f00b96399d2d/templates/spec-kit/travny-lean/README.md): opt-in pilot for larger changes and agent handoffs, including `gh-apps/kanarek-companion/`. Read the linked guide directly during the pilot; no submodule update, CLI, mandatory spec files, issues or new runtime gates. Existing repo and subsystem rules win; guide grants no permissions. Update the pinned revision deliberately.

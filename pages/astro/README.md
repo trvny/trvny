@@ -20,12 +20,8 @@ The Pages build copies `astro/dist/lab/` and `astro/dist/przeglad/` into their c
 
 ## Roadmap
 
-- **Lab:** MDX articles, interactive token experiments, widgets and experiments.
-- **News:** start with the official HN API; later consume a canonical Feedseek adapter with caching and source attribution.
-- **Radio:** start with a plain audio preview and Streambench link; later reuse Streambench's station/metadata contract.
-- **Content:** migrate future posts gradually; keep old slugs, Atom IDs, SEO and sitemap stable.
-- **Search:** add Pagefind or comparable static index once there is meaningful content.
-- **Navigation:** only add a hub link when the section is ready, without replacing current design.
+One maintained backlog: [Lab field notes](src/pages/lab/field-notes.mdx)
+([live notebook](https://bartek.lol/lab/field-notes/)). Ideas, not shipped features.
 
 No new Cloudflare Pages project, Worker, feed pipeline or duplicated source of truth.
 

@@ -12,9 +12,49 @@ An MDX foothold for the TRAVNY workshop. Articles can mix prose, code, and inter
 
 ## Next experiments
 
-- Build a feed-driven news widget from Feedseek's normalized source data, with the same failure and cache semantics as the reader.
-- Reuse Streambench's playback and metadata contracts for a proper station picker, rather than cloning its stream relay.
-- Add a live tokenizer playground beside the existing Quarto Token Worldcup reports.
-- Move future posts into content collections once the existing Atom feed and canonical URLs can be kept intact.
+Working backlog. Priorities indicate suggested order, not commitments.
+
+### P0 · Persistent radio
+
+- One global mini-player: play/pause, volume, station, cover, now playing; Media Session controls where supported.
+- Reuse `site/assets/radio.js`, `/api/radio-station` and Streambench playback/metadata contracts. Direct audio from existing providers; no duplicate relay.
+- Preserve the actual audio element across same-origin navigation. Evaluate Astro ClientRouter + persistent island for Astro routes; extend the existing shared page shell for legacy HTML or migrate routes incrementally. No assumption that Astro transitions cover the whole hub.
+- Real-browser checks: uninterrupted audio across home, Kraina, Lab, texts and digest routes; back/forward, mobile, HLS lifecycle, no duplicate streams. Normal navigation fallback; external subdomains and full reloads outside the continuity guarantee.
+- Later: spectrum when CORS allows, animated cover, recent tracks where available; no autoplay.
+
+### P1 · Interactive foundation
+
+- Svelte 5 via Astro integration; small opt-in islands for filters, controls, live widgets and experiments. Anime.js 4 for SVG, icon and motion effects.
+- Native/Astro view transitions where supported; reduced-motion fallback. Preserve static HTML, focus, keyboard navigation and design tokens.
+- Nano Stores only if cross-island state is needed; one radio controller. Lazy-load heavy dependencies; compare bundle size and mobile responsiveness.
+- Lab: MDX articles, interactive tokenizer playground beside existing Quarto Token Worldcup, browser tools and experiments.
+- Gradual content collections migration; preserve slugs, Atom IDs, SEO, sitemap and shared feed. Keep existing design and navigation until ready.
+
+### P2 · Command palette and search
+
+- Ctrl/Cmd+K: projects, articles, docs, tools and service links. Pagefind or equivalent index over eligible final hub output (Astro plus legacy pages); exclude noindex routes.
+- Switchboard already owns command-center capabilities. Reuse public catalog/API and link to authorized controls there; hub palette is discovery/navigation, not another control plane.
+
+### P3 · Living Hub / Empire Pulse
+
+- Live bento cards: releases, commits, deployments, service health, latest texts, weather and radio; activity timeline, milestones and heatmaps.
+- Reuse existing GitHub, Switchboard, weather, Reactor and radio data contracts. Public-safe snapshots, bounded caching, stale/unknown labels; no browser credentials or duplicated monitors.
+- Feed-driven news widget: official HN API / existing ticker, then canonical Feedseek normalized adapter; retain reader failure/cache semantics and source attribution.
+
+### P4 · GitHubowa Kraina / Empire Explorer
+
+- Extend existing [GitHubowa Kraina](/teksty/githubowa-kraina/) and its [infrastructure map](/teksty/githubowa-kraina/universe.html), not a separate atlas.
+- Sigma.js + Graphology: WebGL graph of projects, domains, Workers, apps and agents; typed relationships, filters, zoom and project detail cards.
+- Reuse `atlas.json`, existing translations and infrastructure data; repository facts remain authoritative. Derive graph from canonical data, add only missing relationships at their source.
+- Lazy-load graph, accessible text/list fallback; preserve URLs and existing read-only `search_travny_projects` WebMCP.
+
+### P5 · GPTomek Live
+
+- Interactive mascot: Rive or existing sprite assets; day/night, public CI/service status, click reactions and reduced-motion/static fallback. No constant polling or fabricated activity.
+
+### P6 · Agent access
+
+- Extend existing shared WebMCP for useful read-only search, atlas, public status and radio data; reuse HTTP contracts, no parallel MCP backend.
+- Keep llms/structured discovery current for public features; preserve noindex notebook boundary.
 
 [Back to the lab](/lab/)

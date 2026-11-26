@@ -766,6 +766,40 @@ test('a paid timeout before anything is sent is not reported as billed', async (
   assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), null);
 });
 
+test('Grok cooldown follows the upstream fault, not the billing marker', async () => {
+  for (const [rpc, cooled] of [
+    [{ status: 429, payload: { error: { code: 'xai_http_429' } }, billed: true as const }, ['http_429']],
+    [{ status: 502, payload: { error: { code: 'xai_agent_setup_failed' } } }, []],
+    [{ status: 504, payload: { error: { code: 'agent_setup_deadline' } } }, []],
+  ] as const) {
+    const remembered: string[] = [];
+    const cooldowns = {
+      idFromName: (name: string) => name,
+      get: () => ({
+        fetch: async (_url: RequestInfo | URL, init?: RequestInit) => {
+          const body = init?.body ? JSON.parse(String(init.body)) as { category?: string } : {};
+          if (body.category) remembered.push(body.category);
+          return new Response(null, { status: 204 });
+        },
+      }),
+    } as unknown as DurableObjectNamespace;
+    await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-review-paid',
+      stream: false,
+      messages: [{ role: 'user', content: 'review JSON' }],
+    }), {
+      ...auth,
+      KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai',
+      KANAREK_REVIEW_XAI_MODEL: 'grok-4.7',
+      XAI_API_KEY: 'xai-key',
+      XAI_REVIEW_RPC: { completeReview: async () => rpc },
+      KANAREK_REVIEW_COOLDOWNS: cooldowns,
+    }, (() => Promise.reject(new Error('no fetch expected'))) as typeof fetch);
+
+    assert.deepEqual(remembered, [...cooled]);
+  }
+});
+
 test('paid review reserves follow only Grok failures that were not billed', async () => {
   for (const [rpc, expected] of [
     [{ status: 502, payload: { error: { code: 'xai_agent_setup_failed' } } }, 200],

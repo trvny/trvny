@@ -75,9 +75,12 @@ debounced and contextualized by `../kanarek-companion/src/companion/webhook-revi
 then sent to this Worker through the same-account `KANAREK_REVIEW_SERVICE`
 Service Binding.
 
-The shared runtime also uses the same private router as the first free slot for
-quip generation. Review and quips share only provider routing/cooldowns. Their
-prompts, validation, persistence, and retry semantics remain separate.
+The shared runtime can also use this router for quip generation through its
+`free-router` slot. Its place in `KANAREK_PROVIDER_ORDER` and whether it runs
+(`KANAREK_FREE_ROUTER_ENABLED`) are companion settings; the deployed config
+currently disables it. When it runs, review and quips share only provider
+routing/cooldowns. Their prompts, validation, persistence, and retry semantics
+remain separate.
 
 The internal OpenAI-compatible surface is:
 

@@ -37,10 +37,14 @@
 <!--OPEN_PRS:START-->
 | Repozytorium | PR | Tytuł | Autor | Stan | Aktualizacja |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/.ai | [#36](https://github.com/trvny/.ai/pull/36) | chore(deps): bump anthropics/claude-code-action from 1.0.271 to 1.0.282 in the actions group | @dependabot[bot] | gotowy | 2026-11-23 |
-| trvny/.ai | [#37](https://github.com/trvny/.ai/pull/37) | deps: bump the wiki group in /wiki with 2 updates | @dependabot[bot] | gotowy | 2026-11-23 |
-| trvny/WiFi-Automatic | [#70](https://github.com/trvny/WiFi-Automatic/pull/70) | ci: bump step-security/harden-runner from 2.22.4 to 2.23.0 in the actions group | @dependabot[bot] | gotowy | 2026-11-23 |
-| trvny/WiFi-Automatic | [#71](https://github.com/trvny/WiFi-Automatic/pull/71) | deps: bump the gradle group with 2 updates | @dependabot[bot] | gotowy | 2026-11-23 |
+| trvny/feedseek | [#667](https://github.com/trvny/feedseek/pull/667) | chore(deps-dev): bump @cloudflare/workers-types from 5.20261120.1 to 5.20261121.1 in /feeds-proxy | @dependabot[bot] | gotowy | 2026-11-25 |
+| trvny/feedseek | [#668](https://github.com/trvny/feedseek/pull/668) | chore(deps): bump pydantic from 2.14.3 to 2.14.4 | @dependabot[bot] | gotowy | 2026-11-25 |
+| trvny/feedseek | [#669](https://github.com/trvny/feedseek/pull/669) | chore(deps): bump pyyaml from 6.0.3 to 6.0.4 | @dependabot[bot] | gotowy | 2026-11-25 |
+| trvny/feedseek | [#670](https://github.com/trvny/feedseek/pull/670) | chore(deps-dev): bump wrangler from 4.162.0 to 4.166.0 in /feeds-proxy | @dependabot[bot] | gotowy | 2026-11-25 |
+| trvny/feedseek | [#671](https://github.com/trvny/feedseek/pull/671) | chore(deps-dev): bump ruff from 0.17.5 to 0.17.6 | @dependabot[bot] | gotowy | 2026-11-25 |
+| trvny/feedseek | [#672](https://github.com/trvny/feedseek/pull/672) | chore(deps): bump feedparser-rs from 0.7.1 to 0.7.2 | @dependabot[bot] | gotowy | 2026-11-25 |
+| trvny/feedseek | [#673](https://github.com/trvny/feedseek/pull/673) | chore(deps): bump astral-sh/setup-uv from 10.3.3 to 10.4.0 in the actions group | @dependabot[bot] | gotowy | 2026-11-25 |
+| trvny/tvpi | [#150](https://github.com/trvny/tvpi/pull/150) | chore(deps-dev): bump wrangler from 4.162.0 to 4.166.0 in /worker in the worker-toolchain group | @dependabot[bot] | gotowy | 2026-11-25 |
 <!--OPEN_PRS:END-->
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
@@ -98,19 +102,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝There is a programming language called INTERCAL which has keywords like IGNORE, PLEASE , FORGET. If you don’t use PLEASE enough times while coding, Compiler rejects the code.❞</i>
+<i>❝The most original authors are not so because they advance what is new, but because they put what they have to say as if it had never been said before. — Johann Wolfgang von Goethe❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 Ostatnio w eterze
 
 <!--README_FEED:START-->
-- [Będzie jeszcze taniej! Wielka zmiana w ofercie smart home IKEA](https://antyweb.pl/bedzie-jeszcze-taniej-wielka-zmiana-w-ofercie-smart-home-ikea)
-- [GTA VI: rekord PlayStation to 39 mln graczy na PS5, nie sprzedanych kopii](https://promptowy.com/gta-vi-rekord-playstation-39-mln-graczy/)
-- [Gold edges up on bargain buying after selloff; US inflation data awaited](https://www.reuters.com/world/india/gold-edges-up-bargain-buying-after-selloff-us-inflation-data-awaited-2026-11-24/)
-- [Vice City w GTA 6 - gdzie leży, dzielnice, siłownie i prawdziwe Miami](https://promptowy.com/gta-6-vice-city/)
-- [GTA 6 Imponte Phoenix ’77 - gdzie znaleźć, misja, cena i warianty](https://promptowy.com/gta-6-imponte-phoenix/)
-- [GTA 6 Vapid Dominator Buggy ’67 - gdzie znaleźć i jak odebrać](https://promptowy.com/gta-6-vapid-dominator-buggy/)
+- [Remont zamknie 1,7 km ul. Jurajskiej. Objazd w Rudnie poprowadzi Zamkową - Fakty Krakowa](https://news.google.com/atom/articles/CBMirAFBVV95cUxNWFkxc1pEMy14QWRmSWQzRFkxdnRyVGhiWkhjRzNzeXRISE4taU82R0I0QU1Kc0xibVRwLUxzSlRfMEl3WmgtSU9PU2dNOEI3bExHWWdrMEkxLTlieDZLamRHMkNXaVA0bS1OTUxpUXAyQ2h1Nm8wUFE4Y2M1a3lCaHc1X2x6QUpnMGhMUXVZOTN6T0QtV01EQWNfXzBBcTVlRXYtcTNOYjBGckZo?oc=5)
+- [FCC wydało zgodę na kosmiczny superkomputer. SpaceX ma czas do 2040 roku](https://antyweb.pl/fcc-wydalo-zgode-na-kosmiczny-superkomputer-spacex-ma-czas-do-2040-roku)
+- [Grasz w GTA VI na PS5? Twoja konsola może… spłonąć](https://antyweb.pl/grasz-w-gta-vi-na-ps5-twoja-konsola-moze-splonac)
+- [Problem z baterią w One UI 9.0. Samsung obiecuje poprawkę](https://antyweb.pl/problem-z-bateria-w-one-ui-9-0-samsung-obiecuje-poprawke)
+- [W OpenAI i Anthropic czają się potwory. Te firmy boją się je wypuścić na świat](https://antyweb.pl/anthropic-openai-koniec-swiata-ai)
+- [Koniec muzycznego spamu. 29 milionów utworów AI znika ze streamingu](https://antyweb.pl/koniec-muzycznego-spamu-29-milionow-utworow-ai-znika-ze-streamingu)
 <!--README_FEED:END-->
 
 <div align="center">

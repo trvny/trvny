@@ -502,6 +502,46 @@ test('does not pay a second provider after a complete but unusable quip', async 
   assert.equal(calls, 1);
 });
 
+test('a paid timeout or unreadable 200 never reaches a second paid provider', async () => {
+  const outcomes = {
+    timeout: () => Promise.reject(new DOMException('aborted', 'AbortError')),
+    unreadable: () => Promise.resolve(new Response('not json', { status: 200 })),
+    array: () => Promise.resolve(Response.json([])),
+  };
+  for (const [name, first] of Object.entries(outcomes)) {
+    let calls = 0;
+    const quip = await aiQuip(
+      '{}',
+      { OPENAI_API_KEY: 'openai', ANTHROPIC_API_KEY: 'anthropic' },
+      (() => {
+        calls += 1;
+        return first();
+      }) as typeof fetch,
+    );
+    assert.equal(quip, null, name);
+    assert.equal(calls, 1, name);
+  }
+});
+
+test('a rejected or unreachable paid provider still fails over', async () => {
+  const outcomes = {
+    rejected: () => Promise.resolve(new Response('upstream error', { status: 500 })),
+    unreachable: () => Promise.reject(new TypeError('network down')),
+  };
+  for (const [name, first] of Object.entries(outcomes)) {
+    let calls = 0;
+    await aiQuip(
+      '{}',
+      { OPENAI_API_KEY: 'openai', ANTHROPIC_API_KEY: 'anthropic' },
+      (() => {
+        calls += 1;
+        return calls === 1 ? first() : Promise.resolve(Response.json({}));
+      }) as typeof fetch,
+    );
+    assert.ok(calls > 1, name);
+  }
+});
+
 test('still falls back after a request failure with no provider response', async () => {
   let calls = 0;
   const fetcher = (async () => {

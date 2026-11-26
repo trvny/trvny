@@ -960,8 +960,14 @@ export async function aiQuip(
       console.warn(`${providerLabel} returned ${reason}; using bank/preset.`);
       return null;
     } catch (error) {
-      await recordProviderStats(env, candidate.label, false, providerErrorCategory(error));
+      const category = providerErrorCategory(error);
+      await recordProviderStats(env, candidate.label, false, category);
       const message = error instanceof Error ? error.message : 'unknown provider error';
+      // Same line as the review router: a timeout or an unreadable 200 likely billed.
+      if (!candidate.free && (category === 'timeout' || category === 'invalid_json')) {
+        console.warn(`${message}; the call may have billed, using bank/preset.`);
+        return null;
+      }
       console.warn(
         `${message}${hasFallback ? '; trying next provider.' : '; using bank/preset.'}`,
       );

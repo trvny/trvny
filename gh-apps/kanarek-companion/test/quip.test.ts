@@ -528,10 +528,14 @@ test('a paid timeout or unreadable 200 never reaches a second paid provider', as
 });
 
 test('a rejected or unreachable paid provider still fails over', async () => {
+  // A body that never ends: awaiting it would hang, so it has to be cancelled.
+  let cancelled = false;
+  const endless = () => new Response(
+    new ReadableStream({ cancel: () => { cancelled = true; } }), { status: 429 });
   const outcomes = {
     rejected: () => Promise.resolve(new Response('upstream error', { status: 500 })),
     unreachable: () => Promise.reject(new TypeError('network down')),
-    rejectedBodyStalls: () => Promise.resolve(lostBody(429, new DOMException('aborted', 'AbortError'))),
+    rejectedBodyStalls: () => Promise.resolve(endless()),
   };
   for (const [name, first] of Object.entries(outcomes)) {
     let calls = 0;
@@ -545,6 +549,7 @@ test('a rejected or unreachable paid provider still fails over', async () => {
     );
     assert.ok(calls > 1, name);
   }
+  assert.equal(cancelled, true);
 });
 
 test('still falls back after a request failure with no provider response', async () => {

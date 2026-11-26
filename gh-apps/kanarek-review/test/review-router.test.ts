@@ -1266,6 +1266,23 @@ test('Gemini Flex 503 keeps transient semantics and falls through to DeepSeek', 
   ]);
 });
 
+// Mistral Large 4 always reasons: non-streaming messages arrive as content
+// chunks (thinking + text), not a plain string.
+function mistralChunkedCompletion(thinking: string, text: string): Response {
+  return Response.json({
+    model: 'mistral-large-4',
+    choices: [{
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: [{ type: 'text', text: thinking }] },
+          { type: 'text', text },
+        ],
+      },
+    }],
+  });
+}
+
 test('paid review contract falls through from DeepSeek 402 to Mistral as the final paid reserve', async () => {
   const calls: Array<{ url: string; authorization: string | null }> = [];
   const seen: Array<Record<string, unknown>> = [];
@@ -1286,20 +1303,7 @@ test('paid review contract falls through from DeepSeek 402 to Mistral as the fin
     if (new URL(url).hostname === 'api.deepseek.com') {
       return Promise.resolve(new Response('insufficient balance', { status: 402 }));
     }
-    // Mistral Large 4 always reasons: non-streaming messages arrive as content
-    // chunks (thinking + text), not a plain string.
-    return Promise.resolve(Response.json({
-      model: 'mistral-large-4',
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: [
-            { type: 'thinking', thinking: [{ type: 'text', text: 'weigh the diff' }] },
-            { type: 'text', text: '{"findings":[]}' },
-          ],
-        },
-      }],
-    }));
+    return Promise.resolve(mistralChunkedCompletion('weigh the diff', '{"findings":[]}'));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -1336,18 +1340,7 @@ test('paid work contract keeps Mistral tools without JSON mode', async () => {
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
     // Work answers also arrive as reasoning chunks, with the final text last.
-    return Promise.resolve(Response.json({
-      model: 'mistral-large-4',
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: [
-            { type: 'thinking', thinking: [{ type: 'text', text: 'plan the edit' }] },
-            { type: 'text', text: 'done' },
-          ],
-        },
-      }],
-    }));
+    return Promise.resolve(mistralChunkedCompletion('plan the edit', 'done'));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -1386,18 +1379,7 @@ test('paid work contract flattens a chunked Mistral answer after tool calls', as
         }],
       }));
     }
-    return Promise.resolve(Response.json({
-      model: 'mistral-large-4',
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: [
-            { type: 'thinking', thinking: [{ type: 'text', text: 'wrap up' }] },
-            { type: 'text', text: 'done' },
-          ],
-        },
-      }],
-    }));
+    return Promise.resolve(mistralChunkedCompletion('wrap up', 'done'));
   }) as typeof fetch;
   const env = {
     ...auth,

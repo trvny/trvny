@@ -81,6 +81,15 @@ test('enforces the learned quip character contract', () => {
   assert.equal(validQuipLength('x'.repeat(45)), true);
   assert.equal(validQuipLength('x'.repeat(110)), true);
   assert.equal(validQuipLength('x'.repeat(111)), false);
+  assert.equal(validQuipLength('鸟'.repeat(15)), false);
+  assert.equal(validQuipLength('鸟'.repeat(16)), true);
+  assert.equal(validQuipLength('鸟'.repeat(111)), false);
+  assert.equal(validQuipLength(`鸟${'x'.repeat(20)}`), false);
+  for (const quip of [
+    'Wszystko zielone, a Kanarka nikt już nie musi pilnować przy kablu.',
+    'Lumina virent et Canaria instrumenta deponit; volatus permittitur.',
+    'Всё зелёное, и Канарейка спокойно кивает: ветка готова к взлёту.',
+  ]) assert.equal(genericQuip(quip, 'Other'), true, quip);
 });
 
 test('fails closed on malformed configured AI percentages', () => {

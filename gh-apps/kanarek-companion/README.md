@@ -110,7 +110,8 @@ The active phrase bank uses Workers KV under
   namespace.
 - Up to 256 learned quips are retained per `quipKey` and 4096 total.
 - A live selection reads at most 24 entries from the current context.
-- Learned entries must pass the 45-110 character and language contract. Presets
+- Learned entries must pass the length (45-110 characters; mostly-Han text from
+  16) and language contract. Presets
   are intentionally exempt and are not persisted.
 - Every valid AI-generated quip is also copied to the append-only
   `kanarek:companion:quip-archive:v1:` namespace before GitHub mutation.

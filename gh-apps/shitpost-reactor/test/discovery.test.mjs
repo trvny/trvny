@@ -98,7 +98,8 @@ test('homepage hides the description while retaining discovery metadata', async 
   assert.match(html, /rel="manifest" href="\/site\.webmanifest"/);
   assert.match(html, /apple-touch-icon/);
   assert.match(html, /mask-icon/);
-  assert.match(body, /<header><h1>Reactor<\/h1><p class="feeds">/);
+  assert.match(body, /<header class="masthead"[^>]*>[\s\S]*?<h1><a href="\/">Reactor<\/a><\/h1>\s*<div class="feeds">/);
+  assert.match(body, /<a href="\/archive">Full archive<\/a>/);
   assert.doesNotMatch(body, /Automatycznie generowane polskie shitposty/);
 });
 

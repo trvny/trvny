@@ -673,6 +673,7 @@ const REVIEW_PROVIDER_DISPLAY: Record<string, { domain: string; label: string }>
   'vercel-decision': { domain: 'vercel.com', label: 'Vercel AI Gateway Decision' },
   'huggingface-publicai': { domain: 'huggingface.co', label: 'Hugging Face PublicAI' },
   deepseek: { domain: 'deepseek.com', label: 'DeepSeek' },
+  mistral: { domain: 'mistral.ai', label: 'Mistral' },
   'gemini-flex': { domain: 'gemini.google.com', label: 'Gemini Flex' },
   xai: { domain: 'x.ai', label: 'Grok' },
   'workers-ai': { domain: 'cloudflare.com', label: 'Workers AI' },

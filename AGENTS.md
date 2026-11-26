@@ -6,7 +6,7 @@
 - `pages/` - TRAVNY hub (bartek.lol). Pages project `travny`, root `pages`, output `site/`, Functions in `functions/`; `travny-pages.yml` asserts its Git source.
   `bartek.lol` and `travny.pages.dev` serve the hub directly. `www.bartek.lol`, `trfny.com` and `www.trfny.com`: 301 to the hub, path/query kept.
   Submit `bartek.lol/sitemap.xml` for the domain property.
-  Keep legacy `trfny.com` sitemap exceptions in sync with zone exclusions.
+  Legacy sitemap paths redirect to canonical XML; mirror zone redirect rules.
   `tvpi.pages.dev` is a redirect-only project in trvny/tvpi.
   Pages repo fixed at creation. Changing it requires a new Pages project.
   TV data stays in the tvpi Worker.

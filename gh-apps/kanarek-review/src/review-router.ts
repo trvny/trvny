@@ -2714,7 +2714,10 @@ export async function handleReviewRouterRequest(
         } else if (provider.id === 'xai' && response.headers.has(XAI_SETUP_HEADER)) {
           providerFailureCategory = 'setup_failed';
         }
-        if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
+        // After a billed round the request was evidently valid.
+        if (billedAfterRound || status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) {
+          providerInvalidRequest = false;
+        }
         if (singleModel && (['http_404', 'http_404_model_retired', 'http_410', 'http_400_invalid_model',
           'http_429_model_busy'].includes(providerFailureCategory) ||
           (provider.id === 'orcarouter' && providerFailureCategory === 'http_403'))) {

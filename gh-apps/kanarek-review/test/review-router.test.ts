@@ -805,6 +805,8 @@ test('paid review reserves follow only Grok failures that were not billed', asyn
     [{ status: 502, payload: { error: { code: 'xai_agent_setup_failed' } } }, 200],
     [{ status: 429, payload: { error: { code: 'xai_http_429' } } }, 200],
     [{ status: 429, payload: { error: { code: 'xai_http_429' } }, billed: true as const }, 502],
+    // A billed 400 must not leave through the headerless invalid_request exit.
+    [{ status: 400, payload: { error: { code: 'xai_http_400' } }, billed: true as const }, 502],
   ] as const) {
     const hosts: string[] = [];
     const response = await handleReviewRouterRequest(request(routerToken, {

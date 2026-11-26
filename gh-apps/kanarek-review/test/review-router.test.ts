@@ -746,6 +746,57 @@ test('paid work rejects malformed tool calls, even with visible text', async () 
   }
 });
 
+test('a paid timeout before anything is sent is not reported as billed', async (t) => {
+  // Every clock read jumps past the provider budget, so no attempt can start.
+  let clock = Date.now();
+  t.mock.method(Date, 'now', () => (clock += 10_000_000));
+  let fetches = 0;
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review JSON' }],
+  }), { ...auth, DEEPSEEK_API_KEY: 'deepseek-key' }, (() => {
+    fetches += 1;
+    return Promise.resolve(new Response(null));
+  }) as typeof fetch);
+
+  assert.equal(fetches, 0);
+  assert.equal(response?.status, 502);
+  assert.match(await (response as Response).text(), /deepseek:timeout/);
+  assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), null);
+});
+
+test('paid review reserves follow only Grok failures that were not billed', async () => {
+  for (const [rpc, expected] of [
+    [{ status: 502, payload: { error: { code: 'xai_agent_setup_failed' } } }, 200],
+    [{ status: 429, payload: { error: { code: 'xai_http_429' } } }, 200],
+    [{ status: 429, payload: { error: { code: 'xai_http_429' } }, billed: true as const }, 502],
+  ] as const) {
+    const hosts: string[] = [];
+    const response = await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-review-paid',
+      stream: false,
+      messages: [{ role: 'user', content: 'review JSON' }],
+    }), {
+      ...auth,
+      KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'xai,deepseek',
+      KANAREK_REVIEW_XAI_MODEL: 'grok-4.7',
+      XAI_API_KEY: 'xai-key',
+      DEEPSEEK_API_KEY: 'deepseek-key',
+      XAI_REVIEW_RPC: { completeReview: async () => rpc },
+    }, ((input: RequestInfo | URL) => {
+      hosts.push(new URL(String(input)).hostname);
+      return Promise.resolve(Response.json({
+        choices: [{ message: { role: 'assistant', content: '{"summary":"ok"}' } }],
+      }));
+    }) as typeof fetch);
+
+    assert.equal(response?.status, expected);
+    assert.deepEqual(hosts, expected === 200 ? ['api.deepseek.com'] : []);
+    assert.equal(response?.headers.get(REVIEW_BILLED_PROVIDER_HEADER), expected === 200 ? null : 'xai');
+  }
+});
+
 test('combined review also stops after a blank billed DeepSeek HTTP 200', async () => {
   const providers: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {

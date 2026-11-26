@@ -648,7 +648,7 @@ const XAI_BILLED_FAILURE_CODES = new Set([
 ]);
 const XAI_BILLED_HEADER = 'x-kanarek-xai-billed';
 
-type XaiRpcResult = { status: number; payload: Record<string, unknown>; retryAfter?: string };
+type XaiRpcResult = { status: number; payload: Record<string, unknown>; retryAfter?: string; billed?: true };
 
 export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObject, paidOnce = false): Promise<Response> {
   if (!env.XAI_REVIEW_RPC) {
@@ -666,7 +666,9 @@ export async function xaiReviewRpcResponse(env: ReviewRouterEnv, input: JsonObje
     headers.set('retry-after', result.retryAfter);
   }
   const code = isObject(result?.payload) && isObject(result.payload.error) ? result.payload.error.code : null;
-  if (typeof code === 'string' && XAI_BILLED_FAILURE_CODES.has(code)) headers.set(XAI_BILLED_HEADER, code);
+  if (typeof code === 'string' && (result.billed === true || XAI_BILLED_FAILURE_CODES.has(code))) {
+    headers.set(XAI_BILLED_HEADER, code);
+  }
   return Response.json(result?.payload || { error: { message: 'xai_rpc_invalid' } }, { status, headers });
 }
 
@@ -2326,6 +2328,8 @@ export async function handleReviewRouterRequest(
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
+  // Only these can have been charged.
+  const submittedFailures: string[] = [];
 
   const selectedProviders = workOnly
     ? workProviders(env)
@@ -2765,6 +2769,7 @@ export async function handleReviewRouterRequest(
       defaultCooldownMs === null ? null : (providerRetryAfterMs ?? defaultCooldownMs),
     );
     failures.push(diagnostic(provider, providerFailureCategory));
+    if (outboundAttempts > 0) submittedFailures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;
     // A submitted paid review that likely billed ends the queue: another reserve would
     // charge for the same review. Work turns keep failing over.
@@ -2787,7 +2792,7 @@ export async function handleReviewRouterRequest(
       ? 429
       : 502,
   );
-  const billed = attemptedPaidProvider ?? billedPaidProvider(failures);
+  const billed = attemptedPaidProvider ?? billedPaidProvider(submittedFailures);
   if (billed) exhausted.headers.set(REVIEW_BILLED_PROVIDER_HEADER, billed);
   return exhausted;
 }

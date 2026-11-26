@@ -5,7 +5,7 @@ type Json = Record<string, unknown>;
 type ToolCall = { type: 'function_call'; call_id: string; name: string; arguments: string };
 type Target = { repository: string; number: number; headSha: string };
 type ReadGateway = Pick<GithubGateway, 'read'>;
-type AgentResult = { status: number; payload: Json; retryAfter?: string; unbilledRejection?: true };
+type AgentResult = { status: number; payload: Json; retryAfter?: string; unbilledRejection?: true; billed?: true };
 type ToolExecutor = (name: string, args: Json) => Promise<unknown>;
 
 const SHA = /^[a-f0-9]{40}$/i;
@@ -105,13 +105,14 @@ export async function runGrokAgentSession(
     console.warn(JSON.stringify({ kanarekXaiReview: 'agent_failed_usage', code,
       rounds: roundsUsed, toolCalls: totalToolCalls, inputTokens: cumulativeInput,
       cachedTokens: cachedInput, outputTokens: cumulativeOutput }));
-    return fail(code, status);
+    // A later round follows a completed generation, whatever the code says.
+    return { ...fail(code, status), ...(roundsUsed > 1 ? { billed: true as const } : {}) };
   };
   for (let round = 0; round < MAX_ROUNDS; round++) {
     roundsUsed = round + 1;
     const finalize = forceFinal || round === MAX_ROUNDS - 1;
     const remaining = deadlineAt - Date.now() - 8_000;
-    if (remaining <= 0) return abort('agent_deadline', 504);
+    if (remaining <= 0) return abort(round ? 'agent_deadline' : 'agent_setup_deadline', 504);
     let response: Response;
     try {
       response = await fetcher('https://api.x.ai/v1/responses', {
@@ -202,12 +203,12 @@ export async function requestAgenticGrokReview(
   deadlineAt: number,
 ): Promise<AgentResult> {
   const repo = '/repos/' + target.repository;
-  if (deadlineAt - Date.now() <= 15_000) return fail('agent_deadline', 504);
+  if (deadlineAt - Date.now() <= 15_000) return fail('agent_setup_deadline', 504);
   const pr = obj(await github.read(repo + '/pulls/' + target.number));
   if (obj(pr.head).sha !== target.headSha || pr.state !== 'open') return fail('agent_stale_pr', 409);
   const changed: Json[] = [];
   for (let page = 1; page <= 30; page++) {
-    if (deadlineAt - Date.now() <= 15_000) return fail('agent_deadline', 504);
+    if (deadlineAt - Date.now() <= 15_000) return fail('agent_setup_deadline', 504);
     const batch = await github.read(repo + '/pulls/' + target.number +
       '/files?per_page=100&page=' + page) as Json[];
     changed.push(...batch);

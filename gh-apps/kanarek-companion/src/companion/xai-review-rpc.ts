@@ -8,6 +8,7 @@ export interface XaiReviewRpcResult {
   status: number;
   payload: JsonObject;
   retryAfter?: string;
+  billed?: true;
 }
 
 function objectValue(value: unknown): JsonObject {
@@ -68,10 +69,15 @@ export async function requestGrokReview(
   if (!apiKey) return error(503, 'xai_not_configured');
   const agentTarget = gatewayForRepository ? agenticReviewTarget(input) : null;
   if (agentTarget && gatewayForRepository) {
+    let submitted = false;
+    const trackedFetcher = ((url: RequestInfo | URL, init?: RequestInit) => {
+      submitted = true;
+      return fetcher(url, init);
+    }) as typeof fetch;
     try {
       const gateway = await gatewayForRepository(agentTarget.repository);
       const agentResult = await requestAgenticGrokReview(request, agentTarget, apiKey,
-        gateway, fetcher, deadlineAt);
+        gateway, trackedFetcher, deadlineAt);
       if (agentResult.status !== 403 || agentResult.unbilledRejection !== true) return agentResult;
       // Tool-mode denial is not proof the key cannot run a normal review.
       // Only a first-round denial predates inference; never retry a later
@@ -80,7 +86,8 @@ export async function requestGrokReview(
     } catch (cause) {
       console.warn(JSON.stringify({ kanarekXaiReview: 'agent_failed', code:
         cause instanceof Error ? cause.name : 'unknown' }));
-      return error(502, 'xai_agent_failed');
+      // A GitHub setup failure never reached xAI, so the router may use a reserve.
+      return error(502, submitted ? 'xai_agent_failed' : 'xai_agent_setup_failed');
     }
   }
 

@@ -527,7 +527,7 @@ test('a paid timeout or unreadable 200 never reaches a second paid provider', as
   }
 });
 
-test('a rejected or unreachable paid provider still fails over', async () => {
+test('a rejected or unreachable paid provider still fails over', { timeout: 5_000 }, async () => {
   // A body that never ends: awaiting it would hang, so it has to be cancelled.
   let cancelled = false;
   const endless = () => new Response(

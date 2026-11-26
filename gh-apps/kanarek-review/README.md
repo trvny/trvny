@@ -29,8 +29,8 @@ provider secrets.
 
 Quips, reviews, and shitposts are clients of one routing layer rather than
 separate provider stacks. Quips can also use their direct provider slots; the
-shared `free-router` slot, PR reviews, and Shitpost Reactor all converge on
-`kanarek-review`. Paid reserves are available only to the review/work synthetic
+shared `free-router` slot (when companion enables it), PR reviews, and Shitpost
+Reactor all converge on `kanarek-review`. Paid reserves are available only to the review/work synthetic
 contracts, never to `kanarek-review-free`.
 
 Gemini uses Google's native stable `v1/interactions` endpoint with explicit
@@ -233,7 +233,7 @@ ceiling, the 16K floor for models that think by default, and `reasoning_effort`
 snapped to the model's accepted levels (low for quips, configured effort for
 reasoning lanes). Models without an effort list never get the field; unknown
 models pass through unchanged.
-Gemini Flex pins high reasoning with the same floor and strips deprecated
+Gemini Flex uses `KANAREK_REVIEW_GEMINI_THINKING_LEVEL` with the same floor and strips deprecated
 sampling, thinking-budget, and candidate-count fields inherited from shared
 OpenAI-compatible callers. DeepSeek keeps its separate high-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
 headroom, but production keeps it disabled while the account neuron budget belongs to Botek.
@@ -269,8 +269,10 @@ Both are kept out of `kanarek-review-free`, so lightweight callers cannot spend
 the user's DeepSeek balance. HTTP 402 balance exhaustion enters the normal quota
 cooldown/fallback path.
 
-Mistral is the final paid reserve, after Grok, DeepSeek and Gemini Flex, and uses
-the official OpenAI-compatible endpoint with `mistral-large-4`. The
+Mistral is a paid reserve; the paid queue order comes only from
+`KANAREK_REVIEW_PAID_PROVIDER_ORDER` in `wrangler.jsonc` (the work contract skips
+Grok, and `gemini-flex` drops out on the Standard tier). It uses the official
+OpenAI-compatible endpoint with `mistral-large-4`. The
 `KANAREK_REVIEW_MISTRAL_MODEL` default is empty only when the variable is
 missing: production pins the model in `wrangler.jsonc`. The paid review contract
 forces JSON output, keeps `reasoning_effort` at `KANAREK_REVIEW_MISTRAL_REASONING_EFFORT`
@@ -390,7 +392,7 @@ Provider credentials belong here:
 - `ORCAROUTER_API_KEY`
 - `HUGGINGFACE_API_KEY`
 - `DEEPSEEK_API_KEY` (optional direct paid PR-review reserve)
-- `MISTRAL_API_KEY` (optional paid Mistral review reserve, last in the paid queue)
+- `MISTRAL_API_KEY` (optional paid Mistral review reserve)
 - `GEMINI_API_KEY` (free Standard if billing is disabled; paid Flex only when explicitly configured)
 
 The shared runtime keeps only `KANAREK_REVIEW_ROUTER_TOKEN` for its private

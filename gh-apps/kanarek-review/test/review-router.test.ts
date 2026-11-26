@@ -1491,7 +1491,11 @@ test('Mistral reasoning chunks survive a tool-turn replay and never reach other 
   });
   assert.equal(fourth?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
   const geminiBody = JSON.stringify(bodies[4]);
-  assert.ok(geminiBody.includes('reading') && geminiBody.includes('read_file'));
+  const geminiSteps = (bodies[4] as unknown as { input: Array<Record<string, unknown>> }).input;
+  assert.deepEqual(geminiSteps.find(step => step.type === 'function_call'), {
+    type: 'function_call', id: 'call-1', name: 'read_file', arguments: { path: 'README.md' },
+  });
+  assert.ok(geminiBody.includes('reading'));
   for (const leaked of ['kanarek_provider_state', 'mistral_chat', 'read the file first']) {
     assert.equal(geminiBody.includes(leaked), false, leaked);
   }

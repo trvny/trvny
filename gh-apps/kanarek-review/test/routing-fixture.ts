@@ -241,6 +241,7 @@ export const testVars = {
   "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
   "KANAREK_REVIEW_GEMINI_MODEL": "gemini-3.8-flash",
   "KANAREK_REVIEW_DEEPSEEK_MODEL": "deepseek-flash",
-  "KANAREK_REVIEW_PAID_PROVIDER_ORDER": "xai,deepseek,gemini-flex",
+  "KANAREK_REVIEW_MISTRAL_MODEL": "mistral-large-4",
+  "KANAREK_REVIEW_PAID_PROVIDER_ORDER": "xai,deepseek,gemini-flex,mistral",
   "KANAREK_REVIEW_WORKERS_AI_MODEL": "@cf/zai-org/glm-4.7-flash"
 } as const;

@@ -94,6 +94,10 @@ test('review source label includes provider and concrete upstream model', () => 
     reviewSourceLabel('deepseek', 'deepseek-flash'),
     'DeepSeek · `deepseek-flash`',
   );
+  assert.equal(
+    reviewSourceLabel('mistral', 'mistral-large-4'),
+    'Mistral · `mistral-large-4`',
+  );
 });
 
 test('review source label falls back to the provider when model is unavailable', () => {

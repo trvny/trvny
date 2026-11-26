@@ -59,6 +59,8 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_DEEPSEEK_THINKING: 'enabled',
   KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT: 'high',
   KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS: '131072',
+  KANAREK_REVIEW_MISTRAL_REASONING_EFFORT: 'high',
+  KANAREK_REVIEW_MISTRAL_MAX_TOKENS: '65536',
   KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'standard',
   KANAREK_REVIEW_GEMINI_THINKING_LEVEL: 'high',
 } as const;
@@ -230,7 +232,7 @@ function configuredTaskModels(
   return configuredModelList(legacy);
 }
 
-export const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex'] as const;
+export const PAID_PROVIDER_IDS = ['xai', 'deepseek', 'gemini-flex', 'mistral'] as const;
 type PaidReviewProviderId = (typeof PAID_PROVIDER_IDS)[number];
 export type ReviewProviderBudgetClass = 'free-quota' | 'monthly-free-credit' | 'daily-neurons' | 'paid-reserve';
 const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudgetClass> = {
@@ -245,6 +247,7 @@ const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudge
   deepseek: 'paid-reserve',
   'gemini-flex': 'paid-reserve',
   xai: 'paid-reserve',
+  mistral: 'paid-reserve',
   'workers-ai': 'daily-neurons',
 };
 const GROQ_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
@@ -273,6 +276,7 @@ export interface ReviewRouterEnv {
   AI_GATEWAY_API_KEY?: string;
   HUGGINGFACE_API_KEY?: string;
   DEEPSEEK_API_KEY?: string;
+  MISTRAL_API_KEY?: string;
   GEMINI_API_KEY?: string;
   XAI_REVIEW_RPC?: {
     completeReview(input: Record<string, unknown>, deadlineAt: number): Promise<XaiRpcResult>;
@@ -308,6 +312,9 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_DEEPSEEK_THINKING?: string;
   KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT?: string;
   KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS?: string;
+  KANAREK_REVIEW_MISTRAL_MODEL?: string;
+  KANAREK_REVIEW_MISTRAL_REASONING_EFFORT?: string;
+  KANAREK_REVIEW_MISTRAL_MAX_TOKENS?: string;
   KANAREK_REVIEW_GEMINI_MODEL?: string;
   KANAREK_REVIEW_GEMINI_SERVICE_TIER?: string;
   KANAREK_REVIEW_GEMINI_THINKING_LEVEL?: string;
@@ -320,7 +327,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'gemini-standard' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'xai' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'gemini-standard' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'xai' | 'mistral' | 'workers-ai';
 export type ProviderCooldownId =
   | ReviewProviderId
   | 'aihubmix-decision'
@@ -342,6 +349,7 @@ export const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId
   'deepseek',
   'gemini-flex',
   'xai',
+  'mistral',
   'workers-ai',
 ]);
 
@@ -694,6 +702,34 @@ function deepSeekPaidProvider(
   };
 }
 
+function mistralPaidProvider(
+  env: ReviewRouterEnv,
+  mode: 'review' | 'work',
+): ReviewProvider {
+  return {
+    // Official OpenAI-compatible endpoint; billing is per token with no free lane,
+    // so Mistral stays a paid reserve after the other paid providers.
+    id: 'mistral',
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    model: env.KANAREK_REVIEW_MISTRAL_MODEL?.trim() || '',
+    apiKey: (providerEnv) => providerEnv.MISTRAL_API_KEY,
+    timeoutMs: mode === 'work' ? workProviderTimeoutMs(env) : PAID_REVIEW_PROVIDER_TIMEOUT_MS,
+    requestFields: {
+      reasoning_effort: configuredText(
+        env.KANAREK_REVIEW_MISTRAL_REASONING_EFFORT,
+        REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_MISTRAL_REASONING_EFFORT,
+      ),
+      max_tokens: configuredInteger(
+        env.KANAREK_REVIEW_MISTRAL_MAX_TOKENS,
+        Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_MISTRAL_MAX_TOKENS),
+        1,
+        131_072,
+      ),
+      ...(mode === 'review' ? { response_format: { type: 'json_object' } } : {}),
+    },
+  };
+}
+
 function geminiProvider(
   env: ReviewRouterEnv,
   id: 'gemini-standard' | 'gemini-flex',
@@ -738,6 +774,7 @@ function paidProvidersForMode(
     deepseek: deepSeekPaidProvider(env, mode),
     'gemini-flex': geminiProvider(env, 'gemini-flex'),
     xai: xaiPaidProvider(env),
+    mistral: mistralPaidProvider(env, mode),
   };
   return configuredPaidProviderOrder(env.KANAREK_REVIEW_PAID_PROVIDER_ORDER)
     .filter((id) => mode === 'review' || id !== 'xai')

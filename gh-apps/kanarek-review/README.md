@@ -9,7 +9,7 @@
 `kanarek-review` is the private review-provider Worker used by the shared
 `kanarek-companion` runtime. It owns provider credentials, routing, cooldowns,
 and model fallback. The normal pool is free-first, including Gemini Standard when
-the project is unbilled, with optional paid DeepSeek reserves. It does **not** own
+the project is unbilled, with optional paid DeepSeek and Mistral reserves. It does **not** own
 GitHub webhook handling, PR context collection, review publication, status
 comments, or quip-bank semantics.
 
@@ -267,6 +267,16 @@ Both are kept out of `kanarek-review-free`, so lightweight callers cannot spend
 the user's DeepSeek balance. HTTP 402 balance exhaustion enters the normal quota
 cooldown/fallback path.
 
+Mistral is the final paid reserve, after Grok, DeepSeek and Gemini Flex, and uses
+the official OpenAI-compatible endpoint with `mistral-large-4`. The
+`KANAREK_REVIEW_MISTRAL_MODEL` default is empty only when the variable is
+missing: production pins the model in `wrangler.jsonc`. The paid review contract
+forces JSON output, keeps `reasoning_effort` at `KANAREK_REVIEW_MISTRAL_REASONING_EFFORT`
+(default `high`) and caps generation at `KANAREK_REVIEW_MISTRAL_MAX_TOKENS`
+(currently `65536`); the work contract keeps native tool calls available without
+JSON mode. Like DeepSeek, Mistral never serves `kanarek-review-free`, and without
+`MISTRAL_API_KEY` the router skips it without failing the queue.
+
 Gemini uses the native Interactions endpoint. When
 `KANAREK_REVIEW_GEMINI_SERVICE_TIER=standard`, the request omits `service_tier`
 (Standard is Google's default) and joins the free pool. The free tier limits
@@ -353,6 +363,9 @@ Important variables include:
 - `KANAREK_REVIEW_DEEPSEEK_THINKING`
 - `KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT`
 - `KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS`
+- `KANAREK_REVIEW_MISTRAL_MODEL`
+- `KANAREK_REVIEW_MISTRAL_REASONING_EFFORT`
+- `KANAREK_REVIEW_MISTRAL_MAX_TOKENS`
 - `KANAREK_REVIEW_GEMINI_MODEL`
 - `KANAREK_REVIEW_GEMINI_SERVICE_TIER`
 - `KANAREK_REVIEW_GEMINI_THINKING_LEVEL`
@@ -375,6 +388,7 @@ Provider credentials belong here:
 - `ORCAROUTER_API_KEY`
 - `HUGGINGFACE_API_KEY`
 - `DEEPSEEK_API_KEY` (optional direct paid PR-review reserve)
+- `MISTRAL_API_KEY` (optional paid Mistral review reserve, last in the paid queue)
 - `GEMINI_API_KEY` (free Standard if billing is disabled; paid Flex only when explicitly configured)
 
 The shared runtime keeps only `KANAREK_REVIEW_ROUTER_TOKEN` for its private

@@ -58,6 +58,7 @@ const auth = {
   KANAREK_REVIEW_HUGGINGFACE_MODEL: wranglerVars.KANAREK_REVIEW_HUGGINGFACE_MODEL as string,
   KANAREK_REVIEW_GEMINI_MODEL: wranglerVars.KANAREK_REVIEW_GEMINI_MODEL as string,
   KANAREK_REVIEW_DEEPSEEK_MODEL: wranglerVars.KANAREK_REVIEW_DEEPSEEK_MODEL as string,
+  KANAREK_REVIEW_MISTRAL_MODEL: wranglerVars.KANAREK_REVIEW_MISTRAL_MODEL as string,
   KANAREK_REVIEW_PAID_PROVIDER_ORDER: wranglerVars.KANAREK_REVIEW_PAID_PROVIDER_ORDER as string,
   KANAREK_REVIEW_WORKERS_AI_MODEL: wranglerVars.KANAREK_REVIEW_WORKERS_AI_MODEL as string,
 } as const;
@@ -1263,6 +1264,85 @@ test('Gemini Flex 503 keeps transient semantics and falls through to DeepSeek', 
     'https://generativelanguage.googleapis.com/v1/interactions',
     'https://api.deepseek.com/chat/completions',
   ]);
+});
+
+test('paid review contract falls through from DeepSeek 402 to Mistral as the final paid reserve', async () => {
+  const calls: Array<{ url: string; authorization: string | null }> = [];
+  const seen: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'deepseek,mistral',
+    DEEPSEEK_API_KEY: 'deepseek-key',
+    MISTRAL_API_KEY: 'mistral-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    calls.push({ url, authorization: new Headers(init?.headers).get('authorization') });
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    seen.push(body);
+    if (new URL(url).hostname === 'api.deepseek.com') {
+      return Promise.resolve(new Response('insufficient balance', { status: 402 }));
+    }
+    return Promise.resolve(Response.json({
+      model: 'mistral-large-4',
+      choices: [{ message: { role: 'assistant', content: '{"findings":[]}' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'mistral');
+  assert.deepEqual(calls, [{
+    url: 'https://api.deepseek.com/chat/completions',
+    authorization: 'Bearer deepseek-key',
+  }, {
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    authorization: 'Bearer mistral-key',
+  }]);
+  const mistralBody = seen[1];
+  assert.equal(mistralBody?.model, 'mistral-large-4');
+  assert.equal(mistralBody?.reasoning_effort, 'high');
+  assert.equal(mistralBody?.max_tokens, 65_536);
+  assert.deepEqual(mistralBody?.response_format, { type: 'json_object' });
+});
+
+test('paid work contract keeps Mistral tools without JSON mode', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-work-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'edit repository' }],
+    tools: [{ type: 'function', function: { name: 'read_file', parameters: { type: 'object' } } }],
+  }), {
+    ...auth,
+    KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'mistral',
+    MISTRAL_API_KEY: 'mistral-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return Promise.resolve(Response.json({
+      model: 'mistral-large-4',
+      choices: [{ message: { role: 'assistant', content: 'done' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'mistral');
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0]?.model, 'mistral-large-4');
+  assert.equal(bodies[0]?.reasoning_effort, 'high');
+  assert.equal('response_format' in (bodies[0] ?? {}), false);
+  assert.ok(Array.isArray(bodies[0]?.tools));
+});
+
+test('Mistral appears in paid pool health as a paid reserve only when configured', async () => {
+  const health = await reviewProviderPoolHealth({ ...auth, MISTRAL_API_KEY: 'mistral-key' });
+  const mistral = health.providers.find(p => p.provider === 'mistral');
+  assert.equal(mistral?.budgetClass, 'paid-reserve');
+  assert.equal(mistral?.configured, true);
+  const withoutKey = await reviewProviderPoolHealth({ ...auth });
+  assert.equal(withoutKey.providers.find(p => p.provider === 'mistral')?.configured, false);
 });
 
 test('Gemini spend-cap 403 is classified without exposing the provider body', async () => {

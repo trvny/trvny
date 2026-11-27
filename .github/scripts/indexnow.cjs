@@ -14,7 +14,7 @@ const SITES = {
 };
 
 const digestPath = /^pages\/astro\/src\/content\/digests\/(\d{4}-\d{2}-\d{2})\.md$/;
-const sitePath = /^pages\/(?:site\/|astro\/|papagenerator\/|functions\/|token-worldcup\/|scripts\/(?:sitemap-variants|build-badge-previews|build-static-shell|worldcup-seo)\.mjs$|build\.sh$)/;
+const sitePath = /^pages\/(?:site\/|astro\/|papagenerator\/|functions\/|token-worldcup\/|scripts\/(?:build-badge-previews|build-static-shell|worldcup-seo)\.mjs$|build\.sh$)/;
 
 function digestUrls(date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw Error('Invalid digest date');

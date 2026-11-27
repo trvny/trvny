@@ -1,0 +1,10 @@
+---
+import LabLayout from '../../layouts/LabLayout.astro';
+import TokenizerPlayground from '../../components/TokenizerPlayground.svelte';
+---
+<LabLayout title="Tokenizer playground" description="Count text tokens with the OpenAI o200k_base and cl100k_base encodings in your browser.">
+  <h1>Tokenizer playground</h1>
+  <p class="lede">Count text tokens and inspect token IDs. Text stays in your browser.</p>
+  <TokenizerPlayground client:visible />
+  <p><a href="/teksty/token-worldcup/">Token Worldcup</a> compares the same facts across 27 languages.</p>
+</LabLayout>

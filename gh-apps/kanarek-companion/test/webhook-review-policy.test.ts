@@ -71,6 +71,8 @@ const keptClaims = [
   { path: 'src/cache.ts', title: '缓存键错误', body: '该改动不会导致编译失败，但会读到旧值。' },
   { path: 'src/auth.ts', title: '鉴权缺失', body: '这不会使代码无法编译，但会允许未认证用户读取数据。' },
   { path: 'src/auth.ts', title: '这个改动不会导致编译失败', body: '未认证用户可以读取数据。' },
+  { path: 'src/auth.ts', title: '鉴权缺失', body: '这不使得编译失败，却会跳过鉴权。' },
+  { path: 'src/rules.ts', title: '有效规则被误判为语法错误', body: '合法输入会被拒绝。' },
   { path: 'pages/eslint.config.mjs', title: '代码语法错误', body: '该行会导致编译错误。' },
   { path: 'app/build.gradle.kts', title: '代码语法错误', body: '该行会导致编译错误。' },
   {

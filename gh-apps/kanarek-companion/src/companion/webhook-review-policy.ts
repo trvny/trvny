@@ -1,5 +1,5 @@
 // Deterministic publication policy: claims CI already settles are never review findings.
-// Build, syntax and import breakage fails a compile or test job on its own; models reading
+// Compile and import breakage fails a build or test job on its own; models reading
 // only a diff mostly invent it (missing imports for member functions, Kotlin trailing commas,
 // sibling imports under unittest discovery).
 //
@@ -14,15 +14,15 @@ const SCRIPT_TEST = /(?:^|\/)test_[^/]*\.py$|\.(?:test|spec)\.[cm]?jsx?$/iu;
 // Build and tool configuration may be read by no job that fails the pull request.
 const CONFIGURATION = /\.config\.[cm]?[jt]s$|\.gradle\.kts$/iu;
 
-// A title is a claim when the breakage is what it ends on, so that "语法错误时覆盖数据"
-// (handling of someone's syntax error) is not one. "导入" alone also means data import.
+// A title is a claim when the breakage is what it ends on. "语法错误" is not a trigger:
+// it also names a parser mishandling valid input. "导入" alone also means data import.
 const TITLE_CLAIM =
-  /(?:编译(?:失败|错误|报错|不通过)|无法(?:通过)?编译|语法错误)$|(?:缺少|缺失)[^，。；]{0,60}(?:[A-Za-z_)]\s*|断言|扩展|函数|模块)导入$|(?:模块导入|导入模块)路径错误$|错误的(?:模块)?导入路径$/u;
+  /(?:编译(?:失败|错误|报错|不通过)|无法(?:通过)?编译)$|(?:缺少|缺失)[^，。；]{0,60}(?:[A-Za-z_)]\s*|断言|扩展|函数|模块)导入$|(?:模块导入|导入模块)路径错误$|错误的(?:模块)?导入路径$/u;
 // In a body, only a stated consequence for the build counts; mentions do not.
 const BODY_CLAIM =
   /无法(?:通过)?编译|(?:导致|使得|会(?:因)?)[^。；，]{0,40}编译(?:会)?(?:失败|错误|报错|不通过)/u;
 // A denied breakage ("不会使代码无法编译，但…") introduces the real defect.
-const NEGATION = /不会|不是|并非|并不|不导致/u;
+const NEGATION = /不会|不是|并非|并不|不导致|不使|不至于|不引起/u;
 const CLAUSE_END = /[。；，;\n]/u;
 
 function claimsBuildBreakage(title: string, body: string): boolean {

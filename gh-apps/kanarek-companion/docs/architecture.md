@@ -175,7 +175,7 @@ It is responsible for:
 - treating repository content as untrusted data except scoped `AGENTS.md`
   guidance;
 - a strict output contract with at most eight findings;
-- a deterministic claim policy (`webhook-review-policy.ts`): compile, syntax and
+- a deterministic claim policy (`webhook-review-policy.ts`): compile and
   import-breakage claims about compiled sources and script tests are dropped
   before verification. A reply holding only those reads as clean, not as
   unverifiable output; a partial scan still follows the partial-coverage rule;

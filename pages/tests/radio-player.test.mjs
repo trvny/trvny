@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { setImmediate } from "node:timers";
 
-async function player({ deferredPause = false, nativeHls = false, stationMetadata = { kind: "station" }, dock = null } = {}) {
+async function player({ deferredPause = false, nativeHls = false, stationMetadata = { kind: "station" }, dock = null, unsupportedAction = "" } = {}) {
   const pauseEvents = [];
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
@@ -76,7 +76,14 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     destroy() { this.destroyed = true; }
   }
   const actions = new Map();
-  const mediaSession = { setActionHandler: (name, handler) => actions.set(name, handler) };
+  const mediaSession = {
+    playbackState: "none",
+    metadata: null,
+    setActionHandler(name, handler) {
+      if (name === unsupportedAction) throw new Error("Unsupported");
+      actions.set(name, handler);
+    },
+  };
   let refreshTimer;
   let metadataRequests = 0;
   let resolveMetadata;
@@ -86,6 +93,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     document, window: { Hls }, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
     HTMLInputElement: Input, HTMLImageElement: Image, HTMLSelectElement: Select, AbortSignal,
     navigator: { mediaSession },
+    MediaMetadata: class { constructor(details) { Object.assign(this, details); } },
     fetch: (url) => {
       metadataRequests++;
       return url === "/api/radio-now" ? metadata : Promise.resolve({ ok: true, json: async () => stationMetadata });
@@ -96,7 +104,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
   const flush = () => new Promise((resolve) => setImmediate(resolve));
   const select = (value) => { station.value = value; station.dispatch("change"); };
   return { audio, play, status, station, elements, instances, select, flush, resolveMetadata, pauseEvents, actions,
-    refresh: () => refreshTimer(), metadataRequests: () => metadataRequests };
+    refresh: () => refreshTimer(), metadataRequests: () => metadataRequests, mediaSession };
 }
 
 test("switching stations stops the old stream and respects pause", async () => {
@@ -350,4 +358,17 @@ test("Media Session resumes metadata polling after a paused, closed dock goes id
   assert.equal(p.metadataRequests(), 2);
   p.refresh();
   assert.equal(p.metadataRequests(), 3);
+});
+
+test("Media Session tolerates unavailable actions and mirrors actual playback and station", async () => {
+  const p = await player({ unsupportedAction: "play" });
+  p.play.dispatch("click");
+  assert.equal(p.actions.has("pause"), true);
+  assert.equal(p.mediaSession.playbackState, "none");
+  p.audio.dispatch("playing");
+  assert.equal(p.mediaSession.playbackState, "playing");
+  p.actions.get("pause")();
+  assert.equal(p.mediaSession.playbackState, "paused");
+  p.select("paradise");
+  assert.equal(p.mediaSession.metadata.title, "Radio Paradise");
 });

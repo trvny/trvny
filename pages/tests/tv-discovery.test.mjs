@@ -46,8 +46,12 @@ test("TV page hydrates channels without AbortSignal.timeout", async () => {
   const rows = getNode("rows").innerHTML;
   for (const slug of ["tvp1", "tvp2"]) {
     assert.ok(rows.includes(`data-copy="https://bartek.lol/tv/${slug}.m3u8"`));
-    assert.ok(rows.includes(`href="https://streambench.bartek.lol/#tvpi=${slug}"`));
   }
+  const playLinks = [...rows.matchAll(/<a class="play" href="([^"]+)"[^>]*>▶<\/a>/g)].map(([, url]) => url);
+  assert.deepEqual(playLinks, [
+    "https://streambench.bartek.lol/#tvpi=tvp1",
+    "https://streambench.bartek.lol/#tvpi=tvp2",
+  ]);
   assert.match(rows, /aria-label="Play TVP 1 HD in Streambench"/);
 });
 

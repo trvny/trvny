@@ -151,10 +151,13 @@
   footer a:hover{text-decoration:underline}
   @media (max-width:560px){
     body{padding:8px}
-    .row{font-size:21px} .row .nm{white-space:normal;min-width:0;flex:1}
+    .row{display:grid; grid-template-columns:auto minmax(0,1fr) auto auto;
+      align-items:center; row-gap:2px; font-size:21px}
+    .row .nm{white-space:normal; overflow-wrap:anywhere}
     .row .lead{display:none}
-    .row .cp{width:auto;font-size:16px}
-    .row .st{width:auto}
+    .row .st{grid-column:2; grid-row:2; width:auto; text-align:left; font-size:16px}
+    .row .cp{grid-column:3; grid-row:1 / span 2; width:auto; font-size:16px}
+    .row .play{grid-column:4; grid-row:1 / span 2}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>

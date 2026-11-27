@@ -52,6 +52,7 @@ import {
   focusedReviewJudgeContext,
   askReviewJudge,
 } from './webhook-review-judge.ts';
+import { applyFindingPolicy } from './webhook-review-policy.ts';
 
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'synchronize', 'ready_for_review']);
 const DEPENDABOT_AUTHORS = new Set(['dependabot[bot]', 'dependabot-preview[bot]']);
@@ -106,6 +107,8 @@ const REVIEW_SYSTEM_PROMPT = [
   "change_inventory records changed paths, status, and previous_path on renames, even for omitted diffs. Only a complete inventory proves which paths changed. Removed paths no longer exist; added/modified/renamed/copied/changed/unchanged paths do. Incomplete inventory and unknown statuses are inconclusive.",
   "For external package API claims require matching verified dependency_evidence or direct repository code. A major version bump, PR prose, or unfamiliar version/model/action is never evidence that an API is absent or incompatible.",
   "Trace control flow including ||, &&, and early returns from visible source before claiming reachability or missed branches.",
+  "In a GitHub Actions reusable workflow, the github context, including github.event_name, belongs to the caller workflow: the called workflow sees the caller's event, not 'workflow_call'.",
+  "Do not report compile, syntax, type-check or unresolved-import failures in source code; CI settles those.",
   "Every finding needs exact existing_code copied verbatim from the RIGHT side of the changed diff, an added RIGHT-side line, an actionable explanation, and high confidence. The verifier rejects missing or ambiguous snippets and may relocate an exact match to its actual file.",
   "If evidence is weak, report nothing rather than inventing a finding. This is not a quota-filling task.",
   "When summary, titles or bodies are nonempty, write them in Simplified Chinese; preserve code identifiers and paths. Stay technical, without jokes or boilerplate.",
@@ -531,7 +534,17 @@ export async function askReviewRouter(
     typeof payload.model === 'string' && payload.model.trim()
       ? payload.model.trim().slice(0, 200)
       : null;
-  return { kind: 'ok', review: { model, parsed, provider, partial } };
+  const policy = applyFindingPolicy(parsed);
+  if (policy.dropped) {
+    console.info(JSON.stringify({ // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      kanarekWebhookReview: 'findings_policy_dropped',
+      provider,
+      model,
+      dropped: policy.dropped,
+      kept: policy.parsed.findings.length,
+    }));
+  }
+  return { kind: 'ok', review: { model, parsed: policy.parsed, provider, partial } };
 }
 
 export interface ReviewSweepResult {

@@ -1,0 +1,24 @@
+---
+import RadioRouter from '../components/RadioRouter.astro';
+
+interface Props {
+  html: string;
+}
+
+const { html } = Astro.props;
+const content = html.match(/<head>([\s\S]*?)<\/head>\s*<body>([\s\S]*?)<\/body>/i);
+if (!content) throw new Error('Expected head and body tags in the legacy page source.');
+const [, head, body] = content;
+---
+<!doctype html>
+<html lang="pl">
+  <head>
+    <Fragment set:html={head} />
+    <RadioRouter />
+    <slot name="head" />
+  </head>
+  <body>
+    <Fragment set:html={body} />
+    <slot />
+  </body>
+</html>

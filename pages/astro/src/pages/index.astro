@@ -1,8 +1,8 @@
 ---
-import RadioRouter from '../components/RadioRouter.astro';
 import Rails from '../components/Rails.astro';
+import LegacyPage from '../layouts/LegacyPage.astro';
 import { homeHtml } from '../lib/radio-panel.mjs';
-
-const [head, body] = homeHtml.split('</head>');
 ---
-<Fragment set:html={head} /><RadioRouter /><Rails /><Fragment set:html={`</head>${body}`} />
+<LegacyPage html={homeHtml}>
+  <Rails slot="head" />
+</LegacyPage>

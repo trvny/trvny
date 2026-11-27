@@ -1,9 +1,8 @@
 ---
 import html from '../../legacy/texts.html?raw';
-import RadioRouter from '../../components/RadioRouter.astro';
 import RadioDock from '../../components/RadioDock.astro';
-
-const [head, content] = html.split('</head>');
-const [body, end] = content.split('</body>');
+import LegacyPage from '../../layouts/LegacyPage.astro';
 ---
-<Fragment set:html={head} /><RadioRouter /><Fragment set:html={`</head>${body}`} /><RadioDock /><Fragment set:html={`</body>${end}`} />
+<LegacyPage {html}>
+  <RadioDock />
+</LegacyPage>

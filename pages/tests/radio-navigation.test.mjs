@@ -22,10 +22,11 @@ test('legacy hub routes keep the route announcer and radio styles in the head', 
   for (const path of ['index.html', 'teksty/index.html']) {
     const html = await readFile(new URL(path, dist), 'utf8');
     const head = html.slice(0, html.indexOf('</head>'));
-    const assets = [...head.matchAll(/<link[^>]+href="\/(_astro\/[^"]+\.css)"/g)];
+    const assets = [...head.matchAll(/<link rel="stylesheet" href="\/(_astro\/[\w.-]+\.css)"/g)];
     const styles = await Promise.all(assets.map(([, asset]) => readFile(new URL(asset, dist), 'utf8')));
-    const css = [head, ...styles].join('\n');
+    const inline = [...head.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(([, style]) => style);
+    const css = [...inline, ...styles].join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
     assert.match(css, /\.astro-route-announcer\s*\{[^}]*position:\s*absolute/, path);
-    assert.match(css, /\.radio-controls[\s\S]*?\{/, path);
+    assert.match(css, /\.radio-controls\s*\{[^}]*display:\s*flex\b/, path);
   }
 });

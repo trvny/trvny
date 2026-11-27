@@ -58,6 +58,7 @@ import {
   fetchPriorFindings,
   priorAnchors,
   priorFindingsForPrompt,
+  unambiguousAnchors,
   type PriorFinding,
 } from './webhook-review-dedup.ts';
 
@@ -1027,7 +1028,8 @@ export async function prepareWebhookReview(
     prior,
   );
   return {
-    kind: 'ready', reviewInput, verifiableFiles, priorAnchors: priorAnchors(prior),
+    kind: 'ready', reviewInput, verifiableFiles,
+    priorAnchors: unambiguousAnchors(priorAnchors(prior), rawFiles),
     diffChars: files.reduce((total, file) => total + file.patch.length, 0),
     contextChars: context.files.reduce((total, file) => total + file.content.length, 0),
   };

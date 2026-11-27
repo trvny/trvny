@@ -7,6 +7,7 @@ import {
   fetchPriorFindings,
   priorAnchors,
   priorFindingsFromComments,
+  unambiguousAnchors,
 } from '../src/companion/webhook-review-dedup.ts';
 import type { ReviewFile } from '../src/companion/webhook-review-context.ts';
 import type { ReviewFinding } from '../src/companion/webhook-review-judge.ts';
@@ -76,6 +77,15 @@ test('the same text elsewhere, a duplicated spot or a long-line edit stays publi
   const longAnchors = priorAnchors([{ path: 'src/a.ts', line: `${long}a`, before: '', title: 't', replies: [] }]);
   assert.equal(dropRepeatedFindings([finding(1)], patched(`@@ -0,0 +1 @@\n+${long}b`), longAnchors).repeated, 0);
   assert.equal(dropRepeatedFindings([finding(1)], patched(`@@ -0,0 +1 @@\n+${long}a`), longAnchors).repeated, 1);
+});
+
+test('a twin beyond the clipped review patch makes the spot ambiguous', () => {
+  const anchors = priorAnchors(priorFindingsFromComments(comments, 'kanarek-companion'));
+  const spot = '+const added = true;\n+const value = readConfig();';
+  const full = [{ filename: 'src/a.ts', patch: `@@ -0,0 +1,4 @@\n${spot}\n${spot}` }];
+  assert.deepEqual(unambiguousAnchors(anchors, full), []);
+  const once = [{ filename: 'src/a.ts', patch: `@@ -0,0 +1,2 @@\n${spot}` }];
+  assert.deepEqual(unambiguousAnchors(anchors, once), anchors);
 });
 
 test('the newest trusted replies win', () => {

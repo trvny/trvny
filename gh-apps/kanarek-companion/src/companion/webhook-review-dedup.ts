@@ -4,7 +4,7 @@
 // not published again.
 import type { GitHubInstallationClient } from '../../../core/github-app.ts';
 import { repoPath } from '../tools/common.ts';
-import { objectValue, type ReviewFile } from './webhook-review-context.ts';
+import { objectValue, type PullRequestFile, type ReviewFile } from './webhook-review-context.ts';
 import { patchRightSideSource, type ReviewFinding } from './webhook-review-judge.ts';
 
 const MAX_COMMENTS_SCANNED = 300;
@@ -54,12 +54,11 @@ export function priorFindingsFromComments(
   const items = comments.map(objectValue);
   const login = (item: Record<string, unknown>) => objectValue(item.user).login;
   const own = `${appSlug}[bot]`;
-  const findings = new Map<number, PriorFinding & { id: number }>();
+  const findings = new Map<number, PriorFinding>();
   for (const item of items) {
     if (login(item) !== own || item.in_reply_to_id || typeof item.id !== 'number' ||
         typeof item.path !== 'string' || typeof item.body !== 'string') continue;
     findings.set(item.id, {
-      id: item.id,
       path: item.path,
       ...commentedSpot(item.diff_hunk),
       title: item.body.split('\n', 1)[0].slice(0, MAX_TITLE_CHARS),
@@ -75,9 +74,7 @@ export function priorFindingsFromComments(
     // Oldest first, so the newest ones survive: a later correction beats the first answer.
     if (trusted) parent.replies = [...parent.replies, item.body.slice(0, MAX_REPLY_CHARS)].slice(-MAX_REPLIES);
   }
-  return [...findings.values()]
-    .sort((a, b) => b.id - a.id)
-    .map(({ id: _id, ...finding }) => finding);
+  return [...findings].sort(([a], [b]) => b - a).map(([, finding]) => finding);
 }
 
 // Fail-soft: a review without memory repeats itself; a failed review is worse.
@@ -118,6 +115,31 @@ export function priorAnchors(prior: readonly PriorFinding[]): string[] {
     .map((finding) => anchorKey(finding.path, finding.before, finding.line)))];
 }
 
+// Each right-side line of a patch with its spot identity, in patch order.
+function patchSpots(path: string, patch: string): Array<{ line: number; key: string }> {
+  const source = patchRightSideSource(patch);
+  return source.map((row, index) => {
+    const above = source[index - 1];
+    const before = above?.line === row.line - 1 ? normalizeLine(above.text) : '';
+    return { line: row.line, key: anchorKey(path, before, normalizeLine(row.text)) };
+  });
+}
+
+// Review input may clip a patch; a twin beyond the cut still makes a spot ambiguous.
+export function unambiguousAnchors(
+  anchors: readonly string[],
+  files: readonly PullRequestFile[],
+): string[] {
+  const count = new Map<string, number>();
+  for (const { filename, patch } of files) {
+    if (!filename || !patch) continue;
+    for (const { key } of patchSpots(filename, patch)) {
+      count.set(key, (count.get(key) ?? 0) + 1);
+    }
+  }
+  return anchors.filter((anchor) => (count.get(anchor) ?? 0) < 2);
+}
+
 export function dropRepeatedFindings(
   findings: ReviewFinding[],
   files: ReviewFile[],
@@ -127,15 +149,10 @@ export function dropRepeatedFindings(
   const fresh = findings.filter((finding) => {
     const patch = files.find((file) => file.path === finding.path)?.patch;
     if (!patch) return true;
-    const source = patchRightSideSource(patch);
-    const keys = source.map((row, index) => {
-      const above = source[index - 1];
-      const before = above?.line === row.line - 1 ? normalizeLine(above.text) : '';
-      return anchorKey(finding.path, before, normalizeLine(row.text));
-    });
-    const key = keys[source.findIndex((row) => row.line === finding.line)];
+    const spots = patchSpots(finding.path, patch);
+    const key = spots.find((spot) => spot.line === finding.line)?.key;
     // Two equal spots in one patch cannot be told apart, so nothing is withheld.
-    return !key || !seen.has(key) || keys.indexOf(key) !== keys.lastIndexOf(key);
+    return !key || !seen.has(key) || spots.filter((spot) => spot.key === key).length > 1;
   });
   return { fresh, repeated: findings.length - fresh.length };
 }

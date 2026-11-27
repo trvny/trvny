@@ -26,19 +26,32 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
 .side{position:sticky;top:12px;border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:14px}.side h2{font-size:16px;margin:0 0 4px}.pill{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:3px 8px;color:var(--muted);font-size:11px;margin-bottom:10px}.side dl{margin:12px 0}.side dt{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.side dd{margin:2px 0 10px}.side a{color:#93c5fd;text-decoration:none;word-break:break-word}.side ul{margin:6px 0 0;padding-left:18px;color:var(--muted)}.hint{font-size:12px;color:var(--muted);margin-top:10px}
 .footer{margin-top:14px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.side{position:static}.controls input{flex:1;min-width:180px}}
+[hidden]{display:none!important}
+.node-directory{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:12px}
+.node-directory summary{cursor:pointer;font-weight:700;color:var(--text)}
+#node-count{color:var(--muted);font-weight:400}
+#node-list{list-style:none;padding:0;margin:10px 0 0;max-height:320px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:6px}
+#node-list button{width:100%;text-align:left;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);padding:8px;color:var(--text);font:inherit;cursor:pointer}
+#node-list button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+#node-list small{display:block;color:var(--muted)}
+aside a,.footer a,#map-error a{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.edge,.node{transition:none}}
 </style>
 </head>
 <body>
 <main>
   <div class="top">
     <div>
-      <div class="eyebrow">Verified snapshot · 2026-10-03</div>
+      <div class="eyebrow" id="snapshot">Infrastructure snapshot</div>
       <h1>TRVNY / TRAVNIE Universe</h1>
       <p>Repos, internal services, Cloudflare runtime, storage and the Kanarek network. Click any node to trace its neighborhood.</p>
     </div>
   </div>
 
-  <div class="controls" aria-label="Graph controls">
+  <p id="map-loading" role="status">Loading map…</p>
+  <p id="map-error" hidden>Map unavailable. <a href="./">Open the project atlas</a> or <a href="./infrastructure.json">view the snapshot JSON</a>.</p>
+  <noscript><style>#map-loading{display:none}</style><p><a href="./">Project atlas</a> · <a href="./infrastructure.json">Infrastructure snapshot JSON</a></p></noscript>
+  <div class="controls" hidden aria-label="Graph controls">
     <button type="button" data-preset="all" class="active">Everything</button>
     <button type="button" data-preset="kanarek">Kanarek network</button>
     <button type="button" data-preset="web">Public web</button>
@@ -48,7 +61,7 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
     <button type="button" id="download-svg">Download SVG</button>
   </div>
 
-  <div class="legend">
+  <div class="legend" hidden>
     <span><i class="dot" style="background:var(--repo)"></i>Repository</span>
     <span><i class="dot" style="background:var(--component)"></i>Repo component</span>
     <span><i class="dot" style="background:var(--worker)"></i>Cloudflare runtime</span>
@@ -56,13 +69,19 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
     <span><i class="dot" style="background:var(--external)"></i>External system</span>
   </div>
 
-  <div class="layout">
+  <div class="layout" hidden>
+    <div class="map-body">
+    <details class="node-directory">
+      <summary>Browse nodes <span id="node-count"></span></summary>
+      <ul id="node-list"></ul>
+    </details>
     <div class="canvas">
       <svg id="graph" viewBox="0 0 1330 930" role="img" aria-label="Interactive graph of TRVNY and TRAVNIE repositories and infrastructure">
         <g id="clusters"></g>
         <g id="edges"></g>
         <g id="nodes"></g>
       </svg>
+    </div>
     </div>
 
     <aside class="side" id="details" aria-live="polite">
@@ -74,92 +93,45 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
   </div>
 
   <div class="footer">
-    <span>GitHub + Cloudflare state verified on 2026-10-03. Secrets and secret values are intentionally omitted.</span>
-    <span>Source lives in <code>trvny/trvny/pages/site/teksty/githubowa-kraina/universe.html</code>.</span>
+    <span>GitHub and Cloudflare infrastructure snapshot.</span>
+    <span><a href="./infrastructure.json">Snapshot JSON</a></span>
   </div>
 </main>
 
 <script>
-(() => {
-const nodes = [
-{id:"repo-hub",label:"trvny/trvny",sub:"hub repo",kind:"repo",x:45,y:75,url:"https://github.com/trvny/trvny",info:"Mixed hub: GitHub Apps, MCP services, Telegram assistant, token reports and shared AI config.",tags:["all","automation","kanarek"]},
-{id:"repo-tvpi",label:"trvny/tvpi",sub:"TV Worker",kind:"repo",x:45,y:205,url:"https://github.com/trvny/tvpi",info:"TVPI source: the TVPI Worker and the stream generator.",tags:["all","web"]},
-{id:"repo-feedseek",label:"trvny/feedseek",sub:"feeds + reader",kind:"repo",x:45,y:335,url:"https://github.com/trvny/feedseek",info:"Feed generation, GitHub Pages reader, constrained feed proxy and durable R2 generation cache.",tags:["all","web"]},
-{id:"repo-gh",label:"trvny/.github",sub:"shared automation",kind:"repo",x:45,y:465,url:"https://github.com/trvny/.github",info:"Shared workflow and repository automation home for the trvny account.",tags:["all","automation"]},
-{id:"repo-ai",label:"trvny/.ai",sub:"AI config",kind:"repo",x:45,y:595,url:"https://github.com/trvny/.ai",info:"Shared AI instructions, roles and reference material.",tags:["all","automation"]},
-{id:"repo-wifi",label:"trvny/WiFi-Automatic",sub:"Android fork",kind:"repo",x:45,y:725,url:"https://github.com/trvny/WiFi-Automatic",info:"Maintained Android fork for automatic Wi-Fi behavior. Standalone from the Cloudflare service graph.",tags:["all"]},
-{id:"repo-kanarek",label:"travnie/Kanarek",sub:"Android reader",kind:"repo",x:270,y:75,url:"https://github.com/travnie/Kanarek",info:"Kanarek Android application. Uses the dedicated kanarek Worker backend for feeds and state.",tags:["all","kanarek","web"]},
-{id:"repo-autka",label:"travnie/Autka",sub:"vehicle app",kind:"repo",x:270,y:205,url:"https://github.com/travnie/Autka",info:"Autka mobile app plus cargate-backend Cloudflare Worker.",tags:["all","web"]},
-{id:"repo-twojstar",label:"travnie/twojstar",sub:"workshop",kind:"repo",x:270,y:335,url:"https://github.com/travnie/twojstar",info:"Workshop repo: Codebench, Streambench, Docbench, Weather Feed, Feedboard, SpaceMolt, desktop pets, Xiaomi ADB Tools, Paint.NET and Audacity add-ons, Intent Keyboard and Remotely Save patch.",tags:["all","web","automation"]},
-{id:"repo-aistee",label:"travnie/aistee",sub:"AI client",kind:"repo",x:270,y:465,url:"https://github.com/travnie/aistee",info:"AI client project with direct-provider and WebView integrations.",tags:["all"]},
-{id:"repo-wam",label:"travnie/wambridge",sub:"audio bridge",kind:"repo",x:270,y:595,url:"https://github.com/travnie/wambridge",info:"Local Samsung WAM bridge, foobar2000 output and Android media renderer.",tags:["all"]},
-{id:"repo-travnie-gh",label:"travnie/.github",sub:"org automation",kind:"repo",x:270,y:725,url:"https://github.com/travnie/.github",info:"Organization-level workflows, assets and automation for travnie.",tags:["all","automation"]},
-
-{id:"src-companion",label:"kanarek-companion",sub:"gh-apps/",kind:"component",x:500,y:55,url:"https://github.com/trvny/trvny/tree/main/gh-apps/kanarek-companion",info:"GitHub webhook/operator side of the Kanarek network; owns GPTomek identity, review jobs and guarded mutations.",tags:["all","kanarek","automation"]},
-{id:"src-review",label:"kanarek-review",sub:"gh-apps/",kind:"component",x:500,y:135,url:"https://github.com/trvny/trvny/tree/main/gh-apps/kanarek-review",info:"Private review router source. Free-provider sweep, Workers AI and paid escalation live here.",tags:["all","kanarek","automation"]},
-{id:"src-pet",label:"pet-dispatcher",sub:"mcp/",kind:"component",x:500,y:215,url:"https://github.com/trvny/trvny/tree/main/mcp/pet-dispatcher",info:"Managed local orchestration plus remote Cloudflare control plane.",tags:["all","automation"]},
-{id:"src-status",label:"status-mcp",sub:"mcp/",kind:"component",x:500,y:295,url:"https://github.com/trvny/trvny/tree/main/mcp/status-mcp",info:"Read-only service health roll-up for TVPI, Weather, Autka and Feedseek.",tags:["all","automation","web"]},
-{id:"src-tg",label:"cloudflare-assistant",sub:"tg-bots/",kind:"component",x:500,y:375,url:"https://github.com/trvny/trvny/tree/main/tg-bots/cloudflare-assistant",info:"Telegram assistant source, Mini App, queues, reminders, watches and specialist handoff.",tags:["all","automation","kanarek"]},
-{id:"src-gptomek",label:"gptomek",sub:"gh-apps/",kind:"component",x:500,y:455,url:"https://github.com/trvny/trvny/tree/main/gh-apps/gptomek",info:"GitHub App control path and bot-authored GitHub operations.",tags:["all","automation","kanarek"]},
-{id:"src-claudiusz",label:"claudiusz",sub:"gh-apps/",kind:"component",x:500,y:535,url:"https://github.com/trvny/trvny/tree/main/gh-apps/claudiusz",info:"Claude-oriented GitHub App / MCP integration source.",tags:["all","automation"]},
-{id:"src-shitpost",label:"shitpost-reactor",sub:"gh-apps/",kind:"component",x:500,y:615,url:"https://github.com/trvny/trvny/tree/main/gh-apps/shitpost-reactor",info:"Feed-producing GitHub reaction service backed by R2.",tags:["all","automation","web"]},
-{id:"src-token",label:"token-worldcup",sub:"Quarto report",kind:"component",x:500,y:695,url:"https://github.com/trvny/trvny/tree/main/pages/token-worldcup",info:"Token language/model reports and tokenizer recount scripts.",tags:["all","web"]},
-{id:"src-loopling",label:"loopling",sub:"pet assets",kind:"component",x:500,y:775,url:"https://github.com/travnie/twojstar/tree/main/pets/loopling",info:"Source generator, pet assets, installers and previews now live in twojstar/pets/loopling.",tags:["all"]},
-
-{id:"w-kanarek",label:"kanarek",sub:"Worker",kind:"worker",x:745,y:45,url:"https://kanarek.travny.workers.dev",info:"Feed/state backend for the Kanarek app. Bound to feed-scrape KV and kanarek-state D1.",tags:["all","kanarek","web"]},
-{id:"w-companion",label:"automation",sub:"Shared Worker",kind:"worker",x:745,y:120,url:"https://automation.travny.workers.dev",info:"Shared Automation runtime: Kanarek webhooks and reviews, GPTomek bridge, operator actions and durable jobs.",tags:["all","kanarek","automation"]},
-{id:"w-review",label:"kanarek-review",sub:"Worker",kind:"worker",x:745,y:195,url:"https://kanarek-review.travny.workers.dev",info:"Private AI review router. Uses Workers AI plus configured provider pool and shared cooldown state.",tags:["all","kanarek","automation"]},
-{id:"w-pet",label:"pet-dispatcher-control",sub:"Worker",kind:"worker",x:745,y:270,url:"https://pet-dispatcher-control.travny.workers.dev",info:"Remote task control plane with Queue and Durable Object task state. Local authority remains on the Legion.",tags:["all","automation","kanarek"]},
-{id:"w-tg",label:"tg-assistant",sub:"Worker",kind:"worker",x:745,y:345,url:"https://tg-assistant.travny.workers.dev",info:"Always-on Telegram side. Uses Kanarek specialist/router bindings and Pet Dispatcher handoff.",tags:["all","automation","kanarek"]},
-{id:"w-status",label:"status-mcp",sub:"Worker",kind:"worker",x:745,y:420,url:"https://status-mcp.travny.workers.dev",info:"Read-only status MCP using same-account service bindings to TVPI, Weather and Autka.",tags:["all","automation","web"]},
-{id:"w-tvpi",label:"tvpi",sub:"Worker",kind:"worker",x:745,y:495,url:"https://tvpi.travny.workers.dev",info:"TVPI streaming Worker with D1 last-known-good state and R2 mirror.",tags:["all","web"]},
-{id:"w-weather",label:"weather",sub:"Worker",kind:"worker",x:745,y:570,url:"https://weather.bartek.lol",info:"Multi-source Kościelec / Chrzanów weather service with Atom + JSON output and KV state.",tags:["all","web"]},
-{id:"w-feeds",label:"feeds-proxy",sub:"Worker",kind:"worker",x:745,y:645,url:"https://feeds-proxy.travny.workers.dev/",info:"Constrained HTTPS fetch helper and Feedseek MCP endpoint.",tags:["all","web"]},
-{id:"w-cargate",label:"cargate-backend",sub:"Worker",kind:"worker",x:745,y:720,url:"https://cargate-backend.travny.workers.dev",info:"Autka backend using cargate-offers D1 and cargate-images R2.",tags:["all","web"]},
-{id:"w-bench",label:"Bench Workers",sub:"code · stream · doc",kind:"worker",x:745,y:795,url:"https://github.com/travnie/twojstar/tree/main/benches",info:"Codebench, Streambench and Docbench Workers, all sourced from travnie/twojstar.",tags:["all","web"]},
-
-{id:"w-space",label:"spacemolt-gateway",sub:"Worker",kind:"worker",x:975,y:70,url:"https://github.com/travnie/twojstar/tree/main/spacemolt/gateway",info:"Authenticated Gremlin / SpaceMolt bridge. Uses kanarek-review as planner and KV state.",tags:["all","automation","kanarek"]},
-{id:"w-claudiusz",label:"claudiusz-mcp",sub:"Worker",kind:"worker",x:975,y:145,url:"https://github.com/trvny/trvny/tree/main/gh-apps/claudiusz",info:"Cloudflare-hosted Claude/GitHub MCP surface.",tags:["all","automation"]},
-{id:"w-shitpost",label:"shitpost-reactor",sub:"Worker",kind:"worker",x:975,y:220,url:"https://github.com/trvny/trvny/tree/main/gh-apps/shitpost-reactor",info:"Feed renderer / OIDC validator with R2 persistence.",tags:["all","automation","web"]},
-{id:"pages",label:"Cloudflare Pages",sub:"travny",kind:"worker",x:975,y:295,url:"https://bartek.lol",info:"The travny Pages project serves bartek.lol and travny.pages.dev from the trvny/trvny repository.",tags:["all","web"]},
-
-{id:"s-kanarek",label:"kanarek-state",sub:"D1",kind:"storage",x:975,y:400,info:"D1 state database bound to the kanarek Worker.",tags:["all","kanarek"]},
-{id:"s-feed",label:"feed-scrape",sub:"KV",kind:"storage",x:975,y:465,info:"Shared KV namespace used by the Kanarek feed backend and Kanarek quip bank binding.",tags:["all","kanarek"]},
-{id:"s-review",label:"Kanarek DO cluster",sub:"Durable Objects",kind:"storage",x:975,y:530,info:"Review jobs, provider cooldowns, mutation replay, locks and operator checkpoints.",tags:["all","kanarek","automation"]},
-{id:"s-pet",label:"pet-dispatcher-tasks",sub:"Queue + DO",kind:"storage",x:975,y:595,info:"Task delivery Queue plus TaskStateStore Durable Object.",tags:["all","automation"]},
-{id:"s-tg",label:"Telegram state",sub:"Queues + DOs",kind:"storage",x:975,y:660,info:"Update queue, DLQ, dedup, memory, reminders, media groups, task watches and inline-query gates.",tags:["all","automation","kanarek"]},
-{id:"s-tvpi",label:"tvpi-lkg + mirror",sub:"D1 + R2",kind:"storage",x:975,y:725,info:"TVPI last-known-good D1 state and R2 mirror bucket.",tags:["all","web"]},
-{id:"s-weather",label:"weather-feed",sub:"KV",kind:"storage",x:975,y:790,info:"KV namespace for Weather Feed state.",tags:["all","web"]},
-{id:"s-feedseek",label:"feedseek-cache",sub:"R2",kind:"storage",x:975,y:855,info:"Durable Feedseek generation cache: snapshots/cache.tar.gz.",tags:["all","web"]},
-{id:"s-cargate",label:"cargate data",sub:"D1 + R2",kind:"storage",x:1150,y:720,info:"cargate-offers D1 plus cargate-images R2.",tags:["all","web"]},
-{id:"s-space",label:"spacemolt state",sub:"KV",kind:"storage",x:1150,y:70,info:"KV namespace spacemolt-gateway-state.",tags:["all","automation","kanarek"]},
-{id:"s-shitpost",label:"shitpost-reactor",sub:"R2",kind:"storage",x:1150,y:220,info:"R2 bucket storing generated shitpost feed state.",tags:["all","automation","web"]},
-
-{id:"ext-github",label:"GitHub API",sub:"repos · PRs · webhooks",kind:"external",x:1150,y:335,url:"https://github.com",info:"GitHub App actions, public metadata reads and repository automation.",tags:["all","automation","kanarek"]},
-{id:"ext-ai",label:"AI provider pool",sub:"Workers AI + APIs",kind:"external",x:1150,y:430,info:"Provider pool behind Kanarek review/routing: Workers AI and configured external providers.",tags:["all","automation","kanarek"]},
-{id:"ext-telegram",label:"Telegram",sub:"webhook + Mini App",kind:"external",x:1150,y:525,url:"https://telegram.org",info:"Inbound updates, inline mode, Business mode and Mini App entrypoint.",tags:["all","automation","kanarek"]},
-{id:"ext-legion",label:"Legion",sub:"local authority",kind:"external",x:1150,y:620,info:"Outbound-polling local Pet Dispatcher worker. Host and filesystem authority stays here, not in Cloudflare.",tags:["all","automation"]}
-];
-
-const edges = [
-["repo-hub","src-companion","source"],["repo-hub","src-review","source"],["repo-hub","src-pet","source"],["repo-hub","src-status","source"],["repo-hub","src-tg","source"],["repo-hub","src-gptomek","source"],["repo-hub","src-claudiusz","source"],["repo-hub","src-shitpost","source"],["repo-hub","src-token","source"],["repo-twojstar","src-loopling","source"],
-["src-companion","w-companion","source"],["src-review","w-review","source"],["src-pet","w-pet","source"],["src-status","w-status","source"],["src-tg","w-tg","source"],["src-claudiusz","w-claudiusz","source"],["src-shitpost","w-shitpost","source"],
-["repo-kanarek","w-kanarek","source"],["repo-tvpi","w-tvpi","source"],["repo-hub","pages","source"],["repo-feedseek","w-feeds","source"],["repo-twojstar","w-weather","source"],["repo-twojstar","w-bench","source"],["repo-twojstar","w-space","source"],["repo-autka","w-cargate","source"],
-["w-companion","w-review","service"],["w-pet","w-companion","service"],["w-tg","w-companion","service"],["w-tg","w-pet","service"],["w-status","w-tvpi","service"],["w-status","w-weather","service"],["w-status","w-cargate","service"],["w-space","w-review","service"],
-["w-kanarek","s-kanarek","storage"],["w-kanarek","s-feed","storage"],["w-companion","s-feed","storage"],["w-companion","s-review","storage"],["w-review","s-review","storage"],["w-pet","s-pet","storage"],["w-tg","s-tg","storage"],["w-tvpi","s-tvpi","storage"],["w-weather","s-weather","storage"],["repo-feedseek","s-feedseek","storage"],["w-cargate","s-cargate","storage"],["w-space","s-space","storage"],["w-shitpost","s-shitpost","storage"],
-["w-companion","ext-github","external"],["src-gptomek","ext-github","external"],["w-status","repo-feedseek","external"],["w-review","ext-ai","external"],["w-companion","ext-ai","external"],["w-tg","ext-telegram","external"],["w-pet","ext-legion","external"],
-["pages","w-weather","external"],["pages","repo-feedseek","external"],["pages","w-bench","external"]
-];
-
-const clusters = [
-{x:24,y:30,w:425,h:835,label:"Repositories"},
-{x:476,y:25,w:202,h:850,label:"Source components (cross-repo)"},
-{x:716,y:20,w:205,h:850,label:"Cloudflare runtime"},
-{x:945,y:20,w:360,h:875,label:"State + external systems"}
-];
+(async () => {
+const response = await fetch("./infrastructure.json");
+if (!response.ok) throw new Error("Map unavailable");
+const { snapshot, nodes, edges, clusters } = await response.json();
 
 const svg=document.getElementById("graph"), gClusters=document.getElementById("clusters"), gEdges=document.getElementById("edges"), gNodes=document.getElementById("nodes"), details=document.getElementById("details"), search=document.getElementById("search");
 const byId=new Map(nodes.map(n=>[n.id,n]));
+const directory=document.getElementById("node-list");
+const directoryItems=new Map();
+let activeFilter=null;
+document.getElementById("snapshot").textContent="Verified snapshot · "+snapshot;
+const relationLabels={source:"Source",service:"Service",storage:"Storage",external:"External"};
+for(const node of [...nodes].sort((a,b)=>a.label.localeCompare(b.label))){
+ const entry=document.createElement("li"),button=document.createElement("button"),role=document.createElement("small");
+ button.type="button";
+ button.textContent=node.label;
+ button.setAttribute("aria-pressed","false");
+ role.textContent=node.sub;
+ button.append(role);
+ button.addEventListener("click",()=>select(node.id,true));
+ entry.append(button);
+ directory.append(entry);
+ directoryItems.set(node.id,{entry,button});
+}
+function updateDirectory(){
+ let count=0;
+ for(const [id,{entry,button}] of directoryItems){
+  entry.hidden=Boolean(activeFilter && !activeFilter.has(id));
+  button.setAttribute("aria-pressed",String(id===selectedId));
+  if(!entry.hidden)count++;
+ }
+ document.getElementById("node-count").textContent="("+count+")";
+}
 let selectedId=null;
 const neighbors=new Map(nodes.map(n=>[n.id,new Set()]));
 edges.forEach(([a,b])=>{neighbors.get(a).add(b);neighbors.get(b).add(a)});
@@ -185,38 +157,70 @@ nodes.forEach(n=>{
  const title=document.createElementNS("http://www.w3.org/2000/svg","text");title.setAttribute("class","title");title.setAttribute("x","14");title.setAttribute("y","21");title.textContent=n.label;
  const sub=document.createElementNS("http://www.w3.org/2000/svg","text");sub.setAttribute("class","sub");sub.setAttribute("x","14");sub.setAttribute("y","38");sub.textContent=n.sub;
  g.append(body,strip,title,sub);gNodes.appendChild(g);
- g.addEventListener("click",()=>select(n.id));g.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();select(n.id)}});
+ g.addEventListener("click",()=>select(n.id,true));g.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();select(n.id,true)}});
 });
 
 function connectedList(id){
- return Array.from(neighbors.get(id)||[]).map(x=>byId.get(x)).sort((a,b)=>a.label.localeCompare(b.label));
+ return edges.filter(([from,to])=>from===id||to===id).map(([from,to,relation])=>({
+  node:byId.get(from===id?to:from),relation
+ })).sort((a,b)=>a.node.label.localeCompare(b.node.label));
 }
-function select(id){
+function select(id, updateHash=false){
+ if(!byId.has(id))return;
+ selectedId=id;
+ if(updateHash){
+  const url=new URL(location.href);
+  url.hash=id;
+  history.replaceState(history.state,"",url);
+ }
+ updateDirectory();
  const n=byId.get(id), keep=new Set([id,...neighbors.get(id)]);
  document.querySelectorAll(".node").forEach(el=>{el.classList.toggle("active",el.dataset.id===id);el.classList.toggle("dim",!keep.has(el.dataset.id))});
  document.querySelectorAll(".edge").forEach(el=>{const on=el.dataset.a===id||el.dataset.b===id;el.classList.toggle("active",on);el.classList.toggle("dim",!on)});
- const links=connectedList(id).map(x=>"<li>"+escapeHtml(x.label)+" <small>· "+escapeHtml(x.sub)+"</small></li>").join("");
- details.innerHTML='<span class="pill">'+escapeHtml(n.kind)+'</span><h2>'+escapeHtml(n.label)+'</h2><p>'+escapeHtml(n.info)+'</p><dl><dt>Role</dt><dd>'+escapeHtml(n.sub)+'</dd>'+(n.url?'<dt>Open</dt><dd><a href="'+escapeAttr(n.url)+'" target="_blank" rel="noopener">'+escapeHtml(n.url)+'</a></dd>':'')+'<dt>Direct connections</dt><dd><ul>'+links+'</ul></dd></dl><div class="hint">Click the same node again or choose a preset to reset the neighborhood.</div>';
+ const links=connectedList(id).map(({node,relation})=>
+  '<li><a href="#'+escapeAttr(node.id)+'">'+escapeHtml(node.label)+'</a> <small>· '+escapeHtml(relationLabels[relation])+'</small></li>').join("");
+ details.innerHTML='<span class="pill">'+escapeHtml(n.kind)+'</span><h2>'+escapeHtml(n.label)+'</h2><p>'+escapeHtml(n.info)+'</p><dl><dt>Role</dt><dd>'+escapeHtml(n.sub)+'</dd>'+(n.url?'<dt>Open</dt><dd><a href="'+escapeAttr(n.url)+'" target="_blank" rel="noopener">'+escapeHtml(n.url)+'</a></dd>':'')+'<dt>Direct connections</dt><dd><ul>'+links+'</ul></dd></dl><div class="hint">Select a connection to continue tracing the map.</div>';
 }
 function reset(){
+ selectedId=null;
+ activeFilter=null;
+ updateDirectory();
  document.querySelectorAll(".node,.edge").forEach(el=>el.classList.remove("active","dim"));
  details.innerHTML='<span class="pill">Overview</span><h2>Universe map</h2><p>Repos on the left, source components in the middle, Cloudflare runtime to the right, state and external systems at the edge.</p><div class="hint">Search narrows the graph. Presets highlight one operational slice.</div>';
 }
-function preset(tag){
+function resetHash(){
+ if(!location.hash)return;
+ const url=new URL(location.href);
+ url.hash="";
+ history.replaceState(history.state,"",url);
+}
+function preset(tag, keepHash=false){
+ if(!keepHash)resetHash();
  search.value="";
- document.querySelectorAll("[data-preset]").forEach(b=>b.classList.toggle("active",b.dataset.preset===tag));
+ selectedId=null;
+ document.querySelectorAll("[data-preset]").forEach(b=>{
+  const active=b.dataset.preset===tag;
+  b.classList.toggle("active",active);
+  b.setAttribute("aria-pressed",String(active));
+ });
  if(tag==="all"){reset();return}
  const keep=new Set(nodes.filter(n=>n.tags.includes(tag)).map(n=>n.id));
+ activeFilter=keep;
+ updateDirectory();
  document.querySelectorAll(".node").forEach(el=>el.classList.toggle("dim",!keep.has(el.dataset.id)));
  document.querySelectorAll(".edge").forEach(el=>el.classList.toggle("dim",!(keep.has(el.dataset.a)&&keep.has(el.dataset.b))));
  details.innerHTML='<span class="pill">Preset</span><h2>'+escapeHtml(tag[0].toUpperCase()+tag.slice(1))+'</h2><p>'+keep.size+' nodes in this operational slice.</p><div class="hint">Click any visible node to trace direct connections.</div>';
 }
 document.querySelectorAll("[data-preset]").forEach(b=>b.addEventListener("click",()=>preset(b.dataset.preset)));
 search.addEventListener("input",()=>{
+ resetHash();
+ selectedId=null;
  const q=search.value.trim().toLowerCase();
- document.querySelectorAll("[data-preset]").forEach(b=>b.classList.remove("active"));
- if(!q){reset();document.querySelector('[data-preset="all"]').classList.add("active");return}
+ document.querySelectorAll("[data-preset]").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-pressed","false")});
+ if(!q){preset("all");return}
  const keep=new Set(nodes.filter(n=>(n.label+" "+n.sub+" "+n.info).toLowerCase().includes(q)).map(n=>n.id));
+ activeFilter=keep;
+ updateDirectory();
  document.querySelectorAll(".node").forEach(el=>el.classList.toggle("dim",!keep.has(el.dataset.id)));
  document.querySelectorAll(".edge").forEach(el=>el.classList.toggle("dim",!(keep.has(el.dataset.a)||keep.has(el.dataset.b))));
  details.innerHTML='<span class="pill">Search</span><h2>'+keep.size+' matches</h2><p>Matching nodes stay bright; adjacent lines remain visible when they touch a match.</p>';
@@ -224,12 +228,24 @@ search.addEventListener("input",()=>{
 function download(name,type,data){
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
 }
-document.getElementById("download-json").addEventListener("click",()=>download("trvny-universe-2026-10-03.json","application/json",JSON.stringify({snapshot:"2026-10-03",nodes,edges},null,2)));
-document.getElementById("download-svg").addEventListener("click",()=>{const copy=svg.cloneNode(true);copy.querySelectorAll(".dim,.active").forEach(el=>el.classList.remove("dim","active"));const style=document.createElementNS("http://www.w3.org/2000/svg","style");style.textContent=".edge{fill:none;stroke:#526071;stroke-width:1.7;opacity:.55}.edge.service{stroke:#f59e0b;stroke-dasharray:7 5}.edge.storage{stroke:#22c55e;stroke-dasharray:3 4}.edge.external{stroke:#ec4899;stroke-dasharray:10 5}.cluster{fill:none;stroke:#243041;stroke-width:1;stroke-dasharray:6 7}.cluster-label{fill:#667487;font-size:11px;font-weight:700}.node rect.body{fill:#141a23;stroke:#344052;stroke-width:1.2}.node text.title{fill:#eef2f7;font-size:12px;font-weight:700}.node text.sub{fill:#9aa6b6;font-size:9.5px}.node.repo rect.strip{fill:#7dd3fc}.node.component rect.strip{fill:#c4b5fd}.node.worker rect.strip{fill:#f6c453}.node.storage rect.strip{fill:#86efac}.node.external rect.strip{fill:#f9a8d4}";copy.insertBefore(style,copy.firstChild);download("trvny-universe-2026-10-03.svg","image/svg+xml",new XMLSerializer().serializeToString(copy))});
+document.getElementById("download-json").addEventListener("click",()=>download("trvny-universe-"+snapshot+".json","application/json",JSON.stringify({snapshot,nodes,edges},null,2)));
+document.getElementById("download-svg").addEventListener("click",()=>{const copy=svg.cloneNode(true);copy.querySelectorAll(".dim,.active").forEach(el=>el.classList.remove("dim","active"));const style=document.createElementNS("http://www.w3.org/2000/svg","style");style.textContent=".edge{fill:none;stroke:#526071;stroke-width:1.7;opacity:.55}.edge.service{stroke:#f59e0b;stroke-dasharray:7 5}.edge.storage{stroke:#22c55e;stroke-dasharray:3 4}.edge.external{stroke:#ec4899;stroke-dasharray:10 5}.cluster{fill:none;stroke:#243041;stroke-width:1;stroke-dasharray:6 7}.cluster-label{fill:#667487;font-size:11px;font-weight:700}.node rect.body{fill:#141a23;stroke:#344052;stroke-width:1.2}.node text.title{fill:#eef2f7;font-size:12px;font-weight:700}.node text.sub{fill:#9aa6b6;font-size:9.5px}.node.repo rect.strip{fill:#7dd3fc}.node.component rect.strip{fill:#c4b5fd}.node.worker rect.strip{fill:#f6c453}.node.storage rect.strip{fill:#86efac}.node.external rect.strip{fill:#f9a8d4}";copy.insertBefore(style,copy.firstChild);download("trvny-universe-"+snapshot+".svg","image/svg+xml",new XMLSerializer().serializeToString(copy))});
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
 function escapeAttr(s){return escapeHtml(s)}
-reset();
-})();
+function selectHash(){
+ const id=location.hash.slice(1);
+ if(byId.has(id))select(id);
+ else if(!id)preset("all");
+}
+addEventListener("hashchange",selectHash);
+preset("all",true);
+selectHash();
+document.getElementById("map-loading").hidden=true;
+document.querySelectorAll(".controls,.legend,.layout").forEach(element=>{element.hidden=false});
+})().catch(()=>{
+ document.getElementById("map-loading").hidden=true;
+ document.getElementById("map-error").hidden=false;
+});
 </script>
 </body>
 </html>

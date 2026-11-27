@@ -1,8 +1,7 @@
 import Graph from 'graphology';
 import Sigma from 'sigma';
-import { nodeKinds } from '../../../site/assets/universe-data.js';
-
-const edgeColors = { source: '#71839c', service: '#f6c453', storage: '#86efac', external: '#f9a8d4', project: '#a6a9ff', host: '#5eead4' };
+import { drawDiscNodeHover } from 'sigma/rendering';
+import { edgeColors, nodeKinds } from '../../../site/assets/universe-data.js';
 
 export function mountWebGL(container, data, { select, reset, unavailable }) {
   const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: false });
@@ -26,7 +25,11 @@ export function mountWebGL(container, data, { select, reset, unavailable }) {
     labelSize: 13,
     labelColor: { color: '#eef2f7' },
     labelRenderedSizeThreshold: 6,
-    defaultDrawNodeHover: () => {},
+    defaultDrawNodeHover(context, node, settings) {
+      drawDiscNodeHover(context, { ...node, label: graph.getNodeAttribute(node.key, 'label') }, {
+        ...settings, labelColor: { color: '#0d1118' },
+      });
+    },
     minCameraRatio: 0.10,
     maxCameraRatio: 2.5,
     nodeReducer(id, attributes) {
@@ -47,10 +50,10 @@ export function mountWebGL(container, data, { select, reset, unavailable }) {
   });
   canvas.on('clickNode', ({ node }) => select(node));
   canvas.on('clickStage', reset);
-  const lost = event => {
+  function lost(event) {
     event.preventDefault();
     unavailable();
-  };
+  }
   const layers = Object.values(canvas.getCanvases());
   for (const layer of layers) layer.addEventListener('webglcontextlost', lost, { once: true });
 

@@ -1,11 +1,20 @@
-import { buildExplorerGraph, nodeKinds, relationLabels } from './universe-data.js';
+import { buildExplorerGraph, edgeColors, nodeKinds, relationLabels } from './universe-data.js';
 
-const get = id => document.getElementById(id);
-const make = (tag, text) => {
+function get(id) {
+  return document.getElementById(id);
+}
+
+function make(tag, text) {
   const element = document.createElement(tag);
   if (text !== undefined) element.textContent = text;
   return element;
-};
+}
+
+function addField(fields, term, value) {
+  const definition = make('dd');
+  definition.append(value);
+  fields.append(make('dt', term), definition);
+}
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
 function graphic(tag, attributes, text) {
@@ -27,22 +36,26 @@ async function loadData(path) {
   }
 }
 
-function makeDiagram(snapshot, byId, selectNode) {
+function makeDiagram(svg, data, snapshot, byId, selectNode) {
   const nodes = get('nodes');
   const edges = get('edges');
   const clusters = get('clusters');
+  const width = Math.max(1330, ...data.nodes.map(node => node.x + 176));
+  const height = Math.max(930, ...data.nodes.map(node => node.y + 72));
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   for (const { x, y, w, h, label } of snapshot.clusters) {
     clusters.append(
       graphic('rect', { class: 'cluster', x, y, width: w, height: h }),
       graphic('text', { class: 'cluster-label', x: x + 12, y: y + 20 }, label),
     );
   }
-  for (const [from, to, kind] of snapshot.edges) {
+  for (const [from, to, kind] of data.edges) {
     const a = byId.get(from), b = byId.get(to);
     const x1 = a.x + 78, x2 = b.x + 78, y1 = a.y + 26, y2 = b.y + 26;
     const bend = Math.max(35, Math.abs(x2 - x1) * 0.42);
     const path = graphic('path', {
       class: 'edge ' + kind,
+      stroke: edgeColors[kind],
       d: `M${x1} ${y1} C${x1 + bend} ${y1} ${x2 - bend} ${y2} ${x2} ${y2}`,
     });
     path.dataset.from = from;
@@ -50,15 +63,15 @@ function makeDiagram(snapshot, byId, selectNode) {
     path.dataset.kind = kind;
     edges.append(path);
   }
-  for (const { id, kind, x, y, label, sub } of snapshot.nodes) {
+  for (const { id, category, x, y, label, sub } of data.nodes) {
     const group = graphic('g', {
-      class: 'node ' + kind, transform: `translate(${x} ${y})`,
+      class: 'node ' + category, transform: `translate(${x} ${y})`,
       tabindex: 0, role: 'button', 'aria-label': label + ', ' + sub, 'aria-pressed': 'false',
     });
     group.dataset.id = id;
     group.append(
       graphic('rect', { class: 'body', width: 156, height: 52 }),
-      graphic('rect', { class: 'strip', width: 6, height: 52 }),
+      graphic('rect', { class: 'strip', width: 6, height: 52, fill: nodeKinds[category]?.[1] ?? '#a6b1c4' }),
       graphic('text', { class: 'title', x: 14, y: 21 }, label),
       graphic('text', { class: 'sub', x: 14, y: 38 }, sub),
     );
@@ -87,7 +100,8 @@ function download(name, type, body) {
 
 function exportDiagram(svg, date) {
   const copy = svg.cloneNode(true);
-  copy.querySelectorAll('.dim,.active').forEach(node => node.classList.remove('dim', 'active'));
+  copy.removeAttribute('hidden');
+  for (const node of copy.querySelectorAll('.dim,.active')) node.classList.remove('dim', 'active');
   const rules = [...document.styleSheets].filter(sheet => sheet.ownerNode?.matches('style'))
     .flatMap(sheet => [...sheet.cssRules])
     .filter(rule => /^:root|^\.(?:edge|node|cluster)\b/.test(rule.selectorText ?? ''))
@@ -165,18 +179,13 @@ async function mount() {
     label.className = 'pill';
     const heading = make('h2', node.label);
     const fields = make('dl');
-    const addField = (term, value) => {
-      const definition = make('dd');
-      definition.append(value);
-      fields.append(make('dt', term), definition);
-    };
-    addField('Role', node.sub);
+    addField(fields, 'Role', node.sub);
     if (node.url) {
       const source = make('a', node.url);
       source.href = node.url;
       source.target = '_blank';
       source.rel = 'noopener noreferrer';
-      addField('Open', source);
+      addField(fields, 'Open', source);
     }
     const connections = edges.filter(([from, to, kind]) =>
       (from === selected || to === selected) && (!relation.value || relation.value === kind)
@@ -192,7 +201,7 @@ async function mount() {
         entry.append(link, make('small', ' · ' + relationLabels[kind]));
         links.append(entry);
       }
-      addField('Direct connections', links);
+      addField(fields, 'Direct connections', links);
     }
     details.replaceChildren(label, heading, make('p', node.info), fields);
   }
@@ -264,18 +273,22 @@ async function mount() {
     selectNode(link.hash.slice(1), { push: true, focus: true });
   });
   addEventListener('hashchange', syncHash);
-  makeDiagram(snapshot, byId, selectNode);
+  makeDiagram(svg, data, snapshot, byId, selectNode);
+  function resetFiltersView() {
+    selectNode(null);
+    webgl?.fit();
+  }
   for (const button of document.querySelectorAll('[data-preset]')) {
     button.addEventListener('click', () => {
       preset = button.dataset.preset;
       search.value = '';
       category.value = '';
       relation.value = '';
-      selectNode(null);
+      resetFiltersView();
     });
   }
-  search.addEventListener('input', () => selectNode(null));
-  category.addEventListener('change', () => selectNode(null));
+  search.addEventListener('input', resetFiltersView);
+  category.addEventListener('change', resetFiltersView);
   relation.addEventListener('change', render);
 
   function showDiagram() {
@@ -328,7 +341,7 @@ async function mount() {
   });
 
   get('download-json').addEventListener('click', () => {
-    const { snapshot: date, nodes, edges } = snapshot;
+    const { snapshot: date } = snapshot;
     download('trvny-universe-' + date + '.json', 'application/json', JSON.stringify({ snapshot: date, nodes, edges }, null, 2));
   });
   get('download-svg').addEventListener('click', () => exportDiagram(svg, snapshot.snapshot));

@@ -602,6 +602,7 @@
         },
         {
           "name": "Weather Feed",
+          "infrastructureId": "w-weather",
           "description": "Local weather, air quality and alerts for Kościelec and Chrzanów.",
           "url": "https://weather.bartek.lol/",
           "translations": {
@@ -757,6 +758,7 @@
         },
         {
           "name": "Loopling pet",
+          "infrastructureId": "src-loopling",
           "description": "Procedurally generated desktop pet with animation atlas and installers.",
           "url": "https://github.com/travnie/twojstar/tree/main/pets/loopling",
           "translations": {

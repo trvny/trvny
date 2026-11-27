@@ -22,6 +22,7 @@ cat astro/node_modules/sigma/LICENSE.txt astro/node_modules/graphology/LICENSE.t
   astro/node_modules/graphology-utils/LICENSE.txt astro/node_modules/events/LICENSE \
   > site/assets/vendor/universe-webgl.LICENSE
 npm --prefix astro run build
+cp astro/dist/universe-webgl.1.js site/assets/vendor/universe-webgl.1.js
 cp astro/dist/index.html site/index.html
 cp astro/dist/teksty/index.html site/teksty/index.html
 cp -R astro/dist/lab site/

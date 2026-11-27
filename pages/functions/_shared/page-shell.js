@@ -1,5 +1,6 @@
 import { ORIGIN, pageSeoHead } from "./page-seo.js";
 
+// Bump with shared navigation asset changes.
 const NAV_ASSET_VERSION = "2";
 const NAV_HEAD = `<link rel="stylesheet" href="/assets/nav.css?v=${NAV_ASSET_VERSION}"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor"><link rel="ard" type="application/ard+json" href="/.well-known/ard.json">`;
 export const NAV_BODY = `

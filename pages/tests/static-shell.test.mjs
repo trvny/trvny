@@ -22,9 +22,12 @@ test("each real static HTML source receives one shared shell and preserves its c
     const rendered = renderStaticShell(html, page);
     assert.equal(renderStaticShell(rendered, page), rendered, page.file);
     assert.equal(rendered.match(/id="trvny-nav-toggle"/g)?.length, 1, page.file);
-    const navScripts = [...rendered.matchAll(/src="\/assets\/nav\.js\?v=(\d+)"/g)];
+    const navScripts = [...rendered.matchAll(/src="\/assets\/nav\.js(?:\?v=(\d+))?"/g)];
+    const navStyles = [...rendered.matchAll(/href="\/assets\/nav\.css(?:\?v=(\d+))?"/g)];
     assert.equal(navScripts.length, 1, page.file);
-    assert.ok(rendered.includes(`href="/assets/nav.css?v=${navScripts[0][1]}"`), page.file);
+    assert.equal(navStyles.length, 1, page.file);
+    assert.ok(navScripts[0][1], page.file);
+    assert.equal(navStyles[0][1], navScripts[0][1], page.file);
     assert.equal(rendered.match(/src="\/assets\/webmcp.js"/g)?.length, 1, page.file);
     const original = stripShell(rendered);
     assert.equal(original, page.page === "token-worldcup" ? renderWorldcupPolish(html) : html, page.file);

@@ -25,13 +25,13 @@ ${post.excerpt ? `<p lang="${publicationLang(post.lang)}">${caption}</p>` : ""}
 }
 
 export async function onRequest(context) {
-  const [response, shitpost] = await Promise.all([
-    context.env.ASSETS.fetch(context.request),
-    getLatestShitpost(serviceFetch(context, "REACTOR_SERVICE")),
-  ]);
+  const asset = context.env.ASSETS.fetch(context.request);
+  const latestShitpost = getLatestShitpost(serviceFetch(context, "REACTOR_SERVICE"));
+  const response = await asset;
   const contentType = response.headers.get("content-type") || "";
   if (!response.ok || !contentType.includes("text/html")) return response;
 
+  const shitpost = await latestShitpost;
   return shitpost ? new globalThis.HTMLRewriter().on("#text-list", {
     element(element) {
       element.before(renderShitpostCard(shitpost), { html: true });

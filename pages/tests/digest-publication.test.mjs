@@ -114,6 +114,19 @@ test('missing or broken digest index leaves existing publications available', as
   }
 });
 
+test('Teksty redirects return before the Reactor lookup finishes', { timeout: 1000 }, async () => {
+  const ctx = context('/teksty');
+  const redirect = Response.redirect('https://bartek.lol/teksty/', 301);
+  ctx.env.ASSETS.fetch = async () => redirect;
+  const { promise, resolve } = Promise.withResolvers();
+  ctx.env.REACTOR_SERVICE = { fetch: () => promise };
+  try {
+    assert.equal(await texts(ctx), redirect);
+  } finally {
+    resolve(Response.json({ items: [] }));
+  }
+});
+
 test('home shows only the latest digest and latest Shitpost even when articles dominate', async () => {
   const originalFetch = globalThis.fetch;
   const originalRewriter = globalThis.HTMLRewriter;

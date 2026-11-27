@@ -18,6 +18,9 @@ mkdir -p site/assets/vendor
 cp astro/node_modules/hls.js/dist/hls.min.js site/assets/vendor/hls.min.js
 cp astro/node_modules/hls.js/LICENSE site/assets/vendor/hls.LICENSE
 cp astro/node_modules/animejs/LICENSE.md site/assets/vendor/animejs.LICENSE
+cat astro/node_modules/sigma/LICENSE.txt astro/node_modules/graphology/LICENSE.txt \
+  astro/node_modules/graphology-utils/LICENSE.txt astro/node_modules/events/LICENSE \
+  > site/assets/vendor/universe-webgl.LICENSE
 npm --prefix astro run build
 cp astro/dist/index.html site/index.html
 cp astro/dist/teksty/index.html site/teksty/index.html

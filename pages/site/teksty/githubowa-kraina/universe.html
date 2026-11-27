@@ -16,11 +16,11 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 main{max-width:1500px;margin:auto;padding:20px}.top{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 h1{margin:.25rem 0;font-size:clamp(26px,4vw,44px);line-height:1.03}p{margin:.35rem 0;color:var(--muted)}
-.controls{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.controls button,.controls input{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.controls button,.controls input,.controls select,.map-tools button{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit}
 .controls button{cursor:pointer}.controls button:hover,.controls button.active{border-color:var(--accent);background:#152236}.controls input{min-width:210px;outline:none}.controls input:focus{border-color:var(--accent)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.legend span{display:inline-flex;align-items:center;gap:6px}.dot{width:9px;height:9px;border-radius:50%}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px;align-items:start}.canvas{border:1px solid var(--border);background:linear-gradient(180deg,#0d1118,#0a0d13);border-radius:14px;overflow:auto}
-svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:#526071;stroke-width:1.7;opacity:.55;transition:.18s}.edge.service{stroke:#f59e0b;stroke-dasharray:7 5}.edge.storage{stroke:#22c55e;stroke-dasharray:3 4}.edge.external{stroke:#ec4899;stroke-dasharray:10 5}.edge.active{stroke-width:4;opacity:1}.edge.dim{opacity:.08}
+#graph{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:#526071;stroke-width:1.7;opacity:.55;transition:.18s}.edge.service{stroke:#f59e0b;stroke-dasharray:7 5}.edge.storage{stroke:#22c55e;stroke-dasharray:3 4}.edge.external{stroke:#ec4899;stroke-dasharray:10 5}.edge.active{stroke-width:4;opacity:1}.edge.dim{opacity:.08}
 .node{cursor:pointer;transition:.15s}.node rect.body{fill:#141a23;stroke:#344052;stroke-width:1.2;rx:10}.node rect.strip{rx:10}.node text.title{fill:var(--text);font-size:12px;font-weight:700}.node text.sub{fill:var(--muted);font-size:9.5px}.node:hover rect.body,.node.active rect.body{stroke:var(--accent);stroke-width:2.2}.node.dim{opacity:.13}.node.repo rect.strip{fill:var(--repo)}.node.component rect.strip{fill:var(--component)}.node.worker rect.strip{fill:var(--worker)}.node.storage rect.strip{fill:var(--storage)}.node.external rect.strip{fill:var(--external)}
 .cluster{fill:none;stroke:#243041;stroke-width:1;stroke-dasharray:6 7;rx:18}.cluster-label{fill:#667487;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .side{position:sticky;top:12px;border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:14px}.side h2{font-size:16px;margin:0 0 4px}.pill{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:3px 8px;color:var(--muted);font-size:11px;margin-bottom:10px}.side dl{margin:12px 0}.side dt{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.side dd{margin:2px 0 10px}.side a{color:#93c5fd;text-decoration:none;word-break:break-word}.side ul{margin:6px 0 0;padding-left:18px;color:var(--muted)}.hint{font-size:12px;color:var(--muted);margin-top:10px}
@@ -28,6 +28,14 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
 @media(max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}.side{position:static}.controls input{flex:1;min-width:180px}}
 [hidden]{display:none!important}
 .map-body{min-width:0}
+.map-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.map-tools button{min-height:44px;cursor:pointer}
+.map-tools button[aria-pressed="true"]{border-color:var(--accent);color:#b3d7ff}
+#map-view-status:empty{display:none}
+#map-zoom{display:flex;gap:6px;flex-wrap:wrap}
+#map-webgl{position:relative;min-width:0;width:100%;height:clamp(320px,60vh,660px);background:#0d1118}
+:where(button,input,select,summary,a):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:500px){main{padding:16px}.top{padding-inline-end:52px}.controls select{width:100%}}
 .node-directory{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:12px}
 .node-directory summary{cursor:pointer;font-weight:700;color:var(--text)}
 #node-count{color:var(--muted);font-weight:400}
@@ -45,7 +53,7 @@ aside a,.footer a,#map-error a{color:var(--accent)}
     <div>
       <div class="eyebrow" id="snapshot">Infrastructure snapshot</div>
       <h1>TRVNY / TRAVNIE Universe</h1>
-      <p>Repos, internal services, Cloudflare runtime, storage and the Kanarek network. Click any node to trace its neighborhood.</p>
+      <p>Explore the projects, domains and services behind TRVNY and TRAVNIE.</p>
     </div>
   </div>
 
@@ -58,38 +66,41 @@ aside a,.footer a,#map-error a{color:var(--accent)}
     <button type="button" data-preset="web">Public web</button>
     <button type="button" data-preset="automation">Automation</button>
     <input id="search" type="search" placeholder="Search repo, worker, storage…" aria-label="Search graph">
+    <select id="node-kind" aria-label="Node type"><option value="">All node types</option></select>
+    <select id="relation-kind" aria-label="Connection type"><option value="">All connections</option></select>
     <button type="button" id="download-json">Download JSON</button>
     <button type="button" id="download-svg">Download SVG</button>
   </div>
 
-  <div class="legend" hidden>
-    <span><i class="dot" style="background:var(--repo)"></i>Repository</span>
-    <span><i class="dot" style="background:var(--component)"></i>Repo component</span>
-    <span><i class="dot" style="background:var(--worker)"></i>Cloudflare runtime</span>
-    <span><i class="dot" style="background:var(--storage)"></i>State / queue / storage</span>
-    <span><i class="dot" style="background:var(--external)"></i>External system</span>
-  </div>
+  <div id="map-legend" class="legend" hidden aria-label="Node types"></div>
 
   <div class="layout" hidden>
     <div class="map-body">
-    <details class="node-directory">
-      <summary>Browse nodes <span id="node-count"></span></summary>
-      <ul id="node-list"></ul>
-    </details>
-    <div class="canvas">
-      <svg id="graph" viewBox="0 0 1330 930" role="img" aria-label="Interactive graph of TRVNY and TRAVNIE repositories and infrastructure">
-        <g id="clusters"></g>
-        <g id="edges"></g>
-        <g id="nodes"></g>
-      </svg>
-    </div>
+      <details class="node-directory">
+        <summary>Browse nodes <span id="node-count"></span></summary>
+        <ul id="node-list"></ul>
+      </details>
+      <div class="map-tools">
+        <button id="map-view" type="button" aria-pressed="false">Interactive graph</button>
+        <div id="map-zoom" hidden aria-label="Graph zoom">
+          <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+          <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+          <button id="zoom-fit" type="button">Fit graph</button>
+        </div>
+        <p id="map-view-status" role="status"></p>
+      </div>
+      <div class="canvas">
+        <div id="map-webgl" hidden role="img" aria-label="Interactive project graph. The node list provides keyboard navigation."></div>
+        <svg id="graph" viewBox="0 0 1330 930" role="img" aria-label="Interactive graph of TRVNY and TRAVNIE repositories and infrastructure">
+          <g id="clusters"></g>
+          <g id="edges"></g>
+          <g id="nodes"></g>
+        </svg>
+      </div>
     </div>
 
     <aside class="side" id="details" aria-live="polite">
-      <span class="pill">Select a node</span>
       <h2>Universe map</h2>
-      <p>Choose a repo, Worker or storage node. Direct relations stay bright while the rest of the galaxy goes sleepy.</p>
-      <div class="hint">Tip: presets are useful when the full graph starts resembling spaghetti that learned Kubernetes.</div>
     </aside>
   </div>
 
@@ -99,180 +110,6 @@ aside a,.footer a,#map-error a{color:var(--accent)}
   </div>
 </main>
 
-<script>
-(async () => {
-async function loadSnapshot(){
- const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),8000);
- try{
-  const response=await fetch("./infrastructure.json",{signal:controller.signal});
-  if(!response.ok)throw new Error("Map unavailable");
-  return await response.json();
- }finally{
-  clearTimeout(timeout);
- }
-}
-const {snapshot,nodes,edges,clusters}=await loadSnapshot();
-
-const svg=document.getElementById("graph"), gClusters=document.getElementById("clusters"), gEdges=document.getElementById("edges"), gNodes=document.getElementById("nodes"), details=document.getElementById("details"), search=document.getElementById("search");
-const byId=new Map(nodes.map(n=>[n.id,n]));
-const directory=document.getElementById("node-list");
-const directoryItems=new Map();
-let activeFilter=null;
-document.getElementById("snapshot").textContent="Verified snapshot · "+snapshot;
-const relationLabels={source:"Source",service:"Service",storage:"Storage",external:"External"};
-for(const node of [...nodes].sort((a,b)=>a.label.localeCompare(b.label))){
- const entry=document.createElement("li"),button=document.createElement("button"),role=document.createElement("small");
- button.type="button";
- button.textContent=node.label;
- button.setAttribute("aria-pressed","false");
- role.textContent=node.sub;
- button.append(role);
- button.addEventListener("click",()=>select(node.id,true));
- entry.append(button);
- directory.append(entry);
- directoryItems.set(node.id,{entry,button});
-}
-function updateDirectory(){
- let count=0;
- for(const [id,{entry,button}] of directoryItems){
-  entry.hidden=Boolean(activeFilter && !activeFilter.has(id) && id!==selectedId);
-  button.setAttribute("aria-pressed",String(id===selectedId));
-  if(!entry.hidden)count++;
- }
- document.getElementById("node-count").textContent="("+count+")";
-}
-let selectedId=null;
-const neighbors=new Map(nodes.map(n=>[n.id,new Set()]));
-edges.forEach(([a,b])=>{neighbors.get(a).add(b);neighbors.get(b).add(a)});
-
-clusters.forEach(c=>{
- const r=document.createElementNS("http://www.w3.org/2000/svg","rect");r.setAttribute("class","cluster");r.setAttribute("x",c.x);r.setAttribute("y",c.y);r.setAttribute("width",c.w);r.setAttribute("height",c.h);gClusters.appendChild(r);
- const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("class","cluster-label");t.setAttribute("x",c.x+12);t.setAttribute("y",c.y+20);t.textContent=c.label;gClusters.appendChild(t);
-});
-
-function center(n){return [n.x+78,n.y+26]}
-function pathFor(a,b){
- const A=byId.get(a),B=byId.get(b),[x1,y1]=center(A),[x2,y2]=center(B),dx=Math.max(35,Math.abs(x2-x1)*.42);
- return "M"+x1+" "+y1+" C"+(x1+dx)+" "+y1+" "+(x2-dx)+" "+y2+" "+x2+" "+y2;
-}
-edges.forEach((e,i)=>{
- const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",pathFor(e[0],e[1]));p.setAttribute("class","edge "+e[2]);p.dataset.a=e[0];p.dataset.b=e[1];p.dataset.index=i;gEdges.appendChild(p);
-});
-
-nodes.forEach(n=>{
- const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("class","node "+n.kind);g.setAttribute("transform","translate("+n.x+" "+n.y+")");g.dataset.id=n.id;g.setAttribute("tabindex","0");g.setAttribute("role","button");g.setAttribute("aria-label",n.label+", "+n.sub);
- const body=document.createElementNS("http://www.w3.org/2000/svg","rect");body.setAttribute("class","body");body.setAttribute("width","156");body.setAttribute("height","52");
- const strip=document.createElementNS("http://www.w3.org/2000/svg","rect");strip.setAttribute("class","strip");strip.setAttribute("width","6");strip.setAttribute("height","52");
- const title=document.createElementNS("http://www.w3.org/2000/svg","text");title.setAttribute("class","title");title.setAttribute("x","14");title.setAttribute("y","21");title.textContent=n.label;
- const sub=document.createElementNS("http://www.w3.org/2000/svg","text");sub.setAttribute("class","sub");sub.setAttribute("x","14");sub.setAttribute("y","38");sub.textContent=n.sub;
- g.append(body,strip,title,sub);gNodes.appendChild(g);
- g.addEventListener("click",()=>select(n.id,true));g.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();select(n.id,true)}});
-});
-
-function connectedList(id){
- return edges.filter(([from,to])=>from===id||to===id).map(([from,to,relation])=>({
-  node:byId.get(from===id?to:from),relation
- })).sort((a,b)=>a.node.label.localeCompare(b.node.label));
-}
-function select(id, updateHash=false){
- if(!byId.has(id))return;
- selectedId=id;
- if(updateHash){
-  const url=new URL(location.href);
-  url.hash=id;
-  history.replaceState(history.state,"",url);
- }
- updateDirectory();
- const n=byId.get(id), keep=new Set([id,...neighbors.get(id)]);
- document.querySelectorAll(".node").forEach(el=>{el.classList.toggle("active",el.dataset.id===id);el.classList.toggle("dim",!keep.has(el.dataset.id))});
- document.querySelectorAll(".edge").forEach(el=>{const on=el.dataset.a===id||el.dataset.b===id;el.classList.toggle("active",on);el.classList.toggle("dim",!on)});
- const links=connectedList(id).map(({node,relation})=>
-  '<li><a href="#'+escapeAttr(node.id)+'">'+escapeHtml(node.label)+'</a> <small>· '+escapeHtml(relationLabels[relation])+'</small></li>').join("");
- details.innerHTML='<span class="pill">'+escapeHtml(n.kind)+'</span><h2>'+escapeHtml(n.label)+'</h2><p>'+escapeHtml(n.info)+'</p><dl><dt>Role</dt><dd>'+escapeHtml(n.sub)+'</dd>'+(n.url?'<dt>Open</dt><dd><a href="'+escapeAttr(n.url)+'" target="_blank" rel="noopener">'+escapeHtml(n.url)+'</a></dd>':'')+'<dt>Direct connections</dt><dd><ul>'+links+'</ul></dd></dl><div class="hint">Select a connection to continue tracing the map.</div>';
-}
-function reset(){
- selectedId=null;
- activeFilter=null;
- updateDirectory();
- document.querySelectorAll(".node,.edge").forEach(el=>el.classList.remove("active","dim"));
- details.innerHTML='<span class="pill">Overview</span><h2>Universe map</h2><p>Repos on the left, source components in the middle, Cloudflare runtime to the right, state and external systems at the edge.</p><div class="hint">Search narrows the graph. Presets highlight one operational slice.</div>';
-}
-function resetHash(){
- if(!location.hash)return;
- const url=new URL(location.href);
- url.hash="";
- history.replaceState(history.state,"",url);
-}
-function clearSelection(){
- selectedId=null;
- svg.querySelectorAll(".active").forEach(node=>node.classList.remove("active"));
-}
-function preset(tag, keepHash=false){
- if(!keepHash)resetHash();
- search.value="";
- clearSelection();
- document.querySelectorAll("[data-preset]").forEach(b=>{
-  const active=b.dataset.preset===tag;
-  b.classList.toggle("active",active);
-  b.setAttribute("aria-pressed",String(active));
- });
- if(tag==="all"){reset();return}
- const keep=new Set(nodes.filter(n=>n.tags.includes(tag)).map(n=>n.id));
- activeFilter=keep;
- updateDirectory();
- document.querySelectorAll(".node").forEach(el=>el.classList.toggle("dim",!keep.has(el.dataset.id)));
- document.querySelectorAll(".edge").forEach(el=>el.classList.toggle("dim",!(keep.has(el.dataset.a)&&keep.has(el.dataset.b))));
- details.innerHTML='<span class="pill">Preset</span><h2>'+escapeHtml(tag[0].toUpperCase()+tag.slice(1))+'</h2><p>'+keep.size+' nodes in this operational slice.</p><div class="hint">Click any visible node to trace direct connections.</div>';
-}
-document.querySelectorAll("[data-preset]").forEach(b=>b.addEventListener("click",()=>preset(b.dataset.preset)));
-search.addEventListener("input",()=>{
- resetHash();
- clearSelection();
- const q=search.value.trim().toLowerCase();
- document.querySelectorAll("[data-preset]").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-pressed","false")});
- if(!q){preset("all");return}
- const keep=new Set(nodes.filter(n=>(n.label+" "+n.sub+" "+n.info).toLowerCase().includes(q)).map(n=>n.id));
- activeFilter=keep;
- updateDirectory();
- document.querySelectorAll(".node").forEach(el=>el.classList.toggle("dim",!keep.has(el.dataset.id)));
- document.querySelectorAll(".edge").forEach(el=>el.classList.toggle("dim",!(keep.has(el.dataset.a)||keep.has(el.dataset.b))));
- details.innerHTML='<span class="pill">Search</span><h2>'+keep.size+' matches</h2><p>Matching nodes stay bright; adjacent lines remain visible when they touch a match.</p>';
-});
-function download(name,type,data){
- const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
-}
-document.getElementById("download-json").addEventListener("click",()=>download("trvny-universe-"+snapshot+".json","application/json",JSON.stringify({snapshot,nodes,edges},null,2)));
-document.getElementById("download-svg").addEventListener("click",()=>{const copy=svg.cloneNode(true);copy.querySelectorAll(".dim,.active").forEach(el=>el.classList.remove("dim","active"));const style=document.createElementNS("http://www.w3.org/2000/svg","style");style.textContent=".edge{fill:none;stroke:#526071;stroke-width:1.7;opacity:.55}.edge.service{stroke:#f59e0b;stroke-dasharray:7 5}.edge.storage{stroke:#22c55e;stroke-dasharray:3 4}.edge.external{stroke:#ec4899;stroke-dasharray:10 5}.cluster{fill:none;stroke:#243041;stroke-width:1;stroke-dasharray:6 7}.cluster-label{fill:#667487;font-size:11px;font-weight:700}.node rect.body{fill:#141a23;stroke:#344052;stroke-width:1.2}.node text.title{fill:#eef2f7;font-size:12px;font-weight:700}.node text.sub{fill:#9aa6b6;font-size:9.5px}.node.repo rect.strip{fill:#7dd3fc}.node.component rect.strip{fill:#c4b5fd}.node.worker rect.strip{fill:#f6c453}.node.storage rect.strip{fill:#86efac}.node.external rect.strip{fill:#f9a8d4}";copy.insertBefore(style,copy.firstChild);download("trvny-universe-"+snapshot+".svg","image/svg+xml",new XMLSerializer().serializeToString(copy))});
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
-function escapeAttr(s){return escapeHtml(s)}
-details.addEventListener("click",event=>{
- const link=event.target.closest('a[href^="#"]');
- if(!link||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
- const id=link.hash.slice(1);
- if(!byId.has(id))return;
- event.preventDefault();
- if(location.hash!==link.hash)history.pushState(history.state,"",link.hash);
- select(id);
- const heading=details.querySelector("h2");
- heading.tabIndex=-1;
- heading.focus({preventScroll:true});
-});
-function selectHash(event){
- if(event&&new URL(event.newURL).hash!==location.hash)return;
- const id=location.hash.slice(1);
- if(byId.has(id))select(id);
- else if(!id)preset("all");
-}
-addEventListener("hashchange",selectHash);
-preset("all",true);
-selectHash();
-document.getElementById("map-loading").hidden=true;
-document.querySelectorAll(".controls,.legend,.layout").forEach(element=>{element.hidden=false});
-})().catch(()=>{
- document.getElementById("map-loading").hidden=true;
- document.getElementById("map-error").hidden=false;
-});
-</script>
+<script type="module" src="/assets/universe-map.js"></script>
 </body>
 </html>

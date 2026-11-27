@@ -293,6 +293,7 @@
       "items": [
         {
           "name": "Android app",
+          "category": "app",
           "description": "The first client for a workbench bringing multiple AI providers together.",
           "url": "https://github.com/travnie/aistee",
           "translations": {
@@ -426,6 +427,7 @@
         },
         {
           "name": "Android app",
+          "category": "app",
           "description": "The Android-first open-source project and its current development status.",
           "url": "https://github.com/travnie/Autka",
           "translations": {
@@ -540,6 +542,7 @@
       "items": [
         {
           "name": "Codebench",
+          "category": "app",
           "description": "Generate, scan and export QR codes and barcodes in the browser.",
           "url": "https://codebench.bartek.lol/",
           "translations": {
@@ -559,6 +562,7 @@
         },
         {
           "name": "Streambench",
+          "category": "app",
           "description": "A local-first workshop for IPTV, radio, playlists and streams.",
           "url": "https://streambench.bartek.lol/",
           "translations": {
@@ -578,6 +582,7 @@
         },
         {
           "name": "Docbench",
+          "category": "app",
           "description": "Work with documents and PDFs locally in the browser.",
           "url": "https://docbench.bartek.lol/",
           "translations": {
@@ -616,6 +621,7 @@
         },
         {
           "name": "Feedboard",
+          "category": "app",
           "description": "Windows 11 feed widget and settings application.",
           "url": "https://github.com/travnie/twojstar/tree/main/feedboard",
           "translations": {
@@ -673,6 +679,7 @@
         },
         {
           "name": "Intent Keyboard",
+          "category": "app",
           "description": "An experiment turning rough intent into natural text.",
           "url": "https://github.com/travnie/twojstar/tree/main/intent-keyboard",
           "translations": {
@@ -692,6 +699,7 @@
         },
         {
           "name": "Xiaomi ADB Tools",
+          "category": "app",
           "description": "Desktop ADB/Fastboot utility with platform-specific JavaFX builds.",
           "url": "https://github.com/travnie/twojstar/tree/main/xiaomi-adb-tools",
           "translations": {

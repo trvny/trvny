@@ -8,31 +8,24 @@ noindex: true
 
 # Field notes
 
-An MDX foothold for the TRAVNY workshop. Articles can mix prose, code, and interactive components without rebuilding the rest of the hub.
+## Shipped
 
-## Next experiments
+- **P0** · Radio continuity across Home, Lab, Teksty and CoCzyDziennik. Station controls and Media Session.
+- **P1** · Svelte islands for the tokenizer, digest archive filters and Lab news. Anime.js loads on manual refresh, with reduced-motion support. Teksty renders from an Astro collection backed by the existing catalogue. Astro navigation on migrated routes.
+- **P2** · Ctrl/Cmd+K filters hub destinations. Enter opens the first match.
+- **P4** · Searchable infrastructure node list, typed connections and node permalinks.
+- **P6** · Read-only WebMCP lookup for infrastructure connections, documented in both LLM guides and ARD.
 
-Active order: **P0 → P1 → P4 → P6**. Other experiments stay in the backlog.
+## Backlog
 
 ### P0 · Persistent radio
 
-- First slice: one player across home, Lab, Teksty and CoCzyDziennik. Play/pause, volume, station, cover, now playing and Media Session.
-- Reuse `site/assets/radio.js`, `/api/radio-station` and Streambench playback/metadata contracts. Direct audio from existing providers; no duplicate relay.
 - Next: extend continuity to GitHubowa Kraina and remaining routes. Check their page scripts before enabling client routing.
 - Real-browser checks: uninterrupted audio across home, Kraina, Lab, texts and digest routes; back/forward, mobile, HLS lifecycle, no duplicate streams. Normal navigation fallback; external subdomains and full reloads outside the continuity guarantee.
 - Later: spectrum when CORS allows, animated cover, recent tracks where available; no autoplay.
 
-### P1 · Interactive foundation
-
-- First Svelte 5 island: [tokenizer playground](/lab/tokenizer/) beside the Quarto Token Worldcup. Encoding data loads in a worker after submit.
-- Add small islands for filters and live widgets. Evaluate Anime.js 4 for SVG and icon motion.
-- Native/Astro view transitions where supported; reduced-motion fallback. Preserve static HTML, focus, keyboard navigation and design tokens.
-- Nano Stores only if cross-island state is needed; one radio controller. Lazy-load heavy dependencies; compare bundle size and mobile responsiveness.
-- Gradual content collections migration; preserve slugs, Atom IDs, SEO, sitemap and shared feed. Keep existing design and navigation until ready.
-
 ### P2 · Command palette and search
 
-- First slice: Ctrl/Cmd+K filters the shared hub menu. Enter opens the first match.
 - Next: Pagefind or equivalent index for projects, articles and docs. Index eligible final Astro and legacy HTML. Exclude noindex routes.
 - Switchboard already owns command-center capabilities. Reuse public catalog/API and link to authorized controls there; hub palette is discovery/navigation, not another control plane.
 
@@ -44,7 +37,6 @@ Active order: **P0 → P1 → P4 → P6**. Other experiments stay in the backlog
 
 ### P4 · GitHubowa Kraina / Empire Explorer
 
-- First slice: searchable node list and typed connections on the infrastructure map. One snapshot feeds both map views.
 - Extend existing [GitHubowa Kraina](/teksty/githubowa-kraina/) and its [infrastructure map](/teksty/githubowa-kraina/universe.html), not a separate atlas.
 - Sigma.js + Graphology: WebGL graph of projects, domains, Workers, apps and agents; typed relationships, filters, zoom and project detail cards.
 - Reuse `atlas.json`, existing translations and infrastructure data; repository facts remain authoritative. Derive graph from canonical data, add only missing relationships at their source.
@@ -56,7 +48,6 @@ Active order: **P0 → P1 → P4 → P6**. Other experiments stay in the backlog
 
 ### P6 · Agent access
 
-- First slice: read-only infrastructure connections via WebMCP and the map snapshot JSON. Listed in both LLM guides and ARD.
 - Extend existing shared WebMCP for useful read-only search, atlas, public status and radio data; reuse HTTP contracts, no parallel MCP backend.
 - Keep llms/structured discovery current for public features; preserve noindex notebook boundary.
 

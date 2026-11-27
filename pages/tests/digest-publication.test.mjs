@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { getDigestPosts } from '../functions/_shared/digests.js';
 import { onRequest as home } from '../functions/index.js';
 import { onRequest as texts } from '../functions/teksty/index.js';
@@ -14,11 +15,13 @@ const issues = [
   { id: '2026-11-02', title: 'News & <more>', description: 'Latest issue', date: '2026-11-02T00:00:00.000Z', updated: '2026-11-03T09:00:00.000Z' },
   { id: '../bad', title: 'Invalid', description: 'Bad slug', date: '2026-11-02T00:00:00.000Z' },
 ];
+const textsPage = await readFile(new URL('../astro/dist/teksty/index.html', import.meta.url), 'utf8');
+
 function context(path = '/') {
   return {
     request: new Request(`https://bartek.lol${path}`),
     env: { ASSETS: { fetch: (url) => {
-      if (url instanceof Request) return Promise.resolve(new Response('<html><head></head><body><div id="text-list"></div><nav class="fastext"></nav></body></html>', { headers: { 'content-type': 'text/html' } }));
+      if (url instanceof Request) return Promise.resolve(new Response(path === '/teksty/' ? textsPage : '<html><head></head><body><div id="text-list"></div><nav class="fastext"></nav></body></html>', { headers: { 'content-type': 'text/html' } }));
       if (new URL(url).pathname === '/przeglad/index.json') return Promise.resolve(Response.json(issues));
       if (new URL(url).pathname === '/teksty/posts.json') return Promise.resolve(Response.json(posts));
       return Promise.resolve(new Response('', { status: 404 }));
@@ -58,13 +61,11 @@ test('home links latest digest title and archive separately; Atom keeps issue en
     const homeHtml = await (await home(context())).text();
     const textsHtml = await (await texts(context('/teksty/'))).text();
     const xml = await (await feed(context('/teksty/feed.xml'))).text();
-    for (const html of [homeHtml, textsHtml]) {
-      assert.match(html, /href="\/przeglad\/"/);
-      assert.match(html, /lang="en">Older text/);
-      assert.match(html, /lang="pl">Token World Cup/);
-      assert.match(html, /lang="en">Featured/);
-      assert.doesNotMatch(html, /Invalid/);
-    }
+    assert.match(homeHtml, /href="\/przeglad\/"/);
+    assert.match(homeHtml, /lang="en">Older text/);
+    assert.match(homeHtml, /lang="pl">Token World Cup/);
+    assert.match(homeHtml, /lang="en">Featured/);
+    assert.doesNotMatch(homeHtml, /Invalid/);
     assert.match(homeHtml, /<a class="textdigestcategory" href="\/przeglad\/">CoCzyDziennik<\/a>/);
     assert.match(homeHtml, /<a class="texttitlelink" href="\/przeglad\/2026-11-02\/">News &amp; &lt;more&gt;<\/a>/);
     assert.match(homeHtml, /<a class="textsheadinglink" href="\/teksty\/">P500 · TEKSTY<\/a>/);
@@ -74,9 +75,13 @@ test('home links latest digest title and archive separately; Atom keeps issue en
     assert.ok(homeHtml.includes('P600 · FEATURED'));
     assert.doesNotMatch(homeHtml, /<details class="textexpand">/);
     assert.ok(homeHtml.indexOf('CoCzyDziennik') < homeHtml.indexOf('<nav class="fastext">'));
-    assert.match(textsHtml, /<div id="text-list">[\s\S]*Older text[\s\S]*<\/div>/);
-    assert.ok(textsHtml.indexOf('CoCzyDziennik') < textsHtml.indexOf('Older text'));
-    assert.ok(textsHtml.indexOf('Older text') < textsHtml.indexOf('Token World Cup'), 'featured is not pinned');
+    const archive = textsHtml.indexOf('href="/przeglad/"');
+    const article = textsHtml.indexOf('href="/teksty/grass-mud-horse/"');
+    const atlas = textsHtml.indexOf('href="/teksty/githubowa-kraina/"');
+    const worldcup = textsHtml.indexOf('href="/teksty/token-worldcup/"');
+    assert.ok(archive >= 0 && archive < article, 'archive precedes articles');
+    assert.ok(article < atlas && atlas < worldcup, 'featured items are not pinned');
+    assert.match(textsHtml, /<h2 lang="pl">GitHubowa Kraina<\/h2>/);
     assert.match(xml, /<id>https:\/\/travny\.pages\.dev\/przeglad\/2026-11-02\/<\/id>/);
     assert.match(xml, /<link rel="alternate" href="https:\/\/bartek\.lol\/przeglad\/2026-11-02\/"\/>/);
     assert.ok(xml.indexOf('News &amp; &lt;more&gt;') < xml.indexOf('Older text'));

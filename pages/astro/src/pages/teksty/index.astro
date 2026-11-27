@@ -1,8 +1,37 @@
 ---
+import { getCollection } from 'astro:content';
 import html from '../../legacy/texts.html?raw';
 import RadioDock from '../../components/RadioDock.astro';
 import LegacyPage from '../../layouts/LegacyPage.astro';
+import { latestFirst, publicationPath } from '../../../../functions/_shared/digests.js';
+import { publicationLang } from '../../../../functions/_shared/publication-lang.js';
+
+const posts = (await getCollection('texts')).map(entry => entry.data).sort(latestFirst);
 ---
 <LegacyPage {html}>
+  <main class="shell">
+    <div class="top"><a href="/">‹ TRAVNY</a> / TEKSTY</div>
+    <h1>TEKSTY</h1>
+    <p class="lede">Porównania, eksperymenty i inne rzeczy z kategorii „kto normalny to mierzy?”. Małe publikacje, bez silnika blogowego ważącego pół internetu.</p>
+    <div class="rule"></div>
+    <a class="card" href="/przeglad/">
+      <span class="go">ARCHIWUM ›</span>
+      <div class="meta">CoCzyDziennik</div>
+      <h2 lang="pl">Wszystkie wydania</h2>
+      <p lang="pl">Przeglądy uporządkowane od najnowszego. Pełna lista w archiwum.</p>
+    </a>
+    <div id="text-list">
+      {posts.map(post => <a class="card" href={publicationPath(post)}>
+        <span class="go">OTWÓRZ ›</span>
+        <div class="meta">{post.date} · {post.kind}</div>
+        <h2 lang={publicationLang(post.titleLang ?? post.lang)}>{post.title}</h2>
+        <p lang={publicationLang(post.lang)}>{post.summary}</p>
+        <div class="tags">
+          {post.featured && <span class="tag">FEATURED</span>}
+          {post.tags.map(tag => <span class="tag">{tag}</span>)}
+        </div>
+      </a>)}
+    </div>
+  </main>
   <RadioDock />
 </LegacyPage>

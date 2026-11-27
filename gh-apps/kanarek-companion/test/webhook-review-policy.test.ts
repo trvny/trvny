@@ -18,8 +18,8 @@ const falseClaims = [
   },
   {
     path: '.github/scripts/test_release_verified_jobs.py',
-    title: '模块路径问题',
-    body: '直接使用 `from release_verified_jobs import verified` 会查找失败，导致 `ModuleNotFoundError`。',
+    title: '模块导入路径错误',
+    body: '直接使用 `from release_verified_jobs import verified` 会查找失败。',
   },
   {
     path: 'app/src/main/java/com/autka/data/repository/DefaultIndexedPreviewRepository.kt',
@@ -58,6 +58,23 @@ const keptClaims = [
     path: '.github/workflows/release.yml',
     title: 'YAML 语法错误',
     body: '该工作流无法解析。',
+  },
+  // Counterexamples raised in review of the first version.
+  { path: 'src/bookmarks.ts', title: '未校验备份内容就导入书签', body: '损坏的备份会覆盖现有数据。' },
+  { path: 'src/bookmarks.ts', title: '缺少导入数据校验', body: '任意字段都会写入存储。' },
+  {
+    path: 'src/rules.ts',
+    title: '解析失败时清空规则',
+    body: '用户规则包含语法错误时，catch 分支把空数组写回存储，覆盖已有有效规则。',
+  },
+  { path: 'src/rules.ts', title: '语法错误时覆盖已有规则', body: '原有规则丢失。' },
+  { path: 'src/cache.ts', title: '缓存键错误', body: '该改动不会导致编译失败，但会读到旧值。' },
+  { path: 'pages/eslint.config.mjs', title: '代码语法错误', body: '该行会导致编译错误。' },
+  { path: 'app/build.gradle.kts', title: '代码语法错误', body: '该行会导致编译错误。' },
+  {
+    path: '.github/scripts/gptomek-mailbox-fallback.py',
+    title: '代码语法错误',
+    body: '脚本无法运行。',
   },
 ];
 

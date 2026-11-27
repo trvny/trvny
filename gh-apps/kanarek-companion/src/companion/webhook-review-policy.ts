@@ -2,28 +2,32 @@
 // Build, syntax and import breakage fails a compile or test job on its own; models reading
 // only a diff mostly invent it (missing imports for member functions, Kotlin trailing commas,
 // sibling imports under unittest discovery).
+//
+// A false drop is invisible and a false keep is one noisy comment, so every pattern below
+// errs towards keeping. A path proves nothing about CI coverage; the scope is a heuristic.
 import type { ParsedReview, RawFinding } from './webhook-review-context.ts';
 
-// Only sources a compile or test job loads. Workflow, config and data files stay reviewable:
-// nothing guarantees a check parses them before merge.
-const CI_CHECKED_SOURCE = /\.(?:kts?|java|swift|[cm]?[jt]sx?|py|go|rs)$/iu;
+// Sources a build type-checks or compiles.
+const COMPILED_SOURCE = /\.(?:kt|java|swift|tsx?|rs|go)$/iu;
+// Interpreted sources only count when a test runner loads them: other scripts may never run in CI.
+const SCRIPT_TEST = /(?:^|\/)test_[^/]*\.py$|\.(?:test|spec)\.[cm]?jsx?$/iu;
+// Build and tool configuration may be read by no job that fails the pull request.
+const CONFIGURATION = /\.config\.[cm]?[jt]s$|\.gradle\.kts$/iu;
 
-const BREAKAGE = '编译(?:会)?(?:失败|错误|报错|不通过)|无法(?:通过)?编译|语法错误';
-// Titles name the claim. Bare "导入" is not enough: it is also data import.
-const TITLE_CLAIM = new RegExp(
-  `${BREAKAGE}|(?:缺少|缺失|未)[^，。；]{0,60}导入|导入[^，。；]{0,20}(?:缺失|路径错误)|错误[^，。；]{0,10}导入路径`,
-  'iu',
-);
-// Bodies of real findings mention imports in passing, so only an asserted breakage counts.
-const BODY_CLAIM = new RegExp(
-  `${BREAKAGE}|unresolved reference|(?:导致|抛出|引发|报)[^。；]{0,16}(?:ImportError|ModuleNotFoundError)`,
-  'iu',
-);
+// A title is a claim when the breakage is what it ends on, so that "语法错误时覆盖数据"
+// (handling of someone's syntax error) is not one. "导入" alone also means data import.
+const TITLE_CLAIM =
+  /(?<!不会)(?:编译(?:失败|错误|报错|不通过)|无法(?:通过)?编译|语法错误)$|(?:缺少|缺失)[^，。；]{0,60}(?:[A-Za-z_)]\s*|断言|扩展|函数|模块)导入$|(?:模块导入|导入模块)路径错误$|错误的(?:模块)?导入路径$/u;
+// In a body, only a stated consequence for the build counts; mentions do not.
+const BODY_CLAIM =
+  /无法(?:通过)?编译|(?<!不|不会)(?:导致|使得|会(?:因)?)[^。；，]{0,40}编译(?:会)?(?:失败|错误|报错|不通过)/u;
 
 export function isCiCheckedClaim(finding: RawFinding): boolean {
-  if (typeof finding.path !== 'string' || !CI_CHECKED_SOURCE.test(finding.path)) return false;
-  return (typeof finding.title === 'string' && TITLE_CLAIM.test(finding.title)) ||
-    (typeof finding.body === 'string' && BODY_CLAIM.test(finding.body));
+  const { path, title, body } = finding;
+  if (typeof path !== 'string' || CONFIGURATION.test(path)) return false;
+  if (!COMPILED_SOURCE.test(path) && !SCRIPT_TEST.test(path)) return false;
+  return (typeof title === 'string' && TITLE_CLAIM.test(title.trim().replace(/[。.!！]+$/u, ''))) ||
+    (typeof body === 'string' && BODY_CLAIM.test(body));
 }
 
 // Filters raw findings, before verification: a reply holding only dropped claims must read as

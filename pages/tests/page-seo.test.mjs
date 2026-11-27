@@ -137,7 +137,7 @@ test("robots explicitly allow mainstream search and Mistral agents", async () =>
 
 
 test("hub catalog matches visible shortcuts and creator identity", async () => {
-  const html = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../astro/src/legacy/home.html", import.meta.url), "utf8");
   const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/)[1])["@graph"];
   const site = graph.find(node => node["@type"] === "WebSite");
   const list = graph.find(node => node["@type"] === "ItemList");

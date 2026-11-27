@@ -209,7 +209,7 @@
     stationNav.hidden = false;
 
     async function refresh() {
-      if (document.hidden || (!wantsPlaying && root.closest('[data-radio-dock]:not([open])'))) return;
+      if (!wantsPlaying && (document.hidden || root.closest('[data-radio-dock]:not([open])'))) return;
       const version = ++metadataVersion;
       try {
         const endpoint = station.value === 'paradise' ? '/api/radio-now' : `/api/radio-station?station=${encodeURIComponent(station.value)}`;
@@ -247,7 +247,7 @@
       metadataVersion += 1;
       clearTimeout(timer);
       timer = undefined;
-      if (!document.hidden) void refresh();
+      if (wantsPlaying || !document.hidden) void refresh();
     });
     document.addEventListener('toggle', (event) => {
       if (event.target.matches?.('[data-radio-dock][open]') && event.target.contains(root)) void refresh();

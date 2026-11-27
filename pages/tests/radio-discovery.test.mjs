@@ -9,7 +9,7 @@ function source(name) {
 test("TRAVNY Radio has one indexed canonical landing page and linked machine guide", async () => {
   const [html, md, sitemap, home] = await Promise.all([
     source("radio/index.html"), source("radio/index.md"),
-    source("sitemap.xml"), source("index.html"),
+    source("sitemap.xml"), readFile(new URL("../astro/src/legacy/home.html", import.meta.url), "utf8"),
   ]);
   assert.match(html, /rel="canonical" href="https:\/\/bartek\.lol\/radio\/"/);
   assert.match(html, /name="robots" content="index,follow/);

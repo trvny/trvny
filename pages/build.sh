@@ -12,7 +12,7 @@ cp token-worldcup/recount-*.py token-worldcup/recount-*.mjs token-worldcup/*-tok
 mkdir -p site/papagenerator
 cp papagenerator/index.html papagenerator/brainrot.js site/papagenerator/
 
-# Additive Astro build. Never target Astro's output at site/: keep legacy files safe.
+# Publish generated Astro routes without writing over source HTML.
 npm --prefix astro ci --no-audit --no-fund
 mkdir -p site/assets/vendor
 cp astro/node_modules/hls.js/dist/hls.min.js site/assets/vendor/hls.min.js

@@ -91,3 +91,7 @@ worker-configuration.d.ts
 
 # Generated Pages response headers
 /pages/site/_headers
+
+# Astro-generated Pages entries
+/pages/site/index.html
+/pages/site/teksty/index.html

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 // Corpus from Quarto. Creator identity from the hub.
 const BASE = "https://bartek.lol/teksty/token-worldcup/";
-const hub = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+const hub = await readFile(new URL("../astro/src/legacy/home.html", import.meta.url), "utf8");
 const graph = JSON.parse(hub.match(/<script type="application\/ld\+json">([^<]+)<\/script>/)[1])["@graph"];
 const website = graph.find(node => node["@type"] === "WebSite");
 const creator = graph.find(node => node["@type"] === "Person" && node["@id"] === website?.creator?.["@id"]);

@@ -18,13 +18,17 @@
     let refreshing = false;
     async function fetchJson(url) {
       const controller = new AbortController();
+      const abort = () => controller.abort();
+      lifecycle.signal.addEventListener('abort', abort, { once: true });
+      if (lifecycle.signal.aborted) abort();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        const response = await fetch(url, { signal: AbortSignal.any([controller.signal, lifecycle.signal]) });
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error('request unavailable');
         return await response.json();
       } finally {
         clearTimeout(timer);
+        lifecycle.signal.removeEventListener('abort', abort);
       }
     }
     async function refresh() {

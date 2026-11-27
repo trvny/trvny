@@ -9,7 +9,7 @@
 
 | Concern | Maintained source / output |
 | --- | --- |
-| Hub | `site/index.html`, `site/assets/tokens.css`; existing HTML preserved |
+| Hub | `astro/src/legacy/home.html`, `site/assets/tokens.css`; existing HTML preserved |
 | Radio discovery | `site/radio/index.html`, `site/radio/index.md`; radio station JSON-LD, sitemap, documented now-playing API and read-only shared WebMCP |
 | Pages Functions / redirects | `functions/`; custom-domain aliases redirect to the canonical hub or Feedseek |
 | Astro lab + digests | [`astro/`](astro/README.md); additive `/lab/`, `/przeglad/`; published digests stay in `/przeglad/` and the shared `/teksty/feed.xml` Atom feed |

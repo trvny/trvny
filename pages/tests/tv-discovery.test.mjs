@@ -36,13 +36,19 @@ test("TV page hydrates channels without AbortSignal.timeout", async () => {
     fetch: async url => {
       called.push(url);
       return Response.json(url === "/tv/api/channels"
-        ? { channels: [{ slug: "tvp1", number: "101", name: "TVP 1 HD" }] }
+        ? { channels: [{ slug: "tvp1", number: "101", name: "TVP 1 HD" },
+          { slug: "tvp2", number: "102", name: "TVP 2 HD" }] }
         : { channels: [{ slug: "tvp1", manifest: "fresh" }] });
     },
   });
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.deepEqual(called, ["/tv/api/channels", "/tv/api/status"]);
-  assert.match(getNode("rows").innerHTML, /bartek\.lol\/tv\/tvp1\.m3u8/);
+  const rows = getNode("rows").innerHTML;
+  for (const slug of ["tvp1", "tvp2"]) {
+    assert.ok(rows.includes(`data-copy="https://bartek.lol/tv/${slug}.m3u8"`));
+    assert.ok(rows.includes(`href="https://streambench.bartek.lol/#tvpi=${slug}"`));
+  }
+  assert.match(rows, /aria-label="Play TVP 1 HD in Streambench"/);
 });
 
 test("TV discovery documents the public API and read-only WebMCP", async () => {

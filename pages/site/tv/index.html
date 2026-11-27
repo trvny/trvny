@@ -67,7 +67,7 @@
   @keyframes flick{0%,97%{opacity:1}98%{opacity:.94}99%{opacity:.99}}
   .scr-in{position:relative; z-index:4}
   h1,h2,.big{text-shadow:0 0 12px rgba(245,233,78,.25)}
-  a:focus-visible,button:focus-visible,.row:focus-visible{outline:3px solid var(--y);outline-offset:3px}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--y);outline-offset:3px}
   .testbars{display:flex; height:14px; margin-bottom:14px; border:1px solid #0d1117}
   .testbars i{flex:1}
   .testbars i:nth-child(1){background:var(--w)}.testbars i:nth-child(2){background:var(--y)}
@@ -101,7 +101,7 @@
   .rows{border-top:1px solid var(--faint)}
   .row{display:flex; align-items:flex-end; gap:8px; padding:7px 4px 5px; cursor:pointer;
     border-bottom:1px solid #0e131c; font-size:24px; transition:background .1s}
-  .row:hover,.row:focus-visible{background:rgba(70,224,224,.07)}
+  .row:hover,.row:focus-within{background:rgba(70,224,224,.07)}
   .row .no{color:var(--c); font-weight:700; width:2.6ch; flex:none}
   .row .nm{color:var(--w); white-space:nowrap}
   .row .lead{flex:1; border-bottom:2px dotted var(--faint); margin:0 .4ch 7px; min-width:14px}
@@ -109,7 +109,12 @@
   .row .st.chk{color:var(--dim)}
   .row .st.on{color:var(--g)} .row .st.on::after{content:" \25CF"; animation:blink 1.1s steps(1) infinite}
   .row .st.off{color:var(--r)}
-  .row .cp{flex:none; color:var(--dim); font-size:18px; width:9ch; text-align:right; letter-spacing:.04em}
+  .row .cp{flex:none; color:var(--dim); font:inherit; font-size:18px; width:9ch;
+    text-align:right; letter-spacing:.04em; background:transparent; border:0; padding:0; cursor:pointer}
+  .row .play{display:inline-grid; place-items:center; align-self:center; flex:none;
+    min-width:40px; min-height:36px; color:var(--g); border:1px solid var(--faint);
+    font:16px/1 system-ui,sans-serif; text-decoration:none}
+  .row .play:hover{background:var(--g); color:var(--k); text-shadow:none}
   .row:hover .cp{color:var(--y)}
   .row.copied .cp{color:var(--k); background:var(--y); text-shadow:none}
   .feedbox{border:2px solid var(--c); padding:12px 14px; display:flex; align-items:center; gap:12px;
@@ -223,12 +228,15 @@ function escapeTv(value) {
     .replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 }
 function tvRow(c) {
-  return '<div class="row" role="button" tabindex="0" data-copy="'
-    + escapeTv(m3u8(c.slug)) + '" data-slug="' + escapeTv(c.slug) + '">'
+  const name = escapeTv(c.name);
+  const playUrl = "https://streambench.bartek.lol/#tvpi=" + encodeURIComponent(c.slug);
+  return '<div class="row" data-copy="' + escapeTv(m3u8(c.slug)) + '">'
     + '<span class="no">' + escapeTv(c.number) + '</span>'
-    + '<span class="nm">' + escapeTv(c.name) + '</span>'
-    + '<span class="lead"></span><span class="st chk" id="st-' + escapeTv(c.slug)
-    + '">SPRAWDŹ</span><span class="cp">&#10515; KOPIUJ</span></div>';
+    + '<span class="nm">' + name + '</span>'
+    + '<span class="lead"></span><span class="st chk" id="st-' + escapeTv(c.slug) + '">SPRAWDŹ</span>'
+    + '<button type="button" class="cp" aria-label="Copy ' + name + ' stream address">&#10515; KOPIUJ</button>'
+    + '<a class="play" href="' + playUrl + '" aria-label="Play ' + name
+    + ' in Streambench">▶</a></div>';
 }
 const pad2 = n => String(n).padStart(2,"0");
 function tick2(){
@@ -245,14 +253,11 @@ async function copy(text){
 function flash(el, cls){ el.classList.add(cls); setTimeout(()=>el.classList.remove(cls), 1300); }
 document.addEventListener("click", e=>{
   const el = e.target.closest("[data-copy]"); if(!el) return;
-  if(el.tagName==="A") return;
+  if(e.target.closest("a")) return;
   e.preventDefault(); copy(el.dataset.copy);
   if(el.classList.contains("row")){ const cp=el.querySelector(".cp"); const o=cp.innerHTML;
     cp.innerHTML="SKOPIOWANO"; flash(el,"copied"); setTimeout(()=>cp.innerHTML=o,1300); }
   else { const o=el.textContent; el.textContent="SKOPIOWANO"; flash(el,"copied"); setTimeout(()=>el.textContent=o,1300); }
-});
-document.addEventListener("keydown", e=>{
-  if((e.key==="Enter"||e.key===" ") && e.target.classList.contains("row")){ e.preventDefault(); e.target.click(); }
 });
 async function tvFetchJson(path) {
   const controller = new AbortController();

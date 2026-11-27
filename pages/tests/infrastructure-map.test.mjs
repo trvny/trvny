@@ -12,7 +12,8 @@ test('infrastructure snapshot has unique IDs and valid typed edges', async () =>
   assert.equal(ids.size, nodes.length);
   for (const { id, label, url, x, y } of nodes) {
     assert.match(id, /^[a-z0-9-]+$/);
-    assert.ok(label && Number.isFinite(x) && Number.isFinite(y));
+    assert.ok(typeof label === "string" && label.trim());
+    assert.ok(Number.isFinite(x) && Number.isFinite(y));
     if (url) assert.equal(new URL(url).protocol, 'https:');
   }
   for (const [from, to, kind] of edges) {
@@ -31,7 +32,7 @@ test('infrastructure map reads the public snapshot and keeps a typed, keyboard-a
   assert.ok(start >= 0 && end > start);
   const source = html.slice(start + marker.length, end);
   assert.doesNotThrow(() => new Script(source));
-  assert.match(source, /fetch\("\.\/infrastructure\.json"\)/);
+  assert.match(source, /fetch\("\.\/infrastructure\.json",/);
   assert.match(html, /<summary>Browse nodes/);
   assert.match(source, /const relationLabels=/);
 });

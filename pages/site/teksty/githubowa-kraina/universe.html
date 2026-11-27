@@ -25,8 +25,9 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
 .cluster{fill:none;stroke:#243041;stroke-width:1;stroke-dasharray:6 7;rx:18}.cluster-label{fill:#667487;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .side{position:sticky;top:12px;border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:14px}.side h2{font-size:16px;margin:0 0 4px}.pill{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:3px 8px;color:var(--muted);font-size:11px;margin-bottom:10px}.side dl{margin:12px 0}.side dt{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.side dd{margin:2px 0 10px}.side a{color:#93c5fd;text-decoration:none;word-break:break-word}.side ul{margin:6px 0 0;padding-left:18px;color:var(--muted)}.hint{font-size:12px;color:var(--muted);margin-top:10px}
 .footer{margin-top:14px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-@media(max-width:900px){.layout{grid-template-columns:1fr}.side{position:static}.controls input{flex:1;min-width:180px}}
+@media(max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}.side{position:static}.controls input{flex:1;min-width:180px}}
 [hidden]{display:none!important}
+.map-body{min-width:0}
 .node-directory{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:12px}
 .node-directory summary{cursor:pointer;font-weight:700;color:var(--text)}
 #node-count{color:var(--muted);font-weight:400}
@@ -100,9 +101,18 @@ aside a,.footer a,#map-error a{color:var(--accent)}
 
 <script>
 (async () => {
-const response = await fetch("./infrastructure.json");
-if (!response.ok) throw new Error("Map unavailable");
-const { snapshot, nodes, edges, clusters } = await response.json();
+async function loadSnapshot(){
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),8000);
+ try{
+  const response=await fetch("./infrastructure.json",{signal:controller.signal});
+  if(!response.ok)throw new Error("Map unavailable");
+  return await response.json();
+ }finally{
+  clearTimeout(timeout);
+ }
+}
+const {snapshot,nodes,edges,clusters}=await loadSnapshot();
 
 const svg=document.getElementById("graph"), gClusters=document.getElementById("clusters"), gEdges=document.getElementById("edges"), gNodes=document.getElementById("nodes"), details=document.getElementById("details"), search=document.getElementById("search");
 const byId=new Map(nodes.map(n=>[n.id,n]));
@@ -126,7 +136,7 @@ for(const node of [...nodes].sort((a,b)=>a.label.localeCompare(b.label))){
 function updateDirectory(){
  let count=0;
  for(const [id,{entry,button}] of directoryItems){
-  entry.hidden=Boolean(activeFilter && !activeFilter.has(id));
+  entry.hidden=Boolean(activeFilter && !activeFilter.has(id) && id!==selectedId);
   button.setAttribute("aria-pressed",String(id===selectedId));
   if(!entry.hidden)count++;
  }
@@ -194,10 +204,14 @@ function resetHash(){
  url.hash="";
  history.replaceState(history.state,"",url);
 }
+function clearSelection(){
+ selectedId=null;
+ svg.querySelectorAll(".active").forEach(node=>node.classList.remove("active"));
+}
 function preset(tag, keepHash=false){
  if(!keepHash)resetHash();
  search.value="";
- selectedId=null;
+ clearSelection();
  document.querySelectorAll("[data-preset]").forEach(b=>{
   const active=b.dataset.preset===tag;
   b.classList.toggle("active",active);
@@ -214,7 +228,7 @@ function preset(tag, keepHash=false){
 document.querySelectorAll("[data-preset]").forEach(b=>b.addEventListener("click",()=>preset(b.dataset.preset)));
 search.addEventListener("input",()=>{
  resetHash();
- selectedId=null;
+ clearSelection();
  const q=search.value.trim().toLowerCase();
  document.querySelectorAll("[data-preset]").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-pressed","false")});
  if(!q){preset("all");return}
@@ -232,7 +246,20 @@ document.getElementById("download-json").addEventListener("click",()=>download("
 document.getElementById("download-svg").addEventListener("click",()=>{const copy=svg.cloneNode(true);copy.querySelectorAll(".dim,.active").forEach(el=>el.classList.remove("dim","active"));const style=document.createElementNS("http://www.w3.org/2000/svg","style");style.textContent=".edge{fill:none;stroke:#526071;stroke-width:1.7;opacity:.55}.edge.service{stroke:#f59e0b;stroke-dasharray:7 5}.edge.storage{stroke:#22c55e;stroke-dasharray:3 4}.edge.external{stroke:#ec4899;stroke-dasharray:10 5}.cluster{fill:none;stroke:#243041;stroke-width:1;stroke-dasharray:6 7}.cluster-label{fill:#667487;font-size:11px;font-weight:700}.node rect.body{fill:#141a23;stroke:#344052;stroke-width:1.2}.node text.title{fill:#eef2f7;font-size:12px;font-weight:700}.node text.sub{fill:#9aa6b6;font-size:9.5px}.node.repo rect.strip{fill:#7dd3fc}.node.component rect.strip{fill:#c4b5fd}.node.worker rect.strip{fill:#f6c453}.node.storage rect.strip{fill:#86efac}.node.external rect.strip{fill:#f9a8d4}";copy.insertBefore(style,copy.firstChild);download("trvny-universe-"+snapshot+".svg","image/svg+xml",new XMLSerializer().serializeToString(copy))});
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
 function escapeAttr(s){return escapeHtml(s)}
-function selectHash(){
+details.addEventListener("click",event=>{
+ const link=event.target.closest('a[href^="#"]');
+ if(!link||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+ const id=link.hash.slice(1);
+ if(!byId.has(id))return;
+ event.preventDefault();
+ if(location.hash!==link.hash)history.pushState(history.state,"",link.hash);
+ select(id);
+ const heading=details.querySelector("h2");
+ heading.tabIndex=-1;
+ heading.focus({preventScroll:true});
+});
+function selectHash(event){
+ if(event&&new URL(event.newURL).hash!==location.hash)return;
  const id=location.hash.slice(1);
  if(byId.has(id))select(id);
  else if(!id)preset("all");

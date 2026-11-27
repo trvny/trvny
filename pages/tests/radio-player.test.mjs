@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { setImmediate } from "node:timers";
 
-async function player({ deferredPause = false, nativeHls = false, stationMetadata = { kind: "station" } } = {}) {
+async function player({ deferredPause = false, nativeHls = false, stationMetadata = { kind: "station" }, dock = null } = {}) {
   const pauseEvents = [];
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
@@ -60,7 +60,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     "[data-mark-label]": new Element(), ".radio-footer [data-quality]": new Element(),
   };
   const root = new Element();
-  root.closest = () => null;
+  root.closest = () => dock?.closed ? dock : null;
   root.querySelector = (selector) => elements[selector];
   const document = { hidden: false, querySelectorAll: () => [root], addEventListener() {} };
   const instances = [];
@@ -75,17 +75,28 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     startLoad() { this.stopped = false; }
     destroy() { this.destroyed = true; }
   }
+  const actions = new Map();
+  const mediaSession = { setActionHandler: (name, handler) => actions.set(name, handler) };
+  let refreshTimer;
+  let metadataRequests = 0;
   let resolveMetadata;
   const metadata = new Promise((resolve) => { resolveMetadata = resolve; });
   const script = await readFile(new URL("../site/assets/radio.js", import.meta.url), "utf8");
   runInNewContext(script, {
     document, window: { Hls }, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
     HTMLInputElement: Input, HTMLImageElement: Image, HTMLSelectElement: Select, AbortSignal,
-    fetch: (url) => url === "/api/radio-now" ? metadata : Promise.resolve({ ok: true, json: async () => stationMetadata }), setTimeout: () => 0, clearTimeout: () => {},
+    navigator: { mediaSession },
+    fetch: (url) => {
+      metadataRequests++;
+      return url === "/api/radio-now" ? metadata : Promise.resolve({ ok: true, json: async () => stationMetadata });
+    },
+    setTimeout: (callback) => { refreshTimer = callback; return 1; },
+    clearTimeout: () => { refreshTimer = undefined; },
   });
   const flush = () => new Promise((resolve) => setImmediate(resolve));
   const select = (value) => { station.value = value; station.dispatch("change"); };
-  return { audio, play, status, station, elements, instances, select, flush, resolveMetadata, pauseEvents };
+  return { audio, play, status, station, elements, instances, select, flush, resolveMetadata, pauseEvents, actions,
+    refresh: () => refreshTimer(), metadataRequests: () => metadataRequests };
 }
 
 test("switching stations stops the old stream and respects pause", async () => {
@@ -322,4 +333,21 @@ test("full-player link is available for TRAVNY only and never interrupts playbac
   assert.equal(open.hidden, false);
   assert.equal(p.audio.src, "travny.mp3");
   assert.equal(p.audio.playCalls, 3);
+});
+
+test("Media Session resumes metadata polling after a paused, closed dock goes idle", async () => {
+  const dock = { closed: false };
+  const p = await player({ dock });
+  await p.flush();
+  p.play.dispatch("click");
+  p.actions.get("pause")();
+  dock.closed = true;
+  p.refresh();
+  assert.equal(p.metadataRequests(), 1);
+  p.actions.get("play")();
+  await p.flush();
+  assert.equal(p.audio.paused, false);
+  assert.equal(p.metadataRequests(), 2);
+  p.refresh();
+  assert.equal(p.metadataRequests(), 3);
 });

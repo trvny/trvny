@@ -1,15 +1,20 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 import DigestLayout from '../../layouts/DigestLayout.astro';
 import DigestArchive from '../../components/DigestArchive.svelte';
+import { digestTopics } from '../../lib/digest-topics.mjs';
 const issues = (await getCollection('digests', ({ data }) => !data.draft)).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 const formatDate = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'long', timeZone: 'UTC' });
-const archive = issues.map(({ id, data }) => ({
-  id,
-  date: formatDate.format(data.date),
-  title: data.title,
-  summary: data.description,
-  topics: data.magazine?.sections?.map(section => section.kind) ?? [],
+const archive = await Promise.all(issues.map(async issue => {
+  const { id, data } = issue;
+  const { headings } = await render(issue);
+  return {
+    id,
+    date: formatDate.format(data.date),
+    title: data.title,
+    summary: data.description,
+    topics: digestTopics(headings, data.magazine?.sections),
+  };
 }));
 ---
 <DigestLayout title="CoCzyDziennik" description="Przegląd wydarzeń, technologii i kultury — archiwum CoCzyDziennika TRAVNY: wydania, streszczenia i linki do źródeł.">

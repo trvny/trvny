@@ -5,6 +5,18 @@ import { getDigestPosts } from '../functions/_shared/digests.js';
 import { onRequest as home } from '../functions/index.js';
 import { onRequest as texts } from '../functions/teksty/index.js';
 import { onRequestGet as feed } from '../functions/teksty/feed.xml.js';
+import { digestTopics } from '../astro/src/lib/digest-topics.mjs';
+
+test('digest archive combines Markdown and magazine topics', () => {
+  const headings = [
+    { depth: 2, text: '🇵🇱 Polska i świat' },
+    { depth: 2, text: '⚽ Piłka nożna' },
+    { depth: 2, text: '🤖 AI i technologie — rozszerzony przegląd' },
+    { depth: 3, text: 'Motoryzacja' },
+  ];
+  assert.deepEqual(digestTopics(headings), ['poland', 'world', 'football', 'ai']);
+  assert.deepEqual(digestTopics(headings, [{ kind: 'memes' }, { kind: 'football' }]), ['memes', 'football', 'poland', 'world', 'ai']);
+});
 
 const posts = [
   { slug: 'old', title: 'Older text', summary: 'Old summary', date: '2026-01', updated: '2026-01-01T00:00:00Z', kind: 'TEXT', tags: [], lang: 'en' },

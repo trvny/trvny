@@ -26,7 +26,7 @@ export function mountWebGL(container, data, { select, reset, unavailable }) {
     labelColor: { color: '#eef2f7' },
     labelRenderedSizeThreshold: 6,
     defaultDrawNodeHover(context, node, settings) {
-      drawDiscNodeHover(context, { ...node, label: graph.getNodeAttribute(node.key, 'label') }, {
+      drawDiscNodeHover(context, node, {
         ...settings, labelColor: { color: '#0d1118' },
       });
     },
@@ -35,7 +35,7 @@ export function mountWebGL(container, data, { select, reset, unavailable }) {
     nodeReducer(id, attributes) {
       if (visible && !visible.has(id)) return { ...attributes, hidden: true };
       if (id === selected) return { ...attributes, size: attributes.size + 3, forceLabel: true, zIndex: 3 };
-      if (selected && !neighborhood.has(id)) return { ...attributes, color: '#3a485a', label: '' };
+      if (selected && !neighborhood.has(id)) return { ...attributes, color: '#3a485a' };
       return attributes;
     },
     edgeReducer(id, attributes) {

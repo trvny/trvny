@@ -36,6 +36,24 @@ async function loadData(path) {
   }
 }
 
+function diagramText(value, measure, { cssClass, y, rows, font }) {
+  const label = graphic('text', { class: cssClass });
+  let remaining = String(value ?? '');
+  if (measure) measure.font = font;
+  for (let row = 0; row < rows && remaining; row++) {
+    const last = row === rows - 1;
+    let fitted = remaining;
+    let length = remaining.length;
+    while (length > 1 && (measure?.measureText(fitted).width ?? fitted.length * 7) > 132) {
+      length--;
+      fitted = remaining.slice(0, length) + (last ? '…' : '');
+    }
+    label.append(graphic('tspan', { x: 14, y: y + row * 14 }, fitted));
+    remaining = remaining.slice(length);
+  }
+  return label;
+}
+
 function makeDiagram(svg, data, snapshot, byId, selectNode) {
   const nodes = get('nodes');
   const edges = get('edges');
@@ -43,6 +61,11 @@ function makeDiagram(svg, data, snapshot, byId, selectNode) {
   const width = Math.max(1330, ...data.nodes.map(node => node.x + 176));
   const height = Math.max(930, ...data.nodes.map(node => node.y + 72));
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  const fontFamily = getComputedStyle(svg).fontFamily;
+  svg.setAttribute('font-family', fontFamily);
+  const measure = document.createElement('canvas').getContext('2d');
+  const title = { cssClass: 'title', y: 16, rows: 2, font: '700 12px ' + fontFamily };
+  const subtitle = { cssClass: 'sub', y: 44, rows: 1, font: '9.5px ' + fontFamily };
   for (const { x, y, w, h, label } of snapshot.clusters) {
     clusters.append(
       graphic('rect', { class: 'cluster', x, y, width: w, height: h }),
@@ -72,8 +95,9 @@ function makeDiagram(svg, data, snapshot, byId, selectNode) {
     group.append(
       graphic('rect', { class: 'body', width: 156, height: 52 }),
       graphic('rect', { class: 'strip', width: 6, height: 52, fill: nodeKinds[category]?.[1] ?? '#a6b1c4' }),
-      graphic('text', { class: 'title', x: 14, y: 21 }, label),
-      graphic('text', { class: 'sub', x: 14, y: 38 }, sub),
+      graphic('title', {}, label + ', ' + sub),
+      diagramText(label, measure, title),
+      diagramText(sub, measure, subtitle),
     );
     group.addEventListener('click', () => selectNode(id));
     group.addEventListener('keydown', event => {
@@ -98,7 +122,7 @@ function download(name, type, body) {
   }, 0);
 }
 
-function exportDiagram(svg, date) {
+function exportDiagram(svg, filename) {
   const copy = svg.cloneNode(true);
   copy.removeAttribute('hidden');
   for (const node of copy.querySelectorAll('.dim,.active')) node.classList.remove('dim', 'active');
@@ -107,7 +131,7 @@ function exportDiagram(svg, date) {
     .filter(rule => /^:root|^\.(?:edge|node|cluster)\b/.test(rule.selectorText ?? ''))
     .map(rule => rule.cssText).join(' ');
   copy.prepend(graphic('style', {}, rules));
-  download('trvny-universe-' + date + '.svg', 'image/svg+xml', new XMLSerializer().serializeToString(copy));
+  download(filename + '.svg', 'image/svg+xml', new XMLSerializer().serializeToString(copy));
 }
 
 async function mount() {
@@ -340,11 +364,11 @@ async function mount() {
     if (!event.persisted) webgl?.destroy();
   });
 
+  const filename = 'trvny-universe-' + snapshot.snapshot + '-' + nodes.length + '-nodes';
   get('download-json').addEventListener('click', () => {
-    const { snapshot: date } = snapshot;
-    download('trvny-universe-' + date + '.json', 'application/json', JSON.stringify({ snapshot: date, nodes, edges }, null, 2));
+    download(filename + '.json', 'application/json', JSON.stringify({ snapshot: snapshot.snapshot, nodes, edges }, null, 2));
   });
-  get('download-svg').addEventListener('click', () => exportDiagram(svg, snapshot.snapshot));
+  get('download-svg').addEventListener('click', () => exportDiagram(svg, filename));
 
   syncHash();
   get('map-loading').hidden = true;

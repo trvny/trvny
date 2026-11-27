@@ -50,8 +50,8 @@ its own Pages project. Cloudflare Pages defaults to `X-Robots-Tag: noindex`
 for preview deployments, independent of middleware.
 
 Submit `https://bartek.lol/sitemap.xml` for the domain property. Pages alias
-and retired hub maps redirect directly to that XML. Build appends
-published digests to the hub and public subdomain URLs in `site/sitemap.xml`.
+and retired hub maps redirect directly to that XML. `site/sitemap.xml` lists
+the digest archive only. The build removes dated digest URLs left by older builds.
 
 ## TVPI public routes
 

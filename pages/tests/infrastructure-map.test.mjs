@@ -25,7 +25,11 @@ test('infrastructure snapshot has unique IDs and valid typed edges', async () =>
 
 test('infrastructure map reads the public snapshot and keeps a typed, keyboard-accessible list', async () => {
   const html = await readFile(new URL('universe.html', root), 'utf8');
-  const source = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const marker = "<script>";
+  const start = html.indexOf(marker);
+  const end = html.indexOf("</script>", start);
+  assert.ok(start >= 0 && end > start);
+  const source = html.slice(start + marker.length, end);
   assert.doesNotThrow(() => new Script(source));
   assert.match(source, /fetch\("\.\/infrastructure\.json"\)/);
   assert.match(html, /<summary>Browse nodes/);

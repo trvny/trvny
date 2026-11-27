@@ -17,3 +17,15 @@ test('hub radio routes share one audio element, player script and persistence ke
     assert.equal(html.match(player)?.[0], pages[0].match(player)?.[0], paths[index]);
   }
 });
+
+test('legacy hub routes keep the route announcer and radio styles in the head', async () => {
+  for (const path of ['index.html', 'teksty/index.html']) {
+    const html = await readFile(new URL(path, dist), 'utf8');
+    const head = html.slice(0, html.indexOf('</head>'));
+    const assets = [...head.matchAll(/<link[^>]+href="\/(_astro\/[^"]+\.css)"/g)];
+    const styles = await Promise.all(assets.map(([, asset]) => readFile(new URL(asset, dist), 'utf8')));
+    const css = [head, ...styles].join('\n');
+    assert.match(css, /\.astro-route-announcer\s*\{[^}]*position:\s*absolute/, path);
+    assert.match(css, /\.radio-controls[\s\S]*?\{/, path);
+  }
+});

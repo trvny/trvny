@@ -6,8 +6,9 @@ test('digest archive is built and only its landing page is listed in the sitemap
   const html = await readFile(new URL('../astro/dist/przeglad/index.html', import.meta.url), 'utf8');
   assert.match(html, /<link rel="canonical" href="https:\/\/bartek\.lol\/przeglad\/"/);
   const sitemap = await readFile(new URL('../site/sitemap.xml', import.meta.url), 'utf8');
-  const digestUrls = [...sitemap.matchAll(/<loc>(https:\/\/bartek\.lol\/przeglad\/[^<]*)<\/loc>/g)]
-    .map(([, url]) => url);
+  const digestUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map(([, url]) => url.trim())
+    .filter((url) => /^\/przeglad(?:\/|$)/.test(new URL(url).pathname));
   assert.deepEqual(digestUrls, ['https://bartek.lol/przeglad/']);
   const entries = (await readdir(new URL('../astro/src/content/digests/', import.meta.url))).filter((name) => name.endsWith('.md'));
   if (entries.length === 0) {

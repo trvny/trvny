@@ -4,7 +4,7 @@ import test from 'node:test';
 import { applyFindingPolicy, isCiCheckedClaim } from '../src/companion/webhook-review-policy.ts';
 import { reviewDisposition } from '../src/companion/webhook-review.ts';
 
-// Titles and body excerpts from findings Kanarek actually posted on 2026-11-26/27.
+// Modelled on findings Kanarek posted on 2026-11-26/27; bodies are shortened.
 const falseClaims = [
   {
     path: 'app/src/androidTest/java/ais/tee/ui/WebChatBookmarkEditorTest.kt',
@@ -69,6 +69,8 @@ const keptClaims = [
   },
   { path: 'src/rules.ts', title: '语法错误时覆盖已有规则', body: '原有规则丢失。' },
   { path: 'src/cache.ts', title: '缓存键错误', body: '该改动不会导致编译失败，但会读到旧值。' },
+  { path: 'src/auth.ts', title: '鉴权缺失', body: '这不会使代码无法编译，但会允许未认证用户读取数据。' },
+  { path: 'src/auth.ts', title: '这个改动不会导致编译失败', body: '未认证用户可以读取数据。' },
   { path: 'pages/eslint.config.mjs', title: '代码语法错误', body: '该行会导致编译错误。' },
   { path: 'app/build.gradle.kts', title: '代码语法错误', body: '该行会导致编译错误。' },
   {

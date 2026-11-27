@@ -17,17 +17,27 @@ const CONFIGURATION = /\.config\.[cm]?[jt]s$|\.gradle\.kts$/iu;
 // A title is a claim when the breakage is what it ends on, so that "语法错误时覆盖数据"
 // (handling of someone's syntax error) is not one. "导入" alone also means data import.
 const TITLE_CLAIM =
-  /(?<!不会)(?:编译(?:失败|错误|报错|不通过)|无法(?:通过)?编译|语法错误)$|(?:缺少|缺失)[^，。；]{0,60}(?:[A-Za-z_)]\s*|断言|扩展|函数|模块)导入$|(?:模块导入|导入模块)路径错误$|错误的(?:模块)?导入路径$/u;
+  /(?:编译(?:失败|错误|报错|不通过)|无法(?:通过)?编译|语法错误)$|(?:缺少|缺失)[^，。；]{0,60}(?:[A-Za-z_)]\s*|断言|扩展|函数|模块)导入$|(?:模块导入|导入模块)路径错误$|错误的(?:模块)?导入路径$/u;
 // In a body, only a stated consequence for the build counts; mentions do not.
 const BODY_CLAIM =
-  /无法(?:通过)?编译|(?<!不|不会)(?:导致|使得|会(?:因)?)[^。；，]{0,40}编译(?:会)?(?:失败|错误|报错|不通过)/u;
+  /无法(?:通过)?编译|(?:导致|使得|会(?:因)?)[^。；，]{0,40}编译(?:会)?(?:失败|错误|报错|不通过)/u;
+// A denied breakage ("不会使代码无法编译，但…") introduces the real defect.
+const NEGATION = /不会|不是|并非|并不|不导致/u;
+const CLAUSE_END = /[。；，;\n]/u;
+
+function claimsBuildBreakage(title: string, body: string): boolean {
+  if (!NEGATION.test(title) && TITLE_CLAIM.test(title.trim().replace(/[。.!！]+$/u, ''))) return true;
+  return body.split(CLAUSE_END).some((clause) => !NEGATION.test(clause) && BODY_CLAIM.test(clause));
+}
 
 export function isCiCheckedClaim(finding: RawFinding): boolean {
   const { path, title, body } = finding;
   if (typeof path !== 'string' || CONFIGURATION.test(path)) return false;
   if (!COMPILED_SOURCE.test(path) && !SCRIPT_TEST.test(path)) return false;
-  return (typeof title === 'string' && TITLE_CLAIM.test(title.trim().replace(/[。.!！]+$/u, ''))) ||
-    (typeof body === 'string' && BODY_CLAIM.test(body));
+  return claimsBuildBreakage(
+    typeof title === 'string' ? title : '',
+    typeof body === 'string' ? body : '',
+  );
 }
 
 // Filters raw findings, before verification: a reply holding only dropped claims must read as

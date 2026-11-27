@@ -66,9 +66,12 @@ test('trivial lines never identify a repeat', () => {
   assert.deepEqual(anchors, []);
 });
 
+function patched(patch: string): ReviewFile[] {
+  return [{ ...files[0], patch }];
+}
+
 test('the same text elsewhere, a duplicated spot or a long-line edit stays publishable', () => {
   const anchors = priorAnchors(priorFindingsFromComments(comments, 'kanarek-companion'));
-  const patched = (patch: string): ReviewFile[] => [{ ...files[0], patch }];
   const elsewhere = patched('@@ -0,0 +1,2 @@\n+function other() {\n+const value = readConfig();');
   assert.equal(dropRepeatedFindings([finding(2)], elsewhere, anchors).repeated, 0);
   const twice = patched('@@ -0,0 +1,4 @@\n+const added = true;\n+const value = readConfig();\n+const added = true;\n+const value = readConfig();');

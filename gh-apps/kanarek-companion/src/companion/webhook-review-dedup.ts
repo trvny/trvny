@@ -32,14 +32,21 @@ function normalizeLine(text: string): string {
   return text.replace(/\s+/gu, ' ').trim();
 }
 
+function isRightSide(row: string): boolean {
+  return row.startsWith('+') || row.startsWith(' ');
+}
+
+function loginOf(item: Record<string, unknown>): unknown {
+  return objectValue(item.user).login;
+}
+
 // A review comment's hunk ends on the commented line.
 function commentedSpot(diffHunk: unknown): { line: string; before: string } {
   const none = { line: '', before: '' };
   if (typeof diffHunk !== 'string') return none;
   const rows = diffHunk.replace(/\n+$/u, '').split('\n');
-  const isRight = (row: string) => row.startsWith('+') || row.startsWith(' ');
-  if (!isRight(rows.at(-1) ?? '')) return none;
-  const [line, before = ''] = rows.filter(isRight).reverse().map((row) => normalizeLine(row.slice(1)));
+  if (!isRightSide(rows.at(-1) ?? '')) return none;
+  const [line, before = ''] = rows.filter(isRightSide).reverse().map((row) => normalizeLine(row.slice(1)));
   return { line, before };
 }
 
@@ -52,11 +59,10 @@ export function priorFindingsFromComments(
   appSlug: string,
 ): PriorFinding[] {
   const items = comments.map(objectValue);
-  const login = (item: Record<string, unknown>) => objectValue(item.user).login;
   const own = `${appSlug}[bot]`;
   const findings = new Map<number, PriorFinding>();
   for (const item of items) {
-    if (login(item) !== own || item.in_reply_to_id || typeof item.id !== 'number' ||
+    if (loginOf(item) !== own || item.in_reply_to_id || typeof item.id !== 'number' ||
         typeof item.path !== 'string' || typeof item.body !== 'string') continue;
     findings.set(item.id, {
       path: item.path,
@@ -68,7 +74,7 @@ export function priorFindingsFromComments(
   // Replies go into a prompt: only people with a stake in the repository, and installed apps.
   for (const item of [...items].sort((a, b) => Number(a.id) - Number(b.id))) {
     const parent = typeof item.in_reply_to_id === 'number' ? findings.get(item.in_reply_to_id) : undefined;
-    if (!parent || login(item) === own || typeof item.body !== 'string') continue;
+    if (!parent || loginOf(item) === own || typeof item.body !== 'string') continue;
     const trusted = objectValue(item.user).type === 'Bot' ||
       TRUSTED_ASSOCIATIONS.has(String(item.author_association));
     // Oldest first, so the newest ones survive: a later correction beats the first answer.

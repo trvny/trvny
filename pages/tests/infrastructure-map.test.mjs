@@ -37,8 +37,23 @@ test('explorer derives the complete map from the published infrastructure and at
     assert.ok(byId.has(from) && byId.has(to) && relationLabels[kind]);
   }
   assert.ok(nodes.some(node => node.category === 'app' && node.label === 'Streambench'));
+  assert.equal(byId.get('atlas-llm-android-app').category, 'app');
+  assert.equal(byId.get('atlas-autka-android-app').category, 'app');
+  assert.ok(nodes.some(node => node.id.startsWith('atlas-wam-') && node.url.endsWith('#speaker-compatibility')));
+  assert.ok(nodes.some(node => node.id.startsWith('atlas-wam-') && node.url.endsWith('#status-working-rolling-release')));
   assert.equal(byId.get('src-gptomek').category, 'agent');
   assert.ok(edges.some(([from, to, kind]) => from === 'pages' && to === 'domain-bartek-lol' && kind === 'host'));
+});
+
+test('invalid optional atlas entries leave the infrastructure and valid projects available', async () => {
+  const snapshot = JSON.parse(await readFile(new URL('infrastructure.json', root), 'utf8'));
+  const atlas = { regions: [null, {
+    id: 'test', name: 'Test region', url: 'https://github.com/trvny/tvpi',
+    items: [null, { name: 'Invalid', url: 'invalid' }, { name: 'Project', url: 'https://bartek.lol/tv/' }],
+  }] };
+  const { nodes } = buildExplorerGraph(snapshot, atlas);
+  assert.ok(snapshot.nodes.every(base => nodes.some(node => node.id === base.id)));
+  assert.ok(nodes.some(node => node.id === 'atlas-test-project'));
 });
 
 test('infrastructure map keeps the diagram and directory alongside a lazy WebGL control', async () => {

@@ -7,7 +7,7 @@
     "dev": "astro dev",
     "build": "astro build && npm run build:universe",
     "check": "astro check",
-    "build:universe": "rolldown src/lib/universe-webgl.mjs --platform browser --format esm --minify --file ../site/assets/vendor/universe-webgl.1.js"
+    "build:universe": "rolldown src/lib/universe-webgl.mjs --platform browser --format esm --minify --file dist/universe-webgl.1.js"
   },
   "dependencies": {
     "@astrojs/mdx": "^8.1.6",

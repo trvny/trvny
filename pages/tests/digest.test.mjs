@@ -2,15 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 
-test('digest archive is built with a canonical URL and sitemap', async () => {
+test('digest archive is built and only its landing page is listed in the sitemap', async () => {
   const html = await readFile(new URL('../astro/dist/przeglad/index.html', import.meta.url), 'utf8');
   assert.match(html, /<link rel="canonical" href="https:\/\/bartek\.lol\/przeglad\/"/);
-  const sitemap = await readFile(new URL('../astro/dist/przeglad/sitemap.xml', import.meta.url), 'utf8');
-  assert.match(sitemap, /<urlset/);
+  const sitemap = await readFile(new URL('../site/sitemap.xml', import.meta.url), 'utf8');
+  const digestUrls = [...sitemap.matchAll(/<loc>(https:\/\/bartek\.lol\/przeglad\/[^<]*)<\/loc>/g)]
+    .map(([, url]) => url);
+  assert.deepEqual(digestUrls, ['https://bartek.lol/przeglad/']);
   const entries = (await readdir(new URL('../astro/src/content/digests/', import.meta.url))).filter((name) => name.endsWith('.md'));
   if (entries.length === 0) {
     assert.match(html, /Pierwsze publiczne wydanie/);
-    assert.doesNotMatch(sitemap, /<url>/);
   }
 });
 

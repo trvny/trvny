@@ -14,7 +14,6 @@ on: # yamllint disable-line rule:truthy
       - "pages/tests/**"
       - "pages/eslint.config.mjs"
       - "pages/scripts/waf_allow_chatgpt.py"
-      - "pages/scripts/sitemap-variants.mjs"
       - "pages/scripts/build-badge-previews.mjs"
       - "pages/scripts/build-static-shell.mjs"
       - "pages/scripts/worldcup-seo.mjs"
@@ -33,7 +32,6 @@ on: # yamllint disable-line rule:truthy
       - "pages/tests/**"
       - "pages/eslint.config.mjs"
       - "pages/scripts/waf_allow_chatgpt.py"
-      - "pages/scripts/sitemap-variants.mjs"
       - "pages/scripts/build-badge-previews.mjs"
       - "pages/scripts/build-static-shell.mjs"
       - "pages/scripts/worldcup-seo.mjs"
@@ -107,7 +105,7 @@ jobs:
             echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
           else
             changed="$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")"
-            if grep -Eq '^pages/(astro/|site/|token-worldcup/|papagenerator/|functions/|scripts/(sitemap-variants|build-badge-previews|build-static-shell|worldcup-seo)\.mjs$|build\.sh$)' <<<"$changed"; then
+            if grep -Eq '^pages/(astro/|site/|token-worldcup/|papagenerator/|functions/|scripts/(build-badge-previews|build-static-shell|worldcup-seo)\.mjs$|build\.sh$)' <<<"$changed"; then
               echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
             else
               echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"

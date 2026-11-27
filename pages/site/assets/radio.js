@@ -53,8 +53,13 @@
       });
     }
     if (session) {
-      session.setActionHandler('play', () => { if (!wantsPlaying) void start(); });
-      session.setActionHandler('pause', stop);
+      const actions = [
+        ['play', () => { if (!wantsPlaying) void start(); }],
+        ['pause', stop],
+      ];
+      for (const [action, handler] of actions) {
+        try { session.setActionHandler(action, handler); } catch { /* Unsupported action */ }
+      }
     }
 
     function showStationLogo(option) {
@@ -85,7 +90,7 @@
       root.dataset.playing = String(playing);
       play.setAttribute('aria-pressed', String(playing));
       status.textContent = message;
-      if (session) session.playbackState = playing ? 'playing' : 'paused';
+      if (session && !playing) session.playbackState = 'paused';
     }
     function stop() {
       wantsPlaying = false;
@@ -152,6 +157,7 @@
       radioOpen.hidden = station.value !== 'travny';
       cover.hidden = true;
       cover.removeAttribute('src');
+      if (session?.metadata) updateMediaSession();
       void refresh();
       if (option.dataset.kind === 'hls' && !audio.canPlayType('application/vnd.apple.mpegurl')) void loadHls().catch(() => {});
       if (resume) void start();
@@ -199,7 +205,11 @@
         showPlayback(false, 'Paused');
       }
     });
-    audio.addEventListener('playing', () => { if (wantsPlaying) showPlayback(true, 'Playing live'); });
+    audio.addEventListener('playing', () => {
+      if (!wantsPlaying) return;
+      if (session) session.playbackState = 'playing';
+      showPlayback(true, 'Playing live');
+    });
     audio.addEventListener('waiting', () => { if (wantsPlaying) showPlayback(true, 'Buffering…'); });
     audio.addEventListener('error', () => { if (wantsPlaying && audio.error) fail(playbackAttempt); });
     cover.addEventListener('error', () => { cover.hidden = true; cover.removeAttribute('src'); });
@@ -235,7 +245,7 @@
       } finally {
         if (version === metadataVersion) {
           clearTimeout(timer);
-          if (wantsPlaying) updateMediaSession();
+          if (wantsPlaying || session?.metadata) updateMediaSession();
           timer = setTimeout(() => {
             timer = undefined;
             void refresh();

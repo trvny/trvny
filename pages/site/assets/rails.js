@@ -1,4 +1,7 @@
 (() => {
+const key = Symbol.for('travny.rails');
+if (document[key]) return;
+document[key] = true;
 const mounted = new WeakSet();
 // Native scroll snapping; no carousel dependencies or offscreen animation.
 function setupRail(trackId, dotsId, delay) {

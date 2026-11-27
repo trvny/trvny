@@ -9,6 +9,7 @@ test('hub radio routes share one audio element, player script and persistence ke
   const pages = await Promise.all(paths.map(path => readFile(new URL(path, dist), 'utf8')));
   const player = /<section id="radio"[\s\S]*?<\/section>/;
   const script = /<script type="module" src="\/_astro\/RadioRouter\.[^"]+\.js">/g;
+  assert.match(pages[0], player);
   for (const [index, html] of pages.entries()) {
     assert.match(html, /<meta name="astro-view-transitions-enabled" content="true">/);
     assert.equal(html.match(script)?.length, 1, paths[index]);

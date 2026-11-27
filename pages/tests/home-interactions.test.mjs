@@ -131,6 +131,8 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   context.document.hidden = false;
 
   context.matchMedia = (query) => ({ matches: query.includes("max-width") || query.includes("reduced-motion") });
+  context.document = { ...context.document };
+  delete context.document[Symbol.for("travny.rails")];
   new Script(rail).runInNewContext(context);
   cycle();
   assert.equal(track.scrollLeft, 0, "reduced motion must not rotate");
@@ -142,6 +144,8 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     observe() {}
   };
   context.IntersectionObserver = context.window.IntersectionObserver;
+  context.document = { ...context.document };
+  delete context.document[Symbol.for("travny.rails")];
   new Script(rail).runInNewContext(context);
   cycle();
   assert.equal(track.scrollLeft, 0, "offscreen rail must not rotate");

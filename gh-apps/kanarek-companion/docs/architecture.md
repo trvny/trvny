@@ -179,6 +179,10 @@ It is responsible for:
   import-breakage claims about compiled sources and script tests are dropped
   before verification. A reply holding only those reads as clean, not as
   unverifiable output; a partial scan still follows the partial-coverage rule;
+- memory of the pull request (`webhook-review-dedup.ts`): earlier Kanarek
+  findings and their replies go into the prompt, and a finding on an already
+  commented line is withheld. A review holding only repeats settles as
+  `duplicate_findings`; an unreadable comment list fails open;
 - Simplified-Chinese human-facing review text;
 - RIGHT-side added-line anchors only;
 - revalidating the PR immediately before publication;

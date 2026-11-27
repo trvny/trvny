@@ -24,6 +24,7 @@ import {
   reviewSweepMaxAttempts,
   reviewTargetIsCurrent,
   sweepReviewAttempts,
+  withoutRepeatedFindings,
   type PreparedWebhookReview,
   type ReviewRouterOutcome,
   type ReviewSweepAttempt,
@@ -239,8 +240,10 @@ export function previewReviewPublication(
   if (sweep.disposition === 'invalid_findings') {
     return { kind: 'escalate', reason: 'paid_escalation_needed', findingCount: 0 } as const;
   }
+  const publishable = findingsAfterJudge(sweep.findings, l2.judged);
   const plan = planReviewPublication(
-    target, generated, findingsAfterJudge(sweep.findings, l2.judged), false, l2.judged, l2.marker,
+    target, generated, publishable, false, l2.judged, l2.marker,
+    Boolean(sweep.repeated) && !publishable.length,
   );
   if (plan.kind === 'comment') {
     return { kind: 'comment', reason: null, findingCount: plan.payload.comments.length } as const;
@@ -323,16 +326,17 @@ export async function runFreeReviewWorkflowPrototype(
     )) return false;
     return !authorize || await authorize(signal);
   };
-  const { sweep, stopped } = await checkpointFreeSweep(
+  const { sweep: swept, stopped } = await checkpointFreeSweep(
     step, route.order, route.deadlineAt, prepared.verifiableFiles,
     current,
     (provider, signal) => askReviewRouter(
       prepared.reviewInput, reviewEnv, REVIEW_ROUTER_CODE_REVIEW_MODEL, [], signal, provider,
     ),
   );
+  const sweep = withoutRepeatedFindings(swept, prepared.verifiableFiles, prepared.priorAnchors);
   let l2: JudgeCheckpoint = { stale: false, judged: null, marker: null };
   const generated = sweep.generated;
-  if (!stopped && generated && sweep.disposition === 'publish') {
+  if (!stopped && generated && sweep.disposition === 'publish' && sweep.findings.length) {
     const context = focusedReviewJudgeContext(prepared.reviewInput, sweep.findings);
     l2 = await checkpointReviewJudge(
       step, current,

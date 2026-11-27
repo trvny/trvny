@@ -46,9 +46,11 @@ export function prepareGroqFreeReview(input: Json): GroqPreparedInput | null {
           messages: messages.map((item, i) =>
             i === index ? { ...message, content: JSON.stringify(body) } : item),
         });
-        // Reduce ancillary context before touching the actual diff.
+        // Reduce ancillary context before touching the actual diff. Review history goes
+        // too: the caller still withholds same-spot repeats on its own.
+        const { prior_findings: _history, ...current } = payload;
         const slim: Json = {
-          ...payload,
+          ...current,
           repository_context: { files: [], callers: [], dependency_evidence: [] },
         };
         request = wrap(slim);

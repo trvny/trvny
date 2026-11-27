@@ -95,7 +95,7 @@ interface PatchSourceLine {
   text: string;
 }
 
-function patchRightSideSource(patch: string): PatchSourceLine[] {
+export function patchRightSideSource(patch: string): PatchSourceLine[] {
   const output: PatchSourceLine[] = [];
   let rightLine = 0;
   let inHunk = false;

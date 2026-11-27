@@ -1339,6 +1339,13 @@ test('review state lives in the existing quip and never leaks across heads', asy
   assert.deepEqual(
     await webhookReviewState(status({
       ...completed,
+      outcome: { headSha: headA, reviewed: true, findingCount: 0, skipped: 'duplicate_findings' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: 'AI review ✅ posted' },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
       outcome: { headSha: headA, reviewed: false, findingCount: 0, skipped: 'providers_failed' },
     }), 'travnie/llmbench', 21, headA),
     { settled: true, badge: 'AI review ⚠️ unavailable' },

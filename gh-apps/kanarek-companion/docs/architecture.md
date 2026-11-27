@@ -175,6 +175,9 @@ It is responsible for:
 - treating repository content as untrusted data except scoped `AGENTS.md`
   guidance;
 - a strict output contract with at most eight findings;
+- a deterministic claim policy (`webhook-review-policy.ts`): compile, syntax and
+  import-breakage claims about source files are dropped before verification, so a
+  reply holding only those counts as clean instead of escalating to paid;
 - Simplified-Chinese human-facing review text;
 - RIGHT-side added-line anchors only;
 - revalidating the PR immediately before publication;

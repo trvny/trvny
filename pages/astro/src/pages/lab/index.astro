@@ -1,6 +1,6 @@
 ---
 import LabLayout from '../../layouts/LabLayout.astro';
-import NewsTicker from '../../components/NewsTicker.astro';
+import NewsTicker from '../../components/NewsTicker.svelte';
 import BenchLab from '../../components/BenchLab.astro';
 ---
 <LabLayout title="The workshop" description="Experiments, live news and small browser tools from TRAVNY: benchmarks, interactive remakes and field notes worth a click.">
@@ -27,7 +27,7 @@ import BenchLab from '../../components/BenchLab.astro';
     <p>See the shared <a href="/lab/privacy/">privacy and data-handling policy</a> for local inputs, network requests and optional agent access.</p>
   </section>
   <div class="grid">
-    <NewsTicker />
+    <NewsTicker client:visible />
     <section class="panel">
       <h2>Field notes</h2>
       <p>Ideas and experiments from the workshop.</p>

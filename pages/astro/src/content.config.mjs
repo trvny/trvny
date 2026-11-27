@@ -1,5 +1,5 @@
 import { defineCollection } from 'astro:content';
-import { glob } from 'astro/loaders';
+import { file, glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
 import { isHttpsUrl, isDigestMediaUrl, digestEmbed } from './lib/digest-magazine.mjs';
@@ -77,4 +77,23 @@ const digests = defineCollection({
   }),
 });
 
-export const collections = { digests };
+const texts = defineCollection({
+  loader: file('../site/teksty/posts.json', {
+    parser: content => JSON.parse(content).map(post => ({ ...post, id: post.slug })),
+  }),
+  schema: z.object({
+    slug: z.string().regex(/^[a-z0-9-]+$/),
+    title: text,
+    summary: text,
+    date: text,
+    updated: text.optional(),
+    published: text.optional(),
+    kind: text,
+    tags: z.array(text).default([]),
+    lang: text.optional(),
+    titleLang: text.optional(),
+    featured: z.boolean().default(false),
+  }),
+});
+
+export const collections = { digests, texts };

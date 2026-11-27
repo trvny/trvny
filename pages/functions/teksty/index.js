@@ -1,4 +1,3 @@
-import { latestFirst, publicationPath } from "../_shared/digests.js";
 import { getLatestShitpost, REACTOR_HOME_URL } from "../_shared/shitpost.js";
 import { serviceFetch } from "../_shared/service-fetch.js";
 import { publicationLang } from "../_shared/publication-lang.js";
@@ -10,29 +9,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function renderCard(post) {
-  const path = publicationPath(post);
-  if (!path) return "";
-  const featured = post.featured === true ? '<span class="tag">FEATURED</span>' : "";
-  const tags = (post.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
-  return `<a class="card" href="${path}">
-<span class="go">OTWÓRZ ›</span>
-<div class="meta">${escapeHtml(post.date)} · ${escapeHtml(post.kind)}</div>
-<h2 lang="${publicationLang(post.titleLang ?? post.lang)}">${escapeHtml(post.title)}</h2>
-<p lang="${publicationLang(post.lang)}">${escapeHtml(post.summary)}</p>
-<div class="tags">${featured}${tags}</div>
-</a>`;
-}
-
-function renderDigestArchiveCard() {
-  return `<a class="card" href="/przeglad/">
-<span class="go">ARCHIWUM ›</span>
-<div class="meta">CoCzyDziennik</div>
-<h2 lang="pl">Wszystkie wydania</h2>
-<p lang="pl">Przeglądy uporządkowane od najnowszego. Pełna lista w archiwum.</p>
-</a>`;
 }
 
 function renderShitpostCard(post) {
@@ -48,36 +24,15 @@ ${post.excerpt ? `<p lang="${publicationLang(post.lang)}">${caption}</p>` : ""}
 </a>`;
 }
 
-async function getPosts(context) {
-  const url = new URL("/teksty/posts.json", context.request.url);
-  const response = await context.env.ASSETS.fetch(url.toString());
-  if (!response.ok) return [];
-  const posts = await response.json();
-  return Array.isArray(posts) ? posts : [];
-}
-
 export async function onRequest(context) {
-  const [response, posts, shitpost] = await Promise.all([
-    context.env.ASSETS.fetch(context.request),
-    getPosts(context),
-    getLatestShitpost(serviceFetch(context, "REACTOR_SERVICE")),
-  ]);
+  const response = await context.env.ASSETS.fetch(context.request);
   const contentType = response.headers.get("content-type") || "";
   if (!response.ok || !contentType.includes("text/html")) return response;
 
-  let rewriter = new globalThis.HTMLRewriter();
-
-  rewriter = rewriter.on("#text-list", {
+  const shitpost = await getLatestShitpost(serviceFetch(context, "REACTOR_SERVICE"));
+  return shitpost ? new globalThis.HTMLRewriter().on("#text-list", {
     element(element) {
-      element.before(renderDigestArchiveCard(), { html: true });
-      if (shitpost) {
-        element.before(renderShitpostCard(shitpost), { html: true });
-      }
-      if (posts.length > 0) {
-        element.setInnerContent(posts.sort(latestFirst).map(renderCard).join("\n"), { html: true });
-      }
+      element.before(renderShitpostCard(shitpost), { html: true });
     },
-  });
-
-  return rewriter.transform(response);
+  }).transform(response) : response;
 }

@@ -1,0 +1,85 @@
+body:has(> .hub-radio-dock) {
+  padding-bottom: max(82px, env(safe-area-inset-bottom));
+}
+
+.hub-radio-dock {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 30;
+  color-scheme: dark;
+  color: #e6e8ea;
+  font: 16px/1.3 system-ui, sans-serif;
+}
+
+.hub-radio-dock summary {
+  display: flex;
+  width: max-content;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 14px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #46e0e0;
+  background: #0b111b;
+  color: #46e0e0;
+  font: 700 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.hub-radio-dock summary svg {
+  width: 20px;
+  height: 20px;
+}
+
+.hub-radio-dock summary:focus-visible,
+.hub-radio-dock [data-play]:focus-visible {
+  outline: 3px solid #f5e94e;
+  outline-offset: 3px;
+}
+
+.hub-radio-dock:has([data-playing="true"]) summary {
+  color: #f5e94e;
+  border-color: #f5e94e;
+}
+
+.hub-radio-dock .radio {
+  --m: #e85ad0;
+  --w: #e6e8ea;
+  --dim: #aab1bb;
+  --faint: #354252;
+  --y: #f5e94e;
+  --c: #46e0e0;
+  position: absolute;
+  inset: auto 0 calc(100% + 8px) auto;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - 82px);
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #0b111b;
+  border: 1px solid var(--faint);
+  border-top: 3px solid var(--m);
+  box-shadow: 0 12px 30px #0009;
+}
+
+.hub-radio-dock .radio-head h2 {
+  color: var(--y);
+  font: 700 16px/1.2 system-ui, sans-serif;
+}
+
+.hub-radio-dock .radio-now {
+  grid-template-columns: 55px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.hub-radio-dock .radio-art { width: 55px; }
+.hub-radio-dock .radio-art b { font-size: 22px; }
+.hub-radio-dock .radio-art small { display: none; }
+.hub-radio-dock .radio-title { font-size: 17px; }
+.hub-radio-dock .radio-artist,
+.hub-radio-dock .radio-album,
+.hub-radio-dock .radio-status { font-size: 14px; }
+.hub-radio-dock audio { max-width: 100%; }

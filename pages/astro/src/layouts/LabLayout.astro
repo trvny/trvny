@@ -1,4 +1,6 @@
 ---
+import RadioRouter from '../components/RadioRouter.astro';
+import RadioDock from '../components/RadioDock.astro';
 import '../styles/lab.css';
 import { breadcrumbJson } from '../lib/breadcrumbs.mjs';
 const { title = 'Laboratory', description = 'Experiments from the TRAVNY workshop.', noindex = false } = Astro.props.frontmatter ?? Astro.props;
@@ -27,11 +29,13 @@ const breadcrumbs = breadcrumbJson(crumbs);
     <meta property="og:image" content="https://bartek.lol/assets/og.png" />
     <title>{title} · TRAVNY Lab</title>
     <script type="application/ld+json" set:html={breadcrumbs} />
-  </head>
+    <RadioRouter />
+</head>
   <body>
     <main class="shell">
       <nav class="crumb" aria-label="Breadcrumb">{crumbs.map((crumb, index) => <>{index > 0 && ' / '}{index === crumbs.length - 1 ? <span aria-current="page">{crumb.name}</span> : <a href={new URL(crumb.item).pathname}>{crumb.name}</a>}</>)}</nav>
       <slot />
     </main>
-  </body>
+    <RadioDock />
+</body>
 </html>

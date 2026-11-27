@@ -1,0 +1,13 @@
+---
+import { radioPanel } from '../lib/radio-panel.mjs';
+---
+<details class="hub-radio-dock" data-radio-dock lang="en">
+  <summary>
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7">
+      <path d="M3 9h18v12H3zM4 9l14-6M6 12h12M12 16h5" />
+      <circle cx="8" cy="17" r="2" />
+    </svg>
+    Radio
+  </summary>
+  <Fragment set:html={radioPanel} />
+</details>

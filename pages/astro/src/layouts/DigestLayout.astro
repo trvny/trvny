@@ -1,4 +1,6 @@
 ---
+import RadioRouter from '../components/RadioRouter.astro';
+import RadioDock from '../components/RadioDock.astro';
 import { breadcrumbJson } from '../lib/breadcrumbs.mjs';
 const { title, description, published } = Astro.props;
 const article = Boolean(published);
@@ -40,12 +42,14 @@ const articleJson = article && JSON.stringify({
   <title>{title} · TRAVNY</title>
   <script type="application/ld+json" set:html={breadcrumbs} />
   {articleJson && <script type="application/ld+json" set:html={articleJson} />}
+  <RadioRouter />
 </head>
 <body>
   <main class="shell">
     <nav class="crumb" aria-label="Breadcrumb">{crumbs.map((crumb, index) => <>{index > 0 && ' / '}{index === crumbs.length - 1 ? <span aria-current="page">{crumb.name}</span> : <a href={new URL(crumb.item).pathname}>{crumb.name}</a>}</>)}</nav>
     <slot />
   </main>
+  <RadioDock />
 </body>
 </html>
 <style is:global>

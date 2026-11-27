@@ -1,0 +1,11 @@
+---
+import sourceHtml from '../../../../site/teksty/index.html?raw';
+import { stripRadioEnhancements } from '../../lib/radio-panel.mjs';
+import RadioRouter from '../../components/RadioRouter.astro';
+import RadioDock from '../../components/RadioDock.astro';
+
+const html = stripRadioEnhancements(sourceHtml);
+const [head, content] = html.split('</head>');
+const [body, end] = content.split('</body>');
+---
+<Fragment set:html={head} /><Fragment set:html={'<!-- hub-radio:start -->'} /><RadioRouter /><Fragment set:html={'<!-- hub-radio:end -->'} /><Fragment set:html={`</head>${body}`} /><Fragment set:html={'<!-- hub-radio:start -->'} /><RadioDock /><Fragment set:html={'<!-- hub-radio:end -->'} /><Fragment set:html={`</body>${end}`} />

@@ -60,6 +60,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     "[data-mark-label]": new Element(), ".radio-footer [data-quality]": new Element(),
   };
   const root = new Element();
+  root.closest = () => null;
   root.querySelector = (selector) => elements[selector];
   const document = { hidden: false, querySelectorAll: () => [root], addEventListener() {} };
   const instances = [];

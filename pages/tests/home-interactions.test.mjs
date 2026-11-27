@@ -32,7 +32,7 @@ test("Feedseek uses its existing XML media and icons with lazy image fallback", 
 });
 
 test("home inline script remains parseable", () => {
-  const marker = "<script>";
+  const marker = "<script data-astro-rerun>";
   const begin = home.lastIndexOf(marker);
   const end = home.indexOf("</script>", begin);
   assert.ok(begin >= 0 && end > begin);
@@ -74,6 +74,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     window: {},
     document: {
       hidden: false,
+      addEventListener() {},
       getElementById: (id) => ({ featureRail: track, featureDots: nav })[id],
     },
     Date: { now: () => clock },
@@ -130,7 +131,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
   context.document.hidden = false;
 
   context.matchMedia = (query) => ({ matches: query.includes("max-width") || query.includes("reduced-motion") });
-  context.setupRail("featureRail", "featureDots", 10_000);
+  new Script(rail).runInNewContext(context);
   cycle();
   assert.equal(track.scrollLeft, 0, "reduced motion must not rotate");
 
@@ -141,7 +142,7 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
     observe() {}
   };
   context.IntersectionObserver = context.window.IntersectionObserver;
-  context.setupRail("featureRail", "featureDots", 10_000);
+  new Script(rail).runInNewContext(context);
   cycle();
   assert.equal(track.scrollLeft, 0, "offscreen rail must not rotate");
   onVisibility([{ isIntersecting: true, intersectionRatio: 0.5 }]);
@@ -169,13 +170,13 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
 
 test("home hosts radio and Lab hosts the shared workbench rail", () => {
   assert.match(home, /data-radio aria-labelledby="radio-heading"/);
-  assert.match(home, /src="\/assets\/radio\.js"/);
+  assert.match(home, /src="\/assets\/radio\.js\?v=\d+"/);
   assert.ok(!home.includes('id="benchRail"'));
   assert.match(home, /href="\/lab\/">LAB/);
   assert.match(lab, /<BenchLab\s*\/>/);
   assert.ok(!lab.includes('<RadioMini'));
-  assert.match(bench, /<script type="module">[\s\S]*benchRail/);
-  assert.match(home, /src="\/assets\/rails\.js"/);
+  assert.match(bench, /src="\/assets\/rails\.js\?v=\d+"/);
+  assert.match(home, /src="\/assets\/rails\.js\?v=\d+"/);
 });
 
 test("Lab rail initializes and advances through all three benches", () => {
@@ -192,7 +193,7 @@ test("Lab rail initializes and advances through all three benches", () => {
   const nav = { querySelectorAll: () => dots, querySelector: () => toggle, contains: () => false };
   let cycle;
   const context = {
-    window: {}, document: { hidden: false, getElementById: id => ({ benchRail: track, benchDots: nav })[id] },
+    window: {}, document: { hidden: false, addEventListener() {}, getElementById: id => ({ benchRail: track, benchDots: nav })[id] },
     matchMedia: query => ({ matches: query.includes("max-width") }),
     setInterval: (fn, delay) => { assert.equal(delay, 19_000); cycle = fn; },
     requestAnimationFrame: fn => fn(), Date,

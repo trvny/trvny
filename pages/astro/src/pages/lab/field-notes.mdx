@@ -12,13 +12,13 @@ An MDX foothold for the TRAVNY workshop. Articles can mix prose, code, and inter
 
 ## Next experiments
 
-Working backlog. Priorities indicate suggested order, not commitments.
+Active order: **P0 → P1 → P4 → P6**. Other experiments stay in the backlog.
 
 ### P0 · Persistent radio
 
-- One global mini-player: play/pause, volume, station, cover, now playing; Media Session controls where supported.
+- First slice: one player across home, Lab, Teksty and CoCzyDziennik. Play/pause, volume, station, cover, now playing and Media Session.
 - Reuse `site/assets/radio.js`, `/api/radio-station` and Streambench playback/metadata contracts. Direct audio from existing providers; no duplicate relay.
-- Preserve the actual audio element across same-origin navigation. Evaluate Astro ClientRouter + persistent island for Astro routes; extend the existing shared page shell for legacy HTML or migrate routes incrementally. No assumption that Astro transitions cover the whole hub.
+- Next: extend continuity to GitHubowa Kraina and remaining routes. Check their page scripts before enabling client routing.
 - Real-browser checks: uninterrupted audio across home, Kraina, Lab, texts and digest routes; back/forward, mobile, HLS lifecycle, no duplicate streams. Normal navigation fallback; external subdomains and full reloads outside the continuity guarantee.
 - Later: spectrum when CORS allows, animated cover, recent tracks where available; no autoplay.
 

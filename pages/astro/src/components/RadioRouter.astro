@@ -1,0 +1,9 @@
+---
+import { ClientRouter } from 'astro:transitions';
+
+const { inline = false } = Astro.props;
+---
+<ClientRouter fallback="swap" />
+{!inline && <link rel="stylesheet" href="/assets/radio.css" />}
+{!inline && <link rel="stylesheet" href="/assets/radio-dock.css" />}
+{!inline && <script is:inline src="/assets/radio.js?v=2" defer></script>}

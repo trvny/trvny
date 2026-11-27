@@ -57,6 +57,8 @@
   backdrop.addEventListener("click", closeDrawer);
   search?.addEventListener("input", filterLinks);
 
+  const keys = new AbortController();
+  document.addEventListener("astro:after-swap", () => keys.abort(), { once: true });
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented || event.isComposing) return;
     if (search && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
@@ -91,5 +93,5 @@
       event.preventDefault();
       first.focus();
     }
-  });
+  }, { signal: keys.signal });
 })();

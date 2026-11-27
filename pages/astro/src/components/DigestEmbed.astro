@@ -20,16 +20,20 @@ const player = digestEmbed(media.src);
   <a class="original" href={media.src}>Otwórz w {player.provider} ↗</a>
 </div>}
 <script>
-  for (const root of document.querySelectorAll('[data-digest-embed]')) {
-    const button = root.querySelector('button');
-    const template = root.querySelector('template');
-    if (!(button instanceof HTMLButtonElement) || !(template instanceof HTMLTemplateElement)) continue;
-    button.hidden = false;
-    button.addEventListener('click', () => {
-      button.replaceWith(template.content.cloneNode(true));
-      root.querySelector('iframe')?.focus();
-    }, { once: true });
+  function mountEmbeds() {
+    for (const root of document.querySelectorAll('[data-digest-embed]')) {
+      const button = root.querySelector('button');
+      const template = root.querySelector('template');
+      if (!(button instanceof HTMLButtonElement) || !button.hidden || !(template instanceof HTMLTemplateElement)) continue;
+      button.hidden = false;
+      button.addEventListener('click', () => {
+        button.replaceWith(template.content.cloneNode(true));
+        root.querySelector('iframe')?.focus();
+      }, { once: true });
+    }
   }
+  mountEmbeds();
+  document.addEventListener('astro:page-load', mountEmbeds);
 </script>
 <style>
   .source-embed { min-width: 0; }

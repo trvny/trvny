@@ -18,6 +18,8 @@ mkdir -p site/assets/vendor
 cp astro/node_modules/hls.js/dist/hls.min.js site/assets/vendor/hls.min.js
 cp astro/node_modules/hls.js/LICENSE site/assets/vendor/hls.LICENSE
 npm --prefix astro run build
+cp astro/dist/index.html site/index.html
+cp astro/dist/teksty/index.html site/teksty/index.html
 cp -R astro/dist/lab site/
 cp -R astro/dist/przeglad site/
 if [ -d astro/dist/_astro ]; then cp -R astro/dist/_astro site/; fi

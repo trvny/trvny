@@ -41,7 +41,21 @@
     let timer;
     let hls;
     let hlsLoading;
+    const session = globalThis.navigator?.mediaSession;
     audio.volume = Number(volume.value);
+
+    function updateMediaSession() {
+      if (!session || typeof MediaMetadata !== 'function') return;
+      session.metadata = new MediaMetadata({
+        title: title.textContent,
+        artist: artist.textContent,
+        album: album.textContent,
+      });
+    }
+    if (session) {
+      session.setActionHandler('play', () => { if (!wantsPlaying) void start(); });
+      session.setActionHandler('pause', stop);
+    }
 
     function showStationLogo(option) {
       logo.hidden = true;
@@ -71,6 +85,7 @@
       root.dataset.playing = String(playing);
       play.setAttribute('aria-pressed', String(playing));
       status.textContent = message;
+      if (session) session.playbackState = playing ? 'playing' : 'paused';
     }
     function stop() {
       wantsPlaying = false;
@@ -95,6 +110,7 @@
       if (hls) { hls.destroy(); hls = undefined; }
       const option = station.selectedOptions[0];
       showPlayback(true, 'Connecting…');
+      updateMediaSession();
       try {
         if (option.dataset.kind === 'hls' && !audio.canPlayType('application/vnd.apple.mpegurl')) {
           const Hls = await loadHls();
@@ -120,6 +136,7 @@
       stop();
       metadataVersion += 1;
       clearTimeout(timer);
+      timer = undefined;
       const option = station.selectedOptions[0];
       position.textContent = `${station.selectedIndex + 1} / ${station.options.length}`;
       announcement.textContent = `Station ${station.selectedIndex + 1} of ${station.options.length}: ${option.textContent}`;
@@ -191,7 +208,7 @@
     stationNav.hidden = false;
 
     async function refresh() {
-      if (document.hidden) return;
+      if (document.hidden || (!wantsPlaying && root.closest('[data-radio-dock]:not([open])'))) return;
       const version = ++metadataVersion;
       try {
         const endpoint = station.value === 'paradise' ? '/api/radio-now' : `/api/radio-station?station=${encodeURIComponent(station.value)}`;
@@ -217,14 +234,28 @@
       } finally {
         if (version === metadataVersion) {
           clearTimeout(timer);
-          if (!document.hidden) timer = setTimeout(refresh, station.value === 'travny' ? 10000 : 30000);
+          if (wantsPlaying) updateMediaSession();
+          timer = setTimeout(() => {
+            timer = undefined;
+            void refresh();
+          }, station.value === 'travny' ? 10000 : 30000);
         }
       }
     }
     document.addEventListener('visibilitychange', () => {
       metadataVersion += 1;
       clearTimeout(timer);
+      timer = undefined;
       if (!document.hidden) void refresh();
+    });
+    document.addEventListener('toggle', (event) => {
+      if (event.target.matches?.('[data-radio-dock][open]') && event.target.contains(root)) void refresh();
+    }, true);
+    let dock = root.closest('[data-radio-dock]');
+    document.addEventListener('astro:page-load', () => {
+      const currentDock = root.closest('[data-radio-dock]');
+      if (dock !== currentDock && !currentDock && !timer) void refresh();
+      dock = currentDock;
     });
     artist.textContent = 'Loading track details…';
     void refresh();

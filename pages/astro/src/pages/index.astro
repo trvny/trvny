@@ -1,0 +1,7 @@
+---
+import RadioRouter from '../components/RadioRouter.astro';
+import { homeHtml } from '../lib/radio-panel.mjs';
+
+const [head, body] = homeHtml.split('</head>');
+---
+<Fragment set:html={head} /><Fragment set:html={'<!-- hub-radio:start -->'} /><RadioRouter inline /><Fragment set:html={'<!-- hub-radio:end -->'} /><Fragment set:html={`</head>${body}`} />

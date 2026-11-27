@@ -6,17 +6,21 @@
   <a href="https://news.ycombinator.com/">Open Hacker News ↗</a>
 </section>
 <script>
-  const root = document.querySelector('[data-hn-news]');
-  if (root) {
-    const list = root.querySelector('[data-hn-list]');
-    const updated = root.querySelector('[data-hn-updated]');
+  let previousRoot: Element | null = null;
+  function mountNews() {
+    const root = document.querySelector('[data-hn-news]');
+    if (!root || root === previousRoot) return;
+    previousRoot = root;
+    const lifecycle = new AbortController();
+    const list = root.querySelector('[data-hn-list]')!;
+    const updated = root.querySelector('[data-hn-updated]')!;
     const api = 'https://hacker-news.firebaseio.com/v0/';
     let refreshing = false;
     async function fetchJson(url) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, { signal: AbortSignal.any([controller.signal, lifecycle.signal]) });
         if (!response.ok) throw new Error('request unavailable');
         return await response.json();
       } finally {
@@ -53,6 +57,7 @@
         }
         updated.textContent = 'Updated ' + new Date().toLocaleTimeString();
       } catch {
+        if (lifecycle.signal.aborted) return;
         if (!list.children.length || list.textContent.includes('Fetching')) {
           const li = document.createElement('li');
           li.textContent = 'News temporarily unavailable.';
@@ -64,7 +69,14 @@
       }
     }
     refresh();
-    setInterval(refresh, 300000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+    const interval = setInterval(refresh, 300000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); }, { signal: lifecycle.signal });
+    document.addEventListener('astro:after-swap', () => {
+      clearInterval(interval);
+      lifecycle.abort();
+      previousRoot = null;
+    }, { once: true });
   }
+  mountNews();
+  document.addEventListener('astro:page-load', mountNews);
 </script>

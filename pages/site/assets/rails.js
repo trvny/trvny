@@ -1,12 +1,17 @@
+(() => {
+const mounted = new WeakSet();
 // Native scroll snapping; no carousel dependencies or offscreen animation.
 function setupRail(trackId, dotsId, delay) {
   const track=document.getElementById(trackId);
   const nav=document.getElementById(dotsId);
-  if(!track||!nav)return;
+  if(!track||!nav||mounted.has(track))return;
+  mounted.add(track);
   const slides=[...track.children],buttons=[...nav.querySelectorAll("button[data-slide]")];
   const mobile=matchMedia("(max-width:640px)");
   const reduced=matchMedia("(prefers-reduced-motion:reduce)");
+  let observer;
   let visible=false,pauseUntil=0,frame=0,paused=false;
+  const updateMotion=()=>{toggle.hidden=reduced.matches;};
   const toggle=nav.querySelector("[data-rail-toggle]");
   if(toggle){
     toggle.hidden=reduced.matches;
@@ -15,7 +20,7 @@ function setupRail(trackId, dotsId, delay) {
       toggle.textContent=paused?"Resume":"Pause";
       toggle.setAttribute("aria-label",paused?"Resume automatic rotation":"Pause automatic rotation");
     });
-    if(typeof reduced.addEventListener==="function")reduced.addEventListener("change",()=>{toggle.hidden=reduced.matches;});
+    if(typeof reduced.addEventListener==="function")reduced.addEventListener("change",updateMotion);
   }
   const select=index=>buttons.forEach((button,i)=>button.setAttribute("aria-pressed",String(i===index)));
   function current(){
@@ -57,18 +62,29 @@ function setupRail(trackId, dotsId, delay) {
     frame=requestAnimationFrame(()=>{frame=0;if(mobile.matches)select(current());});
   },{passive:true});
   if("IntersectionObserver" in window){
-    const observer=new IntersectionObserver(entries=>{
+    observer=new IntersectionObserver(entries=>{
       visible=entries.some(entry=>entry.isIntersecting&&entry.intersectionRatio>=.35);
     },{threshold:[0,.35]});
     observer.observe(track);
   }else{visible=true;}
-  setInterval(()=>{
+  const interval=setInterval(()=>{
     const focused=document.activeElement;
     const keyboardFocus=focused&&((track.contains(focused)&&focused.matches("input, select, :focus-visible"))||
       (nav.contains(focused)&&focused.matches(":focus-visible")));
     if(paused||!mobile.matches||reduced.matches||document.hidden||!visible||Date.now()<pauseUntil||keyboardFocus)return;
     show((current()+1)%slides.length);
   },delay);
+  document.addEventListener("astro:after-swap",()=>{
+    clearInterval(interval);
+    observer?.disconnect();
+    reduced.removeEventListener?.("change",updateMotion);
+    if(frame)cancelAnimationFrame(frame);
+  },{once:true});
 }
-setupRail("featureRail","featureDots",10000);
-setupRail("benchRail","benchDots",19000);
+function mountRails() {
+  setupRail("featureRail","featureDots",10000);
+  setupRail("benchRail","benchDots",19000);
+}
+mountRails();
+document.addEventListener("astro:page-load",mountRails);
+})();

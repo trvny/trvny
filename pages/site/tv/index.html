@@ -235,9 +235,10 @@ function tvRow(c) {
   const playUrl = "https://streambench.bartek.lol/#tvpi=" + encodeURIComponent(c.slug);
   return '<div class="row" data-copy="' + escapeTv(m3u8(c.slug)) + '">'
     + '<span class="no">' + escapeTv(c.number) + '</span>'
-    + '<span class="nm">' + name + '</span>'
+    + '<span class="nm" id="channel-' + escapeTv(c.slug) + '">' + name + '</span>'
     + '<span class="lead"></span><span class="st chk" id="st-' + escapeTv(c.slug) + '">SPRAWDŹ</span>'
-    + '<button type="button" class="cp" aria-label="Copy ' + name + ' stream address">&#10515; KOPIUJ</button>'
+    + '<button type="button" class="cp" aria-describedby="channel-' + escapeTv(c.slug)
+    + '"><span aria-hidden="true">&#10515;</span> KOPIUJ</button>'
     + '<a class="play" href="' + playUrl + '" aria-label="Play ' + name
     + ' in Streambench">▶</a></div>';
 }

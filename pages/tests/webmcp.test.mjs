@@ -36,7 +36,7 @@ test("hub exposes navigation and read-only discovery tools", async () => {
       querySelectorAll: selector => selector === ".trvny-nav-link[href]" ? links : [],
     }, window, AbortController, console,
   });
-  assert.equal(tools.size, 7);
+  assert.equal(tools.size, 8);
   const list = tools.get("list_travny_destinations");
   assert.equal(list.tool.annotations.readOnlyHint, true);
   assert.equal(list.tool.execute({ query: "feed" }).destinations.length, 1);
@@ -55,6 +55,7 @@ test("hub exposes navigation and read-only discovery tools", async () => {
     { name: "TRAVNY Radio now playing", url: "https://bartek.lol/api/radio-station?station=travny" },
     { name: "Publications", url: "https://bartek.lol/teksty/feed.xml" },
     { name: "Project atlas", url: "https://bartek.lol/teksty/githubowa-kraina/atlas.json" },
+    { name: "Infrastructure snapshot", url: "https://bartek.lol/teksty/githubowa-kraina/infrastructure.json" },
     { name: "Sitemap", url: "https://bartek.lol/sitemap.xml" },
   ]);
   const search = tools.get("search_travny_projects").tool;
@@ -98,14 +99,13 @@ test("hub exposes navigation and read-only discovery tools", async () => {
   links.length = 0;
   tools.clear();
   runInNewContext(source, {
-    document: {
-      modelContext: { registerTool: (tool, options) => tools.set(tool.name, { tool, options }) },
-      querySelectorAll: () => [],
-    }, window: new EventTarget(), AbortController, console,
+    document: { querySelectorAll: () => [] },
+    navigator: { modelContext: { registerTool: (tool, options) => tools.set(tool.name, { tool, options }) } },
+    window: new EventTarget(), AbortController, console,
   });
-  assert.equal(tools.size, 7);
+  assert.equal(tools.size, 8);
   assert.equal(tools.get("list_travny_destinations").tool.execute().destinations.length, 0);
-  assert.equal(tools.get("get_travny_agent_resources").tool.execute().resources.length, 9);
+  assert.equal(tools.get("get_travny_agent_resources").tool.execute().resources.length, 10);
   const cached = new Event("pagehide");
   cached.persisted = true;
   window.dispatchEvent(cached);
@@ -139,4 +139,30 @@ test("atlas search finds advertised multi-word queries against the real catalog"
   assert.deepEqual(await names("desktop pets"), ["GPTomek pet", "Loopling pet"]);
   assert.deepEqual(await names("  TOOLS   spacemolt  "), ["SpaceMolt / SMX"]);
   assert.deepEqual(await names("SpaceMolt missing"), []);
+});
+
+test("infrastructure connections use the public map snapshot and fixed URL", async () => {
+  const source = await readFile(new URL("../site/assets/webmcp.js", import.meta.url), "utf8");
+  const graph = JSON.parse(await readFile(new URL("../site/teksty/githubowa-kraina/infrastructure.json", import.meta.url), "utf8"));
+  const tools = new Map();
+  const requests = [];
+  runInNewContext(source, {
+    fetch: async url => { requests.push(url); return Response.json(graph); },
+    document: { modelContext: { registerTool: tool => tools.set(tool.name, tool) } },
+    window: new EventTarget(), AbortController, AbortSignal, console,
+  });
+  const tool = tools.get("get_travny_infrastructure_connections");
+  assert.equal(tool.annotations.readOnlyHint, true);
+  assert.equal((await tool.execute({ id: "https://example.com" })).ok, false);
+  assert.equal((await tool.execute({ id: "pages", url: "https://example.com" })).ok, false);
+  assert.equal(requests.length, 0);
+  const info = await tool.execute({ id: "pages" });
+  assert.equal(info.ok, true);
+  assert.equal(info.node.id, "pages");
+  assert.equal(info.snapshot, graph.snapshot);
+  assert.equal(info.mapUrl, "https://bartek.lol/teksty/githubowa-kraina/universe#pages");
+  assert.ok(info.connections.some(({ kind, direction, node }) => kind === "source" && direction === "incoming" && node.id === "repo-hub"));
+  assert.ok(info.connections.some(({ direction }) => direction === "outgoing"));
+  assert.deepEqual(requests, ["/teksty/githubowa-kraina/infrastructure.json"]);
+  assert.equal((await tool.execute({ id: "unknown-node" })).error, "Unknown infrastructure node.");
 });

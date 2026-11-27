@@ -11,7 +11,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Hub](https://bartek.lol/) · [Markdown](https://bartek.lol/index.md)
 - [TVPI](https://bartek.lol/tv/) · [Markdown](https://bartek.lol/tv/index.md) · [M3U](https://bartek.lol/tv/playlist.m3u) · [channels JSON](https://bartek.lol/tv/api/channels) · [manifest status JSON](https://bartek.lol/tv/api/status)
 - [TRAVNY Radio](https://bartek.lol/radio/) · [Markdown](https://bartek.lol/radio/index.md) · [MP3](https://radio.bartek.lol/radio.mp3) · [now-playing JSON](https://bartek.lol/api/radio-station?station=travny)
-- [TRAVNY Lab](https://bartek.lol/lab/): experiments and live widgets
+- [TRAVNY Lab](https://bartek.lol/lab/): experiments and live widgets · [Tokenizer playground](https://bartek.lol/lab/tokenizer/): count text tokens locally
 - [Papagenerator](https://bartek.lol/papagenerator/): browser-only meme and sticker editor; images stay on the device
 - [Badges](https://bartek.lol/badges/): ecosystem, bot, AI and live status/counter SVG badges with copyable Markdown/HTML; catalogue JSON at `/badge/index.json`
 - [Teksty](https://bartek.lol/teksty/) · [Markdown guide](https://bartek.lol/teksty/index.md): articles, Reactor and one CoCzyDziennik archive link
@@ -56,3 +56,5 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 On browser hosts implementing WebMCP, TRAVNY pages with the shared navigation expose `open_travny_destination`. It only starts navigation to destinations already present in the visible TRAVNY menu and does not accept arbitrary URLs.
 
 Additional read-only tools: `list_travny_destinations` (optional query), `get_travny_agent_resources` (canonical machine-readable resources), and `get_travny_radio_now` (current song and streaming links via the fixed same-origin public API). No arbitrary URL fetches or radio administration. Navigation may open cross-origin menu destinations, but never accepts arbitrary URLs. The public GET API works without browser WebMCP. `search_travny_projects` reads the public atlas and supports optional text (`query`, up to 100 characters) and exact region ID (`region`); results include region IDs, names, descriptions and destination URLs. HTTP clients can use https://bartek.lol/teksty/githubowa-kraina/atlas.json directly.
+
+`get_travny_infrastructure_connections` reads the public infrastructure snapshot by exact node ID, for example `pages`. Results include the snapshot date, typed incoming and outgoing connections, and the map permalink. HTTP clients can read https://bartek.lol/teksty/githubowa-kraina/infrastructure.json directly.

@@ -143,6 +143,21 @@
       ]
     },
     {
+      "identifier": "urn:air:bartek.lol:catalog:infrastructure",
+      "displayName": "TRAVNY infrastructure snapshot",
+      "type": "application/json",
+      "url": "https://bartek.lol/teksty/githubowa-kraina/infrastructure.json",
+      "description": "Public infrastructure nodes, typed connections and snapshot date.",
+      "capabilities": [
+        "infrastructure-discovery",
+        "project-connections"
+      ],
+      "representativeQueries": [
+        "Which services connect to TRAVNY Pages?",
+        "Which storage resources appear on the infrastructure map?"
+      ]
+    },
+    {
       "identifier": "urn:air:bartek.lol:catalog:github-world",
       "displayName": "GitHubowa Kraina project atlas",
       "type": "application/json",

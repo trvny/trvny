@@ -1,7 +1,7 @@
 "use strict";
 
 (() => {
-  const context = document.modelContext;
+  const context = document.modelContext ?? globalThis.navigator?.modelContext;
   if (!context?.registerTool) return;
 
   function currentDestinations() {
@@ -86,6 +86,7 @@
     },
   };
 
+  const infrastructurePath = "/teksty/githubowa-kraina/infrastructure.json";
   const catalogue = {
     name: "get_travny_agent_resources",
     title: "Get TRAVNY agent resources",
@@ -103,6 +104,7 @@
         { name: "TRAVNY Radio now playing", url: base + "/api/radio-station?station=travny" },
         { name: "Publications", url: base + "/teksty/feed.xml" },
         { name: "Project atlas", url: base + "/teksty/githubowa-kraina/atlas.json" },
+        { name: "Infrastructure snapshot", url: base + infrastructurePath },
         { name: "Sitemap", url: base + "/sitemap.xml" },
       ] };
     },
@@ -214,6 +216,49 @@
     },
   };
 
+  const infrastructure = {
+    name: "get_travny_infrastructure_connections",
+    title: "Read TRAVNY infrastructure connections",
+    description: "Look up one node and its direct, typed connections in the public infrastructure snapshot.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", maxLength: 64, pattern: "^[a-z0-9-]+$", description: "Node ID from infrastructure.json, for example pages or w-weather." },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    async execute(input = {}) {
+      if (!input || typeof input !== "object" || Array.isArray(input)
+        || Object.keys(input).length !== 1 || typeof input.id !== "string"
+        || !/^[a-z0-9-]{1,64}$/.test(input.id)) {
+        return { ok: false, error: "Valid infrastructure node ID required." };
+      }
+      try {
+        const response = await fetch(infrastructurePath, { signal: AbortSignal.timeout(8000) });
+        if (!response.ok) throw new Error("Infrastructure unavailable");
+        const { snapshot, nodes, edges } = await response.json();
+        const nodeById = new Map(nodes.map(node => [node.id, node]));
+        const node = nodeById.get(input.id);
+        if (!node) return { ok: false, error: "Unknown infrastructure node." };
+        const summary = ({ id, label, kind, sub, url }) => ({ id, label, kind, role: sub, ...(url ? { url } : {}) });
+        const connections = edges.filter(([from, to]) => from === node.id || to === node.id)
+          .map(([from, to, kind]) => ({
+            kind,
+            direction: from === node.id ? "outgoing" : "incoming",
+            node: summary(nodeById.get(from === node.id ? to : from)),
+          }));
+        return {
+          ok: true, snapshot, node: summary(node), connections,
+          mapUrl: "https://bartek.lol/teksty/githubowa-kraina/universe#" + node.id,
+        };
+      } catch {
+        return { ok: false, error: "Infrastructure snapshot temporarily unavailable." };
+      }
+    },
+  };
+
   const projectSearch = {
     name: "search_travny_projects",
     title: "Search GitHubowa Kraina",
@@ -264,7 +309,7 @@
     },
   };
 
-  for (const definition of [tool, readDestinations, catalogue, radioNow, tvList, tvStream, projectSearch]) {
+  for (const definition of [tool, readDestinations, catalogue, radioNow, tvList, tvStream, projectSearch, infrastructure]) {
     try {
       Promise.resolve(context.registerTool(definition, { signal: lifecycle.signal }))
         .catch((error) => console.warn("TRAVNY WebMCP registration failed", error));

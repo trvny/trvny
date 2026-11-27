@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { Script } from 'node:vm';
+import { buildExplorerGraph, relationLabels } from '../site/assets/universe-data.js';
 
 const root = new URL('../site/teksty/githubowa-kraina/', import.meta.url);
 
@@ -24,15 +24,28 @@ test('infrastructure snapshot has unique IDs and valid typed edges', async () =>
   assert.ok(clusters.length);
 });
 
-test('infrastructure map reads the public snapshot and keeps a typed, keyboard-accessible list', async () => {
+test('explorer derives the complete map from the published infrastructure and atlas', async () => {
+  const inputs = await Promise.all(['infrastructure.json', 'atlas.json'].map(async name =>
+    JSON.parse(await readFile(new URL(name, root), 'utf8'))));
+  const [snapshot, atlas] = inputs;
+  const { nodes, edges } = buildExplorerGraph(snapshot, atlas);
+  const byId = new Map(nodes.map(node => [node.id, node]));
+  assert.equal(byId.size, nodes.length);
+  assert.ok(nodes.length > snapshot.nodes.length);
+  assert.ok(edges.length > snapshot.edges.length);
+  for (const [from, to, kind] of edges) {
+    assert.ok(byId.has(from) && byId.has(to) && relationLabels[kind]);
+  }
+  assert.ok(nodes.some(node => node.category === 'app' && node.label === 'Streambench'));
+  assert.equal(byId.get('src-gptomek').category, 'agent');
+  assert.ok(edges.some(([from, to, kind]) => from === 'pages' && to === 'domain-bartek-lol' && kind === 'host'));
+});
+
+test('infrastructure map keeps the diagram and directory alongside a lazy WebGL control', async () => {
   const html = await readFile(new URL('universe.html', root), 'utf8');
-  const marker = "<script>";
-  const start = html.indexOf(marker);
-  const end = html.indexOf("</script>", start);
-  assert.ok(start >= 0 && end > start);
-  const source = html.slice(start + marker.length, end);
-  assert.doesNotThrow(() => new Script(source));
-  assert.match(source, /fetch\("\.\/infrastructure\.json",/);
   assert.match(html, /<summary>Browse nodes/);
-  assert.match(source, /const relationLabels=/);
+  assert.match(html, /id="graph"/);
+  assert.match(html, /id="map-webgl" hidden/);
+  assert.match(html, /src="\/assets\/universe-map.js"/);
+  assert.doesNotMatch(html, /src="[^"]*universe-webgl/);
 });

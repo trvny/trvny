@@ -13,7 +13,7 @@ noindex: true
 - **P0** · Radio continuity across Home, Lab, Teksty and CoCzyDziennik. Station controls and Media Session.
 - **P1** · Svelte islands for the tokenizer, digest archive filters and Lab news. Anime.js loads on manual refresh, with reduced-motion support. Teksty renders from an Astro collection backed by the existing catalogue. Astro navigation on migrated routes.
 - **P2** · Ctrl/Cmd+K filters hub destinations. Enter opens the first match.
-- **P4** · Searchable infrastructure node list, typed connections and node permalinks.
+- **P4** · [GitHubowa Kraina explorer](/teksty/githubowa-kraina/universe). On-demand Sigma.js and Graphology graph from the atlas and infrastructure snapshot. Zoom, filters, node details, permalinks, SVG and keyboard-accessible list.
 - **P6** · Read-only WebMCP lookup for infrastructure connections, documented in both LLM guides and ARD.
 
 ## Backlog
@@ -33,14 +33,7 @@ noindex: true
 
 - Live bento cards: releases, commits, deployments, service health, latest texts, weather and radio; activity timeline, milestones and heatmaps.
 - Reuse existing GitHub, Switchboard, weather, Reactor and radio data contracts. Public-safe snapshots, bounded caching, stale/unknown labels; no browser credentials or duplicated monitors.
-- Feed-driven news widget: official HN API / existing ticker, then canonical Feedseek normalized adapter; retain reader failure/cache semantics and source attribution.
-
-### P4 · GitHubowa Kraina / Empire Explorer
-
-- Extend existing [GitHubowa Kraina](/teksty/githubowa-kraina/) and its [infrastructure map](/teksty/githubowa-kraina/universe.html), not a separate atlas.
-- Sigma.js + Graphology: WebGL graph of projects, domains, Workers, apps and agents; typed relationships, filters, zoom and project detail cards.
-- Reuse `atlas.json`, existing translations and infrastructure data; repository facts remain authoritative. Derive graph from canonical data, add only missing relationships at their source.
-- Lazy-load graph, accessible text/list fallback; preserve URLs and existing read-only `search_travny_projects` WebMCP.
+- Feedseek news widget using the canonical normalized adapter. Retain cache, failure and source attribution behavior.
 
 ### P5 · GPTomek Live
 

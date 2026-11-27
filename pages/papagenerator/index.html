@@ -115,6 +115,14 @@ async function loadFile(file,asBackground){
 $('#backgroundFile').onchange=e=>{const file=e.target.files[0];e.target.value='';loadFile(file,true);};
 $('#stickerFile').onchange=e=>{const file=e.target.files[0];e.target.value='';loadFile(file,false);};
 $('#download').onclick=()=>{draw(false);canvas.toBlob(blob=>{if(!blob){setStatus('Export failed.');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='papagenerator.png';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);render();setStatus('PNG exported. Certified holy.');},'image/png');};
-document.addEventListener('keydown',e=>{if(e.key==='Delete'||e.key==='Backspace'){if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName))return;$('#remove').click();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();$('#undo').click();}});
+document.addEventListener('keydown', event => {
+  const target = event.target;
+  if (target instanceof HTMLElement && (target.matches('input, textarea') || target.isContentEditable)) return;
+  if (event.key === 'Delete' || event.key === 'Backspace') $('#remove').click();
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+    event.preventDefault();
+    $('#undo').click();
+  }
+});
 render();
 </script></body></html>

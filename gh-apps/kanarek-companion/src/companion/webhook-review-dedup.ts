@@ -1,6 +1,6 @@
 // Memory of what Kanarek already posted on a pull request. Without it every new head is
 // reviewed from scratch and a rebutted finding comes back. Two layers: the prompt carries the
-// earlier findings with their replies, and a finding anchored on an already commented line is
+// earlier findings with their replies, and a finding anchored on an already commented spot is
 // not published again.
 import type { GitHubInstallationClient } from '../../../core/github-app.ts';
 import { repoPath } from '../tools/common.ts';
@@ -21,19 +21,30 @@ export interface PriorFinding {
   path: string;
   /** Normalized text of the commented line; '' when GitHub gave no usable hunk. */
   line: string;
+  /** Normalized line above it in the same hunk: tells equal lines apart. */
+  before: string;
   title: string;
   replies: string[];
 }
 
+// Never truncated here: an edit far into a long line makes it a different line.
 function normalizeLine(text: string): string {
-  return text.replace(/\s+/gu, ' ').trim().slice(0, MAX_LINE_CHARS);
+  return text.replace(/\s+/gu, ' ').trim();
 }
 
 // A review comment's hunk ends on the commented line.
-function commentedLine(diffHunk: unknown): string {
-  if (typeof diffHunk !== 'string') return '';
-  const last = diffHunk.replace(/\n+$/u, '').split('\n').at(-1) ?? '';
-  return last.startsWith('+') || last.startsWith(' ') ? normalizeLine(last.slice(1)) : '';
+function commentedSpot(diffHunk: unknown): { line: string; before: string } {
+  const none = { line: '', before: '' };
+  if (typeof diffHunk !== 'string') return none;
+  const rows = diffHunk.replace(/\n+$/u, '').split('\n');
+  const isRight = (row: string) => row.startsWith('+') || row.startsWith(' ');
+  if (!isRight(rows.at(-1) ?? '')) return none;
+  const [line, before = ''] = rows.filter(isRight).reverse().map((row) => normalizeLine(row.slice(1)));
+  return { line, before };
+}
+
+function anchorKey(path: string, before: string, line: string): string {
+  return `${path}\n${before}\n${line}`;
 }
 
 export function priorFindingsFromComments(
@@ -50,7 +61,7 @@ export function priorFindingsFromComments(
     findings.set(item.id, {
       id: item.id,
       path: item.path,
-      line: commentedLine(item.diff_hunk),
+      ...commentedSpot(item.diff_hunk),
       title: item.body.split('\n', 1)[0].slice(0, MAX_TITLE_CHARS),
       replies: [],
     });
@@ -58,11 +69,11 @@ export function priorFindingsFromComments(
   // Replies go into a prompt: only people with a stake in the repository, and installed apps.
   for (const item of [...items].sort((a, b) => Number(a.id) - Number(b.id))) {
     const parent = typeof item.in_reply_to_id === 'number' ? findings.get(item.in_reply_to_id) : undefined;
-    if (!parent || login(item) === own || typeof item.body !== 'string' ||
-        parent.replies.length >= MAX_REPLIES) continue;
+    if (!parent || login(item) === own || typeof item.body !== 'string') continue;
     const trusted = objectValue(item.user).type === 'Bot' ||
       TRUSTED_ASSOCIATIONS.has(String(item.author_association));
-    if (trusted) parent.replies.push(item.body.slice(0, MAX_REPLY_CHARS));
+    // Oldest first, so the newest ones survive: a later correction beats the first answer.
+    if (trusted) parent.replies = [...parent.replies, item.body.slice(0, MAX_REPLY_CHARS)].slice(-MAX_REPLIES);
   }
   return [...findings.values()]
     .sort((a, b) => b.id - a.id)
@@ -94,15 +105,17 @@ export async function fetchPriorFindings(
   }
 }
 
-export function priorFindingsForPrompt(prior: readonly PriorFinding[]): PriorFinding[] {
-  return prior.slice(0, MAX_PRIOR_FINDINGS);
+export function priorFindingsForPrompt(prior: readonly PriorFinding[]) {
+  return prior.slice(0, MAX_PRIOR_FINDINGS).map(({ path, line, title, replies }) => (
+    { path, line: line.slice(0, MAX_LINE_CHARS), title, replies }
+  ));
 }
 
-/** Path and line text of every commented line that is distinctive enough to match on. */
+/** Every commented spot distinctive enough to match on. */
 export function priorAnchors(prior: readonly PriorFinding[]): string[] {
   return [...new Set(prior
     .filter((finding) => finding.line.length >= MIN_ANCHOR_CHARS)
-    .map((finding) => `${finding.path}\n${finding.line}`))];
+    .map((finding) => anchorKey(finding.path, finding.before, finding.line)))];
 }
 
 export function dropRepeatedFindings(
@@ -113,10 +126,16 @@ export function dropRepeatedFindings(
   const seen = new Set(anchors);
   const fresh = findings.filter((finding) => {
     const patch = files.find((file) => file.path === finding.path)?.patch;
-    const source = patch
-      ? patchRightSideSource(patch).find((line) => line.line === finding.line)
-      : undefined;
-    return !source || !seen.has(`${finding.path}\n${normalizeLine(source.text)}`);
+    if (!patch) return true;
+    const source = patchRightSideSource(patch);
+    const keys = source.map((row, index) => {
+      const above = source[index - 1];
+      const before = above?.line === row.line - 1 ? normalizeLine(above.text) : '';
+      return anchorKey(finding.path, before, normalizeLine(row.text));
+    });
+    const key = keys[source.findIndex((row) => row.line === finding.line)];
+    // Two equal spots in one patch cannot be told apart, so nothing is withheld.
+    return !key || !seen.has(key) || keys.indexOf(key) !== keys.lastIndexOf(key);
   });
   return { fresh, repeated: findings.length - fresh.length };
 }

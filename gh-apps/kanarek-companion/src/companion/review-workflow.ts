@@ -240,9 +240,10 @@ export function previewReviewPublication(
   if (sweep.disposition === 'invalid_findings') {
     return { kind: 'escalate', reason: 'paid_escalation_needed', findingCount: 0 } as const;
   }
+  const publishable = findingsAfterJudge(sweep.findings, l2.judged);
   const plan = planReviewPublication(
-    target, generated, findingsAfterJudge(sweep.findings, l2.judged), false, l2.judged, l2.marker,
-    Boolean(sweep.repeated) && !sweep.findings.length,
+    target, generated, publishable, false, l2.judged, l2.marker,
+    Boolean(sweep.repeated) && !publishable.length,
   );
   if (plan.kind === 'comment') {
     return { kind: 'comment', reason: null, findingCount: plan.payload.comments.length } as const;

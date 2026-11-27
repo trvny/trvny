@@ -45,6 +45,20 @@ test('Groq removes excess repository context before reducing the diff', () => {
   assert.deepEqual(payload.repository_context.callers, []);
 });
 
+test('Groq drops review history before it can crowd out the diff', () => {
+  const diff = '### main.ts\n@@ -0,0 +1 @@\n+const x = 1;';
+  const input = reviewInput(diff);
+  const history = Array.from({ length: 20 }, () => ({ replies: ['z'.repeat(1_000)] }));
+  input.messages[1].content = JSON.stringify({ diff, repository_context: {}, prior_findings: history });
+  const prepared = prepareGroqFreeReview(input);
+  assert.ok(prepared);
+  assert.equal(prepared.partial, false);
+  const user = (prepared.input.messages as Array<{ content: string }>)[1];
+  const payload = JSON.parse(user.content) as Record<string, unknown>;
+  assert.equal(payload.diff, diff);
+  assert.equal('prior_findings' in payload, false);
+});
+
 test('Groq marks a large review as partial instead of pretending it saw all files', () => {
   const diff = [
     '### a.ts\n@@ -1 +1 @@\n+' + 'a'.repeat(7_000),

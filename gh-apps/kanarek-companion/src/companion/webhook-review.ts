@@ -1248,7 +1248,8 @@ export async function runWebhookReview(
 
     const plan = planReviewPublication(
       target, deduped.generated ?? generated, publishFindings, paidPhase, judged, decisionMarker,
-      Boolean(deduped.repeated) && !findings.length,
+      // After L2: repeats plus nothing publishable must neither read as clean nor escalate.
+      Boolean(deduped.repeated) && !publishFindings.length,
     );
     if (plan.kind === 'settled') {
       if (plan.result.reviewed) {

@@ -71,6 +71,23 @@
   font: 700 20px/1 "Silkscreen", ui-monospace, monospace;
   letter-spacing: .04em;
 }
+#trvny-nav-search {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 7px 10px;
+  border: 1px solid #3a4150;
+  background: #101725;
+  color: #e6e8ea;
+  font: inherit;
+  font-size: 20px;
+}
+#trvny-nav-search:focus-visible {
+  outline: 2px solid #f5e94e;
+  outline-offset: 2px;
+}
+#trvny-nav-empty { margin: 14px 0; font-size: 18px; }
+.trvny-nav-group[hidden], .trvny-nav-link[hidden] { display: none; }
 .trvny-nav-group { margin: 20px 0 0; }
 .trvny-nav-label {
   display: block;

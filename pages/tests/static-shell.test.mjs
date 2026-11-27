@@ -28,7 +28,7 @@ test("each real static HTML source receives one shared shell and preserves its c
     assert.equal(navStyles.length, 1, page.file);
     assert.ok(navScripts[0][1], page.file);
     assert.equal(navStyles[0][1], navScripts[0][1], page.file);
-    assert.equal(rendered.match(/src="\/assets\/webmcp.js"/g)?.length, 1, page.file);
+    assert.equal(rendered.match(/src="\/assets\/webmcp\.js\?v=\d+"/g)?.length, 1, page.file);
     const original = stripShell(rendered);
     assert.equal(original, page.page === "token-worldcup" ? renderWorldcupPolish(html) : html, page.file);
     if (page.page === "papagenerator" || page.page === "token-worldcup") {

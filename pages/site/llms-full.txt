@@ -67,6 +67,8 @@ The Astro Lab is an English-language section of the existing Hub with the Bench 
 
 Shared hub and public browser-tool privacy: https://bartek.lol/lab/privacy/. Service-specific guides document exceptions and agent-access boundaries.
 
+- Tokenizer playground: https://bartek.lol/lab/tokenizer/ · local text counts and IDs for `o200k_base` and `cl100k_base`.
+
 ### Papagenerator
 
 - Browser editor: https://bartek.lol/papagenerator/
@@ -266,3 +268,5 @@ The sitemap contains public human-facing hub routes. Service-specific machine-re
 On browser hosts implementing WebMCP, TRAVNY pages with the shared navigation expose `open_travny_destination`. It only starts navigation to destinations already present in the visible TRAVNY menu and does not accept arbitrary URLs.
 
 Additional read-only tools: `list_travny_destinations` (optional query), `get_travny_agent_resources` (canonical machine-readable resources), and `get_travny_radio_now` (current song and streaming links via the fixed same-origin public API). No arbitrary URL fetches or radio administration. Navigation may open cross-origin menu destinations, but never accepts arbitrary URLs. The public GET API works without browser WebMCP. `search_travny_projects` reads the public atlas and supports optional text (`query`, up to 100 characters) and exact region ID (`region`); results include region IDs, names, descriptions and destination URLs. HTTP clients can use https://bartek.lol/teksty/githubowa-kraina/atlas.json directly.
+
+`get_travny_infrastructure_connections` reads the public infrastructure snapshot by exact node ID, for example `pages`. Results include the snapshot date, typed incoming and outgoing connections, and the map permalink. HTTP clients can read https://bartek.lol/teksty/githubowa-kraina/infrastructure.json directly.

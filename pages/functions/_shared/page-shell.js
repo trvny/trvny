@@ -19,7 +19,7 @@ export const NAV_BODY = `
   </nav>
 </aside>
 <script src="/assets/nav.js?v=${NAV_ASSET_VERSION}" defer data-astro-rerun></script>
-<script src="/assets/webmcp.js" defer></script>`;
+<script src="/assets/webmcp.js?v=2" defer></script>`;
 
 export function pageShellHead(pathname, page) {
   const canonical = page === "papagenerator"

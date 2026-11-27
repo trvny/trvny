@@ -6,7 +6,7 @@
 > **Validate:** `cd pages/astro && npm ci && npm run build` (or `npm run check` for Astro types).
 > **Boundary:** additive output to the existing Pages hub, **one** shared `/teksty/feed.xml`; content-only digest commits can go directly to `main` when permitted.
 
-Incremental Astro 7 + MDX lab pages under **/lab/** and Markdown CoCzyDziennik issues under **/przeglad/**, both on the existing Cloudflare Pages project. The old hub and Quarto renders remain unchanged. Existing Pages Functions inject shared navigation and preserve English `lang` and `Content-Language` for Lab routes.
+Incremental Astro 7 + MDX lab pages under **/lab/** and Markdown CoCzyDziennik issues under **/przeglad/**, both on the existing Cloudflare Pages project. Quarto renders remain on the existing pipeline. Existing Pages Functions inject shared navigation and preserve English `lang` and `Content-Language` for Lab routes.
 
 Run from `pages/astro`:
 
@@ -16,7 +16,7 @@ npm run dev
 npm run build
 ```
 
-The Pages build copies `astro/dist/lab/` and `astro/dist/przeglad/` into their corresponding directories under `site/`. Do not point Astro's `outDir` at `../site`: that could wipe the legacy site. The build is deliberately additive.
+Home and Teksty HTML sources live in `src/legacy/`. Pages copies their rendered entries and the Lab, digest and `_astro/` assets into `site/`. Keep Astro output in `astro/dist/`. The radio player persists across those routes.
 
 ## Roadmap
 

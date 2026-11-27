@@ -99,7 +99,7 @@ test("worldcup exposes the same corpus in HTML, English report and Dataset schem
     assert.ok(pl.includes('>' + row.name + '</td>'));
     assert.ok(en.includes('>' + row.name + '</th>'));
   }
-  const hub = await readFile(new URL("site/index.html", root), "utf8");
+  const hub = await readFile(new URL("astro/src/legacy/home.html", root), "utf8");
   const ld = /<script type="application\/ld\+json">([^<]+)<\/script>/;
   const creator = JSON.parse(hub.match(ld)[1])["@graph"].find(node => node["@type"] === "Person");
   for (const html of [pl, en]) {

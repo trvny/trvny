@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { Script } from "node:vm";
 
-const home = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+const home = await readFile(new URL("../astro/src/legacy/home.html", import.meta.url), "utf8");
 const rail = await readFile(new URL("../site/assets/rails.js", import.meta.url), "utf8");
 const bench = await readFile(new URL("../astro/dist/lab/index.html", import.meta.url), "utf8");
 const lab = await readFile(new URL("../astro/src/pages/lab/index.astro", import.meta.url), "utf8");
@@ -170,13 +170,10 @@ test("Weather is the default mobile feature and auto-rotation resumes after inte
 
 test("home hosts radio and Lab hosts the shared workbench rail", () => {
   assert.match(home, /data-radio aria-labelledby="radio-heading"/);
-  assert.match(home, /src="\/assets\/radio\.js\?v=\d+"/);
   assert.ok(!home.includes('id="benchRail"'));
   assert.match(home, /href="\/lab\/">LAB/);
   assert.match(lab, /<BenchLab\s*\/>/);
   assert.ok(!lab.includes('<RadioMini'));
-  assert.match(bench, /src="\/assets\/rails\.js\?v=\d+"/);
-  assert.match(home, /src="\/assets\/rails\.js\?v=\d+"/);
 });
 
 test("Lab rail initializes and advances through all three benches", () => {

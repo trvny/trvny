@@ -10,17 +10,15 @@
   let previousFocus = null;
   const links = [...drawer.querySelectorAll(".trvny-nav-link")];
   const groups = [...drawer.querySelectorAll(".trvny-nav-group")];
-  const searchText = (value) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("ł", "l");
-  const entries = links.map((link) => ({
-    link,
-    text: searchText(link.textContent + " " + link.getAttribute("href")),
-  }));
-  const visibleLinks = () => links.filter((link) => !link.hidden);
+  function searchText(value) {
+    return value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("ł", "l");
+  }
 
   function filterLinks() {
     if (!search || !empty) return;
     const query = searchText(search.value.trim()).split(/\s+/);
-    for (const { link, text } of entries) {
+    for (const link of links) {
+      const text = searchText(link.textContent + " " + link.getAttribute("href"));
       link.hidden = !query.every((word) => text.includes(word));
     }
     for (const group of groups) {
@@ -37,6 +35,7 @@
     drawer.setAttribute("aria-hidden", "false");
     toggle.setAttribute("aria-expanded", "true");
     backdrop.hidden = false;
+    filterLinks();
     document.body.classList.add("trvny-nav-locked");
     closeButton.focus();
   }
@@ -61,6 +60,7 @@
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented || event.isComposing) return;
     if (search && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
+      if (document.querySelector("dialog[open]")) return;
       event.preventDefault();
       openDrawer();
       search.focus();
@@ -72,7 +72,7 @@
       closeDrawer();
       return;
     }
-    const results = visibleLinks();
+    const results = links.filter((link) => !link.hidden);
     if (search && document.activeElement === search && (event.key === "ArrowDown" || event.key === "Enter")) {
       const result = results[0];
       if (!result) return;

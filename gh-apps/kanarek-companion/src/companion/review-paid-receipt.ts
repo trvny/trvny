@@ -64,6 +64,8 @@ export async function executePaidReviewOnce(
  * supply exclusive ownership and authorize against its durable free verdict.
  * Until then the legacy runner is the only paid caller.
  * No GitHub writes here; persist the verified publication plan for recovery.
+ * Cutover gap: this stage does not withhold repeated findings yet; carry the
+ * prepared `priorAnchors` here and apply `withoutRepeatedFindings` first.
  */
 export async function runStrictPaidReviewStage(
   store: Store,

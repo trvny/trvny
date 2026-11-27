@@ -117,9 +117,12 @@ $('#stickerFile').onchange=e=>{const file=e.target.files[0];e.target.value='';lo
 $('#download').onclick=()=>{draw(false);canvas.toBlob(blob=>{if(!blob){setStatus('Export failed.');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='papagenerator.png';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);render();setStatus('PNG exported. Certified holy.');},'image/png');};
 document.addEventListener('keydown', event => {
   const target = event.target;
-  if (target instanceof HTMLElement && (target.matches('input, textarea') || target.isContentEditable)) return;
-  if (event.key === 'Delete' || event.key === 'Backspace') $('#remove').click();
+  const editable = target instanceof HTMLElement && target.isContentEditable;
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (!editable && !target.closest?.('input, textarea')) $('#remove').click();
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+    if (editable || target.closest?.('textarea, input:not([type]), input[type="text"], input[type="search"]')) return;
     event.preventDefault();
     $('#undo').click();
   }

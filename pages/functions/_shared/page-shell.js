@@ -2,10 +2,12 @@ import { ORIGIN, pageSeoHead } from "./page-seo.js";
 
 const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor"><link rel="ard" type="application/ard+json" href="/.well-known/ard.json">';
 export const NAV_BODY = `
-<button id="trvny-nav-toggle" type="button" aria-controls="trvny-nav-drawer" aria-expanded="false" aria-label="Otwórz menu">☰</button>
+<button id="trvny-nav-toggle" type="button" aria-controls="trvny-nav-drawer" aria-expanded="false" aria-keyshortcuts="Control+K Meta+K" aria-label="Otwórz menu">☰</button>
 <div id="trvny-nav-backdrop" hidden></div>
 <aside id="trvny-nav-drawer" data-open="false" aria-hidden="true" aria-label="Nawigacja TRAVNY" inert>
   <div id="trvny-nav-head"><span id="trvny-nav-brand">TRAVNY</span><button id="trvny-nav-close" type="button" aria-label="Zamknij menu">×</button></div>
+  <input id="trvny-nav-search" type="search" aria-label="Search TRAVNY" placeholder="Search TRAVNY" autocomplete="off" spellcheck="false">
+  <p id="trvny-nav-empty" role="status" hidden>No matching pages.</p>
   <nav>
     <div class="trvny-nav-group"><span class="trvny-nav-label">START</span><a class="trvny-nav-link" href="/">Strona główna<small>hub TRAVNY</small></a><a class="trvny-nav-link" href="/tv/">TVP<small>kanały i odtwarzacz</small></a><a class="trvny-nav-link" href="https://radio.bartek.lol/">Radio<small>TRAVNY live MP3</small></a></div>
     <div class="trvny-nav-group"><span class="trvny-nav-label">USŁUGI</span><a class="trvny-nav-link" href="https://weather.bartek.lol/">Pogoda</a><a class="trvny-nav-link" href="https://rss.bartek.lol/">Feedy</a></div>

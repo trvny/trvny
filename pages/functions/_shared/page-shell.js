@@ -1,6 +1,7 @@
 import { ORIGIN, pageSeoHead } from "./page-seo.js";
 
-const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor"><link rel="ard" type="application/ard+json" href="/.well-known/ard.json">';
+const NAV_ASSET_VERSION = "2";
+const NAV_HEAD = `<link rel="stylesheet" href="/assets/nav.css?v=${NAV_ASSET_VERSION}"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Reactor"><link rel="ard" type="application/ard+json" href="/.well-known/ard.json">`;
 export const NAV_BODY = `
 <button id="trvny-nav-toggle" type="button" aria-controls="trvny-nav-drawer" aria-expanded="false" aria-keyshortcuts="Control+K Meta+K" aria-label="Otwórz menu">☰</button>
 <div id="trvny-nav-backdrop" hidden></div>
@@ -16,7 +17,7 @@ export const NAV_BODY = `
     <div class="trvny-nav-group"><a class="trvny-nav-link" href="/lab/privacy/">Prywatność<small>zasady narzędzi</small></a></div>
   </nav>
 </aside>
-<script src="/assets/nav.js" defer></script>
+<script src="/assets/nav.js?v=${NAV_ASSET_VERSION}" defer></script>
 <script src="/assets/webmcp.js" defer></script>`;
 
 export function pageShellHead(pathname, page) {

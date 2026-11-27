@@ -111,6 +111,7 @@
       const option = station.selectedOptions[0];
       showPlayback(true, 'Connecting…');
       updateMediaSession();
+      if (!timer && root.closest('[data-radio-dock]:not([open])')) void refresh();
       try {
         if (option.dataset.kind === 'hls' && !audio.canPlayType('application/vnd.apple.mpegurl')) {
           const Hls = await loadHls();

@@ -37,14 +37,7 @@
 <!--OPEN_PRS:START-->
 | 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#667](https://github.com/trvny/feedseek/pull/667) | chore(deps-dev): bump @cloudflare/workers-types from 5.20261120.1 to 5.20261121.1 in /feeds-proxy | @dependabot[bot] | 就绪 | 2026-11-25 |
-| trvny/feedseek | [#668](https://github.com/trvny/feedseek/pull/668) | chore(deps): bump pydantic from 2.14.3 to 2.14.4 | @dependabot[bot] | 就绪 | 2026-11-25 |
-| trvny/feedseek | [#669](https://github.com/trvny/feedseek/pull/669) | chore(deps): bump pyyaml from 6.0.3 to 6.0.4 | @dependabot[bot] | 就绪 | 2026-11-25 |
-| trvny/feedseek | [#670](https://github.com/trvny/feedseek/pull/670) | chore(deps-dev): bump wrangler from 4.162.0 to 4.166.0 in /feeds-proxy | @dependabot[bot] | 就绪 | 2026-11-25 |
-| trvny/feedseek | [#671](https://github.com/trvny/feedseek/pull/671) | chore(deps-dev): bump ruff from 0.17.5 to 0.17.6 | @dependabot[bot] | 就绪 | 2026-11-25 |
-| trvny/feedseek | [#672](https://github.com/trvny/feedseek/pull/672) | chore(deps): bump feedparser-rs from 0.7.1 to 0.7.2 | @dependabot[bot] | 就绪 | 2026-11-25 |
-| trvny/feedseek | [#673](https://github.com/trvny/feedseek/pull/673) | chore(deps): bump astral-sh/setup-uv from 10.3.3 to 10.4.0 in the actions group | @dependabot[bot] | 就绪 | 2026-11-25 |
-| trvny/tvpi | [#150](https://github.com/trvny/tvpi/pull/150) | chore(deps-dev): bump wrangler from 4.162.0 to 4.166.0 in /worker in the worker-toolchain group | @dependabot[bot] | 就绪 | 2026-11-25 |
+| trvny/feedseek | [#669](https://github.com/trvny/feedseek/pull/669) | chore(deps): bump pyyaml from 6.0.3 to 6.0.4 | @dependabot[bot] | 就绪 | 2026-11-27 |
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
@@ -102,19 +95,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝The most original authors are not so because they advance what is new, but because they put what they have to say as if it had never been said before. — Johann Wolfgang von Goethe❞</i>
+<i>❝“BASIC is to computer programming as QWERTY is to typing.”— Seymour Papert❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 最近播报
 
 <!--README_FEED:START-->
-- [Remont zamknie 1,7 km ul. Jurajskiej. Objazd w Rudnie poprowadzi Zamkową - Fakty Krakowa](https://news.google.com/atom/articles/CBMirAFBVV95cUxNWFkxc1pEMy14QWRmSWQzRFkxdnRyVGhiWkhjRzNzeXRISE4taU82R0I0QU1Kc0xibVRwLUxzSlRfMEl3WmgtSU9PU2dNOEI3bExHWWdrMEkxLTlieDZLamRHMkNXaVA0bS1OTUxpUXAyQ2h1Nm8wUFE4Y2M1a3lCaHc1X2x6QUpnMGhMUXVZOTN6T0QtV01EQWNfXzBBcTVlRXYtcTNOYjBGckZo?oc=5)
-- [FCC wydało zgodę na kosmiczny superkomputer. SpaceX ma czas do 2040 roku](https://antyweb.pl/fcc-wydalo-zgode-na-kosmiczny-superkomputer-spacex-ma-czas-do-2040-roku)
-- [Grasz w GTA VI na PS5? Twoja konsola może… spłonąć](https://antyweb.pl/grasz-w-gta-vi-na-ps5-twoja-konsola-moze-splonac)
-- [Problem z baterią w One UI 9.0. Samsung obiecuje poprawkę](https://antyweb.pl/problem-z-bateria-w-one-ui-9-0-samsung-obiecuje-poprawke)
-- [W OpenAI i Anthropic czają się potwory. Te firmy boją się je wypuścić na świat](https://antyweb.pl/anthropic-openai-koniec-swiata-ai)
-- [Koniec muzycznego spamu. 29 milionów utworów AI znika ze streamingu](https://antyweb.pl/koniec-muzycznego-spamu-29-milionow-utworow-ai-znika-ze-streamingu)
+- [AKTUALNOŚCI - KPP w Olkuszu](https://news.google.com/atom/articles/CBMibEFVX3lxTE9TVHp0aDVFNnUtZHZLQVAzTXc1VEp3LThra2pOaGNscldoaGM4VjZFTWdDdFE0d3hBRGhTSkhLNUF5OVMtZy16dEZBZHVYYl9RUTF5bUhwaTdfenNqeHpjS1VlT1dCdUlHNzBpQw?oc=5)
+- [Restless Ghosts: One Case, A Century of Doubt | Case by Case | "48 Hours" Podcast](https://www.cbsnews.com/video/112726-48-hours-case-by-case-episode-32/)
+- [Jackson Koivun Doubles Career Earnings After Dramatic Win Over Brooks Koepka](https://sports.yahoo.com/golf/articles/jackson-koivun-doubles-career-earnings-233158037.html)
+- [Live score updates, highlights for Alabama basketball vs Miami in Players Era](https://sports.yahoo.com/mens-college-basketball/articles/live-score-updates-highlights-alabama-233052368.html)
+- [Will the Buccaneers sweep Carolina? Five storylines to watch](https://sports.yahoo.com/nfl/articles/buccaneers-sweep-carolina-five-storylines-233033089.html)
+- [UNC vs. West Virginia Live Discussion](https://sports.yahoo.com/mens-college-basketball/articles/unc-vs-west-virginia-live-233000680.html)
 <!--README_FEED:END-->
 
 <div align="center">

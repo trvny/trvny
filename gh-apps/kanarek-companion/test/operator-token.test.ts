@@ -80,6 +80,16 @@ test('operator check rejects another account before reading installations', asyn
   }
 });
 
+test('both identity reads carry the token being checked', async () => {
+  const sent: Array<string | null> = [];
+  const upstream = github(() => operatorInstallations());
+  await requireTrvny('checked-token', (async (input: RequestInfo | URL, init?: RequestInit) => {
+    sent.push(new Request(input, init).headers.get('authorization'));
+    return upstream(input, init);
+  }) as typeof fetch);
+  assert.deepEqual(sent, ['Bearer checked-token', 'Bearer checked-token']);
+});
+
 test('both identity reads are cached per token across requests', async () => {
   const calls: string[] = [];
   const fetcher = createActionFetch(github(() => operatorInstallations(), OWNER, calls));

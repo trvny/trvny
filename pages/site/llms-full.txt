@@ -172,7 +172,6 @@ Project: https://github.com/travnie/twojstar
 - Codebench: Generate, scan and export QR codes and barcodes in the browser. https://codebench.bartek.lol/
 - Streambench: A local-first workshop for IPTV, radio, playlists and streams. https://streambench.bartek.lol/
 - Docbench: Work with documents and PDFs locally in the browser. https://docbench.bartek.lol/
-- .ai Wiki: Portable AI instructions, profiles, overlays, templates and skills. https://ai.bartek.lol/
 - Weather Feed: Local weather, air quality and alerts for Kościelec and Chrzanów. https://weather.bartek.lol/
 - Feedboard: Windows 11 feed widget and settings application. https://github.com/travnie/twojstar/tree/main/feedboard
 - Paint.NET plugins: ICO import/export, AI Restore, DeJPEG, Denoise and Smart Transparency; local image processing. https://github.com/travnie/twojstar/tree/main/addons/paintdotnet

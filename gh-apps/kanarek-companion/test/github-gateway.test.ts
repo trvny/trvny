@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { GithubActionError, githubGateway } from '../src/gptomek/github-gateway.ts';
 import { handleGptActions, type GptActionsEnv } from '../src/gptomek/gpt-actions.ts';
+import { operatorInstallations } from './support/operator-identity.ts';
 
 // Parity: in-process gateway == POST /gpt-actions/github/* route (code, status, data).
 
@@ -18,7 +19,8 @@ function githubFetcher(
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const key = `${url.pathname}${url.search}`;
-    if (key === '/user') return Response.json({ login: user, id: 1 });
+    if (key === '/user/installations?per_page=100') return operatorInstallations();
+    if (key === '/user') return Response.json({ login: user, id: 120686325 });
     const route = routes[key];
     if (!route) return Response.json({ message: 'Not Found' }, { status: 404 });
     return route(init);

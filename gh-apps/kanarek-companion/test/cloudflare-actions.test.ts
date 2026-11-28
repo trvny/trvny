@@ -8,6 +8,7 @@ import {
 } from '../src/operator/cloudflare-actions.ts';
 import type { GremlinPolicy } from '../src/operator/policy-actions.ts';
 import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
+import { operatorInstallations } from './support/operator-identity.ts';
 
 type Env = Parameters<typeof handleCloudflareAction>[1];
 type FetchStub = (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>;
@@ -134,6 +135,7 @@ function githubPolicyFetch(extra: FetchStub): typeof fetch {
   return ((input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
+    if (url.pathname === '/user/installations') return Promise.resolve(operatorInstallations());
     if (url.origin === 'https://api.github.com' && url.pathname === '/user') {
       return Promise.resolve(Response.json({ login: 'trvny', id: 120686325 }));
     }

@@ -14,6 +14,9 @@ test('Gremlin assembles and dispatches its authenticated MCP surface', async () 
       assert.equal(request.headers.get('authorization'), 'Bearer mock-gremlin-token');
       return Response.json({ login: 'trvny', id: 120686325 });
     }
+    if (request.url === 'https://api.github.com/user/installations?per_page=100') {
+      return Response.json({ total_count: 1, installations: [{ id: 1, app_id: 4524407 }] });
+    }
     assert.equal(request.url, 'https://feeds.trfny.com/mcp');
     feedseekCalls += 1;
     const body = await request.json() as { params: { name: string; arguments: { limit: number } } };

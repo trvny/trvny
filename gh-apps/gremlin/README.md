@@ -29,6 +29,11 @@ The production entry (`src/entry.ts`) wraps the existing guarded runtime with
 `https://gremlin.travny.workers.dev/mcp`. ChatGPT connects with PKCE, resource-bound
 tokens and an explicit per-client consent page. GitHub authenticates the operator;
 only the GitHub account `trvny` (ID `120686325`) may receive a grant.
+Every operator request, here and on `automation`, additionally requires a user
+token issued by the GPTomek GitHub App (App ID `4524407`): classic OAuth tokens,
+personal access tokens and tokens of other apps get
+`github_token_app_not_allowed`. The grant callback does not run that second
+check, so a wrong OAuth client signs in and then fails on the first tool call.
 The token and any refresh token stay encrypted in OAuth KV grant props. Existing
 Action authorization is re-run using that user token for every MCP request.
 GitHub App upstream token rotations are serialized per grant by

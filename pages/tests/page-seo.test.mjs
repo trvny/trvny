@@ -147,7 +147,7 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   assert.ok(links.length > 0, "home shortcuts are empty");
   assert.ok(!links.includes(site.url + "papagenerator/"));
   const menuLinks = [...NAV_BODY.matchAll(/<a class="trvny-nav-link" href="([^"]+)"/g)].map(match => match[1]);
-  assert.equal(menuLinks.at(-1), "/lab/privacy/");
+  assert.equal(menuLinks.at(-1), "/lab/about/");
   assert.ok(menuLinks.includes("/papagenerator/"));
   assert.equal(site.mainEntity["@id"], list["@id"]);
   const creator = graph.find(node => node["@type"] === "Person" && node["@id"] === site.creator["@id"]);

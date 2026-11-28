@@ -5,7 +5,7 @@ import test from 'node:test';
 const dist = new URL('../astro/dist/', import.meta.url);
 
 test('hub radio routes share one audio element, player script and persistence key', async () => {
-  const paths = ['index.html', 'lab/index.html', 'lab/field-notes/index.html', 'lab/privacy/index.html', 'teksty/index.html', 'przeglad/index.html'];
+  const paths = ['index.html', 'lab/index.html', 'lab/field-notes/index.html', 'lab/about/index.html', 'teksty/index.html', 'przeglad/index.html'];
   const pages = await Promise.all(paths.map(path => readFile(new URL(path, dist), 'utf8')));
   const player = /<section id="radio"[\s\S]*?<\/section>/;
   const script = /<script type="module" src="\/_astro\/RadioRouter\.[^"]+\.js">/g;

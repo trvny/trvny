@@ -39,7 +39,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 - TVPI upstream HLS signatures are short-lived. Prefer stable `bartek.lol/tv/*.m3u8` aliases; `get_travny_tv_channels` and `get_travny_tv_stream` are read-only WebMCP tools. Fresh pushed manifests do not guarantee playback.
 - Weather is a multi-source local ensemble for Kościelec in Chrzanów with air quality, pollen and IMGW warnings.
-- Streambench, Code Bench and Doc Bench are local-first browser tools. [Shared privacy and data-handling policy](https://bartek.lol/lab/privacy/); individual LLM guides document service-specific boundaries.
+- Streambench, Code Bench and Doc Bench are local-first browser tools. [About the Lab, source and privacy policy](https://bartek.lol/lab/about/#privacy); individual LLM guides document service-specific boundaries.
 - Tokenowy Mundial AI is maintained as Quarto source in `trvny/trvny` and proxied by TRAVNY from its verified generated HTML.
 
 ## Discovery

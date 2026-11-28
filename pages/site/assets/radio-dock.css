@@ -12,7 +12,7 @@ body:has(> .hub-radio-dock) {
   font: 16px/1.3 system-ui, sans-serif;
 }
 
-.hub-radio-dock summary {
+.hub-radio-dock > summary {
   display: flex;
   width: max-content;
   min-height: 44px;
@@ -27,18 +27,18 @@ body:has(> .hub-radio-dock) {
   cursor: pointer;
 }
 
-.hub-radio-dock summary svg {
+.hub-radio-dock > summary svg {
   width: 20px;
   height: 20px;
 }
 
-.hub-radio-dock summary:focus-visible,
+.hub-radio-dock > summary:focus-visible,
 .hub-radio-dock [data-play]:focus-visible {
   outline: 3px solid #f5e94e;
   outline-offset: 3px;
 }
 
-.hub-radio-dock:has([data-playing="true"]) summary {
+.hub-radio-dock:has([data-playing="true"]) > summary {
   color: #f5e94e;
   border-color: #f5e94e;
 }

@@ -70,7 +70,8 @@
     Liczniki odświeżają się co godzinę, statusy co 2 min. Ikony: <a href="https://github.com/primer/octicons">Primer Octicons</a> (MIT), <a href="https://github.com/lobehub/lobe-icons">lobe-icons</a> (MIT), znaki własne.
   </p>
 </main>
-<script>
+<script data-astro-rerun>
+(() => {
 const CANON = "https://bartek.lol";
 const links = {
   twojstar: "https://github.com/travnie", papiesz: "https://bartek.lol/papagenerator/", feedseek: "https://trvny.github.io/feedseek/",
@@ -129,9 +130,11 @@ async function loadCatalogue() {
   return response.json();
 }
 
+const palette = document.getElementById("palette");
+const groups = document.getElementById("groups");
 loadCatalogue().then((data) => {
-  document.getElementById("palette").innerHTML = data.palette.map((c) => `<option value="${c}">`).join("");
-  const groups = document.getElementById("groups");
+  if (!groups.isConnected) return;
+  palette.innerHTML = data.palette.map((c) => `<option value="${c}">`).join("");
   groups.innerHTML = "";
   const order = ["Brand", "Apps", "Workshop", "Bots", "Reviewers", "Live", "AI & infra"];
   const byGroup = {};
@@ -142,8 +145,9 @@ loadCatalogue().then((data) => {
     byGroup[name].forEach((row) => grid.append(card(row)));
     groups.append(grid);
   }
-}).catch(() => { document.getElementById("groups").innerHTML = '<p class="err">Nie udało się wczytać katalogu.</p>'; });
+}).catch(() => { groups.innerHTML = '<p class="err">Nie udało się wczytać katalogu.</p>'; });
 refreshBuilder();
+})();
 </script>
 </body>
 </html>

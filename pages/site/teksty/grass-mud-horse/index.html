@@ -220,7 +220,7 @@
     </div>
   </div>
 </div>
-<script>
+<script data-astro-rerun>
 (() => {
   const options = [...document.querySelectorAll('input[name="article-language"]')];
   const titles = {
@@ -240,7 +240,7 @@
       const next = new URL(location.href);
       next.searchParams.set("lang", language);
       next.hash = "";
-      history.replaceState(null, "", next);
+      history.replaceState(history.state, "", next);
       window.scrollTo(0, 0);
     }
   }

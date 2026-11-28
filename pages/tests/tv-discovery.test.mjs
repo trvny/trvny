@@ -5,10 +5,10 @@ import { Script } from "node:vm";
 
 test("TV page scripts parse and use same-origin catalog and freshness endpoints", async () => {
   const html = await readFile(new URL("../site/tv/index.html", import.meta.url), "utf8");
-  const start = html.lastIndexOf("<script>");
+  const start = html.lastIndexOf("<script data-astro-rerun>");
   const end = html.indexOf("</script>", start);
   assert.ok(start >= 0 && end > start);
-  assert.doesNotThrow(() => new Script(html.slice(start + 8, end)));
+  assert.doesNotThrow(() => new Script(html.slice(start + "<script data-astro-rerun>".length, end)));
   assert.match(html, /\/tv\/api\/channels/);
   assert.match(html, /\/tv\/api\/status/);
   assert.match(html, /https:\/\/bartek\.lol\/tv\/playlist\.m3u/);
@@ -18,13 +18,13 @@ test("TV page scripts parse and use same-origin catalog and freshness endpoints"
 
 test("TV page hydrates channels without AbortSignal.timeout", async () => {
   const html = await readFile(new URL("../site/tv/index.html", import.meta.url), "utf8");
-  const start = html.lastIndexOf("<script>");
+  const start = html.lastIndexOf("<script data-astro-rerun>");
   const end = html.indexOf("</script>", start);
-  const body = html.slice(start + 8, end);
+  const body = html.slice(start + "<script data-astro-rerun>".length, end);
   const { runInNewContext } = await import("node:vm");
   const nodes = new Map();
   const getNode = id => {
-    if (!nodes.has(id)) nodes.set(id, { textContent: "", innerHTML: "", className: "" });
+    if (!nodes.has(id)) nodes.set(id, { textContent: "", innerHTML: "", className: "", isConnected: true, closest: () => ({ addEventListener() {} }) });
     return nodes.get(id);
   };
   const called = [];

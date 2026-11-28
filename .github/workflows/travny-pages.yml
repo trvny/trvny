@@ -80,7 +80,7 @@ jobs:
 
       - name: Reject committed generated HTML shell
         run: |
-          if git grep -n -F '<!-- hub-shell:' -- site/; then
+          if git grep -n -E '<!-- (hub|radio)-shell:' -- site/; then
             echo "::error::Generated shell markers in tracked site assets. Keep source HTML clean."
             exit 1
           fi

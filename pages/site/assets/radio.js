@@ -22,6 +22,8 @@
     const mark = root.querySelector('.radio-fallback [data-mark]');
     const markLabel = root.querySelector('[data-mark-label]');
     const quality = root.querySelector('.radio-footer [data-quality]');
+    const recent = root.querySelector('[data-recent]');
+    const recentList = root.querySelector('[data-recent-list]');
     if (!(audio instanceof HTMLAudioElement) || !(controls instanceof HTMLElement) ||
         !(play instanceof HTMLButtonElement) || !(volume instanceof HTMLInputElement) ||
         !(status instanceof HTMLElement) || !(cover instanceof HTMLImageElement) ||
@@ -34,6 +36,7 @@
         !(announcement instanceof HTMLElement) || !(swipeArea instanceof HTMLElement) ||
         !(mark instanceof HTMLElement) || !(markLabel instanceof HTMLElement) || !(quality instanceof HTMLElement)) return;
 
+    const tracksByStation = new Map();
     let wantsPlaying = false;
     let playbackAttempt = 0;
     let awaitingPlayback = false;
@@ -60,6 +63,23 @@
       for (const [action, handler] of actions) {
         try { session.setActionHandler(action, handler); } catch { /* Unsupported action */ }
       }
+    }
+
+    function showRecent(track) {
+      if (!recent || !recentList) return;
+      const tracks = tracksByStation.get(station.value) ?? [];
+      if (track && (track.title !== tracks[0]?.title || track.artist !== tracks[0]?.artist)) {
+        tracks.unshift(track);
+        tracks.length = Math.min(tracks.length, 6);
+        tracksByStation.set(station.value, tracks);
+      }
+      const earlier = track ? tracks.slice(1, 6) : tracks.slice(0, 5);
+      recent.hidden = earlier.length === 0;
+      recentList.replaceChildren(...earlier.map(({ title, artist }) => {
+        const row = document.createElement('li');
+        row.textContent = `${artist} — ${title}`;
+        return row;
+      }));
     }
 
     function showStationLogo(option) {
@@ -157,6 +177,7 @@
       radioOpen.hidden = station.value !== 'travny';
       cover.hidden = true;
       cover.removeAttribute('src');
+      showRecent();
       if (session?.metadata) updateMediaSession();
       void refresh();
       if (option.dataset.kind === 'hls' && !audio.canPlayType('application/vnd.apple.mpegurl')) void loadHls().catch(() => {});
@@ -212,6 +233,11 @@
     });
     audio.addEventListener('waiting', () => { if (wantsPlaying) showPlayback(true, 'Buffering…'); });
     audio.addEventListener('error', () => { if (wantsPlaying && audio.error) fail(playbackAttempt); });
+    cover.addEventListener('load', () => {
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        cover.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+      }
+    });
     cover.addEventListener('error', () => { cover.hidden = true; cover.removeAttribute('src'); });
     audio.hidden = true;
     controls.hidden = false;
@@ -232,8 +258,13 @@
         artist.textContent = hasDetails ? track.artist : 'Live radio';
         kicker.textContent = track.kind === 'recent' ? 'RECENTLY PLAYED' : 'ON AIR';
         album.textContent = track.album || '';
-        if (track.cover) { cover.src = track.cover; cover.hidden = false; }
+        if (track.cover) {
+          if (cover.getAttribute('src') !== track.cover) cover.src = track.cover;
+          cover.hidden = false;
+        }
         else { cover.hidden = true; cover.removeAttribute('src'); }
+        const isTrack = ['track', 'recent'].includes(track.kind) || station.value === 'paradise';
+        showRecent(hasDetails && isTrack ? { title: track.title, artist: track.artist } : null);
       } catch {
         if (version !== metadataVersion) return;
         title.textContent = station.selectedOptions[0].textContent;
@@ -242,6 +273,7 @@
         album.textContent = '';
         cover.hidden = true;
         cover.removeAttribute('src');
+        showRecent();
       } finally {
         if (version === metadataVersion) {
           clearTimeout(timer);

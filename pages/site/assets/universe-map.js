@@ -134,11 +134,12 @@ function exportDiagram(svg, filename) {
   download(filename + '.svg', 'image/svg+xml', new XMLSerializer().serializeToString(copy));
 }
 
-async function mount() {
+async function mount(svg, signal) {
   const [snapshot, atlas] = await Promise.all([
     loadData('./infrastructure.json'),
     loadData('./atlas.json').catch(() => null),
   ]);
+  if (!svg.isConnected || signal.aborted) return;
   const data = buildExplorerGraph(snapshot, atlas);
   const byId = new Map(data.nodes.map(node => [node.id, node]));
   const { nodes, edges } = data;
@@ -147,7 +148,6 @@ async function mount() {
   const search = get('search');
   const category = get('node-kind');
   const relation = get('relation-kind');
-  const svg = get('graph');
   const viewport = get('map-webgl');
   const graphButton = get('map-view');
   const graphStatus = get('map-view-status');
@@ -296,7 +296,7 @@ async function mount() {
     event.preventDefault();
     selectNode(link.hash.slice(1), { push: true, focus: true });
   });
-  addEventListener('hashchange', syncHash);
+  addEventListener('hashchange', syncHash, { signal });
   makeDiagram(svg, data, snapshot, byId, selectNode);
   function resetFiltersView() {
     selectNode(null);
@@ -340,6 +340,7 @@ async function mount() {
     graphStatus.textContent = 'Loading interactive graph…';
     try {
       const { mountWebGL } = await import('/assets/vendor/universe-webgl.1.js');
+      if (signal.aborted) return;
       viewport.hidden = false;
       svg.setAttribute('hidden', '');
       webgl = mountWebGL(viewport, data, { select: selectNode, reset: () => selectNode(null), unavailable });
@@ -360,9 +361,10 @@ async function mount() {
   get('zoom-in').addEventListener('click', () => webgl?.zoom(0.75));
   get('zoom-out').addEventListener('click', () => webgl?.zoom(1.33));
   get('zoom-fit').addEventListener('click', () => webgl?.fit());
+  signal.addEventListener('abort', () => webgl?.destroy(), { once: true });
   addEventListener('pagehide', event => {
     if (!event.persisted) webgl?.destroy();
-  });
+  }, { signal });
 
   const filename = 'trvny-universe-' + snapshot.snapshot + '-' + nodes.length + '-nodes';
   get('download-json').addEventListener('click', () => {
@@ -375,7 +377,18 @@ async function mount() {
   document.querySelectorAll('.controls, .legend, .layout').forEach(element => { element.hidden = false; });
 }
 
-mount().catch(() => {
-  get('map-loading').hidden = true;
-  get('map-error').hidden = false;
-});
+const mounted = new WeakSet();
+function mountPage() {
+  const graph = get('graph');
+  if (!graph || mounted.has(graph)) return;
+  mounted.add(graph);
+  const lifetime = new AbortController();
+  document.addEventListener('astro:before-swap', () => lifetime.abort(), { once: true, signal: lifetime.signal });
+  mount(graph, lifetime.signal).catch(() => {
+    if (!graph.isConnected || lifetime.signal.aborted) return;
+    get('map-loading').hidden = true;
+    get('map-error').hidden = false;
+  });
+}
+document.addEventListener('astro:page-load', mountPage);
+mountPage();

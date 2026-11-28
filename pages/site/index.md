@@ -22,6 +22,7 @@ Creator: Bartek (TRAVNY / trvny); the `travnie` GitHub organization hosts compan
 - [Streambench](https://streambench.bartek.lol/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
 - [Codebench](https://codebench.bartek.lol/): local-first QR and barcode studio.
 - [Docbench](https://docbench.bartek.lol/): local-first document and PDF studio.
+- [.ai Wiki](https://ai.bartek.lol/): portable AI instructions, profiles, overlays, templates and skills.
 - [Badges](https://bartek.lol/badges/): ecosystem, bot, AI and live
   status/counter SVG badges with copyable Markdown and HTML.
 - [Teksty](https://bartek.lol/teksty/): articles, experiments and Reactor notes, including GitHubowa Kraina and Tokenowy Mundial AI.

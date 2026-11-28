@@ -31,6 +31,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Streambench](https://streambench.bartek.lol/) · [LLM guide](https://streambench.bartek.lol/llms.txt) · [full guide](https://streambench.bartek.lol/llms-full.txt)
 - [Code Bench](https://codebench.bartek.lol/) · [LLM guide](https://codebench.bartek.lol/llms.txt) · [full guide](https://codebench.bartek.lol/llms-full.txt)
 - [Doc Bench](https://docbench.bartek.lol/) · [LLM guide](https://docbench.bartek.lol/llms.txt) · [full guide](https://docbench.bartek.lol/llms-full.txt)
+- [.ai Wiki](https://ai.bartek.lol/) · [LLM guide](https://ai.bartek.lol/llms.txt) · [full guide](https://ai.bartek.lol/llms-full.txt)
 
 ## Usage notes
 - Home radio defaults to TRAVNY Radio (original-source MP3, bitrate varies), with live track metadata and album art from `/api/radio-station?station=travny`. Swipe or use arrows to switch Radio Paradise, Trójka, Czwórka and BBC Radio 1. Other metadata: `/api/radio-now` (Paradise), `/api/radio-station?station=bbc1` (also `trojka`, `czworka`). Station logos appear when cover art is unavailable.

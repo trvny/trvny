@@ -382,20 +382,17 @@ test("recent tracks stay bounded, deduplicated and station-specific", async () =
   const list = p.elements["[data-recent-list]"];
   await p.flush();
   assert.equal(recent.hidden, true);
-  for (let i = 2; i <= 8; i++) {
-    metadata.title = "Track " + i;
+  for (const number of [2, 3, 4, 5, 6, 7, 8, 8]) {
+    metadata.title = "Track " + number;
     p.refresh();
     await p.flush();
   }
-  p.refresh();
-  await p.flush();
   assert.equal(recent.hidden, false);
   assert.deepEqual(list.children.map(row => row.textContent), [7, 6, 5, 4, 3].map(i => "Artist — Track " + i));
   p.select("bbc1");
   await p.flush();
   assert.equal(recent.hidden, true);
   p.select("travny");
-  await p.flush();
   assert.equal(list.children.length, 5);
 });
 

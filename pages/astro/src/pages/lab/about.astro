@@ -1,0 +1,35 @@
+---
+import LabLayout from '../../layouts/LabLayout.astro';
+---
+<LabLayout title="About the Lab" description="Meet TRAVNY Lab and its browser workbenches. Find the source code, report issues and see how the tools handle your data.">
+  <h1>About the Lab</h1>
+  <p class="lede">TRAVNY Lab is Bartek's workshop for browser tools and experiments.</p>
+  <section class="panel" aria-labelledby="workshop-heading">
+    <h2 id="workshop-heading">The workbenches</h2>
+    <ul>
+      <li><a href="https://codebench.bartek.lol/">Codebench</a> creates and scans QR codes and barcodes.</li>
+      <li><a href="https://docbench.bartek.lol/">Docbench</a> inspects files, edits text and works with PDFs.</li>
+      <li><a href="https://streambench.bartek.lol/">Streambench</a> plays streams and manages playlists.</li>
+    </ul>
+    <p><a href="/lab/field-notes/">Field notes</a> track experiments and ideas for the workshop.</p>
+  </section>
+  <section class="panel" style="margin-top:16px" aria-labelledby="source-heading">
+    <h2 id="source-heading">Source and feedback</h2>
+    <p>Browse the <a href="https://github.com/trvny/trvny/tree/main/pages">hub source</a> or the <a href="https://github.com/travnie/twojstar/tree/main/benches">workbench source</a>.</p>
+    <p><a href="https://github.com/trvny/trvny/issues">Report a hub issue</a> or <a href="https://github.com/travnie/twojstar/issues">report a workbench issue</a>. Never include confidential input or credentials in a public report.</p>
+  </section>
+  <section class="panel" style="margin-top:16px" aria-labelledby="privacy">
+    <h2 id="privacy">Privacy and data handling</h2>
+    <h3>Local tools and inputs</h3>
+    <p>Docbench processes local documents and PDFs in the browser; Codebench processes code payloads and scans locally. Papagenerator keeps imported images on the device. Streambench keeps local playlists, XMLTV data, edits, favorites and history in browser storage or memory. Exported files are saved to the device.</p>
+    <p>Camera access requires browser permission. Browser data can be cleared in site settings. Clearing it may remove saved preferences or local history.</p>
+    <h3>Network requests</h3>
+    <p>The hub and tools use network services for hosting, public feeds, weather, provider catalogs, stream playback, fonts, icons or external media. Requested third-party URLs may receive connection metadata such as IP address and request headers. Streambench's Worker fetches public provider catalogs; loading a remote stream or document contacts its source where supported.</p>
+    <p>Hosting and external services may process request data according to their own policies. Local-first does not mean that every feature works offline or that no network requests occur.</p>
+    <h3>Optional agent access</h3>
+    <p>WebMCP tools reuse the current visible app state on supported browser hosts. Requested tool results may include editor text, code payloads or playlist information. Once returned to an agent or host, data is handled under that host's policy. Do not pass sensitive files, codes or credentials to an agent unless you intend to share them.</p>
+    <h3>Scope</h3>
+    <p>This shared policy describes the public TRAVNY hub and browser tools, not account-connected bots or plugins. Service-specific access boundaries are documented by the individual applications when needed.</p>
+  </section>
+  <p><a href="/lab/">Back to the workshop</a></p>
+</LabLayout>

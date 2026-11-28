@@ -65,7 +65,7 @@ availability. Geo-blocked upstream refresh still requires a suitable Polish IP.
 
 The Astro Lab is an English-language section of the existing Hub with the Bench Lab carousel, tool descriptions, news, experiments and a notebook of planned follow-ups. It shares the Hub deployment and is not a separate service.
 
-Shared hub and public browser-tool privacy: https://bartek.lol/lab/privacy/. Service-specific guides document exceptions and agent-access boundaries.
+About the Lab, source and feedback: https://bartek.lol/lab/about/. Privacy policy: https://bartek.lol/lab/about/#privacy. Service-specific guides document exceptions and agent-access boundaries.
 
 - Tokenizer playground: https://bartek.lol/lab/tokenizer/ · local text counts and IDs for `o200k_base` and `cl100k_base`.
 

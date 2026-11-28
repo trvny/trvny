@@ -11,7 +11,7 @@ test('Astro pages publish breadcrumb trails matching their canonical paths', asy
   const issues = (await readdir(new URL('przeglad/', dist), { withFileTypes: true }))
     .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(entry.name))
     .map((entry) => `przeglad/${entry.name}/`);
-  for (const path of ['lab/', 'lab/privacy/', 'lab/field-notes/', 'przeglad/', ...issues]) {
+  for (const path of ['lab/', 'lab/about/', 'lab/field-notes/', 'przeglad/', ...issues]) {
     const html = await readFile(new URL(`${path}index.html`, dist), 'utf8');
     const match = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/);
     assert.ok(match, `${path}: missing structured data`);

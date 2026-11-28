@@ -240,6 +240,13 @@ export async function onRequest(context) {
     return Response.redirect(url.toString(), 301);
   }
 
+  if ((context.request.method === "GET" || context.request.method === "HEAD")
+    && ["/lab/privacy", "/lab/privacy/", "/lab/privacy/index.html"].includes(url.pathname)) {
+    url.pathname = "/lab/about/";
+    url.hash = "privacy";
+    return Response.redirect(url.toString(), 301);
+  }
+
   // Former duplicate of the Token Worldcup index; build no longer publishes it.
   if ((context.request.method === "GET" || context.request.method === "HEAD")
     && ["/teksty/token-worldcup/token-worldcup", "/teksty/token-worldcup/token-worldcup.html"].includes(url.pathname)) {

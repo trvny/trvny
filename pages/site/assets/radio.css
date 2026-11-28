@@ -43,6 +43,9 @@
   .radio-status { display:block; color:var(--fg); font-size:19px; line-height:1.1; }
   .radio-volume { display:flex; align-items:center; gap:9px; color:var(--muted); margin-top:7px; }
   .radio-volume input { width:100%; min-width:0; height:18px; accent-color:var(--cyan); cursor:pointer; }
+  .radio-recent { margin-top:12px; color:var(--muted); font:13px/1.45 system-ui,sans-serif; }
+  .radio-recent summary { width:auto; min-height:32px; margin:0; padding:4px 0; border:0; background:none; color:var(--cyan); font:inherit; }
+  .radio-recent ol { padding-left:1.4em; margin:5px 0 0; overflow-wrap:anywhere; }
   .radio-footer { padding-top:15px; color:var(--muted); }
   .radio-footer a { color:var(--cyan); text-decoration:none; }
   .radio-footer a:hover { color:var(--yellow); text-decoration:underline; }

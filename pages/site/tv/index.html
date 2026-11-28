@@ -216,11 +216,15 @@
     <span><a href="https://bartek.lol/tv/playlist.m3u">tvpi.travny.workers.dev</a></span>
   </footer>
 </div></div>
-<script>
+<script data-astro-rerun>
+(() => {
+const clock = document.getElementById("clk");
+const rows = document.getElementById("rows");
 const pad = n => String(n).padStart(2,"0");
 (function tick(){
+  if (!clock.isConnected) return;
   const d = new Date();
-  document.getElementById("clk").textContent =
+  clock.textContent =
     `${pad(d.getDate())}.${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   setTimeout(tick, 1000);
 })();
@@ -242,20 +246,13 @@ function tvRow(c) {
     + '<a class="play" href="' + playUrl + '" aria-label="Play ' + name
     + ' in Streambench">▶</a></div>';
 }
-const pad2 = n => String(n).padStart(2,"0");
-function tick2(){
-  const d = new Date();
-  document.getElementById("clk").textContent =
-    `${pad2(d.getDate())}.${pad2(d.getMonth()+1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
-}
-tick2(); setInterval(tick2, 1000);
 async function copy(text){
   try{ await navigator.clipboard.writeText(text); }
   catch{ const t=document.createElement("textarea"); t.value=text; document.body.appendChild(t);
          t.select(); document.execCommand("copy"); t.remove(); }
 }
 function flash(el, cls){ el.classList.add(cls); setTimeout(()=>el.classList.remove(cls), 1300); }
-document.addEventListener("click", e=>{
+clock.closest(".crt").addEventListener("click", e=>{
   const el = e.target.closest("[data-copy]"); if(!el) return;
   if(e.target.closest("a")) return;
   e.preventDefault(); copy(el.dataset.copy);
@@ -281,10 +278,12 @@ async function refreshTv() {
     if (!Array.isArray(catalog.channels) || !catalog.channels.length) throw new Error("empty catalog");
     const channels = catalog.channels.filter(c => /^[a-z0-9-]{1,32}$/.test(c.slug));
     if (!channels.length) throw new Error("invalid catalog");
-    document.getElementById("rows").innerHTML = channels.map(tvRow).join("");
+    if (!rows.isConnected) return;
+    rows.innerHTML = channels.map(tvRow).join("");
     counter.textContent = "—/" + channels.length + " MANIFESTY";
     try {
       const state = await tvFetchJson("/tv/api/status");
+      if (!rows.isConnected) return;
       const statuses = new Map((state.channels || []).map(s => [s.slug, s.manifest]));
       let fresh = 0;
       for (const channel of channels) {
@@ -306,6 +305,7 @@ async function refreshTv() {
   }
 }
 void refreshTv();
+})();
 </script>
 </body>
 </html>

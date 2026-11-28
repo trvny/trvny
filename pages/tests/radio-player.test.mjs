@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { setImmediate } from "node:timers";
 
-async function player({ deferredPause = false, nativeHls = false, stationMetadata = { kind: "station" }, dock = null, unsupportedAction = "" } = {}) {
+async function player({ deferredPause = false, nativeHls = false, stationMetadata = { kind: "station" }, dock = null, unsupportedAction = "", reducedMotion = false } = {}) {
   const pauseEvents = [];
   class Element {
     constructor() { this.dataset = {}; this.attributes = {}; this.listeners = {}; this.hidden = false; this.textContent = ""; }
@@ -13,6 +13,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     setAttribute(name, value) { this.attributes[name] = String(value); }
     getAttribute(name) { return this.attributes[name] ?? null; }
     removeAttribute(name) { delete this.attributes[name]; }
+    replaceChildren(...children) { this.children = children; }
   }
   class Audio extends Element {
     constructor() { super(); this.paused = true; this.playCalls = 0; }
@@ -58,11 +59,12 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
     "[data-station-nav]": new Element(), "[data-previous]": new Button(), "[data-next]": new Button(),
     "[data-position]": new Element(), "[data-announcement]": new Element(), "[data-swipe-area]": new Element(), ".radio-fallback [data-mark]": new Element(),
     "[data-mark-label]": new Element(), ".radio-footer [data-quality]": new Element(),
+    "[data-recent]": new Element(), "[data-recent-list]": new Element(),
   };
   const root = new Element();
   root.closest = () => dock?.closed ? dock : null;
   root.querySelector = (selector) => elements[selector];
-  const document = { hidden: false, querySelectorAll: () => [root], addEventListener() {} };
+  const document = { hidden: false, querySelectorAll: () => [root], createElement: () => new Element(), addEventListener() {} };
   const instances = [];
   class Hls {
     static Events = { ERROR: "error", MEDIA_ATTACHED: "attached" };
@@ -90,7 +92,7 @@ async function player({ deferredPause = false, nativeHls = false, stationMetadat
   const metadata = new Promise((resolve) => { resolveMetadata = resolve; });
   const script = await readFile(new URL("../site/assets/radio.js", import.meta.url), "utf8");
   runInNewContext(script, {
-    document, window: { Hls }, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
+    document, window: { Hls, matchMedia: () => ({ matches: reducedMotion }) }, HTMLAudioElement: Audio, HTMLElement: Element, HTMLButtonElement: Button,
     HTMLInputElement: Input, HTMLImageElement: Image, HTMLSelectElement: Select, AbortSignal,
     navigator: { mediaSession },
     MediaMetadata: class { constructor(details) { Object.assign(this, details); } },
@@ -371,4 +373,39 @@ test("Media Session tolerates unavailable actions and mirrors actual playback an
   assert.equal(p.mediaSession.playbackState, "paused");
   p.select("paradise");
   assert.equal(p.mediaSession.metadata.title, "Radio Paradise");
+});
+
+test("recent tracks stay bounded, deduplicated and station-specific", async () => {
+  const metadata = { title: "Track 1", artist: "Artist", kind: "track" };
+  const p = await player({ stationMetadata: metadata });
+  const recent = p.elements["[data-recent]"];
+  const list = p.elements["[data-recent-list]"];
+  await p.flush();
+  assert.equal(recent.hidden, true);
+  for (let i = 2; i <= 8; i++) {
+    metadata.title = "Track " + i;
+    p.refresh();
+    await p.flush();
+  }
+  p.refresh();
+  await p.flush();
+  assert.equal(recent.hidden, false);
+  assert.deepEqual(list.children.map(row => row.textContent), [7, 6, 5, 4, 3].map(i => "Artist — Track " + i));
+  p.select("bbc1");
+  await p.flush();
+  assert.equal(recent.hidden, true);
+  p.select("travny");
+  await p.flush();
+  assert.equal(list.children.length, 5);
+});
+
+test("cover fades in only when motion is allowed", async () => {
+  for (const reducedMotion of [true, false]) {
+    const p = await player({ reducedMotion });
+    const cover = p.elements["[data-cover]"];
+    let animations = 0;
+    cover.animate = () => { animations++; };
+    cover.dispatch("load");
+    assert.equal(animations, reducedMotion ? 0 : 1);
+  }
 });

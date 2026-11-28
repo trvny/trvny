@@ -46,10 +46,11 @@ button:hover,.filebtn:hover{border-color:#ffd866}button:focus-visible,.filebtn:f
 </section>
 <section class="panel"><h2>03 / Emergency controls</h2><div class="actions"><button id="undo">↶ Undo</button><button id="reset">↺ Reset</button></div><p class="muted" style="font-size:12px">Tip: select a sticker on the canvas. Drag, resize, rotate. Delete key removes selected layer.</p></section>
 </aside></main><footer>Made for memes. Photos never leave your browser. No tracking, no servers, no cursed API keys.</footer>
-<script type="module">
+<script type="module" data-astro-rerun>
 import { skibidiClamp, yeetIntoFrame, certifiedRizz, sigmaDistance } from './brainrot.js';
 const canvas=document.querySelector('#canvas'), ctx=canvas.getContext('2d');
-const $=s=>document.querySelector(s), layers=[], history=[];
+const page = document.body;
+const $=s=>page.querySelector(s), layers=[], history=[];
 let background=null, selected=-1, dragging=null, sourceWidth=900, sourceHeight=700;
 let blankCanvas=false, backgroundRequest=0;
 const MAX_CANVAS_EDGE=4096, MAX_CANVAS_PIXELS=12_000_000;
@@ -115,6 +116,8 @@ async function loadFile(file,asBackground){
 $('#backgroundFile').onchange=e=>{const file=e.target.files[0];e.target.value='';loadFile(file,true);};
 $('#stickerFile').onchange=e=>{const file=e.target.files[0];e.target.value='';loadFile(file,false);};
 $('#download').onclick=()=>{draw(false);canvas.toBlob(blob=>{if(!blob){setStatus('Export failed.');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='papagenerator.png';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);render();setStatus('PNG exported. Certified holy.');},'image/png');};
+const keys = new AbortController();
+document.addEventListener('astro:after-swap', () => keys.abort(), { once: true, signal: keys.signal });
 document.addEventListener('keydown', event => {
   const target = event.target;
   const editable = target instanceof HTMLElement && target.isContentEditable;
@@ -126,6 +129,6 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     $('#undo').click();
   }
-});
+}, { signal: keys.signal });
 render();
 </script></body></html>

@@ -4,6 +4,10 @@
 
 Canonical information page: https://bartek.lol/radio/
 Main hub player: https://bartek.lol/#radio
+
+Playback continues across hub pages with the radio dock, including GitHubowa Kraina.
+The history lists tracks received for the selected station during this tab session.
+Start playback manually. Reloads and visits to another host open a new player.
 Standalone player: https://radio.bartek.lol/
 Direct stream: https://radio.bartek.lol/radio.mp3
 

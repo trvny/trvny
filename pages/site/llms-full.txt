@@ -31,6 +31,7 @@ The hub is a lightweight static/edge site. It links independent services rather 
 - Canonical station page: https://bartek.lol/radio/
 - Machine-readable guide: https://bartek.lol/radio/index.md
 - Hub player: https://bartek.lol/#radio
+- Hub playback persists across client-side navigation. Recently played lists tracks observed for the selected station in this tab.
 - Standalone player: https://radio.bartek.lol/
 - Public MP3 stream (source bitrate, CBR/VBR): https://radio.bartek.lol/radio.mp3
 - Now-playing JSON: https://bartek.lol/api/radio-station?station=travny

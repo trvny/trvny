@@ -65,11 +65,11 @@ export function staticPaths(page) {
     : [page.path, "/" + page.file];
 }
 
-function inject(html, tag, content) {
+function inject(html, tag, content, marker = "hub-shell") {
   const closing = tag === "head" ? /<\/head\s*>/gi : tag === "body" ? /<\/body\s*>/gi : null;
   if (!closing) throw new Error("Unsupported shell tag");
-  const start = "<!-- hub-shell:" + tag + ":start -->";
-  const end = "<!-- hub-shell:" + tag + ":end -->";
+  const start = `<!-- ${marker}:${tag}:start -->`;
+  const end = `<!-- ${marker}:${tag}:end -->`;
   if (html.includes(start)) {
     const from = html.indexOf(start);
     const to = html.indexOf(end, from);
@@ -142,6 +142,37 @@ export async function writeStaticShell(dir) {
   await writeFile(headersFile, staticHeaders());
 }
 
+// Astro owns the player and bundles. Add that same shell to audited legacy pages.
+export const RADIO_PAGES = [
+  ...STATIC_PAGES.map(page => page.file),
+  "tv/index.html",
+  "teksty/grass-mud-horse/index.html",
+];
+
+export function radioShell(html) {
+  const head = /<head>([\s\S]*?)<\/head>/i.exec(html)?.[1];
+  const body = /<body>([\s\S]*?)<\/body>/i.exec(html)?.[1];
+  if (!head?.includes("astro-view-transitions-enabled") || !body?.includes('data-astro-transition-persist="hub-radio"')) {
+    throw new Error("Missing Astro radio shell");
+  }
+  return { head, body };
+}
+
+export function renderRadioShell(html, { head, body }, path) {
+  if (path.startsWith("teksty/token-worldcup/")) {
+    // Only rerun Quarto page initializers; the Iconify component registers once.
+    html = html.replace(/<script>(?=\/\/ Iconify fallback runtime\.|\s*\(\(\)=>\{)/g, "<script data-astro-rerun>");
+  }
+  return inject(inject(html, "head", head, "radio-shell"), "body", body, "radio-shell");
+}
+
 if (argv[1] && import.meta.url === pathToFileURL(argv[1]).href) {
-  await writeStaticShell(new URL("../site/", import.meta.url));
+  const site = new URL("../site/", import.meta.url);
+  await writeStaticShell(site);
+  const shell = radioShell(await readFile(new URL("../astro/dist/radio-shell/index.html", import.meta.url), "utf8"));
+  await Promise.all(RADIO_PAGES.map(async (path) => {
+    const file = new URL(path, site);
+    const html = await readFile(file, "utf8");
+    await writeFile(file, renderRadioShell(html, shell, path));
+  }));
 }

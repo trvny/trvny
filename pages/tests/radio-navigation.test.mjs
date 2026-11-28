@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { RADIO_PAGES, STATIC_PAGES, radioShell, renderRadioShell } from '../scripts/build-static-shell.mjs';
 
 const dist = new URL('../astro/dist/', import.meta.url);
 
@@ -28,5 +29,21 @@ test('legacy hub routes keep the route announcer and radio styles in the head', 
     const css = [...inline, ...styles].join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
     assert.match(css, /\.astro-route-announcer\s*\{[^}]*position:\s*absolute/, path);
     assert.match(css, /\.radio-controls\s*\{[^}]*display:\s*flex\b/, path);
+  }
+});
+
+test('legacy hub routes use the compiled Astro player and preserve their source on rebuild', async () => {
+  const shell = radioShell(await readFile(new URL('radio-shell/index.html', dist), 'utf8'));
+  const home = await readFile(new URL('index.html', dist), 'utf8');
+  const player = /<section id="radio"[\s\S]*?<\/section>/;
+  for (const path of RADIO_PAGES) {
+    const page = STATIC_PAGES.find(item => item.file === path);
+    const source = page?.source ?? (page?.generatedFrom ? 'token-worldcup/token-worldcup.html' : 'site/' + path);
+    const raw = await readFile(new URL('../' + source, import.meta.url), 'utf8');
+    const html = renderRadioShell(raw, shell, path);
+    assert.equal(html.match(/data-astro-transition-persist="hub-radio"/g)?.length, 1, path);
+    assert.equal(html.match(/<meta name="astro-view-transitions-enabled"/g)?.length, 1, path);
+    assert.equal(html.match(player)?.[0], home.match(player)?.[0], path);
+    assert.equal(renderRadioShell(html, shell, path), html, path);
   }
 });

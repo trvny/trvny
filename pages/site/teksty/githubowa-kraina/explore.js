@@ -1,6 +1,7 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   const dialog = $('#atlas-dialog');
+  if (!dialog) return;
   const title = $('#dialog-title');
   const content = $('#dialog-content');
   const close = dialog?.querySelector('.dialog-close');
@@ -181,6 +182,7 @@
   fetch('/teksty/githubowa-kraina/locales.json')
     .then(response => { if (!response.ok) throw new Error('Languages unavailable'); return response.json(); })
     .then(result => {
+      if (!dialog.isConnected) return;
       dictionaries = result;
       buttons.forEach(button => { button.disabled = false; });
       let stored = null;

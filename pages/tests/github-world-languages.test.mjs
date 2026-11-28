@@ -13,7 +13,7 @@ function createPage(savedLanguage = null, browserLanguages = ['pl-PL'], options 
   class Element {
     constructor(tag = 'div') {
       this.tag = tag; this.children = []; this.dataset = {}; this.attrs = {}; this.listeners = {};
-      this.textContent = ''; this.open = false;
+      this.textContent = ''; this.open = false; this.isConnected = true;
     }
     setAttribute(name, value) { this.attrs[name] = value; }
     getAttribute(name) { return this.attrs[name]; }

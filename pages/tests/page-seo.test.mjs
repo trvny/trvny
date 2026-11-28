@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import { pageSeoHead } from "../functions/_shared/page-seo.js";
-import { NAV_BODY } from "../functions/_shared/page-shell.js";
+import { onRequest } from "../functions/_middleware.js";
+import { STATIC_PAGES, renderStaticShell } from "../scripts/build-static-shell.mjs";
 
 function crumbs(path) {
   const html = pageSeoHead(path);
@@ -136,6 +137,15 @@ test("robots explicitly allow mainstream search and Mistral agents", async () =>
 });
 
 
+test("the old Lab privacy URL still links directly to the policy", async () => {
+  const response = await onRequest({
+    request: new Request("https://bartek.lol/lab/privacy/?from=tool"),
+    next: () => { throw new Error("privacy alias must redirect"); },
+  });
+  assert.equal(response.status, 301);
+  assert.equal(response.headers.get("location"), "https://bartek.lol/lab/about/?from=tool#privacy");
+});
+
 test("hub catalog matches visible shortcuts and creator identity", async () => {
   const html = await readFile(new URL("../astro/src/legacy/home.html", import.meta.url), "utf8");
   const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/)[1])["@graph"];
@@ -146,7 +156,10 @@ test("hub catalog matches visible shortcuts and creator identity", async () => {
   const links = tiles.map(match => new URL(match[1], site.url).href);
   assert.ok(links.length > 0, "home shortcuts are empty");
   assert.ok(!links.includes(site.url + "papagenerator/"));
-  const menuLinks = [...NAV_BODY.matchAll(/<a class="trvny-nav-link" href="([^"]+)"/g)].map(match => match[1]);
+  const badgePage = STATIC_PAGES.find(page => page.path === "/badges/");
+  const badgeSource = await readFile(new URL("../site/" + badgePage.file, import.meta.url), "utf8");
+  const rendered = renderStaticShell(badgeSource, badgePage);
+  const menuLinks = [...rendered.matchAll(/<a class="trvny-nav-link" href="([^"]+)"/g)].map(match => match[1]);
   assert.equal(menuLinks.at(-1), "/lab/about/");
   assert.ok(menuLinks.includes("/papagenerator/"));
   assert.equal(site.mainEntity["@id"], list["@id"]);

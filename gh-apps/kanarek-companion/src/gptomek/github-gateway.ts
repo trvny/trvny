@@ -14,6 +14,10 @@ import { REPOSITORY_OWNERS, repositoryInScope, repositoryPathInScope, CodedError
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
 const EXPECTED_USER = 'trvny';
+const EXPECTED_USER_ID = 120686325;
+// GPTomek GitHub App. Operator sign-in uses its OAuth client.
+const OPERATOR_APP_ID = 4524407;
+const NOT_A_GITHUB_APP_TOKEN = 'authorized to a GitHub App';
 const MAX_ACTION_BODY = 256_000;
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PATCH', 'PUT', 'DELETE']);
 const BOT_WRITE_ROOTS = new Set([
@@ -243,6 +247,30 @@ export async function userRequest(
   return payload;
 }
 
+// A login alone proves little: any app the owner authorized gets a token that
+// passes it. GET /user/installations answers only GitHub App user tokens and
+// lists that app's own installations, so it identifies the issuer.
+async function requireOperatorApp(token: string, fetcher: typeof fetch): Promise<void> {
+  const denied = () => new GithubActionError('github_token_app_not_allowed', 403);
+  let payload: unknown;
+  try {
+    payload = await userRequest(token, '/user/installations?per_page=100', 'GET', undefined, fetcher);
+  } catch (error) {
+    if (error instanceof GithubActionError && error.status === 403 && error.code.includes(NOT_A_GITHUB_APP_TOKEN)) {
+      throw denied();
+    }
+    throw error;
+  }
+  const installations = (payload as { installations?: unknown } | null)?.installations;
+  if (
+    !Array.isArray(installations) ||
+    !installations.length ||
+    !installations.every((item) => (item as { app_id?: unknown } | null)?.app_id === OPERATOR_APP_ID)
+  ) {
+    throw denied();
+  }
+}
+
 export async function requireTrvny(
   token: string,
   fetcher: typeof fetch = fetch,
@@ -252,7 +280,10 @@ export async function requireTrvny(
     throw new GithubActionError('invalid_github_user', 401);
   }
   const user = payload as Record<string, unknown>;
-  if (user.login !== EXPECTED_USER) throw new GithubActionError('github_user_not_allowed', 403);
+  if (user.login !== EXPECTED_USER || user.id !== EXPECTED_USER_ID) {
+    throw new GithubActionError('github_user_not_allowed', 403);
+  }
+  await requireOperatorApp(token, fetcher);
   return user;
 }
 

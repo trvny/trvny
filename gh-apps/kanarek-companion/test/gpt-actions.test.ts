@@ -8,6 +8,7 @@ import {
   openApiDocument,
   type GptActionsEnv,
 } from '../src/gptomek/gpt-actions.ts';
+import { operatorInstallations } from './support/operator-identity.ts';
 
 test('read gateway stays scoped to trvny', () => {
   assert.equal(githubReadAllowed('/repos/trvny/feedseek/pulls?state=open'), true);
@@ -94,7 +95,8 @@ test('commit tree mode preserves executable files and symlinks', () => {
 test('route failures return error envelopes instead of throwing', async () => {
   const fetcher = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input instanceof Request ? input.url : input));
-    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 1 });
+    if (url.pathname === '/user/installations') return operatorInstallations();
+    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 120686325 });
     return Response.json({ message: 'Not Found' }, { status: 404 });
   }) as typeof fetch;
   const read = (path: string) =>

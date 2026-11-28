@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createActionFetch } from '../src/action-context.ts';
 import { handleBatchAction } from '../src/operator/batch-actions.ts';
 import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
+import { operatorInstallations } from './support/operator-identity.ts';
 
 type Env = Parameters<typeof handleBatchAction>[1];
 
@@ -25,6 +26,7 @@ test('batch read verifies the OAuth user once and returns partial failures per p
     const url = new URL(request.url);
     calls.push(`${request.method} ${url.pathname}`);
 
+    if (url.pathname === '/user/installations') return operatorInstallations();
     if (url.pathname === '/user') {
       return Response.json({ login: 'trvny', id: 120686325 });
     }

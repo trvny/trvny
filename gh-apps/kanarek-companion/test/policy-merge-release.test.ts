@@ -8,6 +8,7 @@ import {
   releaseComparisonContainsTarget,
 } from '../src/operator/policy-merge-release.ts';
 import type { GremlinPolicy } from '../src/operator/policy-actions.ts';
+import { operatorInstallations } from './support/operator-identity.ts';
 
 type Env = Parameters<typeof handleMergeReleasePolicyAction>[1];
 
@@ -70,6 +71,7 @@ function policyFetch(extra: (url: URL, request: Request) => Response | null): ty
   return createActionFetch(async (input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
+    if (url.pathname === '/user/installations') return operatorInstallations();
     if (url.pathname === '/user') {
       return Response.json({ login: 'trvny', id: 120686325 });
     }

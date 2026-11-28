@@ -7,6 +7,7 @@ import { handleGptActions, type GptActionsEnv } from '../src/gptomek/gpt-actions
 import { gptomekInstallationIdFor } from '../../core/github-app.ts';
 import { repositoryAllowedByPolicy } from '../src/operator/policy-enforcement.ts';
 import { repositoryInScope, repositoryPathInScope } from '../src/tools/common.ts';
+import { operatorInstallations } from './support/operator-identity.ts';
 
 test('repository scope accepts exactly trvny/* and travnie/*', () => {
   for (const ok of ['trvny/feedseek', 'travnie/kanarek', 'travnie/a.b_c-d']) {
@@ -84,7 +85,8 @@ test('bot writes on travnie use that repository installation', async () => {
     const method = (init?.method ?? 'GET').toUpperCase();
     const auth = new Headers(init?.headers).get('authorization') ?? '';
     calls.push({ method, path: url.pathname, auth });
-    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 1 });
+    if (url.pathname === '/user/installations') return operatorInstallations();
+    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 120686325 });
     if (url.pathname === '/repos/travnie/kanarek/installation') return Response.json({ id: 77 });
     if (method === 'POST' && url.pathname === '/app/installations/77/access_tokens') {
       return Response.json({ token: 'travnie-token', expires_at: '2099-01-01T00:00:00Z' });
@@ -147,7 +149,8 @@ test('commit-files accepts travnie and uses that repository installation', async
     const url = new URL(String(input));
     const method = (init?.method ?? 'GET').toUpperCase();
     paths.push(`${method} ${url.pathname}`);
-    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 1 });
+    if (url.pathname === '/user/installations') return operatorInstallations();
+    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 120686325 });
     if (url.pathname === '/repos/travnie/kanarek/installation') return Response.json({ id: 77 });
     if (url.pathname === '/app/installations/77/access_tokens') {
       return Response.json({ token: 'travnie-token', expires_at: '2099-01-01T00:00:00Z' });

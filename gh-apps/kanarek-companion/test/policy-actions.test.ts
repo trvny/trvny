@@ -8,6 +8,7 @@ import {
   type GremlinPolicy,
 } from '../src/operator/policy-actions.ts';
 import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
+import { operatorInstallations } from './support/operator-identity.ts';
 
 type Env = Parameters<typeof handlePolicyAction>[1];
 
@@ -177,6 +178,7 @@ test('operator bootstrap loads private policy, style and repository guidance wit
     const url = new URL(request.url);
     calls.push(`${request.method} ${url.pathname}${url.search}`);
 
+    if (url.pathname === '/user/installations') return operatorInstallations();
     if (url.pathname === '/user') {
       return Response.json({ login: 'trvny', id: 120686325 });
     }
@@ -252,6 +254,7 @@ test('specialist knowledge resolves aliases through the private manifest', async
     const url = new URL(request.url);
     calls.push(`${request.method} ${url.pathname}${url.search}`);
 
+    if (url.pathname === '/user/installations') return operatorInstallations();
     if (url.pathname === '/user') {
       return Response.json({ login: 'trvny', id: 120686325 });
     }
@@ -301,6 +304,7 @@ test('specialist knowledge rejects manifest paths outside the private knowledge 
   const upstream: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
+    if (url.pathname === '/user/installations') return operatorInstallations();
     if (url.pathname === '/user') {
       return Response.json({ login: 'trvny', id: 120686325 });
     }
@@ -332,6 +336,7 @@ test('specialist knowledge treats inherited object properties as unknown topics'
   const upstream: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
+    if (url.pathname === '/user/installations') return operatorInstallations();
     if (url.pathname === '/user') {
       return Response.json({ login: 'trvny', id: 120686325 });
     }

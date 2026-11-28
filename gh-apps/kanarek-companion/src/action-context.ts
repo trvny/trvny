@@ -6,7 +6,7 @@ import { paginateReviewThreadsGraphql } from './review-thread-pagination.ts';
 const GITHUB_API_ORIGIN = 'https://api.github.com';
 const USER_CACHE_TTL_MS = 15_000;
 const INSTALLATION_REFRESH_MARGIN_MS = 5 * 60_000;
-const MAX_USER_CACHE = 32;
+const MAX_USER_CACHE = 64;
 const MAX_INSTALLATION_CACHE = 16;
 
 type StoredResponse = {
@@ -135,28 +135,31 @@ export function createActionFetch(upstream: typeof fetch): typeof fetch {
     if (paginatedReviewThreads) return paginatedReviewThreads;
 
     const authorization = bearerValue(request);
-    if (request.method === 'GET' && url.pathname === '/user' && authorization) {
-      const cached = userCache.get(authorization);
+    // Both identity reads of the operator check run before every gateway call.
+    const identityRead = url.pathname === '/user' || url.pathname === '/user/installations';
+    if (request.method === 'GET' && identityRead && authorization) {
+      const key = `${url.pathname}${url.search}\n${authorization}`;
+      const cached = userCache.get(key);
       if (cached && cached.reusableUntil > Date.now()) return restoreResponse(cached.response);
-      if (cached) userCache.delete(authorization);
+      if (cached) userCache.delete(key);
 
-      let pending = userInFlight.get(authorization);
+      let pending = userInFlight.get(key);
       if (!pending) {
         pending = upstream(request).then(storeResponse);
-        userInFlight.set(authorization, pending);
+        userInFlight.set(key, pending);
       }
       try {
         const response = await pending;
         if (response.status >= 200 && response.status < 300) {
           trimCache(userCache, MAX_USER_CACHE);
-          userCache.set(authorization, {
+          userCache.set(key, {
             response,
             reusableUntil: Date.now() + USER_CACHE_TTL_MS,
           });
         }
         return restoreResponse(response);
       } finally {
-        userInFlight.delete(authorization);
+        userInFlight.delete(key);
       }
     }
 

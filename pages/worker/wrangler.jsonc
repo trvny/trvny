@@ -3,20 +3,21 @@
   "main": "index.js",
   "compatibility_date": "2026-11-16",
   "workers_dev": false,
-  "preview_urls": false
+  "preview_urls": false,
   "observability": {
     "logs": {
       "enabled": false,
-      "head_sampling_rate": 0,1,
+      "head_sampling_rate": 0.1,
       "invocation_logs": false,
       "persist": false
     },
     "traces": {
       "enabled": false,
-      "head_sampling_rate": 0,1,
+      "head_sampling_rate": 0.1,
       "persist": false
     },
-    "issue_detection": {
+    "issues": {
       "enabled": true
     }
+}
 }

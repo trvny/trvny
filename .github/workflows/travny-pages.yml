@@ -92,12 +92,12 @@ jobs:
       - run: node --test ../.github/scripts/indexnow.test.cjs
       - run: npx --yes wrangler@4.160.0 deploy --config worker/wrangler.jsonc --dry-run --outdir "$RUNNER_TEMP/hub-worker"
 
-      - name: Check sitemap after rebuilding with stale digest URLs
+      - name: Verify published radio shell and sitemap
         run: |
           sed -i '/^<\/urlset>$/i\  <url><loc>https://bartek.lol/przeglad/2000-01-01/</loc></url>' site/sitemap.xml
           grep -qF 'https://bartek.lol/przeglad/2000-01-01/' site/sitemap.xml
           sh build.sh
-          node --test tests/digest.test.mjs
+          node --test tests/digest.test.mjs tests/production/radio-navigation.test.mjs
 
       - name: Detect Pages deployment changes
         if: ${{ github.event_name == 'push' }}

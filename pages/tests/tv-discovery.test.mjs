@@ -3,12 +3,12 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { Script } from "node:vm";
 
-test("TV page scripts parse and use same-origin catalog and freshness endpoints", async () => {
-  const html = await readFile(new URL("../site/tv/index.html", import.meta.url), "utf8");
-  const start = html.lastIndexOf("<script data-astro-rerun>");
-  const end = html.indexOf("</script>", start);
-  assert.ok(start >= 0 && end > start);
-  assert.doesNotThrow(() => new Script(html.slice(start + "<script data-astro-rerun>".length, end)));
+const html = await readFile(new URL("../site/tv/index.html", import.meta.url), "utf8");
+const tvScript = html.match(/<script data-astro-rerun>([\s\S]*?)<\/script>/)?.[1];
+
+test("TV page scripts parse and use same-origin catalog and freshness endpoints", () => {
+  assert.ok(tvScript);
+  assert.doesNotThrow(() => new Script(tvScript));
   assert.match(html, /\/tv\/api\/channels/);
   assert.match(html, /\/tv\/api\/status/);
   assert.match(html, /https:\/\/bartek\.lol\/tv\/playlist\.m3u/);
@@ -17,10 +17,6 @@ test("TV page scripts parse and use same-origin catalog and freshness endpoints"
 });
 
 test("TV page hydrates channels without AbortSignal.timeout", async () => {
-  const html = await readFile(new URL("../site/tv/index.html", import.meta.url), "utf8");
-  const start = html.lastIndexOf("<script data-astro-rerun>");
-  const end = html.indexOf("</script>", start);
-  const body = html.slice(start + "<script data-astro-rerun>".length, end);
   const { runInNewContext } = await import("node:vm");
   const nodes = new Map();
   const getNode = id => {
@@ -28,7 +24,7 @@ test("TV page hydrates channels without AbortSignal.timeout", async () => {
     return nodes.get(id);
   };
   const called = [];
-  runInNewContext(body, {
+  runInNewContext(tvScript, {
     document: { getElementById: getNode, addEventListener() {} },
     navigator: { clipboard: { writeText: async () => {} } },
     Date, Response, AbortController,
